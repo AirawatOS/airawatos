@@ -10,4 +10,5 @@ RUN pip install --no-cache-dir cryptography==43.0.3
 COPY platform-spec/reference/ /app/reference/
 COPY components/ /app/components/
 ENV PYTHONUNBUFFERED=1
+ENV BIND_HOST=0.0.0.0
 # no ENTRYPOINT — compose provides the per-service command, e.g. ["python","reference/identity.py"]

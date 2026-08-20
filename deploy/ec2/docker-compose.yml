@@ -90,10 +90,9 @@ services:
   model-gateway:
     <<: *ref
     container_name: airawat-model-gateway
-    command: ["python","reference/model_gateway.py","--kernel","http://kernel:8080"]
-    environment:
-      # set ANTHROPIC_API_KEY (or the key model_gateway expects) for the AI features to work — never bake it in
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    # Routes /complete + /embed by the registered intelligence.provider (airawat-hosted → kimi-k3 @
+    # llm.airawat.org). The provider's API key is read from Vault (set via the Components app UI), NOT here.
+    command: ["python","reference/model_gateway.py","--kernel","http://kernel:8080","--vault","http://vault:8200"]
 
   notify:
     <<: *ref
