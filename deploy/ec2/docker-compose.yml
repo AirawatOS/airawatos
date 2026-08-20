@@ -68,8 +68,15 @@ services:
     <<: *ref
     container_name: airawat-identity
     command: ["python","reference/identity.py"]
-    environment: { NETWORK_URL: http://network:8090 }
-    depends_on: { network: { condition: service_healthy } }
+    # VAULT_ADDR → a STABLE Ed25519 signing key (Vault transit), so restarting identity does NOT invalidate
+    # every issued token (an ephemeral local key would break the kernel's cached JWKS = 401 on all reads).
+    environment:
+      NETWORK_URL: http://network:8090
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: airawat-dev-root
+    depends_on:
+      network: { condition: service_healthy }
+      vault: { condition: service_healthy }
 
   secrets:
     <<: *ref
