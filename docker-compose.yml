@@ -1,0 +1,68 @@
+# Airawat local stack — postgres + network authority + kernel (wired to trust the network).
+# The hand-rolled precursor to cityos/install.sh.  `docker compose up -d --build`
+name: airawat-stack
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: airawat-postgres
+    environment: { POSTGRES_DB: kernel, POSTGRES_USER: kernel, POSTGRES_PASSWORD: kernel }
+    volumes: [ kernel_pg:/var/lib/postgresql/data ]
+    healthcheck: { test: ["CMD-SHELL","pg_isready -U kernel"], interval: 5s, timeout: 5s, retries: 10 }
+    restart: unless-stopped
+
+  vault:
+    image: hashicorp/vault:1.15
+    container_name: airawat-vault
+    cap_add: [ IPC_LOCK ]
+    environment: { VAULT_DEV_ROOT_TOKEN_ID: airawat-dev-root, VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200 }
+    command: server -dev
+    ports: [ "8200:8200" ]
+    healthcheck: { test: ["CMD","vault","status","-address=http://127.0.0.1:8200"], interval: 5s, timeout: 3s, retries: 15 }
+    restart: unless-stopped
+
+  network:
+    build: { context: ./network, dockerfile: deploy/Dockerfile }
+    image: airawatos/network:0.1.0-dev
+    container_name: airawat-network
+    # The authority's CA key lives in Vault's transit engine (born there, never exported) — VAULT_ADDR
+    # set → the authority signs via Vault; unset → insecure local-dev key (fallback only).
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: kernel
+      DB_USER: kernel
+      DB_PASSWORD: kernel
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: airawat-dev-root
+      IDENTITY_JWKS: http://host.docker.internal:8093/jwks   # verify tenant-admin approval tokens
+    extra_hosts: [ "host.docker.internal:host-gateway" ]
+    depends_on:
+      postgres: { condition: service_healthy }
+      vault: { condition: service_healthy }
+    ports: [ "8090:8090" ]
+    healthcheck: { test: ["CMD","python","-c","import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8090/v1/health').status==200 else 1)"], interval: 5s, timeout: 5s, retries: 10 }
+    restart: unless-stopped
+
+  kernel:
+    build: { context: ./kernel, dockerfile: deploy/Dockerfile }
+    image: airawatos/kernel:0.1.0-dev
+    container_name: airawat-kernel
+    environment:
+      REGISTRY_BACKEND: postgres
+      DB_HOST: postgres
+      NETWORK_URL: http://network:8090
+      IDENTITY_JWKS: http://host.docker.internal:8093/jwks   # verify user tokens (identity runs on host)
+      KERNEL_REQUIRE_STEWARD_GRANT: "1"                      # a component may write a tenant's data only with a steward-signed grant
+      EVENT_SINK: http://host.docker.internal:8098/events    # every registry write emits an event to the automation service
+      SECRETS_URL: http://host.docker.internal:8102          # brokered-egress secret store
+      SECRETS_INTERNAL: airawat-broker-secrets-internal      # kernel↔secrets service token
+      FILESTORE_URL: http://host.docker.internal:8083         # content-addressed blob store (PLAT-FILE)
+      EMBED_URL: http://host.docker.internal:8104             # embedding model service
+    extra_hosts: [ "host.docker.internal:host-gateway" ]
+    ports: [ "8080:8080" ]
+    depends_on:
+      postgres: { condition: service_healthy }
+      network: { condition: service_healthy }
+    restart: unless-stopped
+
+volumes: { kernel_pg: {} }

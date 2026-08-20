@@ -1,0 +1,13 @@
+# AirawatOS reference services — ONE image, MANY services.
+# Every reference service under platform-spec/reference/ is pure-stdlib Python (only `cryptography` is
+# third-party). The compose file runs this image N times with a different `command:` per service
+# (identity, app-host, scheduler, secrets, filestore, model-gateway, decision, workflow, automation,
+# event-relay, notify). Build context = the workspace ROOT (it needs both reference/ and components/).
+FROM python:3.11-slim
+WORKDIR /app
+RUN pip install --no-cache-dir cryptography==43.0.3
+# the reference services + the apps/components they serve (baked in — the demo image is self-contained)
+COPY platform-spec/reference/ /app/reference/
+COPY components/ /app/components/
+ENV PYTHONUNBUFFERED=1
+# no ENTRYPOINT — compose provides the per-service command, e.g. ["python","reference/identity.py"]

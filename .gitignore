@@ -1,0 +1,14 @@
+# Orchestration repo: track ONLY deploy tooling + root docs. Code lives in per-service repos
+# (github.com/AirawatOS/{kernel,network,platform-spec,components,domain-spec,intelligence-spec}).
+/*
+!/.gitignore
+!/.dockerignore
+!/docker-compose.yml
+!/README.md
+!/LIMITATIONS.md
+!/ALPHA-RELEASE-PLAN.md
+!/deploy/
+# never track the data dump or keys even under deploy/
+deploy/ec2/seed/*.sql
+*.pem
+*.key

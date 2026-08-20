@@ -1,0 +1,10 @@
+**/node_modules
+**/.git
+**/__pycache__
+**/*.pyc
+**/*.pem
+**/*.key
+**/.DS_Store
+**/vault-data
+scratchpad
+*.log
