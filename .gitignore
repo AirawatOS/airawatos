@@ -12,3 +12,6 @@
 deploy/ec2/seed/*.sql
 *.pem
 *.key
+
+deploy/ec2/.env
+deploy/**/init.json
