@@ -14,7 +14,14 @@ if ! vault status 2>&1 | grep -qi 'Initialized *true'; then
   echo "[vault] initializing (first boot)"
   vault operator init -key-shares=1 -key-threshold=1 -format=json > /vault/data/init.json
 fi
-UNSEAL=$(grep -o '"unseal_keys_b64":[^]]*]' /vault/data/init.json | grep -o '"[A-Za-z0-9+/=]\{20,\}"' | head -1 | tr -d '"')
+# `vault operator init -format=json` writes PRETTY-PRINTED (multi-line) JSON — flatten it (strip newlines +
+# spaces; keys/tokens contain neither) before the sed extract. Alpine sh: no jq/python.
+UNSEAL=$(tr -d '\n ' < /vault/data/init.json | sed 's/.*"unseal_keys_b64":\["\([^"]*\)".*/\1/')
 vault operator unseal "$UNSEAL" >/dev/null 2>&1 || true
 if vault status 2>&1 | grep -qi 'Sealed *false'; then echo "[vault] UNSEALED"; else echo "[vault] STILL SEALED — check init.json"; fi
+# Server mode (unlike -dev) does NOT auto-mount the KV engine — enable secret/ kv-v2 idempotently so the
+# Components app, secrets service, and model-gateway can read/write secret/data/… (transit is enabled by
+# the identity/network services themselves).
+export VAULT_TOKEN=$(tr -d '\n ' < /vault/data/init.json | sed 's/.*"root_token":"\([^"]*\)".*/\1/')
+vault secrets enable -version=2 -path=secret kv >/dev/null 2>&1 || true
 wait $VPID
