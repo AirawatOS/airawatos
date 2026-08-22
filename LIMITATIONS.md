@@ -542,3 +542,41 @@ cert is allowed (should require a fresh cert for the new digest).
 - **Per-developer tenant provisioning is MANUAL**: the enforcement supports N private developers, but only
   `airawatdeveloper` is provisioned. Onboarding developer B = register participant `kind=developer` + provision a
   `development` tenant stewarded by them + add their identity. A one-call provisioning helper is not built yet.
+
+## Runtime & Invocation (ADR-0062)
+
+- 🟠 **One remaining bespoke run path — knowledge ingest.** `app_host._run_ingest_pipeline` still spawns its
+  engines (`doc-chunk-version`, `embed-chunks`, `rule-extract`) as raw `python3 run.py` subprocesses and
+  hardcodes `WRITE_TENANT="kmc"` — it predates the broker/host model and does NOT go through
+  `platform.runtime_invoke`. Per ADR-0062 there must be exactly one way to run a component; the scheduler +
+  city-baseline paths were converged (Slice 1), this one was not. **Fix:** make it a declared pipeline whose
+  members route through the manager (like `pipelines/city-baseline`), and parameterise the tenant.
+- 🔵 **Trigger sources not yet unified as declared bindings.** Schedule/manual go through the verb now, but
+  the one event case (flood advisor) is still hand-wired and there is no governed `platform.trigger` record or
+  outbox dispatcher. **Fix:** ADR-0062 Slice 2.
+- 🔵 **Manager routing is a launch-env, not a service default.** The scheduler and app_host route through the
+  runtime-manager only when `RUNTIME_MANAGER_URL` is set in their launch environment; restarted without it,
+  they fall back to the local host path (no secret materialisation). **Fix:** bake the manager URL into the
+  service definitions so the verb is the default, not opt-in.
+- ✅ **[DONE] Event-triggered runs receive the event payload (`SUBJECT_REF`).** The dispatcher passes the
+  triggering subject id; the scheduler threads it into the component env as `SUBJECT_REF`. Verified end-to-end
+  (flood event → governed verb → componentized advisor read the alert). Reusable for any event-triggered run.
+- ✅ **[DONE] INSTALL = GRANT is wired.** Install now auto-issues a populated steward write-grant: certify
+  records the certified `declares` (reads/writes/scopes) in the signed cert; publish auto-fills the listing
+  scopes from the cert (can't be forgotten or inflated); the kernel install already calls `/v1/grants/issue`.
+  Verified: flood-advisor installed into kmc → grant for its 4 writes + 2 reads → event-triggered run wrote an
+  attributed case + task + recommendations. `flood-advise` migrated onto the governed verb and
+  `SUBSCRIPTION_ENFORCE` flipped **strict** (both subs governed, zero refused). Remaining niceties: install a
+  component into a tenant it wasn't yet in still requires an explicit `tenant` (cross-tenant install), and
+  dev-tenant drafts still bypass grants by design (ADR-0051).
+
+## Data conformance (ADR-0063 §2b)
+
+- 🟠 **Write-time schema validation is SHADOW, not strict yet.** The registry now validates every written object
+  against its governed JSON-Schema at the `Registry.put` chokepoint (both broker + raw paths, both backends);
+  `SCHEMA_VALIDATE=shadow` logs non-conformance but still stores. To flip **strict** (`SCHEMA_VALIDATE=strict`,
+  refuse non-conforming writes) two things are needed: (a) **tighten loose schemas** — many governed schemas
+  have `additionalProperties: true` and thin `required`, so stray/misnamed fields (e.g. the `subject_ref` inbox
+  bug) pass; only missing *required* fields + type/enum errors are caught today. Tighten via the governed
+  change-request flow. (b) **Fix the real violations shadow surfaces first** — e.g. the outbox writes
+  `platform.event` with `tenant: None` (schema wants a string). Turn strict on per-schema as each is cleaned.
