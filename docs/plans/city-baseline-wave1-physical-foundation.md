@@ -71,13 +71,50 @@ currently produces only a **slice of Wave 1**:
 | **Critical facilities** — schools/hospitals/utilities | OSM | `geo.facility` | count / accessibility | ❌ |
 | **Admin geography** — ward / zone | Bhuvan / city-provided | polygons | `ward_id` tag on cells | 🟡 AOI only, no wards |
 
+## Source: PORT from the legacy AirOS driver library (do not author from scratch)
+
+`Projects/AirOS/jobs/driver/` already has working drivers for nearly every Wave-1 layer, with known
+free sources and output schemas. **This is a port, not greenfield.** Inventory (reviewed 2026-08):
+
+| Wave-1 layer | AirOS driver | Free source | Writes today |
+|---|---|---|---|
+| Hydrology / terrain detail | `geospatial/dem-morphometry` | GEE SRTM 30 m | `cell.terrain_detail` |
+| Water bodies | `geospatial/waterbodies` | OSM (PBF/Overpass) | `cell.waterbodies` |
+| Buildings | `geospatial/google-open-buildings` | GEE Open Buildings | `cell.buildings` |
+| Population | `geospatial/population-ghsl` | GHSL raster | `cell.population` |
+| Roads | `infrastructure/osm-roads` · `geospatial/osm-vectors` | Overpass/PBF | `cell.roads` · `geo.osm_feature` |
+| Facilities (schools/hospitals) | `infrastructure/osm-social` | Overpass | `cell.social_infra` |
+| Utilities | `infrastructure/osm-utilities` | Overpass | `cell.utilities` |
+| Rainfall | `satellite/gpm-precipitation` · `weather/open-meteo` | GEE GPM / Open-Meteo | `cell.precipitation` |
+| Transit | `geospatial/transit-features` | PBF/Overpass | `geo.transit_feature` · `cell.transit_access` |
+| Admin wards | `lgd/ward-sync` | SBM parquet | `lgd.ward` |
+| Flood (SAR) | `satellite/sentinel1-flood` | GEE Sentinel-1 | `cell.flood` |
+| Flood risk index | `climate/flood-risk` | terrain+water composite | `cell.flood_risk` |
+
+Also available for later waves: air quality (`satellite/{tropomi,maiac-aod}`, `air-quality/station-readings`),
+demographics (`census`, `age-distribution`, `socioeconomic`, `housing-quality`), urban-change
+(`satellite/alpha-earth-embedding`, `dynamic-world` multi-year), facilities research (`research/facilities`).
+
+**Two things every port must fix (not just copy):**
+1. **I/O model** — all 42 AirOS drivers use the old `_common` direct-registry client
+   (`BatchClient`/`RegistryClient`/`get_aoi`, reading cells from `cell.h3_metadata`). Re-point to the
+   **kernel broker**: `/v1/read` (space.aoi), `/v1/fetch` (egress), `/v1/write`, `X-Run-Token`; enumerate
+   cells from the run's `space.aoi` bbox; apply `_common/ids.py`, schema-naming, and the **cross-tenant +
+   AOI-membership write guards**. (This is the airawat-driver-porting-plan pattern; `osm-roads` was
+   rebuilt this way — it writes native `geo.osm_feature`, unlike the AirOS original's `cell.roads`.)
+2. **Native geometry (plan rule #3)** — the AirOS drivers write **H3-only** (`cell.*`). That is exactly
+   the "aggregate hydrology/terrain too early" anti-pattern this plan forbids. Each physical port must
+   emit **BOTH** L1 native geometry (`geo.*`: stream lines, catchment polygons, building footprints,
+   water polygons) **AND** the L2 H3 index (`cell.*`). `osm-vectors`/`transit-features` already emit
+   native geometry; DEM-derived hydrology must be extended to emit streams + catchments as `geo.*`.
+
 ## Build sequence (each layer = a certified driver wired into `city-baseline`)
 
-Every layer is authored the way `osm-roads` was: confined component, only I/O is the kernel broker,
+Every layer is delivered the way `osm-roads` was: confined component, only I/O is the kernel broker,
 keyed off the run's `space.aoi`, deterministic ids via `_common/ids.py`, **cross-tenant + AOI-membership
 write guards** (added to `landcover-dw` / `cell-indexer` this session), provenance block on every
 measure, real-data-or-fail (no synthetic fallbacks). Wire into the pipeline `steps` so **every future
-city gets it automatically.**
+city gets it automatically.** Port from the AirOS source named above rather than starting blank.
 
 1. **Roads** — wire the ready `osm-roads` driver into `city-baseline`; add the roads layer to City Scan.
    *(Immediate — driver already hardened.)*
