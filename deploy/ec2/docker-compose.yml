@@ -90,6 +90,7 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_TOKEN: ${VAULT_TOKEN}
       SECRETS_INTERNAL: airawat-broker-secrets-internal
+      IDENTITY_JWKS: http://identity:8093/jwks      # verify admin tokens against the identity JWKS (not localhost)
     depends_on: { vault: { condition: service_healthy } }
 
   filestore:
