@@ -131,10 +131,37 @@ services:
     container_name: airawat-event-relay
     command: ["python","reference/event_relay.py","--kernel","http://kernel:8080","--automation","http://automation:8098"]
 
+  # PLACEMENT AUTHORITY (ADR-0030/0051): the only service that holds the docker socket. Orchestrators
+  # (scheduler, city-baseline pipeline) POST /v1/invoke here; it cert-checks + image-locks the runtime,
+  # materialises secrets, and `docker run`s the certified runtime image (or runs keyless drivers in-process
+  # in THIS container). Driver code is mounted from the HOST components path (same path in + out of the
+  # container) so the host docker daemon can bind it into the runtime container.
+  runtime-manager:
+    <<: *ref
+    container_name: airawat-runtime-manager
+    command: ["python","reference/runtime_manager.py","--port","8105"]
+    environment:
+      COMPONENTS_ROOT: /home/ec2-user/airawatos/rt-components
+      RUNTIME_MANAGER_INTERNAL: airawat-runtime-mgr-internal
+      RUNTIME_NETWORK: airawatos_default
+      KERNEL_ALIAS: kernel
+      AIRAWAT_API: http://kernel:8080
+      NETWORK_URL: http://network:8090
+      SECRETS_URL: http://secrets:8102
+      SECRETS_INTERNAL: airawat-broker-secrets-internal
+      LAUNCHER_REQUIRE_CERTIFIED_IMAGE: "1"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /home/ec2-user/airawatos/rt-components:/home/ec2-user/airawatos/rt-components:ro
+    depends_on: [kernel, secrets, network]
+
   scheduler:
     <<: *ref
     container_name: airawat-scheduler
     command: ["python","reference/scheduler.py","--components-root","/app/components","--kernel","http://kernel:8080","--network","http://network:8090"]
+    environment:
+      RUNTIME_MANAGER_URL: http://runtime-manager:8105
+      RUNTIME_MANAGER_INTERNAL: airawat-runtime-mgr-internal
 
   app-host:
     <<: *ref
@@ -147,6 +174,9 @@ services:
     environment:
       FILESTORE_URL: http://filestore:8095
       EMBED_URL: http://model-gateway:8104
+      # the city-baseline pipeline (spawned here) delegates driver placement to the runtime-manager
+      RUNTIME_MANAGER_URL: http://runtime-manager:8105
+      RUNTIME_MANAGER_INTERNAL: airawat-runtime-mgr-internal
     depends_on:
       kernel: { condition: service_started }
       identity: { condition: service_started }
