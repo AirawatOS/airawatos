@@ -614,3 +614,13 @@ cert is allowed (should require a fresh cert for the new digest).
   (+ scheduler invoke→1900, app-host /run→2200 to keep the chain ordered). It's bounded + resumable, so
   this finishes a central patch; **the real fix is a single bbox export grouped to H3** instead of
   per-cell round-trips (won't scale to a full metro otherwise).
+
+- ✅ **[FIXED] Registry query applied LIMIT before tenant-scoping → big multi-tenant layers returned 0
+  for smaller tenants.** 🟠 `registry_resolve` fetched a `limit`-capped window ordered by id, THEN
+  filtered to the caller's tenant. `geo.osm_feature` totals 81k rows (bmc 67k sorts before nashik's
+  14.5k), so a 50k window was entirely bmc → nashik's road lines came back empty in City Scan (density
+  cells worked because cell.roads is only ~8k total, under the window). **Fix:** push tenant scoping
+  INTO the query (`id_prefix` → `id LIKE 'ds:<tenant>:%'`) in both registry backends so the LIMIT is
+  per-tenant; `registry_resolve` passes the authenticated tenant's prefix. Verified: nashik
+  geo.osm_feature 0 → 14502. *Systemic:* this affected ANY layer whose cross-tenant total exceeded the
+  fetch window — the fix is general, not roads-specific.
