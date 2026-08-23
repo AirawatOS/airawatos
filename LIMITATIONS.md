@@ -580,3 +580,37 @@ cert is allowed (should require a fresh cert for the new digest).
   bug) pass; only missing *required* fields + type/enum errors are caught today. Tighten via the governed
   change-request flow. (b) **Fix the real violations shadow surfaces first** — e.g. the outbox writes
   `platform.event` with `tenant: None` (schema wants a string). Turn strict on per-schema as each is cleaned.
+
+## Nashik baseline remediation (2026-08-23)
+
+- ✅ **[FIXED] Filestore had no persistent volume — uploads lost on any container recreate.** 🔵🔴
+  `FILESTORE_DIR` defaulted to `/tmp/airawat-filestore` inside the ephemeral container FS. Recreating
+  containers during the runtime-manager deploy WIPED every uploaded blob (incl. the 209 MB Nashik OSM
+  PBF), while the Postgres `platform.component_asset` records survived pointing at now-dead `file_id`s →
+  `/v1/file/get` 404 → `osm-roads`/`osm-facilities` crashed with `HTTP 404`. **Fix:** added a named
+  volume `filestore_data:/data/filestore` + explicit `FILESTORE_DIR` in `deploy/ec2/docker-compose.yml`,
+  then re-fetched the PBF (content-addressed → same id → existing asset records resolve). Uploads now
+  survive recreates. *Follow-up:* a periodic reconciler could detect asset records whose blob is missing.
+
+- 🔴 **GEE service-account private key passed as `docker run -e` → leaked into logs.** Materialised
+  secrets were appended as `-e KEY=VALUE` to the `docker run` argv, so the full GEE private key appeared
+  verbatim in the runtime-manager logs (and in the `subprocess.TimeoutExpired` exception, `docker
+  inspect`, `ps`). **Partial fix:** `components/_common/launcher.py` now writes all env (config + secrets)
+  to a private 0600 `--env-file` and passes only the path in argv; timeouts return a clean message with no
+  argv. **Still owed:** the exposed key should be **rotated** (it was already printed to historical logs),
+  and secret materialisation could move to a mounted tmpfs file the driver reads, so a value never lands
+  in an env table at all.
+
+- 🟠 **Steward grants are built from the CERTIFIED listing's declared scopes — a stale/under-declared
+  manifest silently 403s at run time.** `coverage-qa` read 12 nouns but declared 6; `cell-indexer`'s
+  cert predated its `cell.heat` scope → both got `403 (write/read) not authorized by the tenant steward`.
+  **Fix:** widened `coverage-qa`'s `reads`/`scopes` to every noun it reads (kept in lock-step with
+  `LAYERS` in run.py), re-certified + re-installed. *Systemic gap:* nothing checks that a component's
+  declared scopes actually cover what its code reads/writes — a conformance test (grep the run.py broker
+  calls vs declared scopes) would catch this at certify instead of at run.
+
+- 🟡 **`buildings-footprints` fetches Open Buildings ONE H3 cell at a time via GEE `getInfo` (~5 s/cell)**
+  — 250 cells ≈ the old 1200 s docker-run cap, so it timed out. **Fix:** raised `LAUNCH_TIMEOUT`→1700
+  (+ scheduler invoke→1900, app-host /run→2200 to keep the chain ordered). It's bounded + resumable, so
+  this finishes a central patch; **the real fix is a single bbox export grouped to H3** instead of
+  per-cell round-trips (won't scale to a full metro otherwise).

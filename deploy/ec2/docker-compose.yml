@@ -98,6 +98,10 @@ services:
     container_name: airawat-filestore
     command: ["python","reference/filestore.py","--port","8095"]
     depends_on: {}
+    environment:
+      FILESTORE_DIR: /data/filestore      # content-addressed blobs (OSM PBFs, uploads) — MUST be on a volume
+    volumes:
+      - filestore_data:/data/filestore     # PERSISTENT: uploaded assets survive container recreates
 
   model-gateway:
     <<: *ref
@@ -150,6 +154,7 @@ services:
       SECRETS_URL: http://secrets:8102
       SECRETS_INTERNAL: airawat-broker-secrets-internal
       LAUNCHER_REQUIRE_CERTIFIED_IMAGE: "1"
+      LAUNCH_TIMEOUT: "1700"     # per-run docker-run cap; footprints does ~250 GEE per-cell fetches (~5s each)
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /home/ec2-user/airawatos/rt-components:/home/ec2-user/airawatos/rt-components:ro
@@ -192,3 +197,4 @@ services:
 volumes:
   kernel_pg: {}
   vault_data: {}
+  filestore_data: {}
