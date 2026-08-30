@@ -1638,3 +1638,25 @@ role-MEMBERSHIP only; adopting `/bridge/authz-check` at each is incremental. (2)
 `_path` (call `_scope_materialize`); items with a scope but no `_path` are treated as unscoped (shown), not
 fail-closed. (3) platform.task / platform.case don't carry `scope` yet (only inbox_item) — add when workflows stamp
 the work location. (4) jurisdiction containment uses the network resolver (cached), org_unit/area walk the registry.
+
+## Org RBAC: employee login auto-provisioning + scope on tasks/cases — 2026-08-30
+TASK 1 — auto-provision employee logins. New host bridge `_bridge_employee_provision` (`/bridge/employee-provision`,
+admin-gated) mints a real tenant login for a staff member via the identity provisioner (POST /users + internal token,
+same path as join-approve). Idempotent — never touches an existing account (won't clobber roles). The account is
+created with NO identity roles (roles come from POSTINGS/grants). Org Setup app (v0.3.0) calls it on employee save
+(toast: created / exists). FIXED a real latent bug: identity `roles = body.get("roles") or [...]` treated an explicit
+`[]` as "use default" → every provisioned staff account became `platform.tenant-admin`; now honours an explicit empty
+list (only omitted roles fall back). Verified: a brand-new username can't log in before, can after (roles=[] + posting
+grant = its role); provisioning an existing user is a no-op. Identity is Vault-backed so its signing key survived the
+restart (existing tokens/JWKS intact).
+TASK 2 — scope on tasks/cases. Governed `platform.task@0.3.0` + `platform.case@0.2.0` = prior def + optional `scope`
+(needed a one-time kernel validator refresh). The service-workflow now PROPAGATES scope: if a submission declares a
+location (`message.scope` {org_unit/area/jurisdiction}), the open writer materialises it once (provider token) and
+stamps it on the case + first task + inbox_item; `_advance_service_workflow` carries `case.scope` onto every advanced
+task + inbox_item. Added a scope filter to "my tasks" queries (platform.task with no case/assignee filter) mirroring the
+inbox — verified: officer scoped to zone-3 sees an "Inspect Ward 31" task, not "Inspect Zone 5".
+LIMITS: (1) the end-to-end LIVE workflow submit (citizen submission → scoped case/task/inbox) was not run this session —
+each constituent was verified separately (schemas accept scope; writers stamp it [code]; both filters enforce it). A
+submission only carries scope if `message.scope` is provided (citizen apps don't send it yet — a form→scope mapping is
+the next wire). (2) the task/inbox scope filters only apply in apps whose read allow-list includes that schema
+(inbox→platform.inbox_item, crowd-command→platform.task). (3) employee→login is provisioned passwordless (dev identity).
