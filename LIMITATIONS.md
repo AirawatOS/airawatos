@@ -1615,3 +1615,26 @@ LIMITS: (1) enforcement is role-membership only — `scope{org_unit,area,jurisdi
 yet enforced (scope-aware authz = a further step; today a granted role holds tenant-wide). (2) The employee→login link
 is manual (admin types the username); no auto-provisioning of the account. (3) Projection fires when the admin saves a
 posting via the app (or calls the bridge); there is no background reconciler if postings are written by another path.
+
+## Org RBAC: scope-aware enforcement (PDP + inbox) — 2026-08-30
+Role grants may carry a SCOPE {org_unit, area, jurisdiction} (from an org.posting). A scoped grant holds the role
+only WHERE that scope reaches — the grant's node must be an ancestor-or-self of the target's node in the
+org-unit / area / jurisdiction hierarchy. Identity roles + UNSCOPED grants hold tenant-wide.
+- DESIGN: read-free containment via MATERIALISED ancestor paths. A scoped WRITER stamps a record's scope with
+  `<dim>_path` arrays (`_scope_materialize`, walking the org tree with its own read access); the reader-side check
+  (`_grant_covers`) is then pure set-membership — so an officer who cannot read the org tree can still be enforced.
+- PDP: `_authorize_scope` + `/bridge/authz-check {role, scope}` → {allowed, via:identity|grant, grant_scope}. Any app/
+  service calls this to gate a scoped action. Proven: ward-officer grant scoped to zone-3 → ALLOW ward-31 (child) &
+  zone-3, DENY zone-5; sanitation-officer (identity) → ALLOW tenant-wide; unheld role → DENY.
+- APPLIED (inbox): the inbox now expands EFFECTIVE roles (identity ∪ non-revoked role_grant — so posting-granted
+  roles surface work, a real fix from identity-only) and scope-filters role-addressed items: an item with a
+  materialised scope shows only to holders whose grant COVERS it; unscoped items stay visible to all holders;
+  personal items are never scoped out. Proven: officer scoped to zone-3 sees a Ward-31 task, not a Zone-5 task.
+- Governed `platform.inbox_item@0.2.0` = 0.1.0 + optional `scope` object (work location + materialised paths).
+  NOTE: bumping a core schema needed a one-time KERNEL restart to refresh its per-schema cached validator
+  (`_SCHEMA_VALIDATORS` keys by schema id, not version) — a deploy step, not a code change.
+LIMITS: (1) only the INBOX consumes the PDP so far — data reads, task claiming, and other surfaces still enforce
+role-MEMBERSHIP only; adopting `/bridge/authz-check` at each is incremental. (2) Scoped WRITERS must materialise
+`_path` (call `_scope_materialize`); items with a scope but no `_path` are treated as unscoped (shown), not
+fail-closed. (3) platform.task / platform.case don't carry `scope` yet (only inbox_item) — add when workflows stamp
+the work location. (4) jurisdiction containment uses the network resolver (cached), org_unit/area walk the registry.
