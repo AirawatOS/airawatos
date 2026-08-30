@@ -1154,3 +1154,445 @@ service-authorization grant) is NOT built — enforce is GATED on it landing, el
 shared-service-provider writes; retract path not gated; hot-patch on local kernel container only (EC2 needs
 same docker cp + restart). Consider making "authored-by: component" a governed schema attribute vs a
 kernel prefix list.
+
+## Cross-tenant aggregator lane — slice 1 (2026-08-28)
+Built by REUSING existing mechanisms (per user: "the Data App had request+approve access — reuse it"):
+- REQUEST→APPROVE→GRANT (network/api.py): new /v1/data-requests {file, list, decide} mirroring
+  role-requests; approve calls the EXISTING _issue_grant → steward-signed governance.access_grant. A shared
+  service provider/aggregator (unified citizen app; GPay/PhonePe-over-banks) files for a component's declared
+  scopes in a TARGET tenant; that tenant's admin approves.
+- KERNEL cross-tenant enforcement (kernel/api/app.py _assert_write_own_tenant): a delegated write
+  (component:// obo user://) into ANOTHER tenant is allowed IFF the component holds a valid steward-signed
+  grant FROM THE TARGET tenant for (write, schema) — reuses _steward_authorizes. No grant → 403 as before.
+- app publish now synthesises scopes from writes/required_schemas (platform-spec _bridge_project_publish)
+  so an app's grant authorises its delegated writes.
+VERIFIED: caller in tenant airawatdeveloper, acting through crowd-command, wrote governance.decision INTO
+nashik → stored, attributed `component://…crowd-command@0.1.1 obo user://airawatdeveloper/devrick`;
+ungranted schema (cell.crush_risk) refused; ungranted component (transit-actuator) refused.
+LIMITS / next slices: (1) WRITE path only — cross-tenant READ (unified VIEW across agencies, the more common
+aggregator need) not yet done: /v1/registry/query + resolve don't carry component headers or check grants.
+(2) No aggregator-facing UI yet (reused backend endpoints; extend admin "requests" tab / a new aggregator app).
+(3) Grant is PER-COMPONENT, not per-citizen — the `obo user://` is in attribution but the grant authorises the
+component broadly; fine-grained per-citizen consent (VC/consent) is a deeper layer. (4) Relaxation is on the
+delegated /v1/registry/objects path; the broker /v1/write cross-tenant gate (:839) is NOT relaxed (headless
+components still own-tenant only). (5) Kernel trusts X-Component-Id (app_host sets it for certified apps) —
+crypto-verify the component identity is the hardening follow-up. Docs: reviews/dataplane-certified-writer-gate.md.
+
+## Cross-tenant READ slice (aggregator unified view) — 2026-08-28
+Mirror of the write lane on the READ path: a certified component (unified citizen app) may READ another
+agency tenant's rows IFF it holds that tenant's signed READ grant for the schema.
+- kernel _asof_rows + registry_resolve: `tenant` in the query body names the TARGET agency; with X-Component-Id
+  + a valid read grant → reach scoped to ds:<target>:; no grant → returns NOTHING (fail closed, never falls
+  back to caller's own tenant). Own-tenant reads unchanged.
+- app_host /bridge/query stamps X-Component-Id (calling app) + forwards `tenant` → a unified app fans out
+  per agency.
+VERIFIED: crowd-command (granted read cell.crowd_density from nashik) reading nashik from an airawatdeveloper
+session → 5 rows; no X-Component-Id / ungranted schema / ungranted component → 0; own-tenant + nashik-local
+queries unaffected (regression clean).
+LIMITS: grant reads = the component's declared required_schemas (coarse; per-record/per-citizen scoping is the
+VC/consent layer). Query targets ONE tenant at a time (the app fans out). resolve-by-id cross-tenant uses the
+id's steward as target. Still per-component grant, not per-citizen consent.
+
+## Civic service federation (ADR-0067) — S1: directory + search (2026-08-28)
+network/api.py: `network.service_offering` directory — POST /v1/service-offerings (steward-gated + steward-
+SIGNED), GET /v1/service-offerings (discover by domain/service/tenant), POST /v1/service-offerings/resolve;
+POST /v1/service/search = the Beckn-adapted `search`→`on_search` (returns the matching provider catalog in a
+context+message envelope). Register "service_offerings" in the _NS name-list.
+VERIFIED: nashik published water-new-connection (urban) + grievance-file (safety), both signed by ds:nashik:
+steward; search{domain:urban}/query:water/query:grievance return the right providers with their interaction
+models + endpoints.
+LIMITS / next slices: S1 is DISCOVERY only — no transaction lifecycle yet (init→case, confirm/status). search
+is synchronous over on-platform offerings (async provider search for data_at_source/connector = later).
+network.service_offering not yet published to the schema catalog (record shape is de-facto; govern it S2).
+Endpoints are declared (solution://tenant/name) but not yet routed to (the gateway/router is S4).
+
+## Civic service federation (ADR-0067) — S2: init → provider case (2026-08-28)
+platform-spec /bridge/service-init: the `init` interaction. A certified aggregator resolves a service
+offering from the directory (S1), then opens a platform.case IN THE PROVIDER tenant via the DELEGATED
+cross-tenant write (component://app obo user://citizen) — grant-gated by the provider's platform.case write
+grant. Returns the on_init transaction handle {transaction_id, provider case ref, status:initiated}.
+VERIFIED: citizen (airawatdeveloper/devrick) init'd nashik's water-new-connection via crowd-command →
+case ds:nashik:case/svc-<txn> created AT NASHIK, attributed component://…crowd-command@0.1.1 obo
+user://airawatdeveloper/devrick; service/status/step correct. transaction_id carried in the case id (the
+case IS the provider-side transaction record — data-at-source).
+LIMITS / next: S2 handles ON-PLATFORM providers (case written via delegated cross-tenant write); DATA-AT-
+SOURCE / heterogeneous providers need the S4 gateway to route init to a real endpoint (declared but not yet
+called). Intent/form payload not persisted (case carries service+who+when only; application-body schema =
+follow-up). No provider-side solution logic invoked yet (eligibility/case-numbering/workflow) — the aggregator
+drops the case; provider-mediated fulfilment (BPP runs its logic) is S4. Next: S3 confirm/status + receipts.
+
+## Civic service federation (ADR-0067) — S3: confirm/status + receipt (2026-08-28)
+platform-spec /bridge/service-confirm + /bridge/service-status: the `confirm` and `status` interactions.
+- confirm: READ the provider case cross-tenant (grant-gated; pass filter.schema=platform.case because the
+  id segment is short "case" not "platform.case" — _schema_of_id mismatch), ADVANCE it (status active /
+  step confirmed) via the DELEGATED write, and write an interaction.receipt (BAP-side provenance, citizen's
+  own tenant). Returns on_confirm.
+- status: READ the provider case cross-tenant (grant-gated) → on_status {status, current_step, service}.
+- interaction.receipt (ADR-0058) reused: mapped service semantics onto {interface:service.<action>@0.1.0,
+  modality:request, provider, agent:component://app obo user://citizen, run:txn/<id>, request_digest:case,
+  response_digest:on_<action>:<txn>, at}. response_digest is REQUIRED by the schema.
+VERIFIED: init→submitted; confirm→provider case advances to active/confirmed + receipt written; status
+reflects it; receipt carries the obo agent + txn. Aggregator grant needed READ platform.case too (added
+platform.case/platform.task to crowd-command required_schemas → republish 0.1.2 → re-grant).
+LIMITS / next: still on-platform provider (delegated write); provider-side fulfilment logic + heterogeneous
+routing = S4 (gateway). No provider-side receipt yet (BAP-side only). Next: S4 gateway/router + S5 fee/consent.
+
+## Civic service federation (ADR-0067) — S4: gateway + provider-side fulfilment (2026-08-28)
+network /v1/service/route = the GATEWAY (BG): resolves offering → provider+endpoint, verifies the action,
+RECORDS a network.service_transaction (correlation ledger; GET /v1/service/transactions to look up), returns
+the routing decision. platform-spec /bridge/service-route + _provider_fulfil = the PROVIDER-SIDE fulfilment:
+the provider's own solution (reference BPP) creates the case WITH ITS OWN authority + a case NUMBER — the S4
+distinction from S2 (aggregator dropped the case). VERIFIED: BAP(devrick via crowd-command) → gateway →
+nashik BPP → case ds:nashik:case/water-new-connection-<NUM>, attributed component://ds:nashik:solution/
+water-new-connection obo user://nashik/nashik-admin (the PROVIDER, not the aggregator); gateway ledger recorded
+{txn, bap, case, status:received, history:[init]}.
+LIMITS: (1) the reference BPP (_provider_fulfil) STANDS IN for the provider's real solution — ADR-0050
+execution engine would run the provider's declaration; here app_host acts as the provider (logs in as
+<provider>-admin). (2) On-platform only: real HETEROGENEOUS providers = the gateway POSTs the message to the
+offering's real HTTP endpoint (the endpoint is in the routing decision — the seam exists — but the external
+HTTP forward + async on_<action> callbacks are not built; it's synchronous + in-process). (3) init only in the
+reference BPP (confirm/status still via S3). (4) Message signing (ADR-0024) not enforced on the gateway yet.
+(5) BPP holds provider creds via login — a real BPP is the provider's own service with its own key.
+NEXT: S5 (fee via `select` + per-citizen consent VC); async callbacks + real endpoint HTTP forward + gateway
+signature verification = productionization of S4.
+
+## Civic service federation (ADR-0067) — S5: fee quote + per-citizen consent (2026-08-28)
+platform-spec: (a) `select` → _quote_fee: the provider returns ELIGIBILITY + an itemized FEE quote pre-commit
+(no case). Reference fee table (production: derive from offering.fee_ref / finance.* rules). (b) per-citizen
+CONSENT: /bridge/service-consent — the citizen issues a governance.consent {citizen, aggregator, service,
+provider, expires_at, status} into their OWN tenant, attributed component://app obo user://citizen. A
+COMMITTING action (init/confirm) via /bridge/service-route now passes a CONSENT GATE (_verify_consent): a
+valid, unexpired consent from the citizen authorising THIS aggregator for THIS service must exist, else 403.
+VERIFIED: select→₹1500 itemized quote; init WITHOUT consent→403; consent issued; init WITH consent→provider
+fulfils (case + provider reference).
+LIMITS: consent is a governance.consent RECORD verified BAP-side (app_host reads the citizen's own consent) —
+production consent = a signed Verifiable Credential in the citizen's wallet, independently verified by the
+PROVIDER (ADR-0049 credential service, which lives in legacy AirOS, not this stack). governance.consent is
+UNGOVERNED (no schema in the catalog → registry skips validation); govern it + finance.fee as a follow-up.
+Fee is quoted only (no payment capture). This COMPLETES ADR-0067 S1–S5 (reference-grade).
+
+## Jan Seva citizen app + governed ADR-0067 schemas (2026-08-28)
+Built the jan-seva citizen front door via Studio (scaffold→author→publish): components/apps/jan-seva
+(certified app, BAP). Governed the 3 previously-ungoverned ADR-0067 schemas directly against the network
+authority so the app could publish (certify enforces "all declared schemas governed"): governance.consent
+(sensitive; defined to match /bridge/service-consent writes exactly — registry-validated), plus permissive
+network.service_offering + network.service_transaction (network-held records, not registry-validated).
+Refreshed the kernel schema-cache so consent writes validate. VERIFIED served at /apps/jan-seva/ + full
+complaint flow (search→consent→file→track) through its bridges. LIMIT: published schemas + service offerings
+live in the network's in-memory store (reseed after a network restart). The Studio Solution Expert had guessed
+service.offering/service.transaction (wrong domain) because these were ungoverned — now governed under the
+correct network.* names.
+
+## Person-centric citizen + hierarchical jurisdiction (ADR-0067) — 2026-08-29
+Built the jurisdiction-scoped citizen model. network/api.py: a governed HIERARCHICAL jurisdiction registry
+(/v1/jurisdictions publish/list + /v1/jurisdictions/resolve returns the ancestor chain; nation→state→city→ward);
+register "jurisdictions" in the _NS name-list (KeyError otherwise). Service offerings now carry `jurisdiction`
+(code they serve, default=agency tenant) + `entitlement` (residence|property). platform-spec: /bridge/profile-save
++ profile-get (the citizen's PERSON-CENTRIC civic.profile — residence[] + property[] jurisdiction codes, written
+to their OWN tenant obo the citizen); /bridge/service-search now JURISDICTION-SCOPES to entitlement (a service at
+jurisdiction J is visible iff J is an ancestor-or-self of the citizen's residence — or property — jurisdiction;
+national=root visible to all). Governed civic.profile (registry-validated) + network.jurisdiction schemas.
+VERIFIED: Pune-resident+Nashik-property-owner sees national + nashik-property + NOT nashik-residence services;
+after a MOVE to nashik, nashik-residence services appear — same identity/profile, one attribute changed.
+This is the answer to "citizen moves cities": identity/history/wallet/open-cases persist (person-centric +
+data-at-source + ledger keyed by citizen); only visible services change with the verified jurisdiction.
+LIMITS: jurisdiction is self-declared+verified flag (real KYC/address-proof = follow-up); jan-seva has no profile
+UI yet (search auto-filters if a profile exists, else unfiltered); legacy offerings without a jurisdiction show
+to all; move-time "change of address as a cross-agency service" not built (natural next). In-memory network store.
+
+## Citizen self-signup + profile/location UI (one slice) — 2026-08-29
+Closed the "register as a citizen" gap end-to-end. identity.py: PUBLIC `POST /register {username,name,contact}`
+— self-signup that can ONLY mint a `civic.resident` in the fixed `CITIZEN_REALM` (=`citizens`), auto-issues a
+token (no internal token, unlike POST /users). app_host: `/bridge/citizen-register` (signup → verify → open a
+browser session → write civic.profile with chosen residence, all in one call, no prior session) + `/bridge/
+jurisdictions` (city picker) + a shared `_write_civic_profile` helper reused by profile-save. jan-seva 0.1.2:
+first-run "Join & set your location" screen (name/username/contact + residence + optional property city),
+identity bar ("📍 <city> · I moved · Sign out"), and an "I moved" flow (profile-save new residence). New
+`citizens` tenant registered at the network (person-centric: citizen identity is network-level, NOT a city).
+VERIFIED as a BRAND-NEW self-registered citizen (not a seeded user): Join(user://citizens/asha)→discover
+(grievance[nashik/residence]+property-tax[nashik/property]+passport[in])→file(real ds:nashik case)→MOVE to
+pune(keep nashik property)→grievance GONE, property-tax+passport STAY. All writes attributed
+`component://…jan-seva@0.1.2 obo user://citizens/<sub>`.
+LIMITS/GOTCHA: restarting identity.py ROTATES its signing key unless started with VAULT_ADDR+VAULT_TOKEN
+(local-dev backend = fresh key each boot) → downstream services that CACHE JWKS (the kernel's `_authn.verify`
+does NOT self-heal on bad-signature like reference/tokens.py does) reject the new tokens with "bad signature"
+until they refetch; the kernel needed a restart to repick the key. FIX FORWARD: always start identity with
+Vault (stable key) + port the self-healing refetch into the kernel's _authn. Self-signup KYC = self-declared
++ verified flag (no real ID proof); `citizens` realm is in-memory in the network (reseed on restart); jan-seva
+still published at 0.1.1 cert while disk meta is 0.1.2 (local --no-verify-cert serves disk; republish to align
+the marketplace certificate).
+
+## Citizen home + per-citizen marketplace — 2026-08-29
+Citizens now get a consumer HOME distinct from the operator desktop. app_host: `_is_citizen(claims)` (holds
+civic.resident, NOT admin/dev/steward) → `/` serves `citizen-home.html` instead of the operator `desktop.html`.
+PER-USER app shelf `ds:citizens:app_shelf/<sha1(sub)>` (each citizen curates their OWN home, unlike the shared
+per-tenant operator shelf). `_civic_catalog()` = apps that are `public` OR target civic.resident, minus
+system/developer_only/rogue — this is the citizen marketplace. New endpoints: GET /citizen/apps {mine, catalog}
++ /bridge/citizen-app-add|remove (only civic-catalog apps allowed on a citizen home). New certified app
+`my-requests` (roles [civic.resident], reads the ADR-0067 transaction ledger → cross-agency request tracker).
+jan-seva Join now redirects to `/` (the citizen home). VERIFIED: new citizen → home serves "My Services",
+starter set [jan-seva, my-requests], add/remove persists per-user, My Requests opens (200), operator apps
+NOT leaked into the citizen catalog.
+LIMITS: civic catalog currently = jan-seva + my-requests only — **Document Wallet (ADR-0049) and Field Report
+were built in the OLDER stack, NOT ported into this components/apps deployment**, so they don't appear yet
+(porting them = follow-up; then they auto-appear via roles:[civic.resident]). No "sign back in" for a RETURNING
+citizen whose cookie expired (Join mints a new account; a citizen login screen against the `citizens` realm is
+the follow-up). citizen home chrome is minimal (no notifications/profile-edit beyond jan-seva's "I moved").
+
+## Recertified jan-seva + my-requests through the certify spine — 2026-08-29
+Closed the cert drift for the two citizen apps. Via /bridge/project-publish as devrick (steward of the
+airawatdeveloper namespace): walk source → POST /v1/certify (conformance runs: well-formed + governed vocab
++ digest-from-content → CA-signs, pinning the bundle digest) → /v1/store/publish → reload_apps. Both now
+`verified:true`. PROVED: package.artifact_digest(dir) == certificate.evidence_digest for jan-seva (2303841)
+and my-requests (2660f0c) — i.e. they'd PASS a verify-on host (load_apps digest check), not be REFUSED.
+HONEST WIDER STATE: the rest of the local app tree is cert-DRIFTED from continuous dev editing — admin, chat,
+inbox, studio, storefront, network-admin, city-scan, air-explorer all show disk≠cert (would be REFUSED on a
+verify-on host); city-explorer/city-setup/connections/roads-viewer have no resolvable certificate. This is
+exactly why the reference app_host runs `--no-verify-cert` locally. Flipping verification ON would refuse those
+drifted apps until each is republished — a full-tree recertify sweep is the follow-up to run before any
+verify-on / production deploy.
+
+## Full-tree recertify sweep + enforcement ON — 2026-08-29 (RESOLVED)
+Republished all drifted/uncertified apps (bumped the 8 signed ones to 0.1.1 — marketplace listings are
+IMMUTABLE, a changed bundle needs a NEW semver; the 4 never-published went through as-is). Restarted the
+app-host WITHOUT --no-verify-cert: 20 apps load "certified · digest OK"; the ONLY refusal is `rogue-app`
+(ds:acme:app/rogue-app, the adversarial test app with no certificate) — i.e. enforcement is ON and PROVABLY
+working (rejects the uncertified/foreign one, admits the rest). Reference host now runs in true enforcement
+mode. NB: keep it OFF only when actively editing app bundles (edit → republish → it passes again).
+
+## National services always visible + citizen browse — 2026-08-29
+Fixed: a NATIONAL (root-jurisdiction) service was dropped for a citizen whose residence chain didn't resolve
+up to the nation (e.g. residence stored as "Kanpur" not the code "kanpur" → resolve fails → "in" absent →
+passport hidden). Root cause: entitlement filter required the service's jurisdiction to be in the citizen's
+ancestor set, which depends on the chain resolving. Fix (_bridge_service_search + _national_roots): a service
+whose jurisdiction is a nation-level/root code is visible to EVERYONE, independent of the citizen's chain —
+so national services always show even with a malformed residence. City-scoping unchanged (nashik-residence
+still hidden from a Kanpur resident). Also: discovery was QUERY-GATED (network service_search matches the
+query substring) with NO browse, so a citizen had to guess "passport" — jan-seva now runs an empty-query
+BROWSE on load ("services available to you"). VERIFIED: Kanpur browse shows passport-seva[in]; broken
+residence ['Kanpur'] still shows passport; nashik grievance not leaked to Kanpur.
+
+## Untagged-offering leak fixed (fail-closed) — 2026-08-29
+Two untagged test offerings (nashik grievance-file, water-new-connection — seeded pre-jurisdiction) were
+leaking into EVERY city because the entitlement filter showed jurisdiction=None offerings to all. Retired
+both (agency retire endpoint) AND hardened _bridge_service_search: an untagged offering now FAILS CLOSED
+(hidden) instead of shown-to-all; only NATIONAL (root) + the citizen's-jurisdiction services show. VERIFIED:
+Kanpur browse = [passport-seva] only; Nashik browse = [grievance-redressal(nashik), passport-seva]. New
+offerings always carry a jurisdiction (registration defaults it to the agency tenant), so untagged = stale data.
+
+## Workflow interpreter (declarative, tenant-configured) — 2026-08-29
+Built the multi-step workflow interpreter. An offering carries fulfillment.workflow = ordered [{step, role,
+task}] (a DECLARATIVE config — tenant-admin-editable, the "simple service, no developer" path). On submit the
+provider opens the case + first step's task→role inbox (attributed to the bound CERTIFIED solution). On each
+task completion (_bridge_complete step 0, BEFORE the SOP engine), _advance_service_workflow reads the offering's
+workflow, marks the task done, and creates the NEXT step's task+inbox for the next governed role — or closes
+the case after the last step. Network validates every workflow step's role is governed. VERIFIED 3 hops:
+triage(civic.grievance-officer)→field-visit(urban.sanitation-officer)→verify(civic.grievance-officer)→closed,
+each landing in the correct role's inbox, all attributed to component://…grievance-handling@0.1.0 obo the
+completing officer. LIMITS: linear steps only (no branches/parallel/conditions/decisions); no SLA timers or
+reminders; completion is a simple "done" (no per-step form/decision capture yet); citizen isn't notified on
+close (cross-tenant). These + a Service Studio (tenant-admin UI to author form+workflow) are the follow-ons.
+
+## Service Studio + generic declarative-service runner — 2026-08-29
+Built the no-code service path. (1) `ds:airawatdeveloper:solution/declarative-service` — a GENERIC certified
+solution (trust anchor) that fulfils any config-driven service; the form (request_schema) + workflow
+(fulfillment.workflow) live as governed config on the offering, run by the interpreter. (2) Service Studio app
+(`ds:airawatdeveloper:app/service-studio`, roles platform.tenant-admin/steward): form builder + workflow
+builder (steps→governed roles, reorder) → publishes a steward-signed offering bound to declarative-service —
+NO solution developer. VERIFIED: a tenant admin authored "Birth Certificate" (form child_name/dob + verify→
+issue workflow) bound to the generic runner; a Nashik citizen discovers it. No backend bridge changes needed
+(service-offering-save forwards the full body; catalog?kind=roles + jurisdictions drive the pickers).
+TWO-TIER MODEL LIVE: simple services = tenant-admin config on the generic runner; complex = bespoke certified
+solution. LIMITS: jan-seva still submits a fixed {description} — it doesn't yet RENDER request_schema as the
+intake form (citizen-side dynamic form = next); workflow is linear (no branches/decisions/SLAs); Service Studio
+has no fee/eligibility builder yet; birth-cert demo reused civic.grievance-officer (no registrar role governed).
+
+## Jan Seva renders the authored intake form — 2026-08-29
+Jan Seva now RENDERS the offering's request_schema (authored in Service Studio) as the citizen intake form —
+one input per property (text/textarea via x-widget/number/date/format, required markers), instead of the fixed
+{description} box (kept as fallback when a service has no request_schema). On submit it collects the values into
+message.form + a labelled human summary (message.description). VERIFIED end-to-end: admin authored Birth
+Certificate (Child name, Date of birth) → citizen sees those exact fields → officer's inbox shows "Child name:
+Aarav Patil · Date of birth: 2026-08-01". jan-seva recertified 0.1.4. LIMIT: the submission is persisted as the
+human summary on the inbox_item body (officer-visible); STRUCTURED on-case persistence needs a form/data field
+on platform.case (strict schema) or a governed service.submission schema — the honest follow-on. No client-side
+validation beyond required-marking; no file-upload field type yet.
+
+## Verifiable Credentials: issue-on-completion → wallet (ADR-0049 slice 1) — 2026-08-29
+Native VC layer wired to the service rail. Governed civic.credential + civic.submission. Network: /v1/credentials/
+issue (signs a VC with the ISSUER tenant's Vault steward key — same key published in the directory), /v1/credentials
+(holder-scoped wallet read), /v1/credentials/verify (verifies against the issuer's PUBLISHED directory key —
+key_source:directory, exactly as another operator would; falls back to local signer only if unpublished). app_host:
+_provider_fulfil persists the citizen's structured civic.submission; the interpreter, when a workflow step declares
+`issues: <type>`, mints a signed VC (claims = the submission) into the citizen's wallet; bridges my-credentials +
+credential-verify. New app my-documents (citizen wallet, roles civic.resident, on the citizen home starter set);
+Service Studio 0.1.1 adds an "issues" field per workflow step (no-code). VERIFIED: citizen applies for Birth
+Certificate → verify→issue workflow → VC ds:nashik:credential/... issued with claims {child_name, dob} → appears in
+My Documents → citizen verifies offline: verified True, key_source directory. LIMITS: reference WALLET = holder-scoped
+rows in the network credential store (not a holder-controlled/tenant wallet; portability is by the signed VC itself);
+no revocation/expiry/selective-disclosure; issuance authz = any member of the issuer tenant (reference); SLICE 2
+(consume: an offering declares required_credentials → Jan Seva presents the wallet VC → provider verifies → no
+re-collection, e.g. School Admission reuses Birth Certificate) NOT built.
+
+## VC reuse — required_credentials on apply (ADR-0049 slice 2) — 2026-08-29
+Consume side built. An offering carries required_credentials:[type]. Jan Seva reads the citizen's wallet, PRESENTS
+the matching VC on apply (or blocks + explains if missing), and sends credential_refs. The provider RE-VERIFIES
+each (app_host _verify_required_credentials → network /v1/credentials/verify): signature valid + held by THIS
+citizen + correct type — no document upload; the verified VC ids are attached to the case as subjects (evidence).
+Service Studio adds a "requires documents" field (no-code). VERIFIED: citizen holding a birth-certificate VC →
+School Admission accepts it (case created, reused not re-collected); citizen WITHOUT → blocked; citizen presenting
+ANOTHER holder's VC → blocked (holder mismatch). The Birth Certificate → School Admission reuse chain works.
+
+## OPEN — credential schema governance (raised by user): civic.credential + this session's other schemas
+(network.service_offering, network.jurisdiction, network.service_transaction, governance.consent, civic.profile,
+civic.submission) were published via the DIRECT steward path POST /v1/schemas (signed + name-linted, so they ARE
+governed) — but NOT through the ADR-0056 decided change-request loop (POST /v1/schema-requests → /decide →
+governance.decision). For network-wide trust-critical schemas they SHOULD carry a network APPROVAL decision.
+FOLLOW-ON: re-route these through propose→decide so each has a governance.decision record.
+
+## Credential types governed + enforced (propose→approve) — 2026-08-29
+Made credential TYPES governed vocabulary and ENFORCED it. A credential type = a governed `credential.<snake>`
+schema (x-kind:fragment — the claims value-object contract), created via the PROPER ADR-0056 loop: developer
+files POST /v1/schema-requests → the NETWORK decides POST /v1/schema-requests/decide (a decided change-request;
+trail records requested_by + decided_by). credential.birth_certificate approved this way. ENFORCEMENT (network):
+/v1/credentials/issue rejects a type that isn't a governed credential.* schema; /v1/service-offerings rejects a
+workflow step `issues:` or a `required_credentials` entry that isn't governed. VERIFIED: issue governed type ✅;
+issue 'fake-cert' 🔒; offering requiring 'not-governed' 🔒; full chain (issue credential.birth_certificate →
+wallet → reuse for School Admission) ✅. Domain `credential` governed. NOTE: the ALREADY direct-published civic.*
++ network.* schemas from earlier still lack an approval decision (can't re-propose at same version, line 733);
+new schemas now go through propose→approve. Claims aren't yet validated against the type's fragment schema at
+issue (type-governed, not claims-validated) — a fast follow.
+
+## Holder-controlled wallet: accept-into-own-tenant (ADR-0049) — 2026-08-29
+Wallet is now holder-controlled, not a shared-store view. Network: issuance creates an OFFER (status "offered",
+NOT auto-landed); POST /v1/credentials/accept (holder-gated) marks it accepted + returns the signed VC. The
+SIGNED core is now IMMUTABLE FACTS ONLY — `status`/`accepted_at` moved OUTSIDE the signature (fixed a real bug:
+mutating status on accept previously broke the signature; verify strips lifecycle fields). app_host: /bridge/
+credential-accept DEPOSITS the citizen's own signed copy into THEIR tenant (ds:citizens:credential/<h>, a
+civic.credential wrapper carrying the original signed `vc`), attributed component://…my-documents obo the
+citizen — a genuine own-tenant write, not a network-store row. Wallet (my-documents 0.1.1) shows OFFERS (Accept)
++ HELD (own tenant, Verify). Reuse now PRESENTS the held signed VC OBJECT; the provider verifies its signature
+offline (not by network id). VERIFIED: issue→offer→accept(deposit ds:citizens:credential/…)→held→verify(True,
+directory key)→reuse for School Admission ✅. LIMITS: citizens share one `citizens` tenant, so held-credential
+reads are holder-FILTERED not row-authz'd (a citizen querying civic.credential without a holder filter could see
+others' — needs per-citizen tenant or row-level ACL); no revocation/expiry/selective-disclosure; storage is
+still server-side (citizen's tenant), not a device/edge wallet.
+
+## Fix: Approve advances the workflow (was closing the case, skipping issuance) — 2026-08-29
+BUG: the Inbox 'Approve' on a plain review task calls /bridge/decide → the decision service closed the case as
+'decided', BYPASSING the service-workflow interpreter — so a birth-certificate approved at 'verify' closed
+before reaching the 'issue' step, and NO credential was ever offered (nothing to Accept in My Documents).
+FIX: _bridge_decide now intercepts service-workflow tasks (case has workflow+service) — approve → advance via
+_advance_service_workflow (verify→issue→mint VC offer); reject → close the case rejected. VERIFIED via the real
+Inbox path: file → Approve verify (→issue) → Approve issue (→ credential offered) → offer appears in the citizen's
+My Documents. WHERE TO ACCEPT: My Documents app (citizen-home tile) → "Offered to you" → Accept into my wallet.
+OPEN: My Requests shows the stale submit-time transaction status, not the live case current_step (should read the
+case); no citizen notification when a credential offer is ready (inbox_item to the citizen = follow-on).
+
+## Live My Requests status + credential-ready prompt — 2026-08-29
+(1) LIVE TRACKER: the workflow interpreter now syncs the network service_transaction on every transition —
+new POST /v1/service/transactions/status {case,status,step} (token-gated), called from _advance_service_workflow
+(advance→in_progress, close→resolved) and the decide-reject path (→rejected). My Requests (reads the txn ledger)
+now shows received→in_progress→resolved/rejected instead of the frozen submit-time status. No My Requests app
+change (it already renders x.status). (2) CREDENTIAL-READY PROMPT: the citizen HOME shows a banner "🎫 N
+documents ready to accept → My Documents", computed from GET /v1/credentials?status=offered&holder=me. VERIFIED:
+filed=received → approve verify=in_progress → approve issue=resolved + prompt shows 1 offer.
+NOTE: the prompt is a COMPUTED home banner, NOT a stored platform.inbox_item in the citizen's inbox — a real
+cross-tenant inbox write (nashik officer → citizens tenant) is BLOCKED by the own-tenant gate; a genuine pushed
+notification would need a platform-service writer or a steward grant into the citizens tenant (follow-on).
+
+## Inbox UI: Approve now works for workflow steps + shows submitted details — 2026-08-30
+Fixed 3 UI symptoms from real browser use: (1) clicking Approve "did nothing" — the Inbox decide() assumed a
+decision RECEIPT in the response (r.json.decision.id) and threw silently on the service-workflow response
+({advanced_to, via:workflow}); the backend advanced the task but the UI never updated (refresh showed 'done').
+Now decide() handles via:workflow → shows "Approved — advanced to <step>" / "credential issued" + reloads.
+(2) officer couldn't see the applicant's submission (name/DOB) — the drawer showed the task subject only; now it
+renders the inbox_item body ("Submitted by applicant: …") so the officer sees the form. (3) no citizen banner —
+was a consequence of (1): a 2-step service (verify→issue) needs BOTH approvals; the credential is only minted at
+the issue step. Inbox recertified 0.1.2. NOTE: officer sees the SUMMARY (inbox body); rendering the structured
+civic.submission (typed fields) in the case view is a follow-on.
+
+## Citizen navigation + login + case application view — 2026-08-30
+Four UX fixes from browser testing: (1) run_shell back link is now ROLE-AWARE — a citizen sees "← My Services"
+(→ /, the citizen home), staff see "← Desktop" (→ /desktop), anonymous hidden; kept for citizens (was hidden
+for public apps), only the identity BADGE is hidden on public apps (overlap). (2) Jan Seva gate is now LOGIN-FIRST:
+"Sign in" (username → POST /login {realm:citizens}) with a link to "Create an account"; sign-out lands here (a
+login page, not the signup form). Returning-citizen login verified. (3) Inbox: opening a CASE now renders the
+citizen's submitted application (resolves the linked civic.submission by id-stem: case/→civic/submission/, shows
+typed fields). (4) [prior] Approve advances workflow + shows submitted body on the task. inbox 0.1.3, jan-seva
+0.1.7. NOTE: returning-citizen login is passwordless (reference IdP, username only) — real auth = Keycloak/OIDC.
+
+## Citizen home is now a consistent SPA shell (like the operator desktop) — 2026-08-30
+Root cause of the "inconsistent header": the operator desktop.html is a SPA shell (persistent top bar + a window
+with a titlebar "← Desktop" + an iframe that loads apps IN PLACE); the citizen home was just a tile grid that
+NAVIGATED AWAY to the run-shell per app, so it had no persistent chrome. Rebuilt citizen-home.html on the SAME
+pattern: sticky bar (🇮🇳 My Services · name·city · Sign out) + a window with a "← My Services" titlebar + an iframe
+loading /apps/<id>/ in place. Sign out → the citizen login (jan-seva gate). VERIFIED: / serves the shell (bar +
+win + iframe + "← My Services"); apps load 200 via the iframe path. The run_shell.html role-aware back link
+(citizen→My Services) still covers direct /run?app=X deep links. NOTE: an app with its OWN in-frame header (e.g.
+jan-seva's "I moved · Sign out") now shows alongside the shell titlebar — minor redundancy; the shell bar is the
+primary Sign out.
+
+## Service Studio redesign (3-pane + AI Expert + governed required-docs) — 2026-08-30
+Rebuilt service-studio (0.2.0) to mirror the Solution Studio: LEFT nav (my services + "＋ New Service"), CENTER
+Service Editor (basics · intake form builder · workflow builder with governed role + governed "issues" credential
+dropdowns · required-documents), RIGHT Service AI Expert panel (collapsed by default). Preview button (citizen-view
+modal: required docs + form + workflow). Required Documents is now a MULTI-SELECT of network-APPROVED credential
+types (new bridge /bridge/catalog?kind=credential-types → credential.* schemas) — NOT free text. Service AI Expert
+(new _bridge_service_expert, LLM via the model gateway EMBED_URL/complete): from a description/conversation it
+returns {reply, spec, new_credential_types}, GROUNDED in the governed roles + credential types (only valid values);
+"Apply to editor" fills the whole form; a suggested NEW credential type shows a "Propose to network" button that
+files a schema-request (propose→approve). VERIFIED: catalog credential-types returns credential.birth_certificate;
+service-expert returns reply+spec (gateway :8104 up); app serves 200 to an agency admin. LIMITS: AI depends on the
+model gateway (fails loudly if down); the AI's proposed spec should be reviewed before Publish (not auto-published);
+no diff/versioning of edits; the credential-type "Propose" files pending → a network admin still approves it.
+
+## Service Studio: agency-scoped jurisdiction + governed domain + layout/version — 2026-08-30
+Fixes from agency-use feedback: (1) JURISDICTION is no longer an all-cities picker — Service Studio derives the
+AGENCY'S OWN jurisdiction (the jurisdiction record whose tenant==the agency, else jurisdiction code==tenant name)
+and shows it READ-ONLY ("📍 Nashik — your agency's jurisdiction"); only if the agency has SUB-jurisdictions (e.g.
+wards) does it become a dropdown constrained to its jurisdiction + descendants. Nashik can't publish for Ahmedabad.
+(2) DOMAIN is now a dropdown of GOVERNED domains (ref.domain via /bridge/catalog?kind=domains), not free text with
+hardcoded examples. (3) LAYOUT: the AI panel width looked off because the editor was max-width-capped, leaving a
+gap so the panel floated off the right edge — now the editor fills (cards centered at max-width:760, min-width:0)
+and the panel pins right; collapses to a 40px strip (flex min-width:0 fix). (4) APP VERSION now visible: config.json
+carries `version`; the desktop + citizen-home window titlebars show "App · v<x>". service-studio 0.2.2.
+
+## Service Expert one-shot fix + governed Audience (who-sees-it) — 2026-08-30
+(1) SERVICE EXPERT "keep saying continue": the model gateway routes to a reasoning model (Kimi) that emits
+chain-of-thought before the JSON; with max_tokens=1800 it truncated mid-thought, `{.*}` found no closed JSON,
+and the bridge dumped `content[:800]` — the raw THINKING — as the reply, so the user kept typing "continue".
+Fixed in `_bridge_service_expert`: max_tokens→4000, strip `<think>…</think>` (closed AND truncated), extract the
+JSON even inside a ```json fence / stray text (greedy largest block), and on parse-failure show a clean actionable
+nudge — NEVER the raw reasoning. Now one-shot.
+(2) "Who sees it" was mislabeled: it was wired to `entitlement` (residence|property), which is a SCOPING PREDICATE
+the gateway uses to match a service's jurisdiction against where the citizen LIVES vs OWNS PROPERTY — not a role.
+Split into two governed fields: **Audience** = the GOVERNED role that may discover/apply (network→roles, default
+`civic.resident` — yes, resident IS a governed role), validated at `service_offering_publish` (422 on non-governed)
+and enforced in citizen discovery (`_bridge_service_search` hides an offering whose audience role the viewer doesn't
+hold); and **Qualifies by** = the residence/property predicate, relabeled honestly ("Lives in / Owns property in the
+jurisdiction"). offering gains `audience`; `_offering_public` exposes it. Service Studio 0.2.3. No `civic.business`
+role exists yet — a business-applicant audience would need a role governed first.
+
+## Org Foundation (Basic ERP) — Slice 1 backbone, built via AirawatDeveloper in Studio — 2026-08-30
+Dogfooded the whole governance+Studio spine to stand up an org/ERP backbone that ANY tenant can install.
+- Governed a new **`org`** domain + 5 entity schemas (propose as devrick via /bridge/schema-request → approve as
+  steward via /v1/schema-requests/decide): `org.org_unit` (dept/team, self-ref parent = variable depth),
+  `org.area` (zone/ward/locality/street, self-ref parent), `org.employee`, `org.posting` (employee×unit×area×role),
+  `org.goal`. All pass house rules R1–R6. Reproducible via `components/solutions/org-foundation-basic-erp/govern_schemas.py`.
+  Schemas persist in the network KV (`_DURABLE=True`), survive restart.
+- Studio project `ds:airawatdeveloper:studio/project/org-foundation` (devrick-owned) → open in Studio to ENHANCE.
+- `Org Setup` app (`ds:airawatdeveloper:app/org-setup`, v0.1.0): tenant-admin UI with Units tree / Areas tree /
+  People / Postings / Goals; reads via /bridge/query, writes via /bridge/save. meta declares `writes:` (authority
+  scope) + `roles:[platform.tenant-admin]`. Certified + published.
+- Composed → `ds:airawat:solution/org-foundation-basic-erp`; installed into nashik (1 approval → 1 grant covering all
+  5 org.* writes). Verified end-to-end write: `component://…org-setup obo user://nashik/nashik-admin`; app shelved on
+  the admin desktop; read-back OK.
+LIMITS / next slices: (1) `org.posting` records the role assignment as ERP DATA — it does NOT yet emit a
+`governance.role_grant`, so a posting does not grant platform RBAC. Next: formally govern `governance.role_grant`
+(add `org_unit` scope leg) and project postings → grants (the highest-leverage follow-up). (2) Boundaries use a
+tenant-owned `org.area` hierarchy (fully tenant-controlled), NOT the standards-body-gated `network.jurisdiction`;
+areas may optionally carry a `jurisdiction` code to anchor to the federated city. (3) Modules Finance / Assets /
+Payroll / Leave / Attendance / Expense / Travel / Procurement are NOT built — each is a follow-up slice (governed
+schema + intake form + platform.case/task/workflow approval + role-scoped app), added in the same Studio project.
+(4) Org Setup has no row-DELETE (add/edit only); left one test unit "Revenue Department" in nashik.
