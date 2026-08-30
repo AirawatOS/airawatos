@@ -1596,3 +1596,22 @@ areas may optionally carry a `jurisdiction` code to anchor to the federated city
 Payroll / Leave / Attendance / Expense / Travel / Procurement are NOT built — each is a follow-up slice (governed
 schema + intake form + platform.case/task/workflow approval + role-scoped app), added in the same Studio project.
 (4) Org Setup has no row-DELETE (add/edit only); left one test unit "Revenue Department" in nashik.
+
+## Org Foundation: postings → LIVE RBAC role-grants — 2026-08-30
+Formally governed `governance.role_grant@0.1.0` (record; under the already-governed `governance` domain) — a
+BACK-COMPAT closed contract matching every legacy writer `{schema,id,tenant,subject,role,granted_by?,revoked?}`
+plus new optional `scope{org_unit,area,jurisdiction?}` + `source` (provenance) + `granted_at`. Verified it passes
+strict write-time validation (kernel SCHEMA_VALIDATE=strict) so existing role-grant / dev-provisioning writers
+don't break. Reproducible: `components/solutions/org-foundation-basic-erp/govern_role_grant.py`.
+PROJECTION: new host bridge `_bridge_posting_apply` (`/bridge/posting-apply`, admin-gated) turns an `org.posting`
+into a `governance.role_grant` — subject = the employee's LOGIN sub (`org.employee.citizen` = user://<tenant>/<name>),
+role = posting.role, scope = {org_unit, area}, source = posting id, idempotent per posting. Posting active+role+linked
+login → grant (revoked:false); posting ended / role cleared / no login → revoke. The Org Setup app (v0.2.0) adds a
+"Login user" field on the employee form, calls posting-apply on posting save (toast: live / "pending login"), and shows
+an RBAC column (● live / pending login / revoked). Enforcement is the EXISTING `_effective_roles` (identity ∪ non-revoked
+role_grant) — verified end-to-end: an employee with NO identity roles gained `urban.ward-officer` purely from the posting
+(via `/bridge/user-roles`), and ending the posting revoked it.
+LIMITS: (1) enforcement is role-membership only — `scope{org_unit,area,jurisdiction}` is RECORDED on the grant but NOT
+yet enforced (scope-aware authz = a further step; today a granted role holds tenant-wide). (2) The employee→login link
+is manual (admin types the username); no auto-provisioning of the account. (3) Projection fires when the admin saves a
+posting via the app (or calls the bridge); there is no background reconciler if postings are written by another path.
