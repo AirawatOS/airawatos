@@ -1950,3 +1950,25 @@ LIMITS:
 - Expense in-inbox approve needs the manager to pick a budget (a `ref` param) — fine, but there's no default/last-used.
 - Notifications are inbox items only (no email/push). Acting in the inbox calls the domain verb, which re-checks
   authority (e.g. only the manager may decide) — so a wrongly-addressed item's action will 403, by design.
+
+## Tax Gap Finder — slice 1 (config-driven candidate spine) — 2026-08-31
+Greenfield property-tax enforcement solution ds:airawat:solution/tax-gap-finder (old KMC schemas were wiped in the reset).
+DONE: tax+util domains + 6 schemas (tax.match_policy is the config backbone) + tax-gap-engine v0.2.0 (fuzzy record-linkage
+mobile/name/address weighted + point-in-polygon spatial join + geometric hygiene + geocode banding + footprint centroid-
+join + change signals → scored tax.candidate + governance.recommendation) + Tax Config Console (Thresholds/Match tester/
+Scan/Candidates). Every threshold + weight is tenant-editable via tax.match_policy — nothing hardcoded. PROVEN on a
+labelled fixture (P-B conf 0.9, 3 signals). NO fabrication — gap-scan reads real records only.
+NOT BUILT YET (next slices):
+- INGEST DRIVERS: geocode-ledger (address_string → lat/long via a real geocoder, fail-loud on miss) + ingest-utilities
+  (lat/long-or-geocode). Until these exist, tax.assessment/util.connection must be loaded externally.
+- CHANGE-DETECT engine on REAL AlphaEarth embeddings (currently tax.change_signal is consumed but not produced; wire to
+  geo.landcover / the landcover-dw GEE runtime for embedding-delta scoring).
+- FIELD CAMPAIGN app: campaign.campaign + campaign.assignment schemas + the officer assignment→Inbox→ground-truth→
+  governance.decision→reassess loop (reuses the actionable Inbox + scope-aware RBAC + decision spine).
+LIMITS of the spine as built:
+- gap-scan is interactive (admin-triggered); a scheduled/large-city run needs the headless pattern (reads grant already
+  declared) + batching (it loads all parcels/records into memory — fine for a ward, not a metro in one shot).
+- under_assessed signal is declared + weighted but NOT computed yet (needs a rate card: built_area × ready-reckoner).
+- estimated_revenue on a candidate is null (needs the rate card too).
+- geocode band/geometry-hygiene are computed per record but not yet persisted back onto tax.assessment/util.connection
+  (the join is recomputed each scan); persist on ingest once the drivers exist.
