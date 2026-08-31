@@ -1788,3 +1788,21 @@ finance.transaction (which already carries both). Plan (budget alloc + planned o
 variance. "Project links outlays→outputs→outcomes." Then TRAVEL module (same expense pattern via finance-post).
 LIMITS: expense committed→posted (pay) not wired; approver escalation (if over limit, route higher) not built —
 currently just blocks; no itemised expense lines (single amount).
+
+## Componentize engines S1: host engine-dispatch + hr-workflows engine — 2026-08-31
+Addressing the valid concern that server-side LOGIC was living in the reference host (not Studio-authorable). Built the
+mechanism: `ENGINE_VERBS` maps verbs → a certified engine component; the host `_dispatch_engine(verb)` loads that
+engine's run.py (`_load_engine`, cached) and calls `HANDLERS[verb](ctx)`. `ctx` = component-attributed registry I/O
+(kwrite/kfind/kget with X-Component-Id=the ENGINE) + shared host helpers (policy_resolve / finance_post / first_account
+/ leave_balance) so engines compose. Migrated leave/attendance/expense apply+decide into
+`ds:airawatdeveloper:engine/hr-workflows` (kind:engine, run.py HANDLERS); DELETED the 5 host bridge methods. The engine
+is a SOLUTION MEMBER (Studio-editable, versioned) and HOLDS the write grants (apps=screens, engine=logic). PROVEN: all
+HR flows still work; leave record `wrote_by: component://…engine/hr-workflows@0.1.0 obo user://nashik/asha` (was the
+app before). Studio loop for logic: edit engine/hr-workflows/run.py → Publish → Compose → upgrade.
+GOING FORWARD: build every new solution's server logic as engine components (not host bridges).
+LIMITS/next: (1) engine run.py is loaded from its dir + executed IN the host process (not broker-sandboxed) and NOT
+digest-verified against the cert yet — same trust as host code; proper isolation = the ADR-0030 broker + ADR-0050
+execution engine (unbuilt). (2) `_ENGINE_MODS` caches the module per host process — a Studio edit+republish needs a host
+restart (or a cache-bust on reload) to take effect. (3) STILL host methods (migrate next): policy_resolve, finance_post,
+first_account, leave_balance (shared engines), posting-apply, authz-check, employee-provision, the service-workflow
+interpreter. (4) hr-desk meta still lists finance writes it no longer uses (harmless; trim later).
