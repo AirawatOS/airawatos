@@ -1677,3 +1677,14 @@ the agency's org.area options into the field (citizen currently needs the code; 
 agency's org.area). (2) area/org_unit scope_map needs the citizen submission to yield a real code; jurisdiction is
 governed+public so it's the easiest to wire to a citizen picker. (3) local-dev flakiness noted: chaining separate curl
 invocations with a shared cookie jar intermittently lost the app_host session — use one process/jar per session.
+
+## Area picker baked into Service Studio — 2026-08-31
+The 📍 Location field is now a real PICKER, not a free-text code. Catalog bridge gains kind=areas / kind=org_units
+(reads the agency's own org.area / org.org_unit with the admin session token). Service Studio loads AREAS/UNITS on boot
+and, when a field is 📍-marked (area | org_unit | jurisdiction), BAKES the options into that field at publish:
+request_schema[field] = {type:string, enum:[ids/codes], x-enum-labels:{id:name}} (jurisdiction uses the governed CITIES).
+Jan Seva renders any enum field as a labelled <select>. Proven live: agency re-publishes ward-grievance → ward field
+carries enum [ward-31, zone-3] + labels; a citizen PICKS Ward 31 → case scope area_path [ward-31, zone-3] → the zone-3
+officer sees it. Service Studio 0.2.5, Jan Seva 0.1.9.
+LIMIT: options are a SNAPSHOT baked at publish time — if the agency adds/renames areas later, the offering must be
+re-published to refresh the picker (no live lookup at render). Area labels come from org.area.name at publish.
