@@ -1933,3 +1933,20 @@ REMAINING LIMITS:
   the latest rate (no within-month comp split); pair with allocation dates for finer control.
 - Idempotency is per (allocation, period) via a fixed txn id: if an allocation's dates change AFTER the month was
   already apportioned, a re-run will NOT re-post/adjust the existing entry (no correction/reversal path yet).
+
+## Inbox ↔ ERP integration — 2026-08-31
+ERP approvals now surface AND are actioned in the universal Inbox (ADR-0048), and users file leave/expense from it.
+Mechanism: platform.inbox_item.actions (existing array[string]) carries each action as a JSON string {label,verb,args,
+style,params?} — no bump of the shared core schema. Inbox app v0.2.0 renders JSON actions as buttons that call /bridge/
+<verb> (a `ref` param fills selects from a schema, e.g. expense→finance.budget). hr-workflows v0.3.0 attaches approve/
+reject to leave+expense manager items; project-engine v0.4.0 routes proposal approvals to the sponsor/admin + notifies on
+decide (holds a platform.inbox_item grant). Inbox "＋ New request" files leave/expense (leave-apply/expense-apply).
+PROVEN: project proposal→inbox→approve-in-place→active+budget+notify; leave filed from inbox→manager item w/ actions.
+LIMITS:
+- "＋ New request" only offers Leave + Expense (hardcoded REQS in the inbox app) — not project proposals, attendance, or
+  a governed request catalog; extend REQS to add more. It's ERP-specific UI living in the shared Inbox app.
+- Project proposals with no sponsor login are role-addressed to platform.tenant-admin (every admin sees them; the scope
+  filter still applies). No per-approver routing/round-robin.
+- Expense in-inbox approve needs the manager to pick a budget (a `ref` param) — fine, but there's no default/last-used.
+- Notifications are inbox items only (no email/push). Acting in the inbox calls the domain verb, which re-checks
+  authority (e.g. only the manager may decide) — so a wrongly-addressed item's action will 403, by design.
