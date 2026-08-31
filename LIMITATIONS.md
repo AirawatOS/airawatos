@@ -1919,3 +1919,17 @@ REMAINING LIMITS:
   and turn it on once (which then creates the schedule + install). No bulk/default-on across tenants.
 - ensure_install uses the clicking admin's session token for the control-plane call — fine (they're a tenant admin), but
   it's not a dedicated service principal; a headless/no-session caller could not enable a schedule this way.
+
+## Payroll proration for mid-month joiners/leavers — 2026-08-31
+payroll-engine v0.5.0: apportioned cost = monthly_cost × percent × (active_days_in_month / days_in_month), where active
+days are the overlap of the allocation [from_date, to_date] with the run month (day granularity, calendar.monthrange for
+month length). A mid-month JOINER (from_date inside the month) and LEAVER (to_date inside the month) are charged pro-rata;
+a whole-month allocation gets factor 1.0. The posted memo carries "N/Md pro-rata"; preview + rollup reflect it. PROVEN:
+Oct joiner @100% ₹124k → ₹64,000 (16/31 days).
+REMAINING LIMITS:
+- Proration is by CALENDAR days only — it does NOT account for attendance, leave-without-pay, or working-day calendars
+  (a person on approved LWP for half the month is still charged the full month unless their allocation dates change).
+- Comp is still the single latest effective row for the month — if monthly_cost CHANGES mid-month, the whole month uses
+  the latest rate (no within-month comp split); pair with allocation dates for finer control.
+- Idempotency is per (allocation, period) via a fixed txn id: if an allocation's dates change AFTER the month was
+  already apportioned, a re-run will NOT re-post/adjust the existing entry (no correction/reversal path yet).
