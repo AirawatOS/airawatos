@@ -1886,3 +1886,23 @@ REMAINING LIMITS:
 - Only LABOUR is apportioned via allocations. Travel/expense reach a project only when a claim is filed with that
   `project` tag (already supported); asset depreciation apportionment is not modelled.
 - Compensation is a single monthly_cost (cost-to-org), not a structured pay package (basic/allowances/employer contrib).
+
+## Scheduled monthly payroll run — 2026-08-31
+The payroll apportionment now runs automatically. payroll-engine v0.3.0 has a HEADLESS main() (broker /v1/query+/v1/write
+under its run-token) that the platform scheduler fires via the app-host launcher (confined L1, certificate VERIFIED). A
+platform.schedule (cron `0 2 28 * *`, tenant nashik) drives it; next run 2026-09-28. main() defaults PAYROLL_PERIOD to
+the current month. PROVEN: scheduler /run posted the 2026-09 apportionment headless (₹60k → DR-27, wrote_by
+component://payroll-engine). Two install requirements captured: (1) the engine needs a `reads:` meta field so the
+run-token gets read grants (interactive user-token path used required_schemas; a headless cron has no user token); (2)
+the scheduler finds installs via kernel `/v1/components`, which the SOLUTION install does NOT populate with a run-token —
+you must also POST `/v1/components/install {component_id}` per tenant to mint it.
+REMAINING LIMITS:
+- The platform.schedule was created for nashik by hand (kernel write). No UI yet to enable/disable the monthly run per
+  tenant, and no auto-creation of the schedule on solution install — a new tenant must have the schedule + the per-
+  component install registered. Add a "Payroll schedule" toggle to the Finance Console Payroll tab + create-on-install.
+- HEADLESS composition imports finance-engine's run.py from the sibling dir (works in local-dev subprocess). In a
+  containerized runtime (RUNTIME_MANAGER_URL set) the payroll container would need finance-engine bundled, OR a headless
+  finance broker verb — otherwise the in-process ctx.call import fails. Interactive path is unaffected.
+- Headless salary txns are attributed to payroll-engine (its run-token), NOT finance-engine as in the interactive path —
+  two attribution models for the same logical write, by path. Acceptable (payroll IS the batch writer) but noted.
+- Proration/attendance still not applied (flat monthly_cost × %); cron is fixed 28th (no last-day-of-month).
