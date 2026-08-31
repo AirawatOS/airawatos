@@ -1688,3 +1688,21 @@ carries enum [ward-31, zone-3] + labels; a citizen PICKS Ward 31 → case scope 
 officer sees it. Service Studio 0.2.5, Jan Seva 0.1.9.
 LIMIT: options are a SNAPSHOT baked at publish time — if the agency adds/renames areas later, the offering must be
 re-published to refresh the picker (no live lookup at render). Area labels come from org.area.name at publish.
+
+## First ERP module: Leave & Attendance — 2026-08-31
+Governed `hr` domain + `hr.leave_request` + `hr.attendance`. NEW pattern vs the civic grievance flow: internal +
+PERSON-routed (to the employee's reporting MANAGER, resolved from org.employee.manager), not role-routed.
+- SELF-SERVICE writes: `_bridge_leave_apply` / `_bridge_leave_decide` / `_bridge_attendance_mark` — NOT admin-gated
+  (unlike /bridge/save); any authenticated staff acts on their own records, authorised by the HR-Desk component's
+  grant (ADR-0052: component://hr-desk obo the employee). leave-apply resolves the manager + notifies their inbox;
+  leave-decide verifies the caller IS the manager, sets status, notifies the applicant.
+- `HR Desk` app (ds:airawatdeveloper:app/hr-desk v0.1.0): Leave (apply + my requests) · Attendance (check in/out +
+  history) · Approvals (a manager's team queue). Installed into nashik via `/v1/grants/issue` (single-component
+  install) + shelved. PROVEN LIVE: Asha applies → Sanjay (manager) approves → Asha sees approved + checks in.
+- Also FIXED a blocking Org Setup bug the user hit: the Add buttons (Units/Areas/People/Postings/Goals) were dead —
+  `onclick="addRow("units")"` had nested double quotes that broke the attribute; single-quoted it. org-setup v0.3.1.
+LIMITS: (1) manager-scoping of the Approvals queue is APP-enforced (query filter manager_login==me) + a server check
+in leave-decide — the registry doesn't per-record-restrict who can read a leave (the HR-Desk read grant covers the
+schema tenant-wide; the app filters). (2) no leave BALANCE tracking / accrual; days is a simple date diff. (3) HR
+Desk not yet added to the Org Foundation solution graph (installed standalone via grants/issue) — fold it in on the
+next compose. (4) attendance has no geofence/scope; one record per employee-day.
