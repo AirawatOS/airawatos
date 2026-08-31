@@ -1906,3 +1906,16 @@ REMAINING LIMITS:
 - Headless salary txns are attributed to payroll-engine (its run-token), NOT finance-engine as in the interactive path —
   two attribution models for the same logical write, by path. Acceptable (payroll IS the batch writer) but noted.
 - Proration/attendance still not applied (flat monthly_cost × %); cron is fixed 28th (no last-day-of-month).
+
+## Self-serve payroll schedule toggle — 2026-08-31
+The monthly run is now toggled from the UI. Finance Console v0.3.0 "Payroll" tab shows an "Automatic monthly run" card
+(on/off + day-of-month 1–28 + next/last run) → `payroll-schedule` verb (payroll-engine v0.4.0: get/set the
+platform.schedule, admin-gated). Enabling also ensures the scheduler's run-token via a new host capability
+`ctx["ensure_install"]` (registers the per-tenant install-as-grant; mirrors provision_login) — so enabling is turnkey,
+no manual /v1/components/install. PROVEN e2e: get → off → on(day25) → scheduler cron `0 2 25 * *`; non-admin refused.
+REMAINING LIMITS:
+- Day-of-month capped at 1–28 (5-field cron can't express "last day of month"); time fixed 02:00 UTC (not tenant-local).
+- The schedule/toggle is per-tenant but NOT auto-created on solution install — a tenant admin must open the Payroll tab
+  and turn it on once (which then creates the schedule + install). No bulk/default-on across tenants.
+- ensure_install uses the clicking admin's session token for the control-plane call — fine (they're a tenant admin), but
+  it's not a dedicated service principal; a headless/no-session caller could not enable a schedule this way.
