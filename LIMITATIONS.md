@@ -1843,3 +1843,27 @@ verification, VC issuance), generic platform-gateway plumbing used by any servic
 the kernel/scheduler. Migrating it would move a privileged cross-tenant secret surface into certified code — opposite of
 the security goal. So all SOLUTION logic is now Studio-authored engines; only platform RUNTIME (kernel, gateway,
 scheduler, identity) remains host, as it should.
+
+## Project layer (results-contract lifecycle) — 2026-08-31
+Built the Project layer via Studio into the Org Foundation solution: `project` domain + 5 schemas (project.project,
+project.proposal[versioned baseline embedding outcomes/outputs/milestones/deliverables/outlay], project.review,
+project.evaluation, project.allocation) + finance.budget@0.2.0 (+project). `project-engine` (certified, Studio-editable)
+has the lifecycle: proposal-submit → proposal-decide (approve ⇒ governance.decision [a decided change-request, ADR-0056]
++ project active + budget committed from outlay) → project-rollup (Plan vs Actual, by project + by owning org_unit) →
+project-review (RAG vs plan) → project-evaluate (outcomes/outputs/VfM + recommendation) → project-adjust (re-baseline,
+new version supersedes on re-approval). Project Console app = Portfolio/rollup · Propose (results-chain authoring) ·
+Approvals · detail drawer (Review/Evaluate/Adjust). PROVEN end-to-end on REAL data: actuals = posted finance.transactions
+tagged `project` (finance-engine); all writes wrote_by component://…engine/project-engine.
+HONEST LIMITS:
+- ACTUALS = posted transactions only. Salary/travel/expense/asset apportionment to a project shows up in `spent` ONLY
+  when a real transaction is posted tagged with that `project` (expense/finance already carry it). project.allocation
+  (employee→project %) is captured but NOT yet auto-apportioned into `spent` (no payroll-cost × allocation posting job);
+  labour-from-allocation is a planned/forecast figure, not an actual. Wire a payroll→project apportionment posting next.
+- ROLLUP `planned_to_date` is NOT time-phased — it compares spend against the FULL allocation, not a schedule-to-date
+  curve, so the RAG status is coarse (overspend / >80% used) rather than earned-value.
+- Cost is attributed at PROJECT level only (finance links to project). Output-level cost (outlay `output` refs exist in
+  the baseline but transactions don't carry an output ref) is not rolled up. Split outlay into a linked schema for that.
+- Lifecycle transitions are guarded lightly (review/evaluate require an approved baseline; no full state-machine gate,
+  e.g. you can review a project already recommended-close). project.allocation has no console screen yet.
+- One stale test project (DRAIN-26) remains in the nashik dev tenant from a first run that failed on the governance.
+  decision `task`-required constraint (since fixed); /bridge/retract isn't exposed to clean it. Harmless dev data.
