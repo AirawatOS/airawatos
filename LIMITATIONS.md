@@ -1736,3 +1736,16 @@ tree with an ELEVATED tenant-admin token (an authz-style computation) — prod w
 not tenant-admin. (2) role context = the employee's posting role(s) only (not their full effective role_grants). (3)
 rules payload is app-shaped per domain (leave/travel/expense/attendance have typed forms; others fall back to raw JSON).
 NEXT: HR Desk consumes policy-resolve for leave BALANCE/accrual (entitlement − taken); goal templates keyed by level×role.
+
+## Leave balance/accrual wired into HR Desk (consumes the policy engine) — 2026-08-31
+Refactored the policy engine into a shared `_policy_resolve(tenant, sub, domain, employee_id)` + `_leave_balance(...)`
+helper. HR Desk (v0.2.0) Leave tab now: calls policy-resolve(leave) → shows a BALANCES table per type (entitlement /
+accrued / taken / pending / available), annotates the type dropdown ("— N left"), and blocks over-application. ACCRUAL:
+if the leave policy sets accrual_per_month, accrued = min(annual, accrual_per_month × month-of-year); else full annual.
+ENFORCED SERVER-SIDE in `_bridge_leave_apply` (not just the UI) — a direct API call can't overspend. Untyped/unpaid
+leave (no policy) = uncapped. Also hardened `policy-resolve`: non-admins may only resolve THEMSELVES (the employee arg
+is ignored unless caller is admin — Policy Console preview still resolves anyone). PROVEN: L4 earned=30; apply 5→pending
+(25 left); apply 31→BLOCKED with the arithmetic; unpaid→allowed.
+LIMITS: (1) balance counts THIS calendar year only; carry-forward (carry_forward_max) is stored on the policy but NOT
+yet added to accrued (needs prior-year close-out). (2) taken/pending summed from hr.leave_request via elevated read.
+(3) no leave-year config (assumes Jan–Dec). (4) accrual is proration-by-month, not date-precise.
