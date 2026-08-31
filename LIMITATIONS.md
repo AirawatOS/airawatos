@@ -1660,3 +1660,20 @@ each constituent was verified separately (schemas accept scope; writers stamp it
 submission only carries scope if `message.scope` is provided (citizen apps don't send it yet — a form→scope mapping is
 the next wire). (2) the task/inbox scope filters only apply in apps whose read allow-list includes that schema
 (inbox→platform.inbox_item, crowd-command→platform.task). (3) employee→login is provisioned passwordless (dev identity).
+
+## Form→scope mapping (citizen submission → scoped case) — 2026-08-31
+An offering declares `scope_map` {org_unit|area|jurisdiction: <form field key>} (network.service_offering). At submit,
+`_provider_fulfil` reads the field off the citizen's form → derives `message.scope` → materialises + stamps the case +
+task + inbox (the scope-propagation from the prior slice). Service Studio (v0.2.4): each intake field has a 📍 Location
+marker (— / Area / Jurisdiction / Org unit) → sets `scope_map`; round-trips on load. PROVEN LIVE END-TO-END: a citizen
+files a Ward-31 grievance (ward-grievance offering, scope_map area←ward, routes to urban.ward-officer) → case scope
+materialises to area_path [ward-31, zone-3] → the officer scoped to zone-3 SEES it in their inbox; zone-5 denied.
+IMPORTANT FIX: `_grant_covers` is now ITEM-DRIVEN — for each axis the ITEM localises on (its `*_path`), if the grant
+constrains that axis the item must be within it; axes the item omits don't exclude it (but it must overlap ≥1
+constrained axis). This is why a posting-scoped officer (org_unit+area) correctly sees an area-only grievance. The prior
+grant-driven check wrongly hid it (item had no org_unit).
+LIMITS: (1) the 📍 location field's VALUE must be a valid area id / jurisdiction code — Service Studio does NOT yet bake
+the agency's org.area options into the field (citizen currently needs the code; next: an Area picker populated from the
+agency's org.area). (2) area/org_unit scope_map needs the citizen submission to yield a real code; jurisdiction is
+governed+public so it's the easiest to wire to a citizen picker. (3) local-dev flakiness noted: chaining separate curl
+invocations with a shared cookie jar intermittently lost the app_host session — use one process/jar per session.
