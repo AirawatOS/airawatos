@@ -1867,3 +1867,22 @@ HONEST LIMITS:
   e.g. you can review a project already recommended-close). project.allocation has no console screen yet.
 - One stale test project (DRAIN-26) remains in the nashik dev tenant from a first run that failed on the governance.
   decision `task`-required constraint (since fixed); /bridge/retract isn't exposed to clean it. Harmless dev data.
+
+## Payroll → project apportionment — 2026-08-31
+Labour cost now flows into project actuals (closes the prior "salaries not apportioned" gap). `hr.compensation`
+(employee monthly_cost, effective-dated) = the REAL cost source. `payroll-engine` (Studio-editable, composes
+finance-engine): payroll-preview + payroll-apportion — for a period, each active project.allocation → a project-tagged
+salary finance.transaction (monthly_cost × percent), idempotent per (allocation, period) via a deterministic txn id
+(finance-engine 0.2.0 accepts optional `id`). NO fabrication: allocations without compensation/budget are reported
+skipped. UI: Project Console "Team" (allocations via project-engine 0.3.0 allocation-set/list); Finance Console 0.2.0
+"Payroll" tab (set compensation + run). PROVEN e2e on nashik (Asha @50% × ₹120k → ₹60k on DR-27; re-run posts 0; salary
+txn wrote_by finance-engine, tagged project + source_kind=payroll).
+REMAINING LIMITS:
+- The payroll run is MANUAL per period (a button). No scheduled monthly cron yet — wire platform.schedule → payroll-
+  apportion for automatic month-end runs.
+- Apportionment is FLAT monthly_cost × allocation%. It does NOT prorate for mid-month start/end, leave without pay, or
+  attendance; effective-dating picks the latest comp row on/before the period but within-month changes aren't split.
+- Still project-level, not output-level (the salary txn carries `project`, not an output ref) and NOT time-phased.
+- Only LABOUR is apportioned via allocations. Travel/expense reach a project only when a claim is filed with that
+  `project` tag (already supported); asset depreciation apportionment is not modelled.
+- Compensation is a single monthly_cost (cost-to-org), not a structured pay package (basic/allowances/employer contrib).
