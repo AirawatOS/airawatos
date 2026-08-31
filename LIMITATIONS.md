@@ -1749,3 +1749,22 @@ is ignored unless caller is admin — Policy Console preview still resolves anyo
 LIMITS: (1) balance counts THIS calendar year only; carry-forward (carry_forward_max) is stored on the policy but NOT
 yet added to accrued (needs prior-year close-out). (2) taken/pending summed from hr.leave_request via elevated read.
 (3) no leave-year config (assumes Jan–Dec). (4) accrual is proration-by-month, not date-precise.
+
+## Finance core — double-entry-ready ledger + budgets + settlement seam — 2026-08-31
+Chose "thin Finance core first, then Expense, then Travel" — but built the ledger DOUBLE-ENTRY-READY per user guidance
+(they'll need full double-entry eventually). Governed `finance.account` (chart of accounts: type asset/liability/equity/
+revenue/expense + normal balance), `finance.transaction` (a JOURNAL ENTRY with balanced debit/credit `lines[]`;
+status committed|posted|void; convenience `amount`/`direction`/`budget`/`source` tags), `finance.budget` (allocation on
+an expense account; available = allocated − committed − spent). `_bridge_finance_post` = THE SETTLEMENT SEAM (component-
+attributed): mode (a) explicit `lines[]` (raw GL, must balance) or (b) CONVENIENCE {direction,amount,budget|account,
+contra_account} → auto-builds the balanced 2-line entry; validates Σdebit=Σcredit; checks + rolls budget committed/spent
+(blocks overspend unless allow_overspend). `Finance Console` app v0.1.0: Accounts (chart + seed-defaults) / Budgets
+(allocated/committed/spent/available bars) / Journal (entries with visible Dr/Cr lines + New-entry). Folded into the
+Org Foundation solution + installed. PROVEN: ₹30k travel posts a balanced Dr Travel/Cr Payables entry + commits to the
+budget (available 100k→70k); ₹90k over budget BLOCKED; an unbalanced explicit entry BLOCKED.
+EXTENDS TO FULL DOUBLE-ENTRY with no rework: entries already ARE balanced lines over a chart of accounts — full DE just
+adds trial-balance/P&L reports + multi-line UI + period close. NEXT: Expense module (claim→policy limit + budget check→
+approve→finance-post committed; payment→posted), then Travel (same seam). LIMITS: (1) committed→posted transition (pay a
+committed entry) not yet wired (needs a 'pay'/settle action moving committed→spent). (2) no fiscal-period close / trial
+balance report yet. (3) finance-post reads/writes with the caller COMPONENT grant (Console has it); Expense/Travel will
+each need finance.transaction+finance.budget write grants. (4) single currency assumed.
