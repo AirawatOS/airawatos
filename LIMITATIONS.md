@@ -1706,3 +1706,18 @@ in leave-decide — the registry doesn't per-record-restrict who can read a leav
 schema tenant-wide; the app filters). (2) no leave BALANCE tracking / accrual; days is a simple date diff. (3) HR
 Desk not yet added to the Org Foundation solution graph (installed standalone via grants/issue) — fold it in on the
 next compose. (4) attendance has no geofence/scope; one record per employee-day.
+
+## Classification layer: Job Level × Career Stream × Position — 2026-08-31
+Chose the fuller HR model (position SLOT, not just attributes) + a coming unified Policy engine. Governed
+`hr.job_level` (grade/band; `rank` orders seniority so policy can say ">= N"), `hr.career_stream` (job family),
+`org.position` (a job SLOT = stream × level × org_unit + `eligible_roles[]` + `reports_to`). Bumped `org.posting@0.2.0`
+with an optional `position` ref (kernel validator refresh). Org Setup (v0.4.0) gains Levels / Streams / Positions
+sections; the posting form has a Position picker that prefills the unit + constrains the role dropdown to the
+position's eligible_roles + prefills designation. Folded via the auto-bumping compose (solution 0.3.0) + reinstall
+(org-setup now granted 8 schemas). PROVEN: level L4 + Sanitation stream + "Ward Officer" position (eligible for
+urban.ward-officer) + a posting linked to it all persist.
+NEXT (per the plan): unified `org.policy` engine + Policy Console (leave/travel/expense, applies_to level≥/stream/
+role/unit) → leave balance/accrual from policy → goal templates keyed by (level × role) instantiated on posting.
+LIMITS: role∈eligible_roles is UI-constrained only (not enforced at posting-apply); position doesn't yet drive
+employee.level/stream derivation or goal-template instantiation (that lands with the policy/goals slices).
+Also improved: `project-compose` now AUTO-BUMPS the solution minor version on re-compose (store is immutable).
