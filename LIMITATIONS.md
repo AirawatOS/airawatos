@@ -1806,3 +1806,21 @@ execution engine (unbuilt). (2) `_ENGINE_MODS` caches the module per host proces
 restart (or a cache-bust on reload) to take effect. (3) STILL host methods (migrate next): policy_resolve, finance_post,
 first_account, leave_balance (shared engines), posting-apply, authz-check, employee-provision, the service-workflow
 interpreter. (4) hr-desk meta still lists finance writes it no longer uses (harmless; trim later).
+
+## Componentize engines S2: policy/finance/org-rbac engines + engine composition — 2026-08-31
+Migrated the remaining SHARED logic out of the host into certified engine components. Host mechanism upgraded:
+`_engine_ctx(eng_id,claims,body)` builds a ctx attributed component://<eng> obo user (gated by THAT engine's OWN
+grants) + `ctx["call"](engine_id, verb, payload)` so engines COMPOSE; `_invoke_engine` runs any engine's handler.
+New engines (all solution members, Studio-editable): `policy-engine` (policy-resolve — reads org tree via its OWN read
+grants, NO elevated tenant-admin token anymore), `finance-engine` (finance-post — the double-entry seam; owns contra
+lookup), `org-rbac-engine` (posting-apply → governance.role_grant). Refactored `hr-workflows` (v0.2.0) to DELEGATE:
+expense-decide → ctx.call(policy-engine) for the limit + ctx.call(finance-engine) to settle; leave balance → ctx.call(
+policy-engine); dropped its finance/org-tree grants. DELETED 7 host methods (_policy_resolve, _finance_post,
+_first_account, _leave_balance, _bridge_policy_resolve, _bridge_finance_post, _bridge_posting_apply). PROVEN: all flows
+work; expense ledger entry `wrote_by: component://…engine/finance-engine obo user` (composed hr→policy→finance). Grants
+land per-engine (finance-engine=ledger writes, org-rbac-engine=role_grant, policy-engine=read-only, hr-workflows=HR only).
+STILL host (deliberately, with reasons): authz-check (scope PDP — its `_effective_grants`/`_grant_covers`/`_scope_*`
+helpers are module-level + shared with the host inbox/query enforcement); employee-provision (needs the identity
+provisioner SECRET, not a grant); the service-workflow interpreter (`_provider_fulfil`/`_advance_service_workflow` — woven
+into the ADR-0067 gateway bridges; a bigger lift). GAPS unchanged: engines run in-host (not broker-sandboxed) + not
+digest-verified vs cert; `_ENGINE_MODS` cache needs a host restart after a Studio edit+republish.
