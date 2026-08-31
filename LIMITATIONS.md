@@ -1991,3 +1991,10 @@ REMAINING LIMITS:
   new tax.assessment / reassessment (the "→ reassess" step). Wire it to raise a draft assessment for the revenue office.
 - Campaign assignment is 1 candidate → 1 officer (manual). No bulk-assign, route optimization, or officer workload view.
 - No map view in the Tax Gap Campaign app (candidates are listed, not plotted); wire viz.layer + City Scan for the map.
+
+## Studio project membership gotcha — 2026-08-31
+studio.project.members[].layer is an enum (network|platform|domain|intelligence|governance|interaction). Tagging a
+driver member layer "observation" 422s the WHOLE /bridge/save (rolls back → project silently keeps its last valid member
+list). Drivers→domain, engines→intelligence, apps→interaction. Orchestration scripts MUST check the save return — a 422
+there is easy to miss, so components can be published+installed yet missing from the Studio project/solution graph. Fixed
+tax-gap-finder (was showing 2 of 7 members).

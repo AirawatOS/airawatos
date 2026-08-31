@@ -6,6 +6,9 @@ services:
     image: postgres:16-alpine
     container_name: airawat-postgres
     environment: { POSTGRES_DB: kernel, POSTGRES_USER: kernel, POSTGRES_PASSWORD: kernel }
+    shm_size: 256mb   # default /dev/shm is 64MB — too small for parallel (auto)VACUUM index cleanup on the
+                      # bitemporal registry_version table once it grows; without this VACUUM errors "No space
+                      # left on device" (/dev/shm) and dead tuples never get reclaimed.
     volumes: [ kernel_pg:/var/lib/postgresql/data ]
     healthcheck: { test: ["CMD-SHELL","pg_isready -U kernel"], interval: 5s, timeout: 5s, retries: 10 }
     restart: unless-stopped

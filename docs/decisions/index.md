@@ -34,6 +34,7 @@ invocation/lifecycle/trigger work (ADR-0062) are:
 - **ADR-0056** — Decided change-request pattern
 - **ADR-0016** — Marketplace certification & signed provenance
 - **ADR-0060** — L0–L4 representation ladder & City Baseline
+- **ADR-0067** — Civic service federation (network service directory + Beckn-adapted interaction protocol)
 
 Loose decision notes already in `Airawat/network/decisions/` (onboarding-composition,
 runtimes-are-certified-components, operators-and-tenant-portability) are to be **folded into this numbered
