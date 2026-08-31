@@ -1824,3 +1824,22 @@ helpers are module-level + shared with the host inbox/query enforcement); employ
 provisioner SECRET, not a grant); the service-workflow interpreter (`_provider_fulfil`/`_advance_service_workflow` — woven
 into the ADR-0067 gateway bridges; a bigger lift). GAPS unchanged: engines run in-host (not broker-sandboxed) + not
 digest-verified vs cert; `_ENGINE_MODS` cache needs a host restart after a Studio edit+republish.
+
+## Componentize engines S3: authz-check + employee-provision → org-rbac-engine — 2026-08-31
+The last two migratable host exceptions are now the org-rbac-engine's (v0.2.0, 3 handlers). authz-check (the scope-aware
+PDP) + its containment IP moved into the engine; `grant_covers`/`scope_has_paths` are module-level there so the HOST
+inbox/task filter IMPORTS them as a library (single source of truth; fallback pass-through if the engine is absent —
+safe, because without it no scopes exist). employee-provision's LOGIC moved to the engine while the identity provisioner
+SECRET stays host-side, exposed only as the `ctx["provision_login"]` capability (host holds the key, engine holds the
+logic + admin gate) — the pattern for any secret-touching engine. Added `ctx["network_url"]`. DELETED host methods:
+_bridge_authz_check, _bridge_employee_provision, _authorize_scope, _grant_covers, _scope_has_paths. KEPT (write-time,
+used by the `_provider_fulfil` gateway writer): _scope_materialize + _node_ancestors + _juris_ancestors; KEPT (platform
+role resolution): _effective_grants, _effective_roles. PROVEN: authz-check allowed on the granted area / denied off it
+(engine read role_grant + materialised the target through the org tree via its OWN grants); employee-provision provisions
++ refuses a non-admin; inbox scope filter unbroken.
+DELIBERATELY host (correct classification, NOT a gap): the service-workflow interpreter (_provider_fulfil ~700 lines +
+_advance_service_workflow) — ADR-0067 federation RUNTIME (cross-tenant provider-admin token minting, credential
+verification, VC issuance), generic platform-gateway plumbing used by any service across any solution, same category as
+the kernel/scheduler. Migrating it would move a privileged cross-tenant secret surface into certified code — opposite of
+the security goal. So all SOLUTION logic is now Studio-authored engines; only platform RUNTIME (kernel, gateway,
+scheduler, identity) remains host, as it should.
