@@ -1768,3 +1768,23 @@ approve→finance-post committed; payment→posted), then Travel (same seam). LI
 committed entry) not yet wired (needs a 'pay'/settle action moving committed→spent). (2) no fiscal-period close / trial
 balance report yet. (3) finance-post reads/writes with the caller COMPONENT grant (Console has it); Expense/Travel will
 each need finance.transaction+finance.budget write grants. (4) single currency assumed.
+
+## Expense module (approval + policy limit + double-entry settlement) + project tag — 2026-08-31
+Govern `hr.expense_claim` (v0.2.0 +`project`). Bridges `_bridge_expense_apply` (employee→manager, like leave) +
+`_bridge_expense_decide`: on APPROVE it (1) enforces the APPROVER's expense `approval_limit` policy (policy-resolve for
+the manager, most-specific), (2) SETTLES via the shared `_finance_post` helper — a committed double-entry expenditure
+(Dr expense account / Cr Payables) against the chosen budget, budget-availability enforced by the seam. Refactored the
+settlement seam into `_finance_post(kwrite,kget,tenant,sub,body)` (used by /bridge/finance-post AND expense-decide);
+`_first_account(tenant,type)` finds the Payables contra. HR Desk v0.3.0: Expenses tab (claim + my claims) + expense
+approvals in Approvals (budget picker); meta writes now include finance.transaction+finance.budget so the settlement
+posts under the hr-desk grant. PROVEN: ₹30k travel claim → approved → Dr Travel/Cr Payables balanced (project P-ROADS),
+budget committed 100k→70k; ₹80k over the L4 approval limit → BLOCKED.
+PROJECT TAG: added optional `project` to finance.transaction@0.2.0 + hr.expense_claim@0.2.0 NOW (fresh schemas) so
+outlays carry org_unit + project from day one — no retrofit for the coming Project layer.
+NEXT — PROJECT LAYER (per user): govern `org.project` {code,name,org_unit(owner),sponsor,dates,status,outputs[],
+outcomes[]}; org.allocation (employee↔project %, for salary apportionment); add `project` to finance.budget (budget per
+unit×project×account); a Project Console; rollups = revenue/expenditure BY project and BY unit×project from
+finance.transaction (which already carries both). Plan (budget alloc + planned outputs) vs Actuals (posted txns) →
+variance. "Project links outlays→outputs→outcomes." Then TRAVEL module (same expense pattern via finance-post).
+LIMITS: expense committed→posted (pay) not wired; approver escalation (if over limit, route higher) not built —
+currently just blocks; no itemised expense lines (single amount).
