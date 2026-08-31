@@ -1972,3 +1972,22 @@ LIMITS of the spine as built:
 - estimated_revenue on a candidate is null (needs the rate card too).
 - geocode band/geometry-hygiene are computed per record but not yet persisted back onto tax.assessment/util.connection
   (the join is recomputed each scan); persist on ingest once the drivers exist.
+
+## Tax Gap Finder — slices 2-4 (ingest drivers, AlphaEarth change-detect, field campaign) — 2026-08-31
+INGEST: geocode-ledger + ingest-utilities drivers (real Nominatim geocoding via broker egress, CSV-or-existing, fail-loud
+— proven geocoding a real Nashik address). CHANGE-DETECT: change-detect-alphaearth driver (real AlphaEarth embedding
+cosine-distance per parcel → tax.change_signal; earth-observation GEE runtime; fail-loud, no synthetic). FIELD CAMPAIGN:
+campaign domain + 2 schemas + campaign-engine (create/assign/verify-submit/progress) + Tax Gap Campaign app; the officer
+verifies IN their Inbox (reuses the actionable-inbox "Record verification" action) → governance.decision → candidate
+verified/dismissed. PROVEN full loop on nashik.
+REMAINING LIMITS:
+- geocode_confidence from Nominatim `importance` came back 0.0 in testing — the confidence→band mapping needs calibration
+  (use place_rank or a match-quality heuristic). The POINT is correct (what the spatial join uses); only the band is off.
+- change-detect-alphaearth needs the earth-observation runtime (earthengine-api) + a GEE service-account key + geo.parcel
+  cadastre loaded to produce REAL signals; not runnable in the bare local dev env (fails loud, as designed).
+- No CSV UPLOAD UI yet — LEDGER_FILE_ID/UTIL_FILE_ID expect a platform.component_asset file_id (the Settings upload flow);
+  a "load ledger" button in the Tax Config Console would make data-loading self-serve.
+- verify-submit on `confirmed` sets candidate=verified + estimated_revenue=assessed_value but does NOT yet auto-create a
+  new tax.assessment / reassessment (the "→ reassess" step). Wire it to raise a draft assessment for the revenue office.
+- Campaign assignment is 1 candidate → 1 officer (manual). No bulk-assign, route optimization, or officer workload view.
+- No map view in the Tax Gap Campaign app (candidates are listed, not plotted); wire viz.layer + City Scan for the map.
