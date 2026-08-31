@@ -1721,3 +1721,18 @@ role/unit) → leave balance/accrual from policy → goal templates keyed by (le
 LIMITS: role∈eligible_roles is UI-constrained only (not enforced at posting-apply); position doesn't yet drive
 employee.level/stream derivation or goal-template instantiation (that lands with the policy/goals slices).
 Also improved: `project-compose` now AUTO-BUMPS the solution minor version on re-compose (store is immutable).
+
+## Unified Policy engine + Policy Console — 2026-08-31
+Governed `org.policy` (one schema for ALL policy domains): {domain, applies_to{min_rank,max_rank,stream,role,org_unit},
+rules(domain-specific), priority, status}. `_bridge_policy_resolve` = the ENGINE: given (domain, employee) it resolves
+the employee's CLASSIFICATION context (seniority rank via posting→position→level, stream, role, unit) and returns the
+active policies whose applies_to matches, sorted MOST-SPECIFIC first. Consuming modules (HR Desk leave, Travel, Expense)
+call it for entitlements/limits — "manage all policy in one place". `Policy Console` app v0.1.0: CRUD by domain
+(Leave/Travel/Expense/Attendance) with applies_to pickers (min level / stream / role / unit) + domain-specific rule
+forms + a "Resolve for employee" preview. Folded into Org Foundation solution (recompose auto-bumped); installed.
+PROVEN: L4-posted employee resolves earned-leave 30 (L4+ policy first) then 15 (all-staff); travel L4+ matches;
+an employee with no position resolves only the all-staff policy (rank=None). LIMITS: (1) policy-resolve reads the org
+tree with an ELEVATED tenant-admin token (an authz-style computation) — prod wants a dedicated policy-reader principal,
+not tenant-admin. (2) role context = the employee's posting role(s) only (not their full effective role_grants). (3)
+rules payload is app-shaped per domain (leave/travel/expense/attendance have typed forms; others fall back to raw JSON).
+NEXT: HR Desk consumes policy-resolve for leave BALANCE/accrual (entitlement − taken); goal templates keyed by level×role.
