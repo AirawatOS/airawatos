@@ -13,15 +13,15 @@ docker buildx create --name airawatx --use >/dev/null 2>&1 || docker buildx use 
 docker buildx inspect --bootstrap >/dev/null
 
 echo ">> kernel  → $ORG/airawatos-kernel:$TAG"
-docker buildx build --platform "$PLATFORMS" -t "$ORG/airawatos-kernel:$TAG" \
+docker buildx build --platform "$PLATFORMS" -t "$ORG/airawatos-kernel:$TAG" -t "$ORG/airawatos-kernel:latest" \
   -f kernel/deploy/Dockerfile kernel --push
 
 echo ">> network → $ORG/airawatos-network:$TAG"
-docker buildx build --platform "$PLATFORMS" -t "$ORG/airawatos-network:$TAG" \
+docker buildx build --platform "$PLATFORMS" -t "$ORG/airawatos-network:$TAG" -t "$ORG/airawatos-network:latest" \
   -f network/deploy/Dockerfile network --push
 
 echo ">> reference (11 services, one image) → $ORG/airawatos-reference:$TAG"
-docker buildx build --platform "$PLATFORMS" -t "$ORG/airawatos-reference:$TAG" \
+docker buildx build --platform "$PLATFORMS" -t "$ORG/airawatos-reference:$TAG" -t "$ORG/airawatos-reference:latest" \
   -f deploy/ec2/Dockerfile.reference . --push
 
-echo ">> done. Pushed: $ORG/airawatos-{kernel,network,reference}:$TAG"
+echo ">> done. Pushed: $ORG/airawatos-{kernel,network,reference}:{$TAG,latest}"
