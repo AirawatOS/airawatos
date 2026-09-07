@@ -1998,3 +1998,165 @@ driver member layer "observation" 422s the WHOLE /bridge/save (rolls back → pr
 list). Drivers→domain, engines→intelligence, apps→interaction. Orchestration scripts MUST check the save return — a 422
 there is easy to miss, so components can be published+installed yet missing from the Studio project/solution graph. Fixed
 tax-gap-finder (was showing 2 of 7 members).
+
+## Scheduler asset-injection was fail-closed (missing IDENTITY_URL) — platform-wide
+The `airawat-scheduler` container ran with no `IDENTITY_URL` env, so `scheduler.py`'s
+`_svc_token()` defaulted to `http://localhost:8093` and failed. Because the registry
+read fails CLOSED under zero-trust (P0), `_component_assets()` swallowed the error and
+returned nothing — so **no scheduler-triggered driver run ever received its uploaded
+data-file assets** (e.g. `OSM_PBF_FILE_ID`). Symptom: osm-facilities/roads reported
+"FATAL: OSM_PBF_FILE_ID not set" even though the `platform.component_asset` record was
+correctly bound. The City-Baseline path masked this because it runs through app-host
+(correct env), not the scheduler. Fix: added `IDENTITY_URL: http://identity:8093` to the
+scheduler service in docker-compose. Watch for the same missing-env fail-closed pattern
+on any service that authenticates to the registry/identity by localhost default.
+
+## Large OSM PBF (regional/zone extract) 504s the osmium drivers
+pyosmium `apply_file(locations=True)` over a 300MB–1.5GB PBF builds a full node-location
+index and blows the 180s host-subprocess cap → HTTP 504 (seen on new-delhi's ~1GB
+northern-zone auto-download). Fix: osm-facilities/roads/drainage now `osmium extract -b
+<aoi-bbox> -s complete_ways` to clip the PBF to the AOI before the expensive pass, guarded
+on the `osmium` CLI being present (added to reference image 0.1.1) and file >150MB. City
+Setup's OSM URL picker can still hand a driver a coarse zone file; the clip makes that safe.
+
+## Registry resolve fetched the WHOLE table on every query (no SQL LIMIT) — big-layer perf cliff
+`pg_store.resolve_as_of` built a WHERE (schema + tenant id-prefix + filters) but ran `cur.fetchall()`
+with NO `LIMIT` and NO keyset — it loaded every matching row from Postgres, then sliced `[:limit]` in
+Python. The `cursor` arg was never used in the query, so pagination re-fetched the same window (effectively
+broken). For a metro road layer (new-delhi `geo.osm_feature` = 100k+ line features) every query loaded all
+100k rows → 9s+ and HTTP 502 above ~5k (payload). City Scan's Drainage/roads overlays (`q()` at limit 50000)
+therefore 502'd and hung the tab. Fix (hot-patched live, backward-compatible): push `LIMIT (limit+1)` +
+keyset `id > cursor` into the SQL; wire `cursor` through `/v1/registry/resolve`; app-host `/bridge/query`
+forwards `cursor`/`next_cursor`; City Scan loads big vector layers page-by-page (progressive render, 40k cap).
+Roads page now returns in ~0.8s with real disjoint keyset pages. **Hot-patched, NOT yet baked into the kernel
+image** — lost on a kernel image rebuild; fold pg_store.py/store.py/api/app.py + app_host.py + the city-scan
+bundle (and its re-cert) into the images on the next rebuild.
+
+## City Scan Drainage froze the tab — a hydro polygon with 65k+ vertices (deck.gl tessellation)
+The real cause of the Drainage hang was NOT fetch volume (new-delhi geo.hydro_feature = 28 features) but
+GEOMETRY COMPLEXITY: hydro-merit writes streams as Polygons, and one carried ~65,855 coordinates. deck.gl's
+GeoJsonLayer earcut-tessellates each polygon on the MAIN THREAD, so one 65k-vertex ring froze the browser for
+seconds. First attempt (0.3.3) uniform-stride-decimated the rings — WRONG: it collapsed thin ribbon-polygons into big
+blobs ("drainage lines became area shapes"). Correct fix (0.3.4): render drainage as LINES via a PathLayer over
+the geometry rings (`hydroPaths()`), never a filled polygon — no earcut tessellation (no freeze) and the channel
+shape stays true. RESOLUTION: the FIX is purely in the client render (City Scan 0.3.4 draws geo.hydro_feature as PathLayer LINES,
+not filled polygons — no earcut freeze). The DATA stays as the raster stream-mask POLYGONS, which are connected +
+complete. A driver "centreline" experiment (hydro-merit 0.2.0, scipy Voronoi medial axis) was tried and REVERTED
+(0.2.1): on blocky 90 m MERIT raster it fragmented streams into disconnected, lossy segments — worse than the
+polygons. So: keep polygons, render as lines. GOTCHA discovered: GEE drivers run in the EO runtime container that
+BIND-MOUNTS the HOST dir `/home/ec2-user/airawatos/rt-components` — NOT `/app/components` inside the app-host/
+scheduler containers; update rt-components on the host or the change is ignored. Migrating a tenant = retract old
+geo.hydro_feature first, then re-run (else features double up).
+
+## ADR-0073 M1 — Air Intelligence PM2.5 foundations (2026-09-05)
+- **PM2.5 label column is null (0 labelled cells).** `pm25-features` joins a `pm25_obs` label from
+  `air.sensor_reading`, but new-delhi has NO CPCB ground truth ingested (needs a real Delhi CPCB/CAAQMS key).
+  The feature matrix is therefore **inference-ready but not yet trainable** — model milestones (M4+) are blocked
+  on real Delhi station data. No fabricated labels.
+- **Feature matrix is NDJSON, not Parquet.** The runtime that runs engines (runtime-manager in-process) has no
+  `pyarrow`/`duckdb`. `pm25-features` already branches on `OUT_FORMAT=parquet` and falls back to NDJSON; M3 must
+  stand up a feature runtime image WITH pyarrow to emit real Parquet.
+- **cams-regional / era5-pblh use Open-Meteo, not GEE.** Open-Meteo's air-quality API is CAMS global (~40 km)
+  and its weather API serves ECMWF `boundary_layer_height` — same real sources, keyless, no GEE quota. Values are
+  the coarse regional field (spatially smooth over a city AOI by design; `native_resolution_km` carried). This is
+  regional CONTEXT, not a local measurement — AOD/CAMS ≠ local PM2.5 (ADR-0073 §2).
+- **cell.cams / cell.boundary_layer are a single hour (nowcast snapshot).** id = `ds:<tenant>:cell/<subject>/<h3>`
+  (no hour in the id), so a re-run supersedes the latest hour rather than accumulating a history. Historical
+  hourly backfill (needed for training/lags) is M3.
+- **No viz.layer yet for cell.cams / cell.boundary_layer.** They are feature INPUTS, not the presented deliverable
+  (the map layer is the future `air.pm25_estimate`, M5). They won't render in City Scan until a viz.layer exists.
+- **BAKE-LIST (hot-patch drift):** `cams-regional`, `era5-pblh`, `pm25-features` were deployed to the HOST
+  `rt-components` (durable, bind-mounted → runtime executes from here) and docker-cp'd into the scheduler's baked
+  `/app/components` (ephemeral — lost on recreate, but the prod run path derives kind from the install record, not
+  the baked meta, so this copy is non-load-bearing). All three are committed in the repo working tree
+  (`components/{drivers,engines}/`) so the next reference-image build includes them.
+
+## ADR-0073 M2 — CPCB + AOD + fire drivers (2026-09-05)
+- **CPCB ground truth is LIVE** via `air-sensors@0.2.0` (49 real Delhi stations → air.sensor_reading; pm25-features
+  labels_present:49). data.gov.in had re-keyed the value field `pollutant_avg`→`avg_value` (fixed, accepts both).
+- **Per-component Vault secret isolation is a real onboarding cost for shared credentials.** The ONE Google
+  service-account key is stored separately under every GEE driver (hydro-merit/terrain-dem/landcover-dw and now
+  must be under maiac-aod too); the CPCB key is under air-sensors only. A new driver reusing a shared key needs the
+  key re-bound to ITS component — Claude must NOT copy the raw value (that would expose it). Consider a future
+  tenant-level / shared-secret grant to remove this friction.
+- **maiac-aod + firms-fire are staged (certified+published+installed) but UNRUN — each gated on its key:**
+  maiac-aod needs GEE_SERVICE_ACCOUNT_KEY; firms-fire needs a NASA FIRMS MAP_KEY, both bound to their own component
+  in Connections for new-delhi.
+- **Secrets `as: template` inject mode added (HOT-PATCH).** `services`/`platform-spec/reference/secrets.py` now
+  supports `inject={as:"template", placeholder:"{KEY}"}` for path-key APIs (NASA FIRMS puts the key in the URL
+  path). Hot-patched into the `airawat-secrets` container (`.bak-tmpl` backup) + committed in the repo; BAKE into
+  the secrets image on next rebuild. The egress audit logs the pre-substitution placeholder path, so the key is
+  never recorded.
+- **signal.fire is per-detection event, not per-cell.** pm25-features does NOT yet consume it; wind-aware
+  fire→cell transport features are M3.
+
+## Connections app visibility = app-host's OWN /app/components (2026-09-05)
+`/bridge/connections` builds the Connections list by SCANNING the **app-host container's** baked
+`/app/components` (drivers/engines/…) for any component declaring `secrets` or `assets` — it does NOT read the
+store or install records. So a new driver is INVISIBLE in Connections until its dir is also present in app-host,
+even if it's installed + running. A component now needs its code in THREE places, each for a different function:
+(1) HOST `rt-components` (bind-mounted) — runtime-manager EXECUTES from here; (2) scheduler `/app/components`
+(baked) — cid→kind resolution for `/run`; (3) app-host `/app/components` (baked) — Connections secret/asset
+listing. Baking all three into the reference image on rebuild removes this drift; until then docker-cp to all
+three. (maiac-aod + firms-fire were run-installed but only appeared in Connections after the app-host copy.)
+
+## ADR-0073 M3 — feature store (2026-09-05)
+- **pyarrow hot-patched into runtime-manager** (the in-process engine runtime) for Parquet output — BAKE into the
+  reference image on next rebuild. pm25-features falls back to NDJSON if pyarrow is ever absent (graceful).
+- **Temporal lags = coarse point-series.** cams/pblh write the hourly series only at the ~25 AOI sample cells
+  (reusing cell.cams/cell.boundary_layer with hour-keyed `/series/` ids), not all 24k cells — CAMS/PBLH are ~40km
+  fields so lags are regional. pm25-features assigns each cell its NEAREST anchor's lags. Cheap (~1350 facts/driver
+  for 54h) + honest. The `/series/` facts coexist with the hour-less current-hour facts in the same scope; the
+  nowcast join filters by observed_at==target so they don't interfere. AOD lags stay per-cell (M-later; satellite
+  is genuinely 1km, no cheap coarse shortcut).
+- **Series depth is bounded by Open-Meteo past_days** (SERIES_HOURS_BACK, default 48 → ~54h available). Deeper
+  history (for real training) needs repeated scheduled runs accumulating hours, or the archive API.
+- **M3.4 wind-transport not built.** signal.fire is ingested but not yet a feature; needs a per-cell wind field.
+
+## ADR-0073 M3.4 — roads + building-height + nightlights (2026-09-05)
+- **Schema-cache staleness after an in-place schema bump.** The kernel caches the schema VERSION map ~300s and
+  validates writes against it. After governing cell.buildings@0.2.0 (new mean_height_m/built_volume_m3), the kernel
+  kept validating vs 0.1.0 → writes 422'd on the new fields. FIX: `POST /v1/registry/schema-cache/refresh` (admin/
+  steward) forces a re-fetch immediately. Do this after ANY in-place governed-schema update before writers use it.
+- **buildings-openbuildings@0.2.0** adds Open Buildings 2.5D Temporal `building_height` band to its GEE reduce →
+  per-cell mean_height_m + built_volume_m3. The temporal-collection `.mosaic()` + masked reduce is SLOW (full 24k
+  backfill = a long GEE run). Optimization: pin one recent year instead of mosaicking the whole collection.
+- **cell.roads was already produced by osm-roads** (length/density per cell) — not a new build, just needed a
+  re-run for new-delhi. Roads are 100k+ geo.osm_feature; the per-cell rollup MUST be done in the driver's PBF pass,
+  never post-hoc (a registry resolve of the full set times out at 120s).
+- **Nightlights DONE** (econ.nightlight → nightlight_radiance). pm25-features → 0.6.0 joins nightlight + roads +
+  building height; matrix ~33 features once the roads + full-height backfills finish.
+
+## M3.5 — historical label corpus (openaq-archive)
+- **openaq-archive driver LIVE + run for new-delhi**: 2,791 REAL hourly PM2.5 readings (station 8118, New Delhi)
+  from OpenAQ's anonymous S3 archive (s3://openaq-data-archive), window 2026-05-04..2026-09-01, ~96% hourly.
+  Total new-delhi air.sensor_reading = 2,840 (49 live CPCB snapshot + 2,791 archive). Source-attributed
+  (source=openaq-archive, prov.source_ref→ref.source/openaq, ODbL-1.0, s3_key anchor). Bootstrap = ONE station;
+  scale to all Delhi stations (drop LOCATION_IDS → keyed bbox discovery, or pass the full id list) is a config-only rerun.
+- **BROKER binary-body fix (as-yet HOT-PATCHED, not baked)**: platform-spec/reference/secrets.py /fetch used to
+  decode every upstream body as UTF-8 → corrupted gzip. Now returns `body_b64` (base64) for binary content-types
+  (gzip/octet-stream/zip/parquet or NUL-in-first-2KB), else `body` as before. The .csv.gz archive rides through
+  the broker intact. MUST be baked into the `reference` image (currently docker cp'd into airawat-secrets).
+- **FEATURE↔LABEL TEMPORAL ALIGNMENT GAP (blocks real supervised M4)**: the archive gives MONTHS of historical
+  hourly LABELS, but the feature drivers (CAMS/PBLH/AOD/…) currently write only the LATEST-hour snapshot per cell
+  (+ a coarse 48h series at sample points). Supervised training needs features time-aligned to each label hour.
+  Next: backfill HISTORICAL features over the same window — CAMS/ERA5 reanalysis is available via the Open-Meteo
+  ARCHIVE API (air-quality-archive / archive-api) for the exact hours — before the leave-station-out + temporal-
+  holdout numbers mean anything. Until then M4 metrics remain the honest-but-poor snapshot-only baseline.
+- **openaq-archive grant is WRITE-ONLY on air.sensor_reading** (reads only space.aoi) — correct least-privilege;
+  verified the corpus via the pm25-features reader token, not the driver's own.
+
+## Federated Mail signed-relay (ADR-0023/0024) — first slice, 2026-09-07
+- **Signed, not sealed.** A cross-tenant `mail.message` is delivered via a federation envelope SIGNED by the
+  sender tenant's steward (Ed25519) — origin is proven and tamper is rejected — but the body is NOT encrypted.
+  `/v1/federation/inbox` is pollable by participant_id, so envelope bodies are readable to anyone who can poll
+  that steward inbox. In-transit + at-rest-in-transit confidentiality (X25519 sealing) is a later ADR-0024 track.
+- **Recipient-pull delivery.** A federated message lands only when the recipient's Mail inbox is opened (the
+  mail-engine `listing` handler drains + delivers). No push/notification yet; a scheduled drain per tenant is the
+  follow-up so mail arrives without the recipient opening the app.
+- **Same-kernel deployment.** On this single-operator deployment all tenants share one kernel; the recipient
+  delivers into its own tenant with its own authority (no cross-tenant kernel write). Multi-operator delivery
+  (routing an envelope to the kernel that actually hosts the recipient tenant) needs operator endpoint discovery
+  in the directory — not yet built.
+- **Steward signing needs Vault.** `_steward_signer` has no non-Vault fallback (by design — a dev fallback that
+  persisted a key seed locally was rejected at review), so the relay requires a Vault-backed network service.
