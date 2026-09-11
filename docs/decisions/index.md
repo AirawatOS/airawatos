@@ -15,6 +15,19 @@ This is the **go-forward decision record**. It lives alongside the reference imp
 | 0063 | [Govern the control-plane verbs](ADR-0063-govern-the-control-plane-verbs.md) | Proposed |
 | 0064 | [Solution-driven activation (Packs)](ADR-0064-solution-driven-activation.md) | Proposed |
 | 0065 | [Airawat Stack ontology (5 layers · 4 atoms · 3 templates)](ADR-0065-airawat-stack-ontology.md) | Proposed · supersedes 0055 |
+| 0066 | [National guidelines & rules as shared network assets](ADR-0066-shared-network-assets.md) | Proposed |
+| 0067 | [Civic service federation: network service directory + interaction protocol](ADR-0067-civic-service-federation.md) | Proposed |
+| 0068 | [Pluggable identity providers + auth-method assurance tiers](ADR-0068-pluggable-identity-and-assurance-tiers.md) | Proposed |
+| 0069 | [The welfare spine: a goal-anchored objective function over the city](ADR-0069-welfare-spine-the-objective-function.md) | Proposed |
+| 0070 | [Uncertainty propagation & the publishability gate](ADR-0070-uncertainty-and-publishability.md) | Proposed |
+| 0071 | [From recommendation to funded project](ADR-0071-recommendation-to-funded-project.md) | Proposed |
+| 0072 | [Federated program funding: the information-gates-money loop](ADR-0072-federated-program-funding.md) | Proposed |
+| 0073 | [Air Intelligence: a reproducible PM2.5 nowcast/forecast on the H3 baseline](ADR-0073-air-intelligence-pm25-modelling.md) | Proposed |
+| 0074 | [Operator-configurable platform services](ADR-0074-operator-configurable-platform-services.md) | Proposed |
+| 0075 | [Solutions contribute into shared apps; Setup is unified](ADR-0075-solution-contributions-and-unified-setup.md) | Proposed |
+| 0076 | [The Solution anatomy, and process-first, form-anchored authoring](ADR-0076-solution-anatomy-and-document-first-authoring.md) | Proposed |
+| 0077 | [The media plane: the broker is the only door for *authority*](ADR-0077-camera-media-plane.md) | Proposed |
+| 0082 | [Offline-first capture & edge trust (connectivity tiers)](ADR-0082-offline-first-capture-and-edge-trust.md) | Proposed |
 
 ## Migration backlog — legacy AirOS ADRs to rewrite for AirawatOS
 

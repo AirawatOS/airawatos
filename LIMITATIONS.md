@@ -2160,3 +2160,77 @@ three. (maiac-aod + firms-fire were run-installed but only appeared in Connectio
   in the directory — not yet built.
 - **Steward signing needs Vault.** `_steward_signer` has no non-Vault fallback (by design — a dev fallback that
   persisted a key seed locally was rejected at review), so the relay requires a Vault-backed network service.
+
+## Building-footprint ingest is capped by the GEE free-tier daily quota
+- `buildings-footprints` (Google Open Buildings v3 via GEE) reads footprints server-side one tile at a time
+  (`getInfo`). On the **noncommercial (free) GEE tier**, a single day's ingest exhausts the project's daily
+  compute quota after roughly **one full run (~40k footprints / ~35 of 112 tiles for the Nashik+Trimbakeshwar
+  AOI)**. Once depleted, GEE enters "restricted mode" and subsequent `getInfo` calls hang/throttle to a near-halt —
+  the driver authenticates and prints its tile plan, then makes **no further writes** (observed on both a full
+  RESUME run and a small 12-tile targeted run). It is NOT a driver/platform bug: the first run succeeded; the
+  quota is the ceiling.
+- **Consequence:** covering a whole city AOI takes **multiple days** of RESUME runs (each resumes cheaply, skipping
+  done tiles via a per-tile `h3_id` existence check), OR a **commercial/paid GEE project** with a higher quota.
+- **Nashik status (2026-09):** 40,698 real footprints across 1,864 res-9 cells — southern band (lat 19.85–19.94)
+  incl. the **Trimbakeshwar** Kumbh side. The **northern Nashik urban core (~20.0°N, Ramkund/Panchavati) is not
+  yet covered** — needs a RESUME run after the daily quota resets. Chained-RESUME driver + targeted-bbox recipe:
+  `/tmp/bldchain.py` / `/tmp/bldcbd.py` on EC2 (scheduler `/run` with env `RESUME`/`RUN_BUDGET_S`/`FOOTPRINT_BBOX`).
+
+## MoSPI CPI slice (data-provider tenant) — 2026-09-10
+- **mospi-gateway is now a compose-managed service (durable).** Added to the EC2 stack
+  `docker-compose.yml` (name `airawatos`, service `mospi-gateway`, `restart: unless-stopped`, stock
+  `python:3.12-slim` bind-mounting `services/mospi-gateway/app.py` — the ref-overrides pattern). It comes up
+  with `docker compose up -d` and survives restarts/recreates. Snippet in repo:
+  `services/mospi-gateway/compose.snippet.yml`. (Still source-bind-mounted rather than baked into an image;
+  fine for this stack, which bind-mounts all editable reference code.) Separately, the driver/reader SOURCE
+  staged under `~/airawatos/rt-components/{drivers,engines}` and `docker cp`'d into `airawat-app-host` is still
+  a manual staging step for publish — universal delivery means the RUNTIME rehydrates from the filestore, so
+  that staging is only needed at (re)publish time, not for running.
+- **`stat-reader` engine was published with a `/v1/query` body-key bug** (`scope` instead of `filter.schema`).
+  Fixed in the local source; the *published/filestore* copy still has the old key. The sharing capability was
+  proven via a DIRECT `/v1/registry/query` (correct key), not by invoking the engine, so the demo stands — but
+  re-publish stat-reader before relying on the engine's own run output.
+- **National-statistics sharing uses the aggregator lane (per-component grant), not SHARED_SCHEMAS.** The
+  ADR-0066 shared-schema path has a single global `SHARED_STEWARD` (airawat), so it can't host MoSPI as its own
+  steward without a code change to support per-schema-prefix stewards. A cleaner future model: let national
+  reference schemas (`stat.*`) declare their authoritative steward so every tenant reads them directly
+  read-only, instead of each consumer installing a reader + grant.
+- **Broker egress cannot reach legacy-TLS hosts directly.** `secrets.py`'s egress `urlopen` uses strict TLS;
+  hosts needing `OP_LEGACY_SERVER_CONNECT` (e.g. api.mospi.gov.in) must be fronted by a dedicated gateway
+  service (as done here). A general fix — a fallback legacy-TLS context in the broker egress, cert-verify kept
+  ON, fallback-only — was drafted but deferred (security-sensitive; kept out of the shared broker by choice).
+
+## Verb-governance rollout — Studio publish gate (2026-09-11)
+- **~~payroll-engine published via the DIRECT certify path~~ RESOLVED (2026-09-11) — now publishes via Studio.**
+  Its headless `main()` ran the real apportionment whenever `RUN_TOKEN` was set (both the cron AND the dev Test),
+  so the dev sandbox run failed and blocked the Studio publish. Fixed by making `main()` **self-test when there is
+  no target tenant**: a real scheduled run has `WRITE_TENANT`/`TENANT` injected (the tenant `_headless_ctx` writes
+  to); a dev Test has a clean env (no target) → prints handlers + returns 0. Preserves the production cron exactly
+  (it still sets the tenant) while the dev Test goes green. General lesson: **a data-dependent headless engine's
+  `main()` must guard the real work behind the presence of its run-target signal, so it self-tests in the sandbox.**
+- **The `airawat-scheduler` container carries a SECOND copy of `components/engines/` that drifts from app-host.**
+  Newer engines (chat/mail/fund-flow) were absent there, so their dev Test errored until the source was `docker cp`'d
+  into the scheduler too. Engine source must be staged to BOTH airawat-app-host and airawat-scheduler (bind-mount/cp
+  deploys) — to be resolved at reference-image rebuild.
+
+## ref-override clobber: live app_host was ahead of the repo (2026-09-11)
+- `/bridge/agent-brief` + the personal-agent read tools `list_civic_issues` / `list_updates` existed ONLY in the
+  live `~/airawatos/ref-overrides/app_host.py` on EC2 (hand-added a prior session, never committed to the repo).
+  This session's Data-app deploys `scp`'d the repo `app_host.py` over that ref-override and CLOBBERED them — the
+  personal assistant regressed to the catch-block greeting. Rebuilt in the repo (durable) + redeployed.
+- **Rule:** the bind-mounted ref-override files (`app_host.py`, broker.py, several app index.html) can be AHEAD of
+  the repo. Before overwriting one with the repo copy, `diff` it first and back-port any live-only edits. A repo↔box
+  reconciliation pass (and retiring ref-overrides at the next reference-image rebuild) is overdue.
+
+## News → City Scan geocoded civic-issue overlay (2026-09-11)
+- **Geocoding yield is inherently partial.** `news-geocode` (ds:airawat:engine/news-geocode) puts a civic.issue on
+  the map ONLY when the model can extract a specific sub-city locality from the headline/summary AND Nominatim
+  resolves it inside the city AOI. Most news-sourced civic.issue name the whole city, the state, or another city
+  (e.g. Nashik's feed carried "Deputy CM's speech", "Bengaluru pourakarmikas", "Mumbai-Goa highway") → NO pin, by
+  design (never guessed). So the "Civic Issues" overlay is honestly sparse from news alone; field-report incidents
+  (which carry real GPS) are the naturally-mappable source. Tuning each tenant's news QUERIES to hyperlocal,
+  civic-focused terms raises yield. News is pulled + categorised PER TENANT.
+- **`civic.issue` bumped to @0.2.0** to add optional `geometry` (GeoJSON Point) + place_label + geocode_confidence
+  + geocoded_at + geocode_method (0.1.0 was additionalProperties:false and rejected the write). Backward-compatible
+  (same required set). NOTE: the kernel caches schema defs ~300s — after publishing a new schema version, POST
+  /v1/registry/schema-cache/refresh (admin) or wait out the TTL, else writes 422 against the stale def.
