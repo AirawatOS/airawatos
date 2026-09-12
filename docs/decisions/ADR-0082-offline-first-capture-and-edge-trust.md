@@ -80,6 +80,68 @@ This keeps the trust anchor server-side while letting the *edge* produce records
 - **Narrowband intake** (SMS/USSD shortcode) is a server-side gateway that maps a structured message to the
   same grievance/incident schema — no device app at all.
 
+## Architecture (as built — S1–S3 + Citizen-Services routing)
+
+Every connectivity tier funnels through **one channel-neutral intake core** into the **one governed spine**. Each
+channel is a thin *adapter* differing only in how it proves admission and how it normalises its payload; after that
+they all call `_intake_core`, which parses, hashes any phone/wa-id (never storing raw PII), and forks on intent.
+
+```
+ CONNECTIVITY TIER        CHANNEL / ADAPTER              AUTH AT THE DOOR            ENTRY POINT
+════════════════════════════════════════════════════════════════════════════════════════════════════
+ No signal / dead zone    Field Report PWA               device Ed25519 key +        /bridge/offline-relay
+ (capture OFFLINE)        · sign on device               credential.device VC        (verify VC sig +
+                          · IndexedDB signed outbox        (issuer steward-signed)     capture sig + scope + window)
+                          · sync on reconnect
+ No data (2G) / feature   SMS / USSD                     shared secret               /bridge/sms-intake
+ phone                    (telco webhook)                (X-Gateway-Token)           /bridge/message-intake
+ Intermittent data        WhatsApp                       Meta HMAC                   /bridge/whatsapp
+                          (text · location pin ·         (X-Hub-Signature-256)
+                           media · interactive)
+ Online (normal)          web apps                       session cookie              normal /bridge/*
+        │                        │                              │                           │
+        └────────────────────────┴──────────────────────────────┴───────────────────────────┘
+                                             ▼
+                    ┌─────────────────────────────────────────────────────────────┐
+                    │            _intake_core   (channel-neutral)                  │
+                    │  1. LLM parse → {intent, category, severity, one_line,       │
+                    │       service_query, place}                                  │
+                    │  2. phone / wa-id → SALTED HASH   (never store raw PII)       │
+                    │  3. native location pin → lat/lng directly (no geocoding)     │
+                    └───────────────────────────────┬─────────────────────────────┘
+                                                     │  fork on INTENT
+                    ┌────────────────────────────────┴───────────────────────────────┐
+                    ▼                                                                  ▼
+          intent = grievance / info                                    intent = service_request
+                    │                                                                  │
+                    ▼                                                     service/search(service_query)
+        write governed  signal.incident                                              │
+        (citizen tier · source=channel ·                                     match offering?
+         reporter=hash · valid_time)                                     ┌────────────┴────────────┐
+                    │                                                 yes│                       no│
+                    ▼                                                    ▼                         ▼
+          report-triage engine                                open governed  platform.case   (fallback)
+          → classify → civic.issue                            (service ENQUIRY · links the     → incident
+          → route if actionable                                offering · current_step:enquiry)   (never lost)
+                    │                                                    │
+                    ▼                                                    ▼
+        agency Inbox / City Scan pin                          service desk / Inbox
+                                                              (identity step-up → full
+                                                               ADR-0067 delegated application)
+
+ ══ THE GOVERNED SPINE — one trust anchor, server-side, NEVER on the device ══
+   kernel: schema-validate · attributed write (who / on-what) · BITEMPORAL
+           (valid_time = when it happened · asserted_at = when it synced) · signed receipt
+```
+
+**Reading it.** Trust travels with the *message*, not the transport: the offline lane signs on the device at capture
+time (tamper-evident in the outbox, re-verified at the kernel); SMS/WhatsApp are the unverified **citizen** tier —
+enough to *open* work, held for verification before it drives action. A complaint becomes a `signal.incident`; an "I
+need X" becomes a `platform.case` on the ADR-0067 service spine; an unmatched service request still lands as an
+incident so nothing is dropped. Devices and gateways only *capture and sign* — only the kernel validates, attributes,
+and issues receipts, and bitemporality is what makes a report filed offline yesterday an honest record rather than a
+back-dated one.
+
 ## Consequences
 - **Reach:** the platform works — for the capture half — across intermittent, narrowband, and dead-zone tiers,
   without weakening the write-path trust model.
@@ -93,15 +155,25 @@ This keeps the trust anchor server-side while letting the *edge* produce records
   (accept the capture if it was signed while valid — the signed timestamp + credential validity window
   decide); outbox durability + cap (evict only after confirmed relay).
 
-## Rollout (proposed slices — each independently shippable)
-1. **S1 — Edge credential + relay-verify.** Provision a scoped device VC/agent key; add a broker relay endpoint
-   that verifies a signed capture + scope and performs the attributed write with device `valid_time`. Prove
-   with a scripted signed-capture → relay → governed `signal.incident` on a test tenant.
-2. **S2 — Offline Field Report PWA.** Service worker caches shell + form + AOI tiles; offline submit → signed
-   IndexedDB outbox → sync-on-reconnect against S1. Prove airplane-mode capture → reconnect → pin appears.
-3. **S3 — Narrowband intake.** SMS/USSD gateway → grievance/incident spine (feature-phone reach).
+## Rollout (each independently shippable)
+1. **S1 — Edge credential + relay-verify. ✅ DONE (proven on nashik).** `credential.device` VC + `/bridge/offline-relay`:
+   verifies the VC signature (issuer steward) + the device-key capture signature + scope + jurisdiction + validity
+   window + idempotency, then writes the attributed `signal.incident` with the capture's `valid_time`. Tamper /
+   expired-VC / out-of-scope / replay all quarantined. (En route, fixed a platform bug: a duplicate `_require_member`
+   shadowed the issuer gate, 500ing all VC issuance.)
+2. **S2 — Offline Field Report PWA. ✅ DONE (proven in-browser).** WebCrypto Ed25519 device key (non-extractable, in
+   IndexedDB) + `/bridge/provision-device` VC + a JS JCS byte-identical to the kernel's, signed IndexedDB outbox,
+   sync via S1; service-worker shell cache. Interop (browser Ed25519 + JCS ↔ Python verify) confirmed live.
+   *S2b remaining:* offline **launch** through the shell iframe; re-publish the bundle for durability; a generic
+   `aos.js` outbox module any capture app opts into.
+3. **S3 — Narrowband intake + channel generalization. ✅ DONE (proven).** Channel-neutral `_intake_core`; adapters
+   `/bridge/sms-intake` (shared secret), `/bridge/message-intake` (generic/USSD), `/bridge/whatsapp` (Meta HMAC;
+   text / native location pin → lat/lng / interactive / media). Phone stored only as a salted hash.
+   **Citizen-Services routing:** `service_request` intent → `service/search` → open a governed `platform.case` service
+   enquiry (ADR-0067), grievance/info → incident. *Remaining:* WhatsApp media→filestore + GET webhook-verify;
+   identity/assurance step-up to turn an enquiry into a full delegated application.
 4. **S4 — Store-and-carry.** BLE/local-wifi peer sync (sync-mule) and/or a village edge-node batcher for true
-   dead zones; idempotent multi-hop delivery.
+   dead zones; idempotent multi-hop delivery. *(Not started.)*
 
 ## Open questions
 - Credential issuance UX for low-literacy field workers (QR enrolment via a supervisor? tie to the Document
