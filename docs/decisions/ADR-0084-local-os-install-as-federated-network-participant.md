@@ -64,6 +64,14 @@ per-issuer trust** (ADR-0068). Governance stays a *propose-here, approve-and-sig
   `iss` = `ds:<tenant>:identity`). The Network accepts tokens for that tenant, scoped to the roles the token carries.
 - **Ties to ADR-0039** (tenant login = network citizenship): the tenant's issuer identity *is* its citizenship anchor,
   and it is the unit that moves — so citizenship survives an operator change.
+- **Bounded issuer authority (governance, not just crypto).** Verifying a signature only proves *who signed*; it does
+  not grant *what they may claim*. So a registered issuer is recorded with **the tenant it speaks for and the roles it
+  may assert** — `ds:kmc:identity` may mint roles for `kmc`, never `platform.*` / super-admin over the network. The
+  Network binds external claims to allowed actions at verify/authz time; an out-of-bounds claim is dropped, not honoured.
+  (This is the hard part OIDC alone doesn't solve — see ADR-0068's hardening notes.)
+- **Standard token hygiene enforced** (RFC 8725): the Network validates `iss` against the trusted set, `aud` against the
+  platform audience, and an explicit **alg allowlist** (EdDSA) — it never honours a token-chosen algorithm. Signing keys
+  live in Vault (never exported). Revocation + sender-constraining are tracked as hardening in ADR-0068.
 - **No shared secret** between installs; each install's trust is **independently revocable** (drop its issuer from the
   Network's trusted set) — e.g. on offboarding or key compromise. This is why JWKS-federation is chosen over the
   quick "everyone shares one signing key" bootstrap.
