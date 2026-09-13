@@ -1,34 +1,47 @@
-# Airawat local stack — postgres + network authority + kernel (wired to trust the network).
-# The hand-rolled precursor to cityos/install.sh.  `docker compose up -d --build`
-name: airawat-stack
+# Airawat LOCAL OS-plane stack (ADR-0084) — a developer's own OS install, FEDERATED to the ONE shared Network.
+#
+# Runs the OS plane locally: postgres (tenant registry) + vault (local secrets) + kernel + identity + secrets +
+# filestore + app-host. It does NOT run its own network authority — NETWORK_URL points at the shared EC2 Network
+# (https://airos.airawat.org/network), so this install is a PARTICIPANT of the same network as everyone else
+# (governance / certification / directory / steward-signing stay shared). See docs/decisions/ADR-0084.
+#
+#   docker compose up -d --build         # kernel builds from ./kernel; reference svcs reuse airawatos-reference:0.2.0-local
+#
+# NOTE (ADR-0084 S1 pending): governance calls (propose schema, publish) will be REJECTED by the shared Network until
+# it is taught to TRUST this local identity's JWKS issuer (per-issuer JWKS federation). Until then this stack is for
+# local login + local registry + serving the apps; the shared-network govern round-trip lights up after S1.
+name: airawat-local
+x-ref: &ref
+  image: airawatos-reference:0.2.0-local     # built locally (arm64) from platform-spec/reference + components
+  restart: unless-stopped
+  extra_hosts: [ "host.docker.internal:host-gateway" ]
+
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: airawat-postgres
+    container_name: airawat-local-postgres
     environment: { POSTGRES_DB: kernel, POSTGRES_USER: kernel, POSTGRES_PASSWORD: kernel }
-    shm_size: 256mb   # default /dev/shm is 64MB — too small for parallel (auto)VACUUM index cleanup on the
-                      # bitemporal registry_version table once it grows; without this VACUUM errors "No space
-                      # left on device" (/dev/shm) and dead tuples never get reclaimed.
-    volumes: [ kernel_pg:/var/lib/postgresql/data ]
+    shm_size: 256mb
+    volumes: [ local_pg:/var/lib/postgresql/data ]
     healthcheck: { test: ["CMD-SHELL","pg_isready -U kernel"], interval: 5s, timeout: 5s, retries: 10 }
     restart: unless-stopped
 
   vault:
     image: hashicorp/vault:1.15
-    container_name: airawat-vault
+    container_name: airawat-local-vault
     cap_add: [ IPC_LOCK ]
     environment: { VAULT_DEV_ROOT_TOKEN_ID: airawat-dev-root, VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200 }
     command: server -dev
-    ports: [ "8200:8200" ]
+    # no host port — reached in-network as vault:8200; admin via `docker exec airawat-local-vault vault ...`
     healthcheck: { test: ["CMD","vault","status","-address=http://127.0.0.1:8200"], interval: 5s, timeout: 3s, retries: 15 }
     restart: unless-stopped
 
+  # LOCAL network — Part 3(A) TEST HARNESS only. ADR-0084's real topology points at the SHARED EC2 network;
+  # this local network exists to prove the per-tenant-issuer + multi-issuer-verify + govern round-trip
+  # end-to-end with zero production exposure. It TRUSTS the local identity's per-tenant issuers.
   network:
-    build: { context: ./network, dockerfile: deploy/Dockerfile }
-    image: airawatos/network:0.1.0-dev
-    container_name: airawat-network
-    # The authority's CA key lives in Vault's transit engine (born there, never exported) — VAULT_ADDR
-    # set → the authority signs via Vault; unset → insecure local-dev key (fallback only).
+    image: airawatos/network:0.2.0-local
+    container_name: airawat-local-network
     environment:
       DB_HOST: postgres
       DB_PORT: "5432"
@@ -37,35 +50,90 @@ services:
       DB_PASSWORD: kernel
       VAULT_ADDR: http://vault:8200
       VAULT_TOKEN: airawat-dev-root
-      IDENTITY_JWKS: http://host.docker.internal:8093/jwks   # verify tenant-admin approval tokens
-    extra_hosts: [ "host.docker.internal:host-gateway" ]
+      IDENTITY_JWKS: http://identity:8093/jwks
+      IDENTITY_URL: http://identity:8093
+      EXPECTED_AUDIENCE: airawatos
+      TRUSTED_ISSUERS: '{"ds:airawat:identity":"http://identity:8093/jwks","ds:airawatdeveloper:identity":"http://identity:8093/jwks","ds:kmc:identity":"http://identity:8093/jwks"}'
     depends_on:
       postgres: { condition: service_healthy }
       vault: { condition: service_healthy }
-    ports: [ "8090:8090" ]
     healthcheck: { test: ["CMD","python","-c","import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8090/v1/health').status==200 else 1)"], interval: 5s, timeout: 5s, retries: 10 }
     restart: unless-stopped
 
   kernel:
     build: { context: ./kernel, dockerfile: deploy/Dockerfile }
-    image: airawatos/kernel:0.1.0-dev
-    container_name: airawat-kernel
+    image: airawatos/kernel:0.2.0-local
+    container_name: airawat-local-kernel
     environment:
       REGISTRY_BACKEND: postgres
       DB_HOST: postgres
-      NETWORK_URL: http://network:8090
-      IDENTITY_JWKS: http://host.docker.internal:8093/jwks   # verify user tokens (identity runs on host)
-      KERNEL_REQUIRE_STEWARD_GRANT: "1"                      # a component may write a tenant's data only with a steward-signed grant
-      EVENT_SINK: http://host.docker.internal:8098/events    # every registry write emits an event to the automation service
-      SECRETS_URL: http://host.docker.internal:8102          # brokered-egress secret store
-      SECRETS_INTERNAL: airawat-broker-secrets-internal      # kernel↔secrets service token
-      FILESTORE_URL: http://host.docker.internal:8083         # content-addressed blob store (PLAT-FILE)
-      EMBED_URL: http://host.docker.internal:8104             # embedding model service
-    extra_hosts: [ "host.docker.internal:host-gateway" ]
-    ports: [ "8080:8080" ]
+      NETWORK_URL: http://network:8090                    # Part 3(A) local proof (real ADR-0084 = shared EC2 network)
+      IDENTITY_JWKS: http://identity:8093/jwks             # verify LOCAL user tokens against the local identity
+      KERNEL_REQUIRE_STEWARD_GRANT: "0"                    # DEV install: relax the steward-grant gate for local writes (INT-0004 dev-relaxation)
+      SECRETS_URL: http://secrets:8102
+      SECRETS_INTERNAL: airawat-broker-secrets-internal
+      FILESTORE_URL: http://filestore:8095
+      APPS_OVERLAY: /data/app-bundles/apps
+    ports: [ "8081:8080" ]   # host 8081 (old airawat-stack still holds 8080)
     depends_on:
       postgres: { condition: service_healthy }
-      network: { condition: service_healthy }
     restart: unless-stopped
 
-volumes: { kernel_pg: {} }
+  identity:
+    <<: *ref
+    container_name: airawat-local-identity
+    command: ["python","reference/identity.py"]
+    # VAULT → a STABLE Ed25519 signing key (transit), so restarting identity doesn't invalidate issued tokens /
+    # rotate the JWKS the shared Network will be pinned to (ADR-0084 S1).
+    environment:
+      NETWORK_URL: https://airos.airawat.org/network
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: airawat-dev-root
+      IDENTITY_USERS_FILE: /data/identity/identity-users.json
+      IDENTITY_PER_TENANT_ISSUER: "1"   # ADR-0084 S1: issue as ds:<tenant>:identity with a per-tenant key
+    volumes:
+      - local_identity:/data/identity
+    ports: [ "8093:8093" ]
+    depends_on:
+      vault: { condition: service_healthy }
+
+  secrets:
+    <<: *ref
+    container_name: airawat-local-secrets
+    command: ["python","reference/secrets.py"]
+    environment:
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: airawat-dev-root
+      SECRETS_INTERNAL: airawat-broker-secrets-internal
+      IDENTITY_JWKS: http://identity:8093/jwks
+    depends_on: { vault: { condition: service_healthy } }
+
+  filestore:
+    <<: *ref
+    container_name: airawat-local-filestore
+    command: ["python","reference/filestore.py","--port","8095"]
+    environment:
+      FILESTORE_DIR: /data/filestore
+    volumes:
+      - local_filestore:/data/filestore
+
+  app-host:
+    <<: *ref
+    container_name: airawat-local-app-host
+    command: ["python","reference/app_host.py","/app/components/apps","--port","8099",
+              "--network","http://network:8090","--kernel","http://kernel:8080",
+              "--identity","http://identity:8093","--secrets","http://secrets:8102","--no-verify-cert"]
+    environment:
+      FILESTORE_URL: http://filestore:8095
+    ports: [ "8099:8099" ]
+    volumes:
+      - local_appbundles:/data/app-bundles
+    depends_on:
+      kernel: { condition: service_started }
+      identity: { condition: service_started }
+
+volumes:
+  local_pg: {}
+  local_identity: {}
+  local_filestore: {}
+  local_appbundles: {}
