@@ -50,12 +50,20 @@ per-issuer trust** (ADR-0068). Governance stays a *propose-here, approve-and-sig
 | Schema/verb governance | **proposes** to the Network | **approves + signs** (standards body) |
 | Certification, directory, participant registry | — | **authoritative, shared** |
 
-### Trust model — JWKS-federated (chosen over a shared signing key)
+### Trust model — JWKS-federated, issuer = the TENANT (not the operator/install)
 
-- The local identity is its **own issuer** with its own signing key and a published **JWKS**.
-- That issuer's JWKS is **registered as a trusted issuer** on the shared Network (`IDENTITY_JWKS` becomes a *set* of
-  trusted issuers, keyed by `iss`). The Network then accepts tokens minted by that local identity — scoped to the tenant
-  and roles the token carries.
+- **The issuer is the tenant, not the install.** A token's `iss` is `ds:<tenant>:identity` (e.g. `ds:kmc:identity`),
+  because the *tenant* issues identities to its own users/citizens. Each tenant has its **own signing key + published
+  JWKS**. One identity service may serve several tenants, but it signs each tenant's tokens as that tenant's issuer.
+- **This makes tenants portable across operators — the sovereignty guarantee.** If a tenant moves from one platform
+  operator (one OS install) to another, its issuer name (`ds:<tenant>:identity`) and signing key **travel with the
+  tenant**. Users and citizens see **no change** — their credentials are still "issued by their tenant," independent of
+  who runs the infrastructure. The operator is replaceable plumbing; the identity namespace belongs to the tenant.
+  (This is why a per-*install* issuer would be wrong: it would tie citizens' identities to an operator.)
+- The tenant's JWKS is **registered as a trusted issuer** on the shared Network (`IDENTITY_JWKS` becomes a *set* keyed by
+  `iss` = `ds:<tenant>:identity`). The Network accepts tokens for that tenant, scoped to the roles the token carries.
+- **Ties to ADR-0039** (tenant login = network citizenship): the tenant's issuer identity *is* its citizenship anchor,
+  and it is the unit that moves — so citizenship survives an operator change.
 - **No shared secret** between installs; each install's trust is **independently revocable** (drop its issuer from the
   Network's trusted set) — e.g. on offboarding or key compromise. This is why JWKS-federation is chosen over the
   quick "everyone shares one signing key" bootstrap.
@@ -87,9 +95,11 @@ per-issuer trust** (ADR-0068). Governance stays a *propose-here, approve-and-sig
 
 ## Rollout (slices)
 
-- **S1 — Trust one dev install.** Add per-issuer JWKS support to the Network's token verification (accept a *set* of
-  trusted issuers keyed by `iss`; today it verifies against a single JWKS). Register the local dev identity's issuer.
-  Verify a locally-minted `airawatdeveloper` token is accepted by `/network/v1/*`.
+- **S1 — Per-tenant issuer + Network multi-issuer trust.** (a) Make the reference identity issue as **`ds:<tenant>:identity`
+  with a per-tenant signing key** (today it hardcodes `iss: ds:airawat:identity` for every tenant — the collision this
+  ADR's bring-up exposed). (b) Add per-issuer JWKS support to the Network's token verification (accept a *set* of trusted
+  issuers keyed by `iss`; today it verifies against a single JWKS). (c) Register the tenant's issuer + JWKS on the
+  Network. Verify a locally-minted `ds:airawatdeveloper:identity` token is accepted by `/network/v1/*`.
 - **S2 — Full local OS plane.** Extend the local compose to postgres + vault + kernel + identity + app-host, built from
   local source, `NETWORK_URL` → `https://airos.airawat.org/network`, local kernel trusting the Network's published
   steward keys. Bring it up; prove propose→(Network)approve+sign end-to-end (the ADR-0083 `dev.git_binding` govern run is
