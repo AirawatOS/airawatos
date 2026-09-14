@@ -25,6 +25,26 @@ But it leaves a real gap, surfaced in practice: **"why register an operator if a
   unbuilt**. Runtime integrity is delivered **upstream only** (images built from certified source, digest-verified at
   install — ADR-0079); it is **not a property the Network can verify about a running operator**.
 
+### One marketplace, two shelves (not two marketplaces)
+
+A natural question: *"are there two marketplaces — runtimes for operators, components for tenants?"* No — and deliberately
+so. Per ADR-0022 (everything-is-a-component) and ADR-0074 (*"the marketplace extends upward, not a second mechanism"*),
+there is **one certify→publish→install spine and one Store**. It carries two **shelves**, keyed by component *kind* and
+*install scope*, with two installer **audiences**:
+
+| | **Runtime / platform shelf** | **Application shelf** |
+|---|---|---|
+| What | kernel, app-host, scheduler, runtime-manager, runtime profiles, storage/scheduler/egress rulesets | apps, engines, drivers, solutions, models |
+| Certified? | Yes — same spine + signing | Yes — same spine + signing |
+| Installed by | **operator** (platform/operator scope) | **tenant** (tenant scope) |
+| Listed in | **the same Store**, differentiated by kind + scope | the same Store |
+
+**Operator certification (this ADR) attests the operator's installed *runtime-kind* components against their certified
+digests in that one Store** — the same records ADR-0079 already keeps for tenant components. No second marketplace is
+introduced. (Practical state: the *leaf* platform services + runtime profiles are already marketplace-installable
+components; the *base* OS-plane runtimes still ship as Docker images built from certified source — attestation is what
+brings them under the same certified-digest check without a separate mechanism.)
+
 There are therefore **two distinct guarantees on two axes**, and only one is built:
 
 | Axis | Guarantee | Status |
