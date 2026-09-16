@@ -2234,3 +2234,22 @@ three. (maiac-aod + firms-fire were run-installed but only appeared in Connectio
   + geocoded_at + geocode_method (0.1.0 was additionalProperties:false and rejected the write). Backward-compatible
   (same required set). NOTE: the kernel caches schema defs ~300s — after publishing a new schema version, POST
   /v1/registry/schema-cache/refresh (admin) or wait out the TTL, else writes 422 against the stale def.
+
+## ADR-0085 S4 federated install (2026-09-14) — DEPLOYED + FULL-CHAIN e2e PROVEN
+- Cross-install component delivery is code-complete + deployed at every layer (network 0.2.4 listing carries
+  `source_file_id`; EC2 reference 0.2.1 + local 0.2.1-local wire publish→listing and consume→network-filestore).
+- PROVEN LIVE: a real dev1co driver (`ds:dev1co:driver/hello-federation`) published from the LOCAL install
+  (cert + source→network filestore + listing carries source_file_id) → installed on EC2 tenant `bmc` (no on-disk
+  source on EC2) → run via the EC2 scheduler → launcher fetched the source from the network filestore +
+  digest-verified vs dev1co's cert → ran (exit 0, marker printed on bmc). The launcher is fail-closed (REFUSE on
+  any miss/mismatch), so exit-0 is proof the network-filestore fetch + digest-verify path executed.
+- BUILD GOTCHA: the reference image's full amd64 build SEGFAULTs (exit 139) when cross-building the heavy ML deps
+  (xgboost/pyarrow) under QEMU on an arm64 Mac. Workaround for pure-Python changes: build a thin overlay
+  `FROM manishsv/airawatos-reference:<base>` that only COPYs the changed .py files (no pip step → no emulation
+  crash). Full/native rebuilds should run on the EC2 host (amd64) — but EC2 `~/airawatos` has drifted from the
+  `platform-spec/reference` + `components` layout the Dockerfile expects, so a clean on-EC2 build needs a source sync first.
+
+## ADR-0086 operator certification — PROPOSED, not built (2026-09-14)
+- The network verifies only the tenant ISSUER signature; there is NO operator/origin/runtime-integrity check. An
+  "operator" is a mutable directory string, not a gate; "tenants only run on certified operators" is not enforced.
+  ADR-0086 (digest-attestation → operator cert → certified-hosting binding) is the design; unbuilt.

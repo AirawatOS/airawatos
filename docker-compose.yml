@@ -12,7 +12,7 @@
 # local login + local registry + serving the apps; the shared-network govern round-trip lights up after S1.
 name: airawat-local
 x-ref: &ref
-  image: airawatos-reference:0.2.0-local     # built locally (arm64) from platform-spec/reference + components
+  image: airawatos-reference:0.2.1-local     # built locally (arm64); ADR-0085 S4 overlay (publish carries source_file_id)
   restart: unless-stopped
   extra_hosts: [ "host.docker.internal:host-gateway" ]
 
@@ -67,9 +67,12 @@ services:
     environment:
       REGISTRY_BACKEND: postgres
       DB_HOST: postgres
-      NETWORK_URL: http://network:8090                    # Part 3(A) local proof (real ADR-0084 = shared EC2 network)
+      NETWORK_URL: https://airos.airawat.org/network      # ADR-0084: federate to the SHARED EC2 Network
       IDENTITY_JWKS: http://identity:8093/jwks             # verify LOCAL user tokens against the local identity
       KERNEL_REQUIRE_STEWARD_GRANT: "0"                    # DEV install: relax the steward-grant gate for local writes (INT-0004 dev-relaxation)
+      # ADR-0091 V3c: verb-alias + lifecycle DECLARATIONS are steward-owned platform config, read (never written)
+      # by every tenant via the ADR-0066 shared mechanism (own-tenant ∪ shared steward). No read-gate change.
+      SHARED_SCHEMAS: "knowledge.document,knowledge.version,knowledge.chunk,knowledge.embedding,governance.rule,platform.verb_alias,platform.lifecycle"
       SECRETS_URL: http://secrets:8102
       SECRETS_INTERNAL: airawat-broker-secrets-internal
       FILESTORE_URL: http://filestore:8095
@@ -120,8 +123,9 @@ services:
   app-host:
     <<: *ref
     container_name: airawat-local-app-host
+    image: airawatos-reference:0.2.1-local-rule   # ADR-0088-S1 local rule-engine overlay
     command: ["python","reference/app_host.py","/app/components/apps","--port","8099",
-              "--network","http://network:8090","--kernel","http://kernel:8080",
+              "--network","https://airos.airawat.org/network","--kernel","http://kernel:8080",
               "--identity","http://identity:8093","--secrets","http://secrets:8102","--no-verify-cert"]
     environment:
       FILESTORE_URL: http://filestore:8095
