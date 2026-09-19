@@ -8,6 +8,8 @@
 !/LIMITATIONS.md
 !/ALPHA-RELEASE-PLAN.md
 !/deploy/
+# standalone auxiliary services deployed alongside the stack (not big enough for their own repo yet)
+!/services/
 # never track the data dump or keys even under deploy/
 deploy/ec2/seed/*.sql
 *.pem

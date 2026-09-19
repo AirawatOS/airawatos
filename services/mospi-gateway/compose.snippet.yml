@@ -1,0 +1,14 @@
+# mospi-gateway — paste into the EC2 stack docker-compose.yml (name: airawatos), under `services:`.
+# Stdlib service (no deps); runs on a stock python image with the source bind-mounted, matching the
+# ref-overrides pattern. Reachable in-network as http://mospi-gateway:8107. This is the LIVE definition
+# (already added to /home/ec2-user/airawatos/docker-compose.yml on the demo host).
+  mospi-gateway:
+    image: python:3.12-slim
+    container_name: airawat-mospi-gateway
+    restart: unless-stopped
+    working_dir: /app
+    command: ["python","/app/app.py"]
+    environment:
+      PORT: "8107"
+    volumes:
+      - /home/ec2-user/airawatos/services/mospi-gateway/app.py:/app/app.py:ro
