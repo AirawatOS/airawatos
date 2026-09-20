@@ -2274,8 +2274,10 @@ three. (maiac-aod + firms-fire were run-installed but only appeared in Connectio
   scheduler's `/run`; the scheduler materializes+runs it (`_materialize_dev_dir`, preferring the staged draft >
   published `__component_source__` > network listing). Proven on EC2: campaign/project/lifecycle dev-Test green
   with source REMOVED from the scheduler container ("dev-materialised … from filestore" in the log). No shared
-  volume, multi-host-correct. ⚠️ delivered by `docker cp` into the running app-host + scheduler containers — needs
-  a **reference-image bake** to survive container recreate. (b) STILL UNBUILT: backfill `source_file_id` for the
+  volume, multi-host-correct. **Baked durable in `manishsv/airawatos-reference:0.2.34` (sha256:7aef65c8…);
+  compose repointed app-host 0.2.33→0.2.34 + scheduler 0.2.30→0.2.34; pushed. Proven on FRESH 0.2.34 containers
+  (no docker cp): all 3 engines dev-Test green, scheduler logs "dev-materialised … from filestore".**
+  (b) STILL UNBUILT: backfill `source_file_id` for the
   ~41 older listings + a drift check that flags a running component whose on-host source digest != the Store
   listing; (c) STILL UNBUILT: enforce version-bump-on-change so a changed component can never re-publish (or
   hot-patch) under an existing version.
