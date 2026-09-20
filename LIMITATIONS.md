@@ -2269,8 +2269,13 @@ three. (maiac-aod + firms-fire were run-installed but only appeared in Connectio
 - Also observed: every pre-existing engine Store listing has `source_file_id`/digest = **None** — publishes before
   ADR-0085 S4 carried no content digest, so drift between Store and running code is undetectable by digest. The 3
   republished engines now DO carry `sha2-256:` source ids.
-- Proper fixes (unbuilt): (a) a shared draft-source channel so Studio project members are dev-testable without a
-  baked/shared volume (e.g. scheduler resolves draft source from a Studio workspace in the registry/filestore, not
-  only an on-disk walk); (b) backfill `source_file_id` for all existing listings + a drift check that flags a
-  running component whose on-host source digest != the Store listing; (c) make version-bump-on-change enforced so a
-  changed component can never re-publish (or hot-patch) under an existing version.
+- Proper fixes: (a) **FIXED (2026-09-20, platform-spec 9cf1057)** — a shared draft-source channel: the app-host
+  stages the working draft to the content-addressed filestore (`_stage_draft`) and threads its file_id to the
+  scheduler's `/run`; the scheduler materializes+runs it (`_materialize_dev_dir`, preferring the staged draft >
+  published `__component_source__` > network listing). Proven on EC2: campaign/project/lifecycle dev-Test green
+  with source REMOVED from the scheduler container ("dev-materialised … from filestore" in the log). No shared
+  volume, multi-host-correct. ⚠️ delivered by `docker cp` into the running app-host + scheduler containers — needs
+  a **reference-image bake** to survive container recreate. (b) STILL UNBUILT: backfill `source_file_id` for the
+  ~41 older listings + a drift check that flags a running component whose on-host source digest != the Store
+  listing; (c) STILL UNBUILT: enforce version-bump-on-change so a changed component can never re-publish (or
+  hot-patch) under an existing version.
