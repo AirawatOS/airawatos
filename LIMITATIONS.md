@@ -2253,3 +2253,24 @@ three. (maiac-aod + firms-fire were run-installed but only appeared in Connectio
 - The network verifies only the tenant ISSUER signature; there is NO operator/origin/runtime-integrity check. An
   "operator" is a mutable directory string, not a gate; "tenants only run on certified operators" is not enforced.
   ADR-0086 (digest-attestation → operator cert → certified-hosting binding) is the design; unbuilt.
+
+## Governed engine-publish loop is broken in services-only deployment (2026-09-20)
+- After the ADR-0093 S-flip (reference image ships services-only; engines materialize to the app-host's
+  `/data` cache on install), the Studio dev-Test → Publish loop for ENGINES no longer works out of the box.
+  The scheduler's dev-run (`run_component_dev` → `_find_dir` walks its OWN `--components-root /app/components`)
+  finds NO source: the scheduler container has no engine source and there is NO shared components volume between
+  app-host and scheduler. So `/bridge/project-test` returns "no source found — add it to a project", which gates
+  `/bridge/project-publish` (INT-0004 slice-4 green-test requirement). Net effect: the ONLY convenient way to
+  update a live engine became `docker cp` hot-patching — which silently drifts the running host from the Store.
+- Concrete drift found & fixed this session: campaign/lifecycle/project engines had been hot-patched; the Store
+  still held older code (campaign at the SAME version 0.1.2 as the new code — an immutability violation). Fixed by
+  bumping versions and republishing through the real path, but only after manually `docker cp`-ing the draft
+  source into BOTH the app-host and the scheduler container. That manual placement is the workaround, not a fix.
+- Also observed: every pre-existing engine Store listing has `source_file_id`/digest = **None** — publishes before
+  ADR-0085 S4 carried no content digest, so drift between Store and running code is undetectable by digest. The 3
+  republished engines now DO carry `sha2-256:` source ids.
+- Proper fixes (unbuilt): (a) a shared draft-source channel so Studio project members are dev-testable without a
+  baked/shared volume (e.g. scheduler resolves draft source from a Studio workspace in the registry/filestore, not
+  only an on-disk walk); (b) backfill `source_file_id` for all existing listings + a drift check that flags a
+  running component whose on-host source digest != the Store listing; (c) make version-bump-on-change enforced so a
+  changed component can never re-publish (or hot-patch) under an existing version.
