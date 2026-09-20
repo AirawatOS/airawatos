@@ -164,12 +164,15 @@ The original ADR conflated authoring and administration under "Settings". Separa
 
 §D auto-binds `asset`s. Extend install to also **write every `contribution` record into the target tenant**, tenant-scoping its id (`ds:<solution-steward>:…` → `ds:<tenant>:…`) and stamping `tenant`. Idempotent (re-install/upgrade overwrites by id). This is the concrete unblock: a grievance/court/project solution installs *and its workflow runs*, with no hand-authored `platform.lifecycle` write. Ordering: schemas/roles present (member grants) → contributions written → assets bound → guided-flow prompts for the remaining admin-supplied fields.
 
-### J. Naming: **Solution Studio** (author) + **Settings** (admin); retire "Service Studio"
+### J. Three distinct surfaces by PERSONA (Solution Studio · Service Studio · Settings)
 
-A **service is one kind of solution** (ADR-0047: a solution that also exposes a `service.offering` discovery envelope). Air Intelligence, Court, grievance are all solutions; only some are services. Therefore:
+A **service is one kind of solution** (ADR-0047), but the *tools* are distinguished by **who uses them**, not just scope — do not collapse them:
 
-- The developer build surface is **Solution Studio** — it authors *any* solution (schemas, engines, apps, **and the config contract incl. `contribution`s**). **"Service Studio" folds into it** (ADR-0097 already calls for generalising Service Studio into the one workflow/solution authoring studio — this names the result).
-- The admin config surface is **Settings** (§B). Distinct persona, distinct time.
+- **Solution Studio** — for **developers**, building *with code* and deploying solutions (schemas, engines, apps, and the config contract incl. `contribution`s). Author-time, code.
+- **Service Studio** — for **non-developers** (program owners / admins) to **configure and launch services** *without code* (compose an offering: form + workflow + roles from governed building blocks). Author-time, no-code. It is NOT folded into Solution Studio — it is a distinct, lower-abstraction authoring surface for a different persona. (It emits the same governed artifacts a developer would hand-author in Solution Studio; ADR-0097's "one workflow model" is about the shared *artifact/runtime*, not merging the two authoring UIs.)
+- **Settings** (§B) — for the **tenant admin**, filling config *values* (secrets/URLs/choices) and tuning contribution leaves on an *installed* solution. Config-time.
+
+Config-management apps (Components, Connections, Setup, City-Setup) fold **into Settings**; the two Studios stay separate authoring surfaces for their respective personas. Marketplace remains the store between build/author and configure.
 
 ### Consequences of the refresh
 - The lifecycle declaration (and its rulesets + `route.scope` tree + default role grants) becomes a **shipped, installable `contribution`** — closing the gap the ADR-0091/0097 work exposed, exactly as `platform.component_config` closed the `value` gap.
