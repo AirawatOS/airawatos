@@ -28,6 +28,7 @@ This is the **go-forward decision record**. It lives alongside the reference imp
 | 0076 | [The Solution anatomy, and process-first, form-anchored authoring](ADR-0076-solution-anatomy-and-document-first-authoring.md) | Proposed |
 | 0077 | [The media plane: the broker is the only door for *authority*](ADR-0077-camera-media-plane.md) | Proposed |
 | 0082 | [Offline-first capture & edge trust (connectivity tiers)](ADR-0082-offline-first-capture-and-edge-trust.md) | Proposed |
+| 0101 | [Governed verb binding: the app-host is a domain-blind dispatcher](ADR-0101-governed-verb-binding-domain-blind-host.md) | Accepted (live 0.2.47) |
 
 ## Migration backlog — legacy AirOS ADRs to rewrite for AirawatOS
 
