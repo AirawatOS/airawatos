@@ -2294,3 +2294,12 @@ three. (maiac-aod + firms-fire were run-installed but only appeared in Connectio
   under an existing version. Proven on EC2 (campaign 0.1.3: identical→200, +1 comment→409, survives fresh
   container). Residual: this guards the PUBLISH path only; the bake/hot-patch BYPASS is covered by the drift
   check (detective) — a load-time refuse-on-drift would be the belt-and-suspenders preventive (not built).
+
+- 🟡 **Service-request interpreter extracted to the engine but not yet live-e2e'd.** ADR-0097: the
+  ADR-0067 service workflow interpreter (open + advance) moved out of `app_host`
+  (`_provider_fulfil`, `_advance_service_workflow`) into `lifecycle-engine` 0.1.18
+  (`service-open`/`service-advance`). Proven by a 34-check parity unit test + local-stack load, but
+  NOT driven through a live BAP→BPP flow because the service runtime is dormant (0 `service.offering`
+  records on any tenant). **Fix:** seed one real 2-step offering + consent + certified aggregator and
+  drive route(init)→complete→complete→close on EC2 after the reference bake. Until then, the port is
+  behaviour-proven, not traffic-proven.
