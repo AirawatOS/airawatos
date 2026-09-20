@@ -2287,5 +2287,10 @@ three. (maiac-aod + firms-fire were run-installed but only appeared in Connectio
   unpublished, the latter being the `ds:airawat:solution/tax-gap-finder` solution artifact, expected). **Surfaced in the UI: Settings → Supply chain tab (settings app 0.1.6,
   published→live) — per-component status, drift-first table, red banner + same-version ≠ flag, re-scan.** No
   scheduled/periodic run yet. `source_file_id` on old listings turned out to be present (not None) — but
-  `evidence_digest` is the digest the check uses. (c) STILL UNBUILT: enforce version-bump-on-change so a changed
-  component can never re-publish (or hot-patch) under an existing version.
+  `evidence_digest` is the digest the check uses. (c) **DONE (2026-09-20, network store.version_error digest-aware;
+  baked airawatos-network:0.2.15 sha256:21c2eb5f…):** version-bump-on-change enforced at POST /v1/store/publish —
+  same version + identical source = idempotent no-op (was a hard 409); same version + CHANGED source = 409
+  "the source changed, bump the version"; lower = monotone-blocked. So a changed component can never re-publish
+  under an existing version. Proven on EC2 (campaign 0.1.3: identical→200, +1 comment→409, survives fresh
+  container). Residual: this guards the PUBLISH path only; the bake/hot-patch BYPASS is covered by the drift
+  check (detective) — a load-time refuse-on-drift would be the belt-and-suspenders preventive (not built).
