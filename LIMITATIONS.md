@@ -2284,7 +2284,8 @@ three. (maiac-aod + firms-fire were run-installed but only appeared in Connectio
   immediately found 3 real drifts among 71 components — campaign/project stale cache (remediated by
   re-materialise → now ok) and hr-workflows baked ≠ certified 0.3.2 (a same-version drift; **RECONCILED** —
   republished as 0.3.3 from the current source + rebaked in reference:0.2.36; host now 0 drift / 70 ok / 1
-  unpublished, the latter being the `ds:airawat:solution/tax-gap-finder` solution artifact, expected). NOT yet surfaced in the Settings/supply-chain UI (endpoint only), and no
+  unpublished, the latter being the `ds:airawat:solution/tax-gap-finder` solution artifact, expected). **Surfaced in the UI: Settings → Supply chain tab (settings app 0.1.6,
+  published→live) — per-component status, drift-first table, red banner + same-version ≠ flag, re-scan.** No
   scheduled/periodic run yet. `source_file_id` on old listings turned out to be present (not None) — but
   `evidence_digest` is the digest the check uses. (c) STILL UNBUILT: enforce version-bump-on-change so a changed
   component can never re-publish (or hot-patch) under an existing version.
