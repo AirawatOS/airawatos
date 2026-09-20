@@ -141,3 +141,48 @@ envelopes when the process is a citizen-facing service. (This subsumes the ADR-0
    is the spine; the domain record is a subject — cleaner for multi-record and federated flows.)
 3. **Where the graph lives for a service** — embedded in `service.offering` or referenced by id (reusable across
    offerings)? (Lean referenced.)
+
+## Extraction plan (app_host → engine) — grounded in the 2026-09-20 audit
+
+A full audit of `app_host.py` (2026-09-20) confirmed the **service-request runtime is the single largest
+embedded-domain surface** still in the host — an entire BAP/BPP + workflow interpreter + a hardcoded fee table.
+This plan lifts it into the certified lifecycle-engine per §1–2, non-breaking, smallest-first (the proven
+`platform.verb_alias` + `*-legacy` fallback pattern from ADR-0091).
+
+**Embedded surface to lift** (app_host.py):
+- **Workflow interpreter:** `_advance_service_workflow` (labelled *"THE WORKFLOW INTERPRETER"*) + the service
+  branches inside `_bridge_complete` / `_bridge_decide`.
+- **BAP/BPP orchestration:** `_bridge_service_init / _route / _confirm / _status / _consent / _search`,
+  `_provider_fulfil`, `_verify_consent` / `_verify_required_credentials`, `_service_receipt`, `_txn_status`.
+- **Hardcoded business DATA:** `_quote_fee` / `_FEES` — a per-service price list *in code* (self-labelled
+  "SIMULATED (reference); production: derive from the offering's fee_ref / finance.* rules").
+- **Secondary domain shapers** (independent slices): `_intake_core` (hardcoded civic category taxonomy →
+  incidents/cases), `_bridge_ingest_document` / `_retrieve` / `_expert_chat` (knowledge; the last hardcodes
+  `risk.flood` math), `_bridge_approve_rule[s]` (governance rule enactment), `_bridge_camera_configure`
+  (`device.camera` shaping), `_write_civic_profile` (`civic.profile` shaping).
+
+**Slices — non-breaking, dev-first:**
+- **S1 — externalize the fee table (DATA).** Move `_FEES` out of code onto the `service.offering` envelope as
+  `fees:[{item,amount}]` (or a governed `ref.fee_schedule` referenced by the offering's existing `fee_ref`);
+  `_quote_fee` reads governed data, falls back to the offering. Zero interpreter change — the cleanest proof that
+  business *data* leaves host code and becomes governed config. **(done first.)**
+- **S2 — interpreter into the engine.** Port `_advance_service_workflow` into the lifecycle-engine's graph
+  interpretation (it already does FSM + `platform.case` spine + task/decision/`{call}` effects — §1/C1). The
+  service branches in `_bridge_complete` / `_bridge_decide` become generic `lifecycle-update` / `lifecycle-decide`
+  on the case. Prove byte-identical on one live service (e.g. `grievance-file`).
+- **S3 — service verbs become aliases.** `service-init → lifecycle-request`, `service-confirm → lifecycle-decide`,
+  `service-status → lifecycle-status` (governed `platform.verb_alias`, the proven recipe). `service-search` stays a
+  Data-plane read; `service-route` / `-consent` stay as the federation transport (§2), not interaction verbs.
+- **S4 — federated node locality.** `_provider_fulfil` + consent/credential verify become the `fulfilment:{provider}`
+  node transport the engine invokes, not host orchestration.
+- **S5 — retire.** Remove the service-runtime handlers from app_host once the engine path is proven across an FSM
+  (leave), a local DAG (multi-step approval), and a federated service; deprecate `service.offering.workflow` as a
+  declaration shape.
+- **Parallel (independent) — secondary shapers.** civic intake → a certified civic-intake compute engine
+  (`compute.run`, category vocab as config); knowledge ingest/retrieve/expert → a knowledge engine; `approve_rule[s]`
+  → the governance Lifecycle plane; camera / civic-profile shapers → their own engines. Each is its own small slice
+  on the proven patterns.
+
+**Acceptance:** re-running the app_host audit shows **zero (B) service handlers** — the host retains only routing,
+session/attribution, generic dispatch (`_dispatch_engine` / `compute-run` / `_dispatch_alias`), component lifecycle,
+and thin proxies.
