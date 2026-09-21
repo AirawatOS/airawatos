@@ -68,9 +68,13 @@ curated rendered site, built from its `docs/` (the concept articles) by the shar
   model, and returns the answer **with citations** (the pages used). The AI never acts and never invents;
   if the docs don't cover it, it says so. Retrieval is dependency-free keyword scoring today; the
   platform embed service is the drop-in upgrade for large corpora.
-- **S2 (next): Studio Docs editor.** A Docs tab: list `docs/*.md`, edit (component-save), live preview
-  (doc-render), an ✨ author-assist that checks docs against the component's `meta.yaml`, package on
-  publish.
+- **S2 (DONE): Studio Docs editor.** A self-contained editor at `/developer/editor/` (developer-gated):
+  pick a component → list `docs/*.md` → edit markdown with **live preview** (`doc-render`) → **Save**
+  (`/bridge/doc-save` writes `docs/<slug>.md`, visible immediately) → **Check vs code**
+  (`/bridge/doc-review` — deterministic: which declared reads/writes/egress/secrets/verbs are undocumented
+  + coverage %) → **Ask** (the Docs Assistant inline) → **Publish** (`/bridge/doc-publish` re-`_store_bundle`
+  → filestore + overlay, live, no rebake). Proven end-to-end authenticated (save→live→publish). Editing
+  arbitrary certified components' docs still re-certifies via the existing Studio project publish.
 - **S3: Marketplace "Documentation" tab** + an embedded Docs Assistant box, reading these endpoints.
 - **S4: Developer portal as the aggregate** documentation component (its concept articles are already
   packaged under `docs/`; remaining work is making the rendered `/developer` site itself build from the
