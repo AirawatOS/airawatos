@@ -58,6 +58,14 @@ to a runtime that satisfies its profile. And this is **fail-safe**: if a compone
 no available runtime provides, the run is designed to *fail clearly* rather than quietly run with a
 missing library and produce wrong results.
 
+**A worked example.** Two engines, two very different needs. A simple "is this reading above the alert
+threshold?" check needs nothing beyond basic arithmetic — it declares the *standard* profile and runs
+in-process, answering instantly. An engine that extracts building outlines from satellite imagery needs
+heavy geospatial and earth-observation libraries — it declares the *earth-observation* profile, so the
+platform dispatches it to a runtime that carries those libraries, out-of-process. Neither engine
+carries the other's baggage, and the deployment never has to bundle satellite-imagery libraries just to
+run a threshold check.
+
 ## The runtime is itself a component
 
 A runtime is not special magic — it is just another certified component (of kind `runtime`) whose
@@ -82,7 +90,7 @@ anyone ever needed.
 ## Verbs arrive as data, not as platform code
 
 There's a nice consequence of all this for how a request reaches an engine. The app-host is
-**domain-blind** — it doesn't have any city logic baked in. When a request for a given action ("verb")
+**domain-blind** — it doesn't have any sector logic baked in. When a request for a given action ("verb")
 comes in, the host looks up *which engine implements that verb* from governed records in the registry,
 not from a hardcoded list in its own code. Publishing a new engine registers its verbs, and they go
 live within seconds — **no platform edit, no image rebuild.** (The request side of this is

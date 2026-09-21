@@ -24,8 +24,8 @@ A component is a small folder with two things:
   **secrets** it needs (by name only);
 - an **entrypoint** — the actual code (`run.py`), or for an app, a web page (`index.html`).
 
-That description file *is* the component's contract. A city can read it before installing and know
-exactly what the software can and cannot do.
+That description file *is* the component's contract. An organization can read it before installing and
+know exactly what the software can and cannot do.
 
 ## The kinds of component
 
@@ -33,7 +33,7 @@ Different jobs need different shapes. The main kinds:
 
 | Kind | What it does |
 |---|---|
-| **driver** | Brings outside data into the registry as facts, with provenance. The only sanctioned way external data becomes city state. |
+| **driver** | Brings outside data into the registry as facts, with provenance. The only sanctioned way external data becomes governed state. |
 | **engine** | Reads authoritative data, computes something, and writes a derived result — or drives a step-by-step process. Exposes named actions ("verbs"). |
 | **app** | A screen a person uses (a map, a dashboard, a form). Holds no authority of its own — it acts as the logged-in user. |
 | **solution** | A bundle that lists other components; installing it installs all of them together. |
@@ -61,8 +61,17 @@ Two roles stay strictly separated in that graph:
 
 The same certified component can run in different places with different settings. The component itself
 is like a *class*; the component **plus its resolved configuration** is an **instance**. Install a
-solution into two cities and you get two instances of each member — same certified code, different
-config — recorded so the platform knows exactly what is running where and under what settings.
+solution into two different organizations and you get two instances of each member — same certified
+code, different config — recorded so the platform knows exactly what is running where and under what
+settings.
+
+**A worked example.** An "air-quality alert" solution might bundle two members: a *driver* that fetches
+readings from a sensor network, and an *app* that shows an alerts dashboard. Installing the solution
+fans out and installs both, wired together by their declarations — the driver writes sensor readings,
+the app reads them. Install the same solution for a city environment department and for a state
+pollution board, and each gets its own instance, pointed at its own area and its own sensor network —
+but both run the identical certified code. Nobody re-plumbs anything; the declarations do the wiring
+and the config does the rest.
 
 ## Where this stands today
 

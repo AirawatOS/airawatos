@@ -1,4 +1,4 @@
-# Interaction: verbs & services
+# Interaction: verbs & events
 
 *How one part of the platform asks another to do something — and how a request finds the code that handles it.*
 
@@ -33,6 +33,14 @@ The difference between "a leave request" and "a court case" isn't a different ve
 what each one writes. One engine reads that declaration and runs the process. Add a new kind of process
 by publishing a new declaration — no new verb, no new engine.
 
+**A worked example.** A staff-leave request and a court case look completely different to a person, but
+to the platform they're the same five verbs over two declarations. Applying for leave is `request` on
+the "leave" declaration; a manager approving it is `decide`. Filing a court case is `request` on the
+"court case" declaration; a judge ruling is `decide`; asking "where is my case?" is `status`. The leave
+declaration says a manager approves; the court-case declaration says a judge rules — the rules about
+*who* and *what states* live in the declaration, not in the verb. Build a new process — a grievance, a
+permit, a grant application — and you write a new declaration, not new plumbing.
+
 ## Interfaces: the contract behind a verb
 
 A verb isn't loose. Each one is defined by a governed **interface** — essentially "two data shapes plus
@@ -48,7 +56,7 @@ When an app needs something done, it calls the platform's single guarded channel
 — with a verb (for example, `/bridge/request`). Now the key question: how does the platform know *which
 engine* handles that verb?
 
-Not from a hardcoded list. The host is **domain-blind** — it carries no city logic of its own. It looks
+Not from a hardcoded list. The host is **domain-blind** — it carries no sector logic of its own. It looks
 up the verb in **governed binding records** in the registry: "this verb is implemented by that engine."
 Those bindings are data. So when a developer publishes a new engine, publishing **registers its verbs**,
 and the host starts routing to it within seconds — **no change to the platform, no image rebuild.**
@@ -63,6 +71,16 @@ reference (and optionally, as of this time), give me the record." Resolvable ide
 network's equivalent of web addresses. A consumer can follow a reference to a fact held by another
 participant without knowing anything about that participant's internals — the reference resolves, subject
 to that participant authorising the read (see [Participants & the Network](/developer/deep-dives/participants/)).
+
+## Not just asking — reacting to events
+
+So far this is all *request*-shaped: one part asks, another answers. But much of public-interest work is
+*reactive* — something changes in the world, and that should trigger attention somewhere. Alongside
+request/response verbs, the platform is growing an **event** path: a component can **declare the events
+it emits** and **the events it subscribes to**, and the platform routes them — the same "declare it,
+govern it" discipline as verbs, applied to notifications. This is how "a threshold was crossed" becomes
+"a task appeared in the right official's inbox" without the sensor and the inbox knowing anything about
+each other. (This event spine is partly built and still being extended — see the status note below.)
 
 ## Every interaction leaves a receipt
 
@@ -93,5 +111,6 @@ non-breakingly; and interaction receipts on the AI-model path, with produced fac
 
 **Being built:** completing the migration of every domain onto the generic verb set (several are done,
 several are in progress); promoting the *interface* to a fully governed artifact through the same
-propose→approve flow as schemas and roles; and behavioural conformance checks that let one engine be
-swapped for another with confidence.
+propose→approve flow as schemas and roles; the declared-events (emits/subscribes) path, which is
+partly built and being extended; and behavioural conformance checks that let one engine be swapped for
+another with confidence.

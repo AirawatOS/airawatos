@@ -4,7 +4,7 @@
 
 ## The problem
 
-When many different organizations and many different pieces of software all work with the same city,
+When many different organizations and many different pieces of software all work with the same data,
 they need to *mean the same thing* by the same word. If one component's idea of a "building" has a
 height field and another's doesn't, they can't work together. And if a number appears on a screen with
 no record of where it came from, no one can trust it enough to act on it.
@@ -39,6 +39,14 @@ Types follow a simple naming grammar so they read consistently: a namespace and 
 like `geo.building`. Actions (verbs) are named too, and reference fields are explicit — a field that
 points at one other record ends in `_ref`, a field pointing at many ends in `_refs`.
 
+**A worked example.** Suppose an air-quality driver records a sensor reading. The fact it writes might
+carry a type of `air.sensor_reading`, a payload like `{ station: "CPCB-42", pm25: 180, unit: "µg/m³" }`,
+and a valid-time of when the reading was taken. The registry then stamps the rest: which tenant owns it,
+the exact recording time, that it came from the air-quality driver at version 0.2.1, a content
+fingerprint, and a version number. Anyone reading it later gets not just "180" but *who measured it,
+when, and how it got here.* A "court hearing" fact or a "welfare payment" fact has a different payload
+and a different type — but the exact same envelope around it. One frame, every kind of data.
+
 ## Provenance: where every fact came from
 
 Every write records its **provenance** — the story of how the fact came to exist:
@@ -51,6 +59,13 @@ This is what makes a number on a screen traceable all the way back: a dashboard 
 computed it → the exact inputs and the exact code version. Nothing is a mystery blob. (Every write is
 also stamped with its author by the broker — see
 [Zero-Trust Architecture](/developer/deep-dives/zero-trust/).)
+
+**A worked example.** A flood-risk score for an area is a *derived* fact. Its provenance says method
+`derived`, names the engine that computed it, and lists the facts it was derived from — the rainfall
+forecast and the terrain data, each at a specific version. So if someone questions the score, you can
+follow the trail: this score came from that engine, using this rainfall forecast (from that weather
+driver, at that hour) and this elevation data. Re-run the same engine on the same inputs and you get the
+same score. That is what "reproducible" means in practice.
 
 ## History is never erased
 

@@ -53,6 +53,15 @@ only valid if the decision can be *reconstructed* from it. This is the decision-
 provenance every fact already carries (see
 [The Shared Vocabulary](/developer/deep-dives/shared-vocabulary/)).
 
+**A worked example.** A rainfall forecast crosses a flood threshold. Analysis pre-applies the rule and
+produces a recommendation: "issue a flood advisory for this area." That recommendation lands as a task
+in a named official's inbox. The official reviews the evidence and *chooses* to issue the advisory. The
+receipt that results pins: the exact rainfall forecast used (and its source), the exact threshold rule
+in force, the recommendation, the official who decided, and the advisory that came out. Months later,
+anyone can open that receipt and see precisely why the advisory was issued — and confirm it followed
+from the evidence and the rule as they stood that day. The same shape works for a welfare eligibility
+decision or a permit approval; only the facts and rules differ.
+
 ## Rules are data, not code
 
 The rules a decision applies are **governed records**, not logic buried in some program. There is one

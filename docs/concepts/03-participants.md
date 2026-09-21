@@ -61,8 +61,8 @@ parallel hierarchy to climb.
 
 ## Working across boundaries: formal, signed, consented
 
-Cities don't "chat" with each other in AirawatOS. Every cross-boundary exchange is a **formal, typed
-request** — a data-sharing request, a service request, or an event subscription. Each one is:
+Participants don't "chat" with each other in AirawatOS. Every cross-boundary exchange is a **formal,
+typed request** — a data-sharing request, a service request, or an event subscription. Each one is:
 
 - **authenticated and signed**, so the receiver knows exactly who is asking;
 - **default-deny** — the owner of the data decides whether to answer;
@@ -71,6 +71,14 @@ request** — a data-sharing request, a service request, or an event subscriptio
 Participants sign their messages with their own keys, and the keys stay in each deployment's own vault —
 the hub that relays messages holds no private keys and can't forge anyone's signature. So you trust
 *the signed object*, not the messenger.
+
+**A worked example.** A national statistics office publishes a consumer-price index as governed data in
+its own tenant. Another organization — say a city running a cost-of-living analysis — wants to use it.
+It doesn't get a copy of the statistics office's database; it makes a formal, signed **data-sharing
+request**. The statistics office (the steward of that data) authorises a *read-only* share. Now the
+city can read the price-index facts, and every value it displays still carries its true source: "from
+the national statistics office." Nobody's raw database was handed over, the owner decided, and the
+attribution survives the journey.
 
 ## Finding each other: the directory
 

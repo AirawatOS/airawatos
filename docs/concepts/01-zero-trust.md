@@ -4,9 +4,10 @@
 
 ## The problem
 
-AirawatOS is a marketplace. A city installs a piece of software — a "component" — that some
-developer, maybe on the other side of the world, wrote and published. That component then runs
-inside the city's own workspace, next to the city's own data.
+An organization — a city, a health department, a court, a statistics office — installs a piece of
+software (a "component") from a marketplace. Some developer, maybe on the other side of the world,
+wrote and published that component. Once installed, it runs inside that organization's own workspace,
+next to its own data.
 
 Normally you would have to *trust* that code: trust that it only does what it claims, trust that it
 won't quietly copy data somewhere, trust that it won't reach a system it shouldn't. That kind of
@@ -56,6 +57,21 @@ writes something, the broker stamps it with the component's true, un-fakeable id
 traced back to the exact component and version that produced it. (This traceability idea runs through
 the whole platform — see [The Shared Vocabulary](/developer/deep-dives/shared-vocabulary/).)
 
+**A worked example.** Take a driver that fetches hourly air-quality readings from an outside sensor
+network's website. Its description declares exactly three things: it may **call** that one website
+(and no other), it may **write** the "sensor reading" data type (and nothing else), and it needs one
+**secret** — the API key for that website. When it runs:
+
+- it can reach that one website — but not the internet at large, not another agency's server, nothing
+  else;
+- it can write sensor readings — but it cannot read residents' records or write anywhere else;
+- the API key is handed to it only for the moment of the call, never left sitting in its code;
+- and every reading it writes is stamped as coming from that driver, at that version.
+
+If a later version of the driver quietly tried to also call a data-broker website to sell what it
+collected, that call would simply fail — the door was never opened. And because the code's fingerprint
+would no longer match its certificate, the tampered version wouldn't run at all.
+
 ## Least privilege, by construction
 
 When a component runs, the host mints it a short-lived **run-token** that carries *precisely* the
@@ -63,8 +79,8 @@ permissions it declared — no more. And those declared permissions must be a su
 certificate approved. So there are two independent checks agreeing on what the component may do: the
 certificate (at publish time) and the run-token (at run time).
 
-This is what lets a city read a component's permissions *before* installing it and know that list is
-the complete and enforced truth of what the software can touch.
+This is what lets an organization read a component's permissions *before* installing it and know that
+list is the complete and enforced truth of what the software can touch.
 
 ## Why "absent, not denied" matters
 
