@@ -81,9 +81,13 @@ curated rendered site, built from its `docs/` (the concept articles) by the shar
   (page nav + `doc-render` of each page) and an inline **Docs Assistant** box (`doc-ask`, cited). When a
   component ships no docs yet, it points the reader to Studio → 📝 Docs. Pure frontend on the existing
   endpoints (`settings` app, served /apps/settings/).
-- **S4: Developer portal as the aggregate** documentation component (its concept articles are already
-  packaged under `docs/`; remaining work is making the rendered `/developer` site itself build from the
-  shared engine end-to-end).
+- **S4 (DONE): Developer portal renders from the shared engine at request time.** The
+  `/developer/deep-dives/<slug>/` pages are now rendered by app_host from the portal's PACKAGED
+  `docs/*.md` through `docrender` + a build-emitted shell template (`deep-dives/_shell.html` +
+  `_map.json`) — one runtime source. Editing a concept via Studio (📝 Docs on the developer-portal
+  component) goes live on the pretty page with **no rebuild** (proven: a saved marker appeared on the
+  rendered page, then vanished on restore). The statically-built deep-dive pages remain as a cold-start
+  fallback (any miss/error falls through to them).
 
 ## Consequences
 
