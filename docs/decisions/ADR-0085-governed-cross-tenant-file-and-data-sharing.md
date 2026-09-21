@@ -83,8 +83,14 @@ MARKETPLACE (public):                              PRIVATE SHARE (grant-gated):
   volume), token-verified, public read. Wire the publish path to deliver component source to the **Network** filestore
   when federated (+ record the `component_asset` referencing the Network `file_id`). Prove: publish from the local
   install → source lands on the Network → resolvable. **This is the ADR-0084 grand-scenario unblock.**
-- **S2 — Private shares.** `file.share` request/grant schemas + `/v1/file-shares` + `/v1/file-shares/decide`;
-  `GET /v1/files/{id}` enforces the grant for `share`-visibility blobs. A Studio/Inbox surface to request + approve.
+- **S2 — Private shares. ✅ DONE (File Explorer).** `network.file_share` records + `POST /v1/file-shares` (sender
+  offers) + `GET /v1/file-shares` + `POST /v1/file-shares/decide` (recipient admin accepts/declines); `GET
+  /v1/files/{id}` enforces the grant for any blob that is the subject of a private share (only the sender tenant,
+  or the recipient once accepted, may read). Surfaced in **File Explorer**: a per-file **Share** action and a
+  **Shares** panel; the app-host mediates the tenant→network→tenant blob hop (`/bridge/file-share`,
+  `/bridge/file-shares`, `/bridge/file-share/decide`) and lands accepted files under `/Shared with me`. Proven
+  e2e nashik→bmc: pre-accept download 403-gated, accept pulls the blob into the recipient's own filestore, bytes
+  match. Remaining (S2+): an Inbox notification for a new inbound offer; X25519 seal of `share` blobs.
 - **S3 — Quota, GC, retention.** Per-tenant quota, unreferenced-blob GC, retention policy; large-file streaming.
 - **S4 — Cross-install install path.** The runtime-manager/launcher rehydrates component source from the Network
   filestore (not just the local one) when installing a marketplace component on a fresh tenant.
