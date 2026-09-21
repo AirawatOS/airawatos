@@ -5,10 +5,10 @@ is the map you read first.*
 
 ## In one line
 
-**The *Airawat Stack* is a set of horizontal **layers** that provide the shared machinery (identity, trust,
+The **Airawat Stack** is a set of horizontal **layers** that provide the shared machinery (identity, trust,
 storage, rules) once, so any public-interest **field** (cities, health, justice, environment, finance, mobility…)
-can plug in as a **vertical** and be built quickly and be trusted. **AirawatOS is just *one* of those layers —
-the platform/machinery layer** — so the stack is bigger than the OS. **Cities (the *urban* domain) are the first
+can plug in as a **vertical** and be built quickly and be trusted. **AirawatOS is just one of those layers —
+the platform/machinery layer** — so the stack is bigger than the OS. **Cities (the urban domain) are the first
 vertical we've built — an example, not the definition.**
 
 ## Why a "stack"?
