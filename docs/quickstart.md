@@ -102,6 +102,7 @@ Open it, and you've hand-built your first solution.
 
 ## Where to go next
 
+- **[Tutorial — build a real solution (Air Intelligence)](/developer/build/tutorial-air-intelligence/)** — the next step up: a driver, an engine, a cited recommendation, and the Inbox, on a real running solution.
 - **[What is a component?](/developer/build/what-is-a-component/)** and **[Anatomy of a component](/developer/build/anatomy/)** — the building block, in detail.
 - **[Working with governed data](/developer/build/governed-data/)** — how a driver or engine reads and writes the shared record book.
 - **[Build, test, publish](/developer/build/lifecycle/)** — the lifecycle and its two gates, spelled out.
