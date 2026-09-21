@@ -56,14 +56,25 @@ curated rendered site, built from its `docs/` (the concept articles) by the shar
 
 ## Slices
 
-- **S1 (implemented): the reusable core.** Extract `docrender.py`; add `/bridge/doc-render` +
-  `/bridge/component-docs`; adopt the `docs/` convention; prove per-component docs render for a real
-  component. `build_portal.py` reuses the shared renderer.
-- **S2: Studio Docs editor.** A Docs tab: list `docs/*.md`, edit (component-save), live preview
-  (doc-render), package on publish.
-- **S3: Marketplace "Documentation" tab** reading `/bridge/component-docs`.
-- **S4: Developer portal as the aggregate** documentation component, its concept articles moved under
-  the `docs/` convention and rendered by the shared engine.
+- **S1 (DONE): the reusable core.** `docrender.py` (shared renderer); `/bridge/doc-render` (live
+  preview) + `/bridge/component-docs` (render any component's packaged `docs/`); the `docs/` convention;
+  `build_portal.py` reuses the shared renderer. The developer portal ships packaged docs.
+- **S1a (DONE): AI-agent-friendly docs.** Optional YAML **frontmatter** (title, summary, audience,
+  keywords, related ids) that a doc declares about itself; `/bridge/component-docs?...&format=md` (raw
+  markdown — clean text for agents) and `&format=json` (a machine index: pages + summaries + frontmatter,
+  `format: airawat.docs/1`); an `llms.txt` at `/developer` (the index agents look for).
+- **S1b (DONE): the Docs Assistant.** `POST /bridge/doc-ask {question, component?}` — grounded Q&A over
+  a component's packaged docs. It retrieves the most relevant pages, feeds ONLY those to the confined
+  model, and returns the answer **with citations** (the pages used). The AI never acts and never invents;
+  if the docs don't cover it, it says so. Retrieval is dependency-free keyword scoring today; the
+  platform embed service is the drop-in upgrade for large corpora.
+- **S2 (next): Studio Docs editor.** A Docs tab: list `docs/*.md`, edit (component-save), live preview
+  (doc-render), an ✨ author-assist that checks docs against the component's `meta.yaml`, package on
+  publish.
+- **S3: Marketplace "Documentation" tab** + an embedded Docs Assistant box, reading these endpoints.
+- **S4: Developer portal as the aggregate** documentation component (its concept articles are already
+  packaged under `docs/`; remaining work is making the rendered `/developer` site itself build from the
+  shared engine end-to-end).
 
 ## Consequences
 
