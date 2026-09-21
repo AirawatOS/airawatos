@@ -38,9 +38,13 @@ Small, single-purpose, mostly called by the kernel or the host — not by your c
 
 If [The Airawat Stack](/developer/get-started/the-stack/) is the *what* (the layers and domains), this is the *how it runs* — the processes those layers are made of. The **kernel + network** are the trusted core; the supporting services are the platform services around it; the **app host** is where distribution and apps meet the browser.
 
+## Browse it — the API Explorer
+
+**→ [Open the API Explorer](/developer/api/)** — the actual API, browsable in the docs. Pick a service, expand any endpoint to see its parameters, request/response schemas, and examples. For the **Kernel** and **Network** it loads the *live* spec (always current) and lets you **Try it out** against the real gateway; the internal services show their source-derived spec.
+
 ## Using the specs
 
-- **Live, always-current:** hit `kernel:8080/openapi.json` and `network:8090/openapi.json` — generated from the code.
-- **Committed copies:** `platform-spec/spec/openapi/*.json` — one per service (the two FastAPI specs are captured verbatim; the supporting services are source-derived). These are the durable artifacts to point tools at.
+- **Live, always-current:** the Kernel and Network are publicly routed and serve their spec at `https://airos.airawat.org/kernel/openapi.json` and `.../network/openapi.json` — generated from the code, so they never drift.
+- **Committed copies:** `platform-spec/spec/openapi/*.json` — one per service (the two FastAPI specs captured verbatim; the supporting services source-derived). Point Postman, code generators, or CI at these.
 
 > The rule of thumb: build against the **kernel** (through the broker) and the **network** (governance). The rest of the services are the platform doing its job so you don't have to.
