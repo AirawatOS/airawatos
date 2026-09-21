@@ -30,6 +30,10 @@ the certificate, **not** on how the file travelled. (This is the delivery half o
 The important design choice: **install** is when the code is materialized, not first-run. That removes a
 whole class of "it failed the first time someone used it" surprises.
 
+> This very developer portal is delivered exactly this way: it's published to the filestore and
+> materialized on boot — not baked into the platform image. Updating these docs re-publishes the bundle;
+> it doesn't require rebuilding or redeploying the platform.
+
 ## Placement: light things in-process, heavy things out-of-process
 
 Some components are light — a bit of arithmetic on some data. Others are heavy — they need large
