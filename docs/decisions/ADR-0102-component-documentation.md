@@ -76,7 +76,11 @@ curated rendered site, built from its `docs/` (the concept articles) by the shar
   overlay, live, no rebake). The backend endpoints were proven authenticated end-to-end
   (save→live→publish). **The editor is an authoring tool, so it lives in Studio (authenticated) — it was
   briefly served at the public `/developer/editor/` and that was removed** (docs site ≠ authoring tool).
-- **S3: Marketplace "Documentation" tab** + an embedded Docs Assistant box, reading these endpoints.
+- **S3 (DONE): "Documentation" tab in the Settings/Components console.** Selecting a component shows a
+  **Documentation** tab alongside Configure/Sources/Schedule: it renders the component's packaged docs
+  (page nav + `doc-render` of each page) and an inline **Docs Assistant** box (`doc-ask`, cited). When a
+  component ships no docs yet, it points the reader to Studio → 📝 Docs. Pure frontend on the existing
+  endpoints (`settings` app, served /apps/settings/).
 - **S4: Developer portal as the aggregate** documentation component (its concept articles are already
   packaged under `docs/`; remaining work is making the rendered `/developer` site itself build from the
   shared engine end-to-end).
