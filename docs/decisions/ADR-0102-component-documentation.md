@@ -76,11 +76,12 @@ curated rendered site, built from its `docs/` (the concept articles) by the shar
   overlay, live, no rebake). The backend endpoints were proven authenticated end-to-end
   (save→live→publish). **The editor is an authoring tool, so it lives in Studio (authenticated) — it was
   briefly served at the public `/developer/editor/` and that was removed** (docs site ≠ authoring tool).
-- **S3 (DONE): "Documentation" tab in the Settings/Components console.** Selecting a component shows a
-  **Documentation** tab alongside Configure/Sources/Schedule: it renders the component's packaged docs
-  (page nav + `doc-render` of each page) and an inline **Docs Assistant** box (`doc-ask`, cited). When a
-  component ships no docs yet, it points the reader to Studio → 📝 Docs. Pure frontend on the existing
-  endpoints (`settings` app, served /apps/settings/).
+- **S3 (DONE): docs where you read/choose a component — two surfaces.**
+  (a) **Settings/Components console** — selecting a component shows a **Documentation** tab beside
+  Configure/Sources/Schedule (rendered packaged docs + page nav + inline `doc-ask` assistant).
+  (b) **Marketplace** (`storefront`) — the component detail modal gains a **Documentation** section, so a
+  buyer reads the docs and can ask questions **before installing**. Both fall back to "no docs yet → add
+  in Studio 📝 Docs". Pure frontend on the existing endpoints.
 - **S4 (DONE): Developer portal renders from the shared engine at request time.** The
   `/developer/deep-dives/<slug>/` pages are now rendered by app_host from the portal's PACKAGED
   `docs/*.md` through `docrender` + a build-emitted shell template (`deep-dives/_shell.html` +
