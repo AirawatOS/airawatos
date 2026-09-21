@@ -23,11 +23,13 @@ Add one primitive — an **owner-issued, per-object capability grant** — enfor
 
 ### 1. Ownership is declared per schema; the kernel stamps the concrete owner
 
-A governed schema declares its ownership model:
-- `x-ownership: user` — each row belongs to the **person** who created it (Docs, Sheets, Slides, Files, a citizen's own records). That person shares it.
-- `x-ownership: tenant` — each row belongs to the **agency/tenant** (a building, a tax row, a court case). Sharing outward stays the admin-gated cross-tenant lane ([[ADR-0085]]); an individual cannot unilaterally share it.
+A governed schema declares its ownership model — and, crucially, **who** the owner is. "Creator = owner" is only right for self-authored content; the moment a row is *about* someone other than its author (a citizen's record typed by a clerk, or ingested by a driver), the creator is the wrong owner. So there are **three** modes, not two:
 
-For `x-ownership: user` schemas the **kernel stamps `owner` at write time** from the verified `user://<tenant>/<sub>` in `_writer_agent` (never from client-supplied data), and maintains an **owner index** `object_id → owner` so authorization can consult ownership without reading the payload. This is the answer to "where is ownership defined": **in the governed schema (the noun), with the concrete owner fixed by the kernel from identity.**
+- `x-ownership: tenant` (default) — the row belongs to the **agency/tenant** (a building, a tax row, a court case). No individual owner; sharing outward is the admin/role-gated cross-tenant lane ([[ADR-0085]]).
+- `x-ownership: user` — **self-authored**: the row belongs to the **person who created it** (Docs, Sheets, Slides, Files, a personal note). The kernel stamps `owner` = the writer's `user://<tenant>/<sub>` at write, from verified identity (never the body). **[S1 — DONE.]**
+- `x-ownership: subject` + `x-owner-field: <field>` — **data about a person**: the row is owned by the principal **named in that field** (`citizen` / `subject_ref` / `holder`), *not* by whoever created it. A clerk or a driver may *create* the row, but the **subject** is the owner who consents to and revokes sharing. Ties to the `x-subject` facet ([[ADR-0060]] §3a) and the `subject_ref`/`holder` pattern ([[ADR-0049]]). **[S1.5 — the civic-data case; not yet built.]**
+
+The kernel derives the concrete owner per mode and consults it for authz without reading the rest of the payload. This is the answer to "where is ownership defined, and which user": **in the governed schema — the noun says whether a row is org-owned, author-owned, or subject-owned, and for subject-owned it names the field that identifies the owning person.** Marking a citizen schema `x-ownership: user` (creator) instead of `subject` would put the clerk in control of the citizen's data — the exact failure this mode prevents.
 
 ### 2. `access.grant` — the per-object capability record
 
