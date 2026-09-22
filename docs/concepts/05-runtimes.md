@@ -106,6 +106,46 @@ Published versions are immutable and signed. To change something you publish a n
 each tenant chooses when to adopt it. Nothing changes under an installed component without an explicit
 step.
 
+## Components vs. platform services: the shape of the whole system
+
+A fair question at this point: *is AirawatOS built out of components, or out of services?* The answer is
+**both — but they sit at different layers, and only one of them grows.**
+
+Underneath everything is a **small, fixed set of platform services** — the operating system itself.
+These are the long-running processes that provide the ground every component stands on: the **kernel**
+(trust and the registry), the **network** (certification), the **app-host** (where requests land), the
+**event dispatcher**, the **scheduler**, the **runtime-manager**, and the **broker** (the one guarded
+door for outside I/O). This list is deliberately short, and it **stays** short: you do not add a new
+platform service every time you add a capability.
+
+On top of that substrate is the **component plane** — and this is where all growth happens. Every new
+capability — a driver, an engine, an app, a whole solution — arrives as a **component**: certified,
+delivered from the filestore, installed as data, and run under the broker's confinement. Adding one is a
+*publish*, not a *deployment*. No new process, no new port, no platform rebuild.
+
+```
+   the component plane   — grows without bound
+   ┌─────────────────────────────────────────────────┐
+   │  drivers · engines · apps · solutions · models   │
+   │  certified · installed as data · broker-confined │
+   └─────────────────────────────────────────────────┘
+                          runs on
+   the platform substrate   — a short, fixed list
+   ┌─────────────────────────────────────────────────┐
+   │  kernel · network · app-host · event dispatcher  │
+   │  · scheduler · runtime-manager · broker          │
+   └─────────────────────────────────────────────────┘
+```
+
+So the direction of travel is **components on a fixed substrate** — the opposite of "a new
+micro-service for every feature." Capability is something you *publish onto* the platform, not something
+you *bolt beside* it. That's what keeps a deployment from sprawling into an ever-growing pile of
+processes, and it's why the same handful of platform services can carry an unbounded catalogue of sector
+capability.
+
+(Watch the word "service" here — it has a second, unrelated meaning as a *size of thing you consume*,
+covered in [Solutions & Services](/developer/deep-dives/solutions-services/).)
+
 ## Where this stands today
 
 **Working now:** filestore delivery with fingerprint verification for all component shapes; the

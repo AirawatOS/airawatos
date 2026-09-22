@@ -72,6 +72,59 @@ If a later version of the driver quietly tried to also call a data-broker websit
 collected, that call would simply fail — the door was never opened. And because the code's fingerprint
 would no longer match its certificate, the tampered version wouldn't run at all.
 
+## Where that one door leads: the kernel fans out
+
+A component has exactly one door — the broker — and the broker is the run-token-authenticated face of
+the **kernel**. So a fair question is: if the component can only talk to the broker, how does it ever
+use a secret, read a file, or call an AI model? The answer is that it *doesn't* — the **kernel** does,
+on its behalf. The component asks the broker for a result; the kernel is the hub that reaches out to
+the supporting services and brings the result back. The component never names those services and never
+holds a connection to any of them:
+
+- **Secrets.** When a component makes one of its declared outside calls, the kernel fetches the key
+  from Secrets and makes the call itself. The component never sees the key and never talks to Secrets.
+- **File Store.** Blob reads and writes are mediated by the kernel; the component asks, the kernel
+  fetches or stores.
+- **Model Gateway.** An AI completion goes component → broker → kernel → Model Gateway, with the
+  provider keys staying in the vault the whole time.
+- **Network.** To authorize a read or write, the kernel calls the Network to resolve the schema and
+  verify the grant — the component just issues the read or write.
+- **Automation.** Every write the kernel records emits an event out to Automation, which fans it to
+  subscribers. The component doesn't publish events; writing *is* the event.
+
+So those services are indeed reached "through the kernel" — but it's the kernel calling them, triggered
+by a component that only ever spoke to its one door.
+
+## Two services act *on* components, not called *by* them
+
+Two supporting services are the exception that proves the rule — a component never calls them, because
+they are the **control plane** that runs the component in the first place:
+
+- **Scheduler** fires on time and asks the Runtime Manager to start a component (one of the ways work
+  begins).
+- **Runtime Manager** is the trusted invoker: it mints the short-lived run-token and starts the
+  confined component.
+
+A component can't call these — they call it into existence. (Workflow and Decision are similar: they
+orchestrate cases from the outside and persist their own state through the kernel registry, like
+everyone else.)
+
+## Two lanes, one identity
+
+There is a second door in the platform, and it's important not to confuse it with the broker. **Apps**
+— the screens a person clicks — don't run confined with a run-token; they act as the logged-in user.
+Their door is the **app host**'s `/bridge/*` channel, a user-session door that mediates to the
+kernel, network, and file store on the person's behalf. So the whole platform reduces to two lanes:
+
+- **Component runtime → broker (the kernel's confined face) → kernel fans out** to the supporting
+  services.
+- **App (browser) → app host `/bridge/*` → the app host fans out** on the logged-in user's behalf.
+
+Underneath **both** lanes sits **Identity** — it issues the verified tokens (run-tokens for
+components, session tokens for users) that every service checks before it trusts a caller. That's what
+lets two doors stay safe: neither the component nor the app is trusted, only the token it carries and
+the service that minted it.
+
 ## Least privilege, by construction
 
 When a component runs, the host mints it a short-lived **run-token** that carries *precisely* the

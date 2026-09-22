@@ -16,6 +16,23 @@ along a single "packaging" axis:
 
 A useful way to remember it: **parts and bundles you install; a service is operated for you.**
 
+## Three things called "service"
+
+One word, three meanings — worth separating up front, because they cause real confusion:
+
+1. a **platform service** is an *infrastructure process* — the kernel, the app-host, the scheduler, and
+   the few others that make up the operating system itself. There's a short, fixed list of these, and
+   they're covered in [Runtimes & Delivery](/developer/deep-dives/runtimes/).
+2. a **service** on *this* page is the largest of the three consumption sizes — an *outcome operated for
+   you over time* (described below).
+3. what AirawatOS is **not** built from is a *micro-service per feature* — a new deployed process for
+   every capability. New capability arrives as a **component** on the fixed substrate, not as a new
+   service process.
+
+If you come from a micro-services background, this is the trap to avoid: "service" here does **not** mean
+"a process you deploy." Capability you *build* is a component; "service" on this page is a way capability
+is *consumed*.
+
 ## Solutions: a bundle that installs itself
 
 A **solution** is a component whose body is a *list of other components*. Installing it **fans out** —
