@@ -27,9 +27,11 @@ A component is a small folder with two things:
 
 - a **description file** (`meta.yaml`) that states its identity and — crucially — everything it may
   touch: the data it **reads**, the data it **writes**, the outside websites it may **call**, the
-  **secrets** it needs (by name only), and the **events it reacts to** (`subscribes:`) — which the
+  **secrets** it needs (by name only), the **events it reacts to** (`subscribes:`) — which the
   platform auto-wires into a governed subscription when the component is installed (see
-  [Interaction: verbs & events](/developer/deep-dives/interaction/));
+  [Interaction: verbs & events](/developer/deep-dives/interaction/)) — and its **lifecycle hooks**
+  (`lifecycle:`), handlers the platform calls automatically when the component is installed, its config
+  is changed, or it is uninstalled;
 - an **entrypoint** — the actual code (`run.py`), or for an app, a web page (`index.html`).
 
 That description file *is* the component's contract. An organization can read it before installing and
