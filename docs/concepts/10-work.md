@@ -34,6 +34,16 @@ Under the Inbox, every process is built from the same small set of pieces, neste
 - a **workflow** is the path the case follows — its states and the transitions between them;
 - a **task** is a single unit of work assigned to a person or role — "approve this", "review that".
 
+```
+   service    the outcome someone wants        "staff leave"
+     └─ case       one running instance         Priya's leave request
+          └─ workflow   the path it follows      draft ─► pending ─► approved
+                 └─ task    one unit, assigned    "approve this"  → manager
+
+   the hop:  staff composes ─► a case opens on the "leave" workflow ─► a task lands
+             in the manager's inbox ─► manager approves ─► status returns to staff
+```
+
 Because this structure is uniform, an inbox item from the HR process and an inbox item from the courts
 process are the same kind of thing, routed the same way, actioned the same way. A developer building a
 new process describes its workflow once (a governed declaration — see

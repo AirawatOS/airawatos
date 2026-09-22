@@ -13,6 +13,10 @@ set of shared **verbs** carrying typed data — the same governed data shapes fr
 The consumer never needs to know *which* provider or *which* engine will answer — only the verb and the
 data shape. That's what makes the pieces swappable.
 
+> "Public services" here means the civic outcomes people consume — not the platform's own infrastructure
+> processes, and not the packaging size also called a "service". Those three senses are teased apart in
+> [Solutions & Services](/developer/deep-dives/solutions-services/).
+
 ## Few verbs, domain in the data
 
 A tempting mistake is to invent a new verb for every action: `apply-for-leave`, `submit-grievance`,
@@ -76,11 +80,12 @@ to that participant authorising the read (see [Participants & the Network](/deve
 
 So far this is all *request*-shaped: one part asks, another answers. But much of public-interest work is
 *reactive* — something changes in the world, and that should trigger attention somewhere. Alongside
-request/response verbs, the platform is growing an **event** path: a component can **declare the events
-it emits** and **the events it subscribes to**, and the platform routes them — the same "declare it,
-govern it" discipline as verbs, applied to notifications. This is how "a threshold was crossed" becomes
-"a task appeared in the right official's inbox" without the sensor and the inbox knowing anything about
-each other. (This event spine is partly built and still being extended — see the status note below.)
+request/response verbs, the platform routes **events**. A component **declares the events it subscribes
+to** right in its description (`subscribes:`), and the platform **auto-wires the governed subscription
+when the component is installed** — no glue code. This is how "a threshold was crossed" becomes "a task
+appeared in the right official's inbox" without the sensor and the inbox knowing anything about each
+other. (The mirror half — a component declaring the events it *emits* — and visually wiring events in
+Studio are still being added; see the status note below.)
 
 ## Every interaction leaves a receipt
 
@@ -107,10 +112,12 @@ implementation can take over later without breaking the apps that use it.
 **Working now:** the domain-blind host that routes each verb to its engine from governed binding records
 in the registry — live, so a newly published engine's verbs go live within seconds with no platform
 edit; the generic lifecycle verbs served by a single engine, with the first domains migrated onto them
-non-breakingly; and interaction receipts on the AI-model path, with produced facts citing them.
+non-breakingly; the **subscribe** half of the event path — a component declares `subscribes:` and the
+platform auto-wires the governed subscription at install; and interaction receipts on the AI-model path,
+with produced facts citing them.
 
 **Being built:** completing the migration of every domain onto the generic verb set (several are done,
 several are in progress); promoting the *interface* to a fully governed artifact through the same
-propose→approve flow as schemas and roles; the declared-events (emits/subscribes) path, which is
-partly built and being extended; and behavioural conformance checks that let one engine be swapped for
-another with confidence.
+propose→approve flow as schemas and roles; the *emit* half of the event path (declaring the events a
+component publishes) and visually wiring events in Studio; and behavioural conformance checks that let
+one engine be swapped for another with confidence.

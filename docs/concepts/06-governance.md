@@ -26,6 +26,24 @@ Every decision has the same shape, wide at both ends and narrow in the middle:
 And because an outcome is written back as a new fact, it becomes the *top of the next hourglass*. A
 civic process is a chain of these.
 
+```
+      many facts   ×   many rules        TOP (wide): analysis + AI pre-apply
+         ╲                    ╱             the rules to the facts → a recommendation
+          ╲   recommendation ╱
+           ╲                ╱
+            ▼  ONE DECISION ▼            NECK (narrow): one named authority
+           ┌────────────────┐             admits · amends · rejects —
+           │ admit · amend · │            the single point of accountability
+           │     reject      │
+           └────────────────┘
+            ╱                ╲
+           ╱     fan out      ╲          BOTTOM (wide): the decision fans out
+          ▼                    ▼
+     outcomes · orders · tasks · new facts
+
+     └─► an outcome, written back as a new fact, is the TOP of the next hourglass
+```
+
 ## Who pulls the trigger: a spectrum, one receipt
 
 Not every decision needs a human weighing in personally — but every decision is accountable the same

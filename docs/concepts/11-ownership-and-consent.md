@@ -30,7 +30,7 @@ A consequence worth making explicit: **a link to a record carries no authority.*
 
 Subject-ownership raises a fair question: if a citizen owns their property record, how does the **property department** — which has to maintain it — get to it?
 
-Through a **custodian role**. A subject-owned record can name a role as its custodian (say, the *records officer*). Whoever the organization assigns to that role — set up once in [Org Setup](/developer/deep-dives/governance/), the same way any role is assigned — gets to **read and update** the record as part of their job, without asking the citizen each time.
+Through a **custodian role**. A subject-owned record can name a role as its custodian (say, the *records officer*). Whoever the organization assigns to that role — assigned by your tenant's admin, [the same way any role is granted](/developer/deep-dives/participants/) — gets to **read and update** the record as part of their job, without asking the citizen each time.
 
 But the custodian's power stops there: **a custodian may operate the record, but may not share it onward.** Handing the data to a third party is *consent*, and consent stays with the citizen. This mirrors how data-protection law separates the **data subject** (the person), the **controller/custodian** (the agency that holds it), and everyone else.
 
@@ -61,4 +61,4 @@ Get the choice right per noun: mark a citizen's record `subject`, not `user`, or
 
 Putting ownership and consent in the **kernel** — not in each app — is what makes the guarantee real. An app can be careless; the floor beneath it isn't. And because every grant, every access, and every consent decision is a recorded, tamper-evident fact, an organization can show a citizen exactly who their data reached, by whose consent, and let them pull any of it back. Privacy stops being a promise in a settings screen and becomes a property of the system itself.
 
-> Related: [Zero-Trust](/developer/deep-dives/zero-trust/) (how code is kept honest), [The Shared Vocabulary](/developer/deep-dives/shared-vocabulary/) (governed nouns), and [Governance & Decisions](/developer/deep-dives/governance/) (roles and how they're assigned).
+> Related: [Zero-Trust](/developer/deep-dives/zero-trust/) (how code is kept honest), [The Shared Vocabulary](/developer/deep-dives/shared-vocabulary/) (governed nouns), [Governance & Decisions](/developer/deep-dives/governance/) (how rules and roles are governed), and [Participants](/developer/deep-dives/participants/) (how a person is assigned a role).

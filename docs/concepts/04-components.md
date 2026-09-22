@@ -4,9 +4,9 @@
 
 ## One block, one lifecycle
 
-In AirawatOS, **everything is a component** — a driver that fetches data, an engine that computes, an
-app you click on, a bundle that installs several of these at once. They are all the same kind of thing,
-and they all travel the same path:
+In AirawatOS, **everything you build or install is a component** — a driver that fetches data, an engine
+that computes, an app you click on, a bundle that installs several of these at once. They are all the
+same kind of thing, and they all travel the same path:
 
 **register → check it conforms → sign a certificate → list it → pull it → verify it → install it.**
 
@@ -15,13 +15,21 @@ through the same certification as anyone else's. "First-party" is just a fact ab
 not a shortcut. What you trust is the **certificate**, not whether the code was compiled into the
 platform. (Why that's safe is [Zero-Trust Architecture](/developer/deep-dives/zero-trust/).)
 
+> Underneath the components sits a small, *fixed* set of **platform services** — the kernel, identity,
+> network, app-host, and a few others — that **are** the operating system itself. Those aren't
+> components you install; they're the ground components run on. You add capability by publishing
+> components onto that substrate, not by deploying new services (see
+> [the substrate vs. the component plane](/developer/deep-dives/runtimes/)).
+
 ## What a component is made of
 
 A component is a small folder with two things:
 
 - a **description file** (`meta.yaml`) that states its identity and — crucially — everything it may
-  touch: the data it **reads**, the data it **writes**, the outside websites it may **call**, and the
-  **secrets** it needs (by name only);
+  touch: the data it **reads**, the data it **writes**, the outside websites it may **call**, the
+  **secrets** it needs (by name only), and the **events it reacts to** (`subscribes:`) — which the
+  platform auto-wires into a governed subscription when the component is installed (see
+  [Interaction: verbs & events](/developer/deep-dives/interaction/));
 - an **entrypoint** — the actual code (`run.py`), or for an app, a web page (`index.html`).
 
 That description file *is* the component's contract. An organization can read it before installing and

@@ -89,8 +89,9 @@ holds a connection to any of them:
   provider keys staying in the vault the whole time.
 - **Network.** To authorize a read or write, the kernel calls the Network to resolve the schema and
   verify the grant — the component just issues the read or write.
-- **Automation.** Every write the kernel records emits an event out to Automation, which fans it to
-  subscribers. The component doesn't publish events; writing *is* the event.
+- **Event dispatcher.** Every write the kernel records emits an event out to the **event dispatcher**
+  (the "automation" service), which fans it to subscribers. The component doesn't publish events;
+  writing *is* the event.
 
 So those services are indeed reached "through the kernel" — but it's the kernel calling them, triggered
 by a component that only ever spoke to its one door.
@@ -119,6 +120,19 @@ kernel, network, and file store on the person's behalf. So the whole platform re
 - **Component runtime → broker (the kernel's confined face) → kernel fans out** to the supporting
   services.
 - **App (browser) → app host `/bridge/*` → the app host fans out** on the logged-in user's behalf.
+
+```
+  Lane A — a component acts (confined, run-token)
+    component ──► broker ──► kernel ──► { secrets · file store · model gateway
+                (the only door)   (fans out)    · network · event dispatcher }
+
+  Lane B — a person acts (session token)
+    browser / app ──► app-host  /bridge/*  ──► { kernel · network · file store }
+
+  underneath both:  identity — mints the tokens every service checks
+```
+
+*Every path a component or app can take crosses a door the platform controls.*
 
 Underneath **both** lanes sits **Identity** — it issues the verified tokens (run-tokens for
 components, session tokens for users) that every service checks before it trusts a caller. That's what

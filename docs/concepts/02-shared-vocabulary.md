@@ -81,9 +81,11 @@ non-negotiable:
   admit."
 
 To make this precise, each fact tracks up to three separate clocks: when the observation was made, when
-the asserted state applies in the world, and when the registry recorded it. That's what lets the
-registry answer both "what do we believe now?" and "what did the record say at the moment of that
-decision?"
+the asserted state applies in the world, and when the registry recorded it. Concretely, that CPCB-42
+sensor reading might be **taken at 08:00** (observation time), **apply to the 08:00 hour** (valid-time
+in the world), and be **recorded at 08:05** (the registry's transaction time) — three distinct
+timestamps on one fact. That's what lets the registry answer both "what do we believe now?" and "what
+did the record say at the moment of that decision?"
 
 ## Writing data, in practice
 

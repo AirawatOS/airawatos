@@ -113,10 +113,14 @@ A fair question at this point: *is AirawatOS built out of components, or out of 
 
 Underneath everything is a **small, fixed set of platform services** — the operating system itself.
 These are the long-running processes that provide the ground every component stands on: the **kernel**
-(trust and the registry), the **network** (certification), the **app-host** (where requests land), the
-**event dispatcher**, the **scheduler**, the **runtime-manager**, and the **broker** (the one guarded
-door for outside I/O). This list is deliberately short, and it **stays** short: you do not add a new
-platform service every time you add a capability.
+(trust root + registry, and the confined model-gateway path), **identity** (mints the tokens every
+service checks), the **network** (certification + directory), the **app-host** (where app and browser
+requests land), the **file store** (content-addressed component code), **secrets** (the vault), the
+**broker** (the one confined door for a component's outside I/O), the **event dispatcher** (the
+"automation" service that fans registry-write events out to subscriptions), the **scheduler**, and the
+**runtime-manager** (runs heavy components out-of-process). This list is deliberately short, and it
+**stays** short: you do not add a new platform service every time you add a capability. (The same set,
+drawn as two lanes, is in [Zero-Trust](/developer/deep-dives/zero-trust/).)
 
 On top of that substrate is the **component plane** — and this is where all growth happens. Every new
 capability — a driver, an engine, an app, a whole solution — arrives as a **component**: certified,
@@ -126,14 +130,15 @@ delivered from the filestore, installed as data, and run under the broker's conf
 ```
    the component plane   — grows without bound
    ┌─────────────────────────────────────────────────┐
-   │  drivers · engines · apps · solutions · models   │
+   │  drivers · engines · apps · solutions · agents   │
    │  certified · installed as data · broker-confined │
    └─────────────────────────────────────────────────┘
                           runs on
    the platform substrate   — a short, fixed list
    ┌─────────────────────────────────────────────────┐
-   │  kernel · network · app-host · event dispatcher  │
-   │  · scheduler · runtime-manager · broker          │
+   │  kernel · identity · network · app-host          │
+   │  file store · secrets · broker                   │
+   │  event dispatcher · scheduler · runtime-manager  │
    └─────────────────────────────────────────────────┘
 ```
 
