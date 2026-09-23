@@ -41,8 +41,11 @@ configuration the solution specifies. One click, a complete capability.
 
 Because the members are ordinary certified components, a solution is not a special monolith — it's a
 manifest. That means a solution can safely reuse parts that other solutions also use, each member is
-independently certified, and the platform can check at build time that the solution's data graph is
-complete (every "read" has a matching "write" somewhere).
+independently certified, and when the solution is published the platform checks its data graph is
+complete: any noun a member **reads** whose producer exists on the platform must itself be a member.
+Tenant- and platform-level inputs a solution legitimately consumes from outside — an area of interest,
+public reference catalogs, governed platform nouns — are exempt and recorded as its declared external
+inputs.
 
 **A worked example.** A "flood monitoring" solution might bundle a rainfall driver, a terrain driver, a
 flood-risk engine, and a map app. Installing it for a river-basin authority pulls in all four, points

@@ -2,7 +2,7 @@
 
 *Nouns are the data, verbs are the actions — roles are **who is allowed to act**, and they're governed too.*
 
-A role is a governed name for a *kind of actor* — `urban.pollution-control-officer`, `health.records-officer`, `judge`. Like a noun or a verb, a role is a shared standard: it's proposed, a steward approves it, and it becomes part of the network's **actor vocabulary** ([Governance & Decisions](/developer/deep-dives/governance/), ADR-0028). Apps then gate their actions on roles, so "who may do this" is a governed decision, not code buried in an app.
+A role is a governed name for a *kind of actor* — `urban.pollution-control-officer`, `health.records-officer`, `judge`. Like a noun or a verb, a role is a shared standard: it's proposed, a steward approves it, and it becomes part of the network's **actor vocabulary** ([Governance & Decisions](/developer/deep-dives/governance/)). Apps then gate their actions on roles, so "who may do this" is a governed decision, not code buried in an app.
 
 There are two *kinds* of role, and telling them apart is the main design choice.
 

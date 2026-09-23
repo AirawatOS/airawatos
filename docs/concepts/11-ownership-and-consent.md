@@ -8,7 +8,7 @@
 
 If the answer is "anyone in the tenant," that's wrong for a lot of data. My draft document isn't my colleague's business. A citizen's health record isn't readable by every clerk in the building. "Same organization" is far too broad a circle for personal data.
 
-So the platform needs a finer idea than *the tenant owns everything*: **each record has an owner, and only the owner decides who else may see it.** That decision — consent — is enforced in the trusted kernel, underneath every app, so no app (however buggy or malicious) can reveal or share data its owner hasn't agreed to share.
+So the platform needs a finer idea than *the tenant owns everything*: **each record has an owner, and only the owner decides who else may see it.** That decision — consent — is enforced in the trusted kernel, underneath every app. Today the kernel enforces it on **direct, single-record** access — a read of one object, an edit, a grant — so an app opening that record can't reveal or share it against the owner's wishes; extending the same owner-filtering to **bulk queries** is in progress.
 
 ## Who owns a record?
 
@@ -44,7 +44,7 @@ Ramesh's property record lives in the city's system.
 4. That same officer tries to **share Ramesh's record with an outside party** → **denied.** Operating it is fine; giving it away is not their call.
 5. **Ramesh** views his own record any time, and if he wants to share it — with a lawyer, another department — **he** grants *view* (or *comment*, or *edit*). He can **revoke** it whenever he likes, and access ends immediately.
 
-Every one of those checks happens in the kernel, below the apps — so it holds no matter which app is asking.
+Every one of those checks happens in the kernel, below the apps — so it holds no matter which app is asking. (This is enforced today when an app opens a record directly; closing the same owner-privacy guarantee on bulk queries is in progress.)
 
 ## How you declare it (for developers)
 
@@ -57,8 +57,10 @@ You choose a noun's ownership when you [govern its schema](/developer/deep-dives
 
 Get the choice right per noun: mark a citizen's record `subject`, not `user`, or you'll hand control to the clerk. Personal work products are `user`. Operational, org-level data stays the default.
 
+The kernel enforces these flags today; it's a capability you opt into per noun. Most currently-governed nouns are operational data and take the default (`tenant`) — so as you govern citizen-facing nouns, this is the choice to make deliberately.
+
 ## Why it's built this way
 
-Putting ownership and consent in the **kernel** — not in each app — is what makes the guarantee real. An app can be careless; the floor beneath it isn't. And because every grant, every access, and every consent decision is a recorded, tamper-evident fact, an organization can show a citizen exactly who their data reached, by whose consent, and let them pull any of it back. Privacy stops being a promise in a settings screen and becomes a property of the system itself.
+Putting ownership and consent in the **kernel** — not in each app — is what makes the guarantee real. An app can be careless; the floor beneath it isn't. Every grant and consent decision is a recorded, tamper-evident fact, and an owner can revoke a grant at any time to cut off access immediately. A per-access audit trail on top of that — showing a citizen exactly who their data reached, by whose consent — is being built. Privacy stops being a promise in a settings screen and becomes a property of the system itself.
 
 > Related: [Zero-Trust](/developer/deep-dives/zero-trust/) (how code is kept honest), [The Shared Vocabulary](/developer/deep-dives/shared-vocabulary/) (governed nouns), [Governance & Decisions](/developer/deep-dives/governance/) (how rules and roles are governed), and [Participants](/developer/deep-dives/participants/) (how a person is assigned a role).

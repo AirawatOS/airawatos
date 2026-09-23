@@ -18,11 +18,15 @@ A noun is `domain.name` — `air.quality`, `hr.leave_request`, `geo.property`. T
 
 This is the most consequential choice, because it changes how the record behaves. Declare it with `x-kind`:
 
-- **Entity** — a thing with a stable identity that changes over time: a building, a case, a person's document. You update it; the registry keeps every version.
-- **Fact / observation** — something that was measured or happened at a point in time: a sensor reading, a payment, an event. You *append* these; you don't edit yesterday's reading.
-- **Measure** (often per **cell**) — a value attached to a place-and-time on the H3 grid: air quality in a cell, rainfall, population.
+The governed values are **`entity` · `measure` · `event` · `record` · `fragment`** (anything else is rejected at propose time):
 
-Getting this right up front keeps the data honest: entities accumulate history, facts accumulate rows.
+- **`entity`** — a thing with a stable identity that changes over time: a building, a case, a person's document. You update it; the registry keeps every version.
+- **`measure`** (often per **cell**) — a value attached to a place-and-time on the H3 grid: air quality in a cell, rainfall, population. A sensor reading is a `measure`.
+- **`event`** — something that happened at a point in time: a payment, a status change. You *append* these; you don't edit yesterday's.
+- **`record`** — a governed transactional/administrative object (e.g. a case, a receipt) where the row itself is the artefact.
+- **`fragment`** — a reusable value-object embedded inside other schemas (not a standalone record): an address, a money amount, a credential's claims.
+
+Getting this right up front keeps the data honest: entities accumulate history, events accumulate rows.
 
 ## 4. Give it an identity people can find
 

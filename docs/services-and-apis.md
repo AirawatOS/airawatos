@@ -8,7 +8,7 @@ AirawatOS isn't one big program — it's a set of independent services that each
 
 Almost everything a developer cares about is one of these two.
 
-- **Kernel** — `kernel:8080`. The **data plane**: the bitemporal registry (read / write / history / retract) and the confined **broker** your components' code goes through. This is where governed nouns live and where every read and write is authorized. Your component never calls it directly — it goes through the broker, which enforces the component's declared capabilities. *(FastAPI — live spec at `/openapi.json`, ~52 operations.)*
+- **Kernel** — `kernel:8080`. The **data plane**: the bitemporal registry (read / write / history / retract) and the confined **broker** your components' code goes through. This is where governed nouns live and where every read and write is authorized. Your component never calls it directly — it goes through the broker, which enforces the component's declared capabilities. *(FastAPI — live spec at `/openapi.json`, ~33 operations.)*
 - **Network** — `network:8090`. The **governance authority**: the catalogs of governed **nouns (schemas), verbs (interfaces), roles**, plus certificates, grants, the store, solutions, and the federation directory. This is where you *propose* a schema/verb/role and a steward *approves* it. *(FastAPI — live spec at `/openapi.json`, ~96 operations.)*
 
 Because both are FastAPI, each serves its own **live OpenAPI** at `/openapi.json` — the spec is generated from the code, so it never drifts. The committed copies live in `platform-spec/spec/openapi/`.

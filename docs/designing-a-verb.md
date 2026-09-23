@@ -2,7 +2,7 @@
 
 *If a schema is a noun, a verb is a governed way to **act**. The golden rule: you almost never need a new one.*
 
-Nouns are the data; **verbs** are the governed *interactions* — the actions components expose to each other and to people ([interfaces](/developer/deep-dives/interaction/), ADR-0058). A verb binds a request/response (or event) contract to a name, and it's governed exactly like a noun: you *propose* it, a steward *approves* it.
+Nouns are the data; **verbs** are the governed *interactions* — the actions components expose to each other and to people ([interfaces](/developer/deep-dives/interaction/)). A verb binds a request/response (or event) contract to a name, and it's governed exactly like a noun: you *propose* it, a steward *approves* it.
 
 But the single most important thing to understand about verbs is the opposite of nouns:
 
@@ -38,10 +38,10 @@ A verb is a governed interface, so the shape mirrors [designing a schema](/devel
 
 ## How a verb reaches your code
 
-Publishing a verb doesn't run anything by itself. A verb is **bound** to the component that implements it — a governed `platform.verb_binding` record maps the verb to your engine. When someone calls the verb, the platform dispatches it to the bound engine, and the interaction leaves a signed **receipt** (ADR-0058) — proof of who invoked what, against which contract. So a verb is a *promise* (the contract), a *binding* (who fulfils it), and a *receipt* (that it happened) — all governed data, none of it hard-wired.
+Publishing a verb doesn't run anything by itself. A verb is **bound** to the component that implements it — a governed `platform.verb_binding` record maps the verb to your engine. When someone calls the verb, the platform dispatches it to the bound engine, and every write it makes is attributed to that component on the caller's behalf. On the interaction paths that carry them today — service transactions, personal-agent actions, and consented data-reads — the call also leaves a signed **receipt** proving who invoked what against which contract; generalising receipts to every verb invocation is being rolled out. So a verb is a *promise* (the contract) and a *binding* (who fulfils it), increasingly backed by a *receipt* (that it happened) — all governed data, none of it hard-wired.
 
 ## The short version
 
-> Reach for a verb last, not first. Express your domain as a **noun + config** over an existing generic verb (`request`/`decide`, `read`/`write`, `evaluate`, `run`, `emit`). Propose a genuinely new verb only for a genuinely new *interaction shape* — and when you do, it's a governed, typed, steward-approved contract, bound to an engine and audited by receipts, exactly like a noun is a governed shape.
+> Reach for a verb last, not first. Express your domain as a **noun + config** over an existing generic verb (`request`/`decide`, `read`/`write`, `evaluate`, `run`, `emit`). Propose a genuinely new verb only for a genuinely new *interaction shape* — and when you do, it's a governed, typed, steward-approved contract, bound to an engine, exactly like a noun is a governed shape.
 
 Related: [Interaction: verbs & events](/developer/deep-dives/interaction/) (the concept), [Designing a schema](/developer/build/designing-a-schema/) (the noun it acts on), and [Work: Inbox, Cases & Tasks](/developer/deep-dives/work/) (the lifecycle plane in action).

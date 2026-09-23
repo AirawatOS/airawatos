@@ -2,7 +2,7 @@
 
 *How a water-supply grant moves from a national ministry, through a state, to a city — and why the money follows the information.*
 
-The [first worked example](/developer/get-started/example-services-together/) stayed inside one organization. This one crosses **sovereign tenants** — a ministry, a state department, a city — none of which can see into another's database. It shows the platform's sharpest civic idea: **the flow of information across agencies determines the flow of money.** Make the information flow governed, shared, and tamper-evident, and the money flow follows it — with no PDFs, no portal reconciliation, and one true picture everyone can trust.
+A single-organization workflow stays inside one tenant. This one crosses **sovereign tenants** — a ministry, a state department, a city — none of which can see into another's database. It shows the platform's sharpest civic idea: **the flow of information across agencies determines the flow of money.** Make the information flow governed, shared, and tamper-evident, and the money flow follows it — with no PDFs, no portal reconciliation, and one true picture everyone can trust.
 
 This is the pattern behind India's centrally-sponsored schemes (PMAY-U, AMRUT, Jal Jeevan Mission) — the classic **60:40 Centre:State** co-funding, released in instalments gated on reported progress. It composes primitives you've already met — the cross-tenant data-request/grant lane, signed decisions, double-entry finance, and verifiable credentials — arranged along the **jurisdiction ladder** (nation → state → city).
 
@@ -44,4 +44,4 @@ Every hop shares the property that makes it work:
 
 That's fiscal federalism as a *data* problem, solved once: sovereign tenants, governed sharing under consent, signed decisions, and money that follows verified information down the jurisdiction ladder.
 
-> This composes the cross-tenant lanes and finance/decision primitives the platform already provides; the full multi-tier program orchestration is the design captured in **ADR-0072 (federated program funding)**. Related: [Participants & the Network](/developer/deep-dives/participants/) (tenants + federation), [Governance & Decisions](/developer/deep-dives/governance/) (signed decisions), and [Data Ownership & Consent](/developer/deep-dives/ownership-consent/) (why a link is not access).
+> This composes the cross-tenant lanes and finance/decision primitives the platform already provides; the full multi-tier program orchestration is a separate design for federated program funding. Related: [Participants & the Network](/developer/deep-dives/participants/) (tenants + federation), [Governance & Decisions](/developer/deep-dives/governance/) (signed decisions), and [Data Ownership & Consent](/developer/deep-dives/ownership-consent/) (why a link is not access).

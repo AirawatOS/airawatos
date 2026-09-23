@@ -50,9 +50,9 @@ Facts can carry a **confidence**, and a recommendation carries its reasoning. A 
 dressed up as certainty; a low-confidence input stays visibly low-confidence all the way to the person
 deciding. This is what lets a human weigh a recommendation properly rather than rubber-stamp it.
 
-**A worked example.** An "air-quality expert" watches PM2.5 facts for an area. When readings and the
-forecast cross a governed threshold rule, its skill produces a recommendation — "issue a public health
-advisory for tomorrow" — citing the exact readings and the rule. That recommendation lands in a named
+**A worked example.** An "air-quality expert" watches PM2.5 facts for an area. When measured readings
+cross a governed threshold rule, its skill produces a recommendation — "issue a public health
+advisory" — citing the exact readings and the rule. That recommendation lands in a named
 official's inbox as a task. The official reviews the cited evidence and decides. The AI found the
 pattern and explained it; the person made the call; the receipt records both. The same shape works for a
 flood advisory or a welfare-eligibility flag — different facts, different rules, same loop.

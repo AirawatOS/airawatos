@@ -231,10 +231,29 @@ fallbacks. We build the one graph model, **delete** the old service verbs + the 
   transition + `stamp` (`$sub` → `user://kmc/kanpur-admin`) + close, behaving identically to the FSM path. Engine
   `ds:airawatdeveloper:engine/lifecycle-engine@0.1.19`; test residue retracted. *(EC2 delivery: run.py in the
   components-cache on the durable `/data` volume; proper filestore re-publish of 0.1.19 rides W4/rollout.)*
-- **W2 — Federated node locality.** A `fulfilment:{provider|offering}` node = a federated Request (ADR-0023): its
-  Task/Case lives in the provider tenant, decided under that authority with its own receipt (ADR-0046); the parent
-  Case tracks it pending. `service-route` / `-consent` become the transport + consent gate that node uses (not
-  interaction verbs). Prove one cross-provider service as a graph.
+- **W2 — Federated node locality. ✅ SHIPPED (2026-09-23).** A `task` node with `fulfilment:{provider,workflow}`
+  is a federated Request (ADR-0023): its Case lives in the **provider** tenant, decided under that authority; the
+  parent Case tracks it **pending** and reconciles when the leg closes. Wired via a **host-held capability** (the
+  authority boundary is real: the graph engine's `ctx.kwrite` is attributed to the engine in the *current* tenant and
+  physically can't write into a provider tenant — cross-tenant writes need the provider-admin token only the host
+  mints). Two capabilities added to `_engine_ctx`, same trust model as `provision_login`/`ensure_install` (the secret
+  stays host-side): **`federate(provider,workflow,title,payload,parent_case)`** → `_federate_open` mints the
+  provider-admin token and opens the leg by driving the **same lifecycle-engine** under provider authority (via a new
+  optional `token` override on `_engine_ctx`/`_invoke_engine`) — *one engine, both sides*; **`remote_status(provider,
+  remote_case)`** → `_federate_status` reads the leg back cross-tenant. In `_advance_graph`, a task node whose
+  `fulfilment` is a dict federates instead of routing locally: it parks the node as `waiting` and stashes
+  `scope._remote[node] = {provider, remote_case, transaction_id, status}` (no `platform.case` schema change — `scope`
+  is open). There's **no push callback** (the transport is same-host cross-tenant), so the parent **reconciles on
+  `status`/`tick`** (`_reconcile_federated`): it polls each waiting leg and, when the provider sub-case is
+  closed/resolved, marks the node done and advances. **Proven on EC2:** a `kmc` permit graph (`submit → noc → decide →
+  issue`) whose `noc` node has `fulfilment:{provider:nashik, workflow:nashik.noc}` — the leg opened as a
+  **nashik-owned** case (`ds:nashik:case/…`, `opened_by user://nashik/nashik-admin`) driven by nashik's own governed
+  graph; the parent stayed waiting until **nashik decided (grant) + closed** its leg under its own authority; a parent
+  `status` reconciled it (`noc` done), the parent advanced to `decide → issue` and closed. Engine `@0.1.20`; host
+  baked into `manishsv/airawatos-reference:0.2.70` (recreated + re-proven on the baked image); test residue retracted.
+  *(A best-effort `network.service_transaction` ledger write gives the requester a "My Requests" correlation; the
+  `service-route`/`-consent` VC+fee+consent gates + `service.offering` envelope resolution attach in W4/W5 when the
+  step-list services migrate — W2 proves the graph↔provider seam itself.)*
 - **W3 — Delete the old service runtime + verbs (hard-cut, once W1/W2 are green).** Remove from `app_host.py`:
   `_advance_service_workflow`, `_bridge_service_init/route/confirm/status/consent`, `_provider_fulfil`,
   `_service_receipt`, `_txn_status`, and the hardcoded `_quote_fee`/`_FEES` (fees move to the offering envelope as

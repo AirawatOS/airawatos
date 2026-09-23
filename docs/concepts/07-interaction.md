@@ -54,19 +54,54 @@ interface* — never on the concrete provider. Because the dependency is on the 
 implementation behind it can be swapped for a better one without breaking anyone, as long as the new one
 conforms.
 
+## Two seams: app→host, and component→component
+
+Before tracing a request, separate the two places verbs are spoken — they behave differently:
+
+- **Component → component** (an engine calling another engine, a driver writing data): this goes through
+  the **broker**, and it is the *fully* governed plane. A component can only use the generic verbs and the
+  capabilities it declared; it never holds credentials or an open network. This is the seam
+  [Zero-Trust](/developer/deep-dives/zero-trust/) and the [Clean Room](/developer/build/capabilities/)
+  describe. "Everyone speaks the same governed vocabulary" is exactly true here.
+- **App → host** (a screen in your browser calling the platform): this goes through the **bridge**
+  (`/bridge/<verb>`), acting as the signed-in person. It's a *superset* — it exposes the governed engine
+  verbs **and** the platform's own built-in primitives (below).
+
 ## How a request reaches the right code
 
-When an app needs something done, it calls the platform's single guarded channel — the **broker/bridge**
-— with a verb (for example, `/bridge/request`). Now the key question: how does the platform know *which
-engine* handles that verb?
+When an app calls `/bridge/<verb>`, the host resolves it in two tiers:
 
-Not from a hardcoded list. The host is **domain-blind** — it carries no sector logic of its own. It looks
-up the verb in **governed binding records** in the registry: "this verb is implemented by that engine."
-Those bindings are data. So when a developer publishes a new engine, publishing **registers its verbs**,
-and the host starts routing to it within seconds — **no change to the platform, no image rebuild.**
+```
+An app (in your browser, acting as you)
+     │   POST /bridge/<verb>
+     ▼
+┌──────────────────────── app-host ────────────────────────┐
+│ TIER A — is <verb> a built-in platform primitive?          │
+│   (propose-a-schema, request-a-role, install, run a service)│
+│        │ yes → a fixed host handler ───────────────────────┼──► kernel / network
+│        │ no                                                 │
+│        ▼                                                    │
+│ TIER B — look <verb> up in the GOVERNED routing table       │
+│   (platform.verb_binding — versioned registry records)      │
+│        │  verb → engine                                      │
+│        ▼                                                    │
+│ run that engine through the broker, on your behalf ─────────┼──► certified engine
+└─────────────────────────────────────────────────────────────┘        │ broker: read/write
+                                                                         ▼  governed nouns (as you)
+                                                                      registry
+```
 
-This is a direct payoff of treating everything as governed data: the routing table for the whole
-platform is itself editable, versioned records rather than code someone has to redeploy.
+**Tier B is the answer to "how does it know which engine?" — and it's not a hardcoded list.** The host is
+**domain-blind**: it looks the verb up in **governed binding records** ("this verb is implemented by that
+engine"). Those bindings are data. So when a developer publishes a new engine, publishing **registers its
+verbs**, and the host routes to it within seconds — **no change to the platform, no image rebuild.** The
+routing table for the whole platform is itself editable, versioned records rather than code someone redeploys.
+
+**Tier A is a fixed, small set of built-in primitives** — the platform's own control-plane actions
+(propose a schema/role, install a component, drive a service). These are still routes in the host, so they
+change only when the OS itself evolves — *not* when you add a new domain. And you add domains without adding
+verbs at all: a new service is a new governed *declaration* interpreted by the existing generic verbs (above),
+so the everyday extensibility surface is entirely Tier B — governed, no redeploy.
 
 ## One universal verb: resolve
 
@@ -121,3 +156,10 @@ several are in progress); promoting the *interface* to a fully governed artifact
 propose→approve flow as schemas and roles; the *emit* half of the event path (declaring the events a
 component publishes) and visually wiring events in Studio; and behavioural conformance checks that let
 one engine be swapped for another with confidence.
+
+**Honest caveat — the two tiers aren't equal yet.** Tier B (engine verbs) is governed today: publish an
+engine, its verbs route with no redeploy. Tier A (the platform's built-in primitives — propose-a-schema,
+install, the service control-plane) is still **routes in the host**, so adding a genuinely new *primitive*
+still means a host release. Those primitives are few and change rarely, and they're never what a new domain
+needs — but folding them onto the same governed-binding mechanism, so there's no built-in list at all, is
+in-progress convergence work, not done.

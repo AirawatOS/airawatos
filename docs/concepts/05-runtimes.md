@@ -85,8 +85,8 @@ between them as the seam:
 - The **coordination plane** (the scheduler/orchestrator) decides *what* should run, checks the
   certificate and contract, and dispatches. It carries none of the components' heavy libraries.
 - The **execution plane** (the runtime-manager on a node) actually runs the code in its profile
-  container, mounts the code read-only, hands secrets through the broker, and locks execution to the
-  exact certified image.
+  container, mounts the code read-only, materialises the component's declared secrets from the vault
+  into the run's environment, and locks execution to the exact certified image.
 
 This is why one deployment doesn't collapse into a single ever-growing container holding every library
 anyone ever needed.
@@ -159,7 +159,9 @@ dispatching heavy engines to a dedicated runtime; governed verb dispatch (the do
 verb-to-engine bindings from the registry) live; and the first node-side operator tool that pulls,
 verifies, and attests the runtime images it holds.
 
+**Available now** also includes several heavy profiles beyond the base — `earth-observation`, `modeling`,
+`media`, and `vision` runtimes each ship as certified components with a pinned image digest.
+
 **Being built:** finishing the cutover so that *nothing* is baked into the platform image (some
-components are still baked today); tightening placement to strictly fail-safe everywhere; heavier
-profiles beyond geospatial; the strongest confidential runtime tier; and per-tenant version pinning with
-admin-approved upgrades.
+components are still baked today); tightening placement to strictly fail-safe everywhere; the strongest
+confidential runtime tier; and per-tenant version pinning with admin-approved upgrades.

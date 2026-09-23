@@ -56,8 +56,8 @@ Different jobs need different shapes. The main kinds:
 
 Because every component *declares* what it reads and writes, the platform can wire them into a graph on
 its own: a driver writes a data type, an engine reads that type and writes a derived type, an app reads
-both and draws them. Nobody hand-connects the wires — the declarations do it, and at certification time
-the platform can check a solution's data graph is complete.
+both and draws them. Nobody hand-connects the wires — the declarations do it, and when a solution is
+published the platform can check its data graph is complete.
 
 Two roles stay strictly separated in that graph:
 

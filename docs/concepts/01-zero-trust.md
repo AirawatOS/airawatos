@@ -36,6 +36,15 @@ not allowed to." The forbidden things are simply **not there**:
 As the design puts it: there is *no socket to try*. Anything the component didn't ask for isn't merely
 denied — it is **absent**.
 
+> **Two tiers of confinement — be precise about which you're reading.** The strongest form — a component
+> with *literally no socket*, every secret used only inside the kernel — is real today for **light,
+> in-process components** that reach the outside through the broker's fetch path. **Heavier components** (a
+> satellite-imagery driver, an ML trainer) run in a **locked, certified container**: their code is mounted
+> read-only and signature-checked, they may act only within their **declared** reads / writes / outside-hosts
+> / secrets, and every write is attributed — but the container runs its own process, receives its declared
+> secrets in its environment, and makes its own outbound calls to its declared hosts. So read the absolutes
+> above as the confinement **contract**; the fully socket-less clean room is the target tier, still being built.
+
 ## The single door: the broker
 
 If a component has no direct access to anything, how does it do useful work — read data, call an
@@ -53,7 +62,7 @@ its description file:
 
 The broker holds the real credentials; the component never sees them. And every time the component
 writes something, the broker stamps it with the component's true, un-fakeable identity
-(`component://<name>@<version>`). So no action inside the platform is anonymous — every value can be
+(`component://<name>`). So no action inside the platform is anonymous — every value can be
 traced back to the exact component and version that produced it. (This traceability idea runs through
 the whole platform — see [The Shared Vocabulary](/developer/deep-dives/shared-vocabulary/).)
 
@@ -81,8 +90,10 @@ on its behalf. The component asks the broker for a result; the kernel is the hub
 the supporting services and brings the result back. The component never names those services and never
 holds a connection to any of them:
 
-- **Secrets.** When a component makes one of its declared outside calls, the kernel fetches the key
-  from Secrets and makes the call itself. The component never sees the key and never talks to Secrets.
+- **Secrets.** On the broker-mediated fetch path, when a component makes a declared outside call the
+  kernel fetches the key from Secrets and makes the call itself — so the component never sees it. A
+  heavier container component instead receives its **declared** secrets in its run environment (from the
+  vault, at start) and makes its own outbound calls to its declared hosts.
 - **File Store.** Blob reads and writes are mediated by the kernel; the component asks, the kernel
   fetches or stores.
 - **Model Gateway.** An AI completion goes component → broker → kernel → Model Gateway, with the
@@ -103,8 +114,9 @@ they are the **control plane** that runs the component in the first place:
 
 - **Scheduler** fires on time and asks the Runtime Manager to start a component (one of the ways work
   begins).
-- **Runtime Manager** is the trusted invoker: it mints the short-lived run-token and starts the
-  confined component.
+- **Runtime Manager** is the trusted invoker: it starts the confined component under its **run-token**
+  (a per-component, per-tenant token minted by the kernel when the component is installed) and injects
+  only that component's declared capabilities.
 
 A component can't call these — they call it into existence. (Workflow and Decision are similar: they
 orchestrate cases from the outside and persist their own state through the kernel registry, like
@@ -141,9 +153,9 @@ the service that minted it.
 
 ## Least privilege, by construction
 
-When a component runs, the host mints it a short-lived **run-token** that carries *precisely* the
-permissions it declared — no more. And those declared permissions must be a subset of what the
-certificate approved. So there are two independent checks agreeing on what the component may do: the
+When a component is installed, the kernel mints it a **run-token** that carries *precisely* the
+permissions it declared — no more — and every run executes under that token. And those declared
+permissions must be a subset of what the certificate approved. So there are two independent checks agreeing on what the component may do: the
 certificate (at publish time) and the run-token (at run time).
 
 This is what lets an organization read a component's permissions *before* installing it and know that
@@ -167,10 +179,14 @@ the component ever knowing or needing to change. The contract it runs under stay
 
 ## Where this stands today
 
-**Working now:** the broker as a component's single door, with declared-only reads/writes/outside-calls
-and un-fakeable attribution on every write, proven end-to-end for real components; the "refuse to run
-if the code doesn't match its certificate" check; the run-token carrying only declared permissions.
+**Working now:** the broker as the data door — declared-only **reads and writes** with un-fakeable
+attribution on every write, enforced in the kernel for every component; **broker-mediated outside-calls**
+with the key injected server-side (the light, in-process path); the "refuse to run if the code doesn't
+match its certificate" check; and the run-token carrying only declared permissions.
 
-**Being built:** the strongest isolation tier — a **clean room** where even the operator can't see the
-data a component processes — is designed but not yet built. Operator certification is an early
-capability, with the full signed lifecycle still to come.
+**Being built:** the strongest isolation tier — a **clean room** where a component has literally no
+socket and even the operator can't see the data it processes — is designed but not yet built. Today's
+**heavier components run in a locked, certified container** with their declared capabilities, but they
+hold their declared secrets in-environment and make their own outbound calls to their declared hosts;
+pulling those onto the broker-mediated path (so the declared host-list is network-enforced too) is part
+of this work. Operator certification is an early capability, with the full signed lifecycle still to come.
