@@ -1478,6 +1478,24 @@ reads are holder-FILTERED not row-authz'd (a citizen querying civic.credential w
 others' — needs per-citizen tenant or row-level ACL); no revocation/expiry/selective-disclosure; storage is
 still server-side (citizen's tenant), not a device/edge wallet.
 
+## Sound verify: revocation + expiry now enforced (ADR-0049) — 2026-09-23
+Made verification report VALIDITY, not just authenticity — the blocker for cross-state "verify a migrant" cases.
+`/v1/credentials/verify` now returns `{verified, signature_valid, revoked, expired, revocation_checked, reason}`;
+`verified` is true only when the signature holds AND the credential is not revoked AND not expired. Added
+`POST /v1/credentials/revoke` (issuer-gated: only a member of the issuing tenant, 403 otherwise) — revocation is a
+lifecycle fact OUTSIDE the signature (the VC stays cryptographically genuine, but verify reports it invalid),
+checked at verify by an authoritative status-list lookup by id in the network store. Added optional `expires_at`
+INSIDE the signed core (tamper-proof), enforced at verify. Added `/bridge/credential-revoke` (agency app path,
+forwards the issuer token). The reuse verifier (`_verify_required_credentials`) gates on `verified`, so revoked/
+expired credentials are auto-rejected at service application. VERIFIED cross-tenant on EC2 (nashik issues →
+verify True, key_source directory → nashik revokes → verify False reason=revoked; past-expiry → False expired;
+future-expiry → True; cross-tenant revoke → 403; tampered claim → signature_valid False). Baked: network 0.2.18,
+reference 0.2.71. Powers the developer-portal guide `/developer/get-started/verify-across-states/`. REMAINING
+LIMITS: revocation is checked against the network that HOLDS the record (if the id is unknown there,
+`revocation_checked:false` = signature-only) — a published portable status list for fully-offline revocation is a
+later step; no selective disclosure / ZK; envelopes not X25519-sealed; cross-state IDENTITY RESOLUTION (matching a
+person to their home-state record) is still the developer's responsibility, not solved by the platform.
+
 ## Fix: Approve advances the workflow (was closing the case, skipping issuance) — 2026-08-29
 BUG: the Inbox 'Approve' on a plain review task calls /bridge/decide → the decision service closed the case as
 'decided', BYPASSING the service-workflow interpreter — so a birth-certificate approved at 'verify' closed
@@ -2303,3 +2321,18 @@ three. (maiac-aod + firms-fire were run-installed but only appeared in Connectio
   records on any tenant). **Fix:** seed one real 2-step offering + consent + certified aggregator and
   drive route(init)→complete→complete→close on EC2 after the reference bake. Until then, the port is
   behaviour-proven, not traffic-proven.
+
+- 🟡 **Property-Tax-Gap corroborating signals are engine-ready but data-blocked for the unregistered set (Amritsar).**
+  S3 wired the tax-gap-engine (0.2.4) to fuse independent signals — `utility_no_tax` (util.connection) and
+  `change_detected` (tax.change_signal) — alongside the S2 `footprint_no_assessment` (unregistered) signal, and
+  fixed `utility_no_tax` to compare against KEY-JOINED assessments so a registered parcel's utility is correctly
+  suppressed. Fusion + suppression are proven by an offline fixture (a parcel with utility+change+footprint →
+  3 signals, confidence 1.0; a registered parcel with a utility → suppressed). **But the Amritsar_Final dataset
+  has no aligned independent signal for the UNREGISTERED properties:** the survey's utility-connection numbers
+  (water/sewer/electric) are populated ONLY on mSeva-mapped (registered) rows — 0/150 sampled unregistered rows
+  carry one; and the satellite New_Builtup layer (17,501 uids) barely intersects the survey layers (6 unregistered,
+  36 registered by uid). So `utility_no_tax`/`change_detected` cannot corroborate the derived candidates without
+  fabricating data (refused per no-synthetic-data). **Fix:** feed a real independent utility-board connection export
+  (electricity/water) and/or a cadastre-aligned change layer keyed to the survey uid; the engine + `ingest-utilities`
+  0.2.0 (broker-contract fix + optional `parcel_id` link) are ready to consume them. Also: `ingest-utilities` is the
+  legacy `ds:airawat` namespace and 403'd on steward-publish — re-home to `ds:airawatdeveloper` per ADR-0094 to ship it.
