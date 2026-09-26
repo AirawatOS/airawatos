@@ -1,0 +1,10 @@
+# ADR-0105 S1 — add to the platform compose. Stateless + read-only → scale with `deploy.replicas` behind the LB.
+# Point KERNEL_READ_URL at a Postgres read replica (ADR-0105 axis A) when one exists; until then, the primary.
+  service-gateway:
+    build: ./services/service-gateway
+    environment:
+      NETWORK_URL: "http://network:8090"
+      KERNEL_READ_URL: "http://kernel:8080"   # → swap to the read-replica-backed kernel endpoint at scale
+      PORT: "8110"
+    # deploy: { replicas: 3 }                 # horizontal scale for the citizen-service read path
+    networks: [airawatos_default]
