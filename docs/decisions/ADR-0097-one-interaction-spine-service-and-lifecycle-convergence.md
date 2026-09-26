@@ -456,6 +456,8 @@ configured.
 
 ## W4/W5 build — offering→graph reference + publish-a-service from Studio (2026-09-26)
 
+> **Status (2026-09-26): code landed, NOT yet run on a stack.** W4a (`network/api.py`), W4b (`app_host.py`) compile; W5 (`studio` app + `meta.yaml@0.2.0`) passes `node --check`. End-to-end proof — publish a graph service from Studio → citizen discovers → provider graph case opens + advances (incl. a federated node) — is the pending verification (local airos-local, then EC2).
+
 Concretises the two remaining not-yet-built slices so a **bespoke, arbitrarily-complex workflow can be published as a citizen service**, while **Service Studio stays the no-developer path**. Design is code-anchored to what W0–W2 already shipped; it is strictly non-breaking.
 
 ### The insight that makes this small
