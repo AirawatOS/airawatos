@@ -451,3 +451,50 @@ calendar, computed in it (a test gotcha, not a fork).
 "Calendar / Holidays" tab (+ optional `holidays` ingest driver), per jurisdiction · **Cal-4** (optional)
 working-hours granularity + recompute-on-holiday-change. Degrades safely to wall-clock everywhere it isn't
 configured.
+
+---
+
+## W4/W5 build — offering→graph reference + publish-a-service from Studio (2026-09-26)
+
+Concretises the two remaining not-yet-built slices so a **bespoke, arbitrarily-complex workflow can be published as a citizen service**, while **Service Studio stays the no-developer path**. Design is code-anchored to what W0–W2 already shipped; it is strictly non-breaking.
+
+### The insight that makes this small
+
+W1 already made the bare `request` verb prefer a `platform.workflow` graph over the FSM (`lifecycle-engine/run.py:h_request` → `_gwf` wins), and **W2 already runs a node's fulfilment in a *provider* tenant under the provider's authority** (`_advance_graph` → `ctx["federate"]` → app_host `_federate_open` mints the provider-admin token; `_reconcile_federated` closes the leg). So a graph-backed service is **reuse, not a new runtime**: opening a service case = opening a graph case in the provider tenant; advancing it = the generic `update`/`decide` inbox actions the graph interpreter already emits (`_g_actions`); a cross-provider service = a graph whose nodes carry `fulfilment:{provider,workflow}` (W2). The step-list interpreter (`service-open`/`service-advance`) stays for the declarative/Service-Studio path and is untouched.
+
+### W4 — an offering may *reference* a `platform.workflow` graph
+
+**Schema (`network.service_offering`, additive).** Add an optional `workflow_ref` (the id/name of a governed `platform.workflow`). An offering fulfils **via exactly one of**:
+- `fulfillment.workflow` — the embedded **linear step-list** (today's Service-Studio path, run by `service-open`/`service-advance` on the generic `declarative-service` solution). Unchanged.
+- `workflow_ref` — a governed **graph** (branches / parallel / decisions / timers / federated nodes), run by the shipped graph interpreter, fulfilled by the offering's bound **bespoke certified `solution`**.
+
+**Network publish validation (`network/api.py:service_offering_publish`).** The graph is **tenant-local governed data carried by the certified `solution`** — the network holds certified *components*, not the tenant's `platform.workflow` records, so it validates the **binding**, not the graph body: `workflow_ref` is a non-empty string, the named `solution` is certified (already enforced), and `workflow_ref` XOR a non-empty `fulfillment.workflow` (reject both — ambiguous). The graph's own node roles / credentials / conformance are governed at **solution-certify time and W6 conformance**, where the graph is actually in scope — not at offering-publish. `required_credentials` and `audience` on the envelope are still governed here as today. Steward-sign as today.
+
+**Fulfilment (`app_host.py:_provider_fulfil`, the `init`/route path).** Branch on the offering shape:
+- `workflow_ref` present → **open a graph case in the provider tenant under provider authority** (the identity `_provider_fulfil` already mints). Map the citizen submission to the graph: `payload` = the intake `form`; seed the case `opened_by` = citizen sub, `subjects` = `[offering.id] + verified_credentials`, and the `scope` materialised from `scope_map` (as today). Invoke the engine's `request` verb with the provider ctx (which resolves the graph via `_gwf` and runs `_advance_graph` — routing the first ready node(s) to the right provider role inboxes, running effect/gateway nodes, arming timers, and opening any federated legs). Return `{case, reference, status, fulfilled_by, routed_to}` in the same envelope shape the step-list path returns, so the citizen app is unchanged.
+- else → the existing `service-open` step-list path. Unchanged.
+
+**Advancement + status.** A graph-backed service case advances through the **generic** `update`/`decide` verbs already wired to the Inbox actions the graph emits (`_g_actions`) — no `_advance_service_workflow` special-case needed for it. `status` reads via `h_graph_status` (which also reconciles federated legs, W2). The citizen "My Requests" tracker syncs off the provider case `status`/`current_step` exactly as the step-list path does.
+
+**Non-breaking.** Offerings with no `workflow_ref` are byte-for-byte the old path. `workflow_ref` is additive; the public projection (`_offering_public`) simply carries it through.
+
+### W5 — publish a service from Studio (Solution Studio), no separate re-authoring
+
+Today only **Service Studio** can write a `network.service_offering`; **Studio** publishes solutions to the Marketplace and already carries `platform.workflow` in `required_schemas`. Close the gap:
+
+- **Studio gains the offering write path.** Add `network.service_offering` to `components/apps/studio/meta.yaml:required_schemas`, and a **"Publish as Service"** action beside "⬆ Publish as Solution". It (a) lets the developer pick a `platform.workflow` graph already in the project, (b) collects the citizen **envelope** — `domain`, `jurisdiction`, `audience` (governed role), `entitlement`, the intake `request_schema` (reuse the graph's `start`/first-task form, or author one), `required_credentials` — and (c) POSTs a `network.service_offering` with `workflow_ref` = the chosen graph, `solution` = the project's **certified** solution, `interaction:['search','init','status']`, `fulfillment` omitted. Same `/bridge/service-offering-save` → `POST /v1/service-offerings` the network already validates and steward-signs.
+- **Service Studio unchanged** — remains the config-only, no-developer surface that emits a linear `fulfillment.workflow` step-list on the generic `declarative-service` solution. The two-tier model is now explicit in the product: *Service Studio = configure a simple service (no code); Studio = build a bespoke solution + graph and publish it as a service.*
+- (W5-later) fold the two into "**the** workflow-authoring surface" per §4 — out of scope for this slice; the two publish paths already converge on one schema + one interpreter, which is the load-bearing part.
+
+### Rollout (non-breaking, local-first then EC2)
+
+- **W4a** — `workflow_ref` on the offering schema + `service_offering_publish` graph-validation (network). Prove: publishing an offering with a bad/ungoverned `workflow_ref` is rejected; a good one is signed + stored.
+- **W4b** — `_provider_fulfil` graph-open branch (app_host) reusing the shipped graph interpreter. Prove locally: a **single-provider graph service** (a 2–3 node graph with a decision) opened via `/v1/service/route init` lands a `platform.case` + first task in the provider role's inbox; `update`/`decide` advance it; `status` reflects it. Then a **cross-provider** graph service (a node with `fulfilment:{provider,workflow}`) opens a leg in the second tenant (W2) and reconciles.
+- **W5** — Studio "Publish as Service" + `required_schemas`. Prove: a solution built in Studio, containing a governed graph, is published as an offering that a citizen app then discovers and runs end-to-end via W4b — with no Service-Studio involvement.
+- **Acceptance:** one offering fulfilled by a bespoke graph (incl. a federated node) runs end-to-end from Studio-publish → citizen-discover → provider-fulfil; the step-list/Service-Studio path is unchanged; no new verb, no second interpreter.
+
+### Risks / edges
+
+- **Form ↔ graph payload mapping.** The intake `request_schema` fields must land where the graph's first node expects them (`payload`/case scope). Keep the same convention the step-list path uses (form → `civic.submission` + case scope via `scope_map`); the graph reads scope/payload as `h_graph_request` already does.
+- **Provider-authority open.** Opening a graph case cross-tenant reuses the exact W2 identity mechanism; no new trust surface. The clean-room engine still performs no network — the host holds the provider token and the `federate` capability.
+- **Reference BPP.** `_provider_fulfil` remains the reference provider stand-in (per the W2 note); a provider running its *own* deployed engine is the same graph, just hosted by that operator — the federation direction, not this slice.
