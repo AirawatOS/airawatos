@@ -25,17 +25,27 @@ platform. (Why that's safe is [Zero-Trust Architecture](/developer/deep-dives/ze
 
 A component is a small folder with two things:
 
-- a **description file** (`meta.yaml`) that states its identity and — crucially — everything it may
-  touch: the data it **reads**, the data it **writes**, the outside websites it may **call**, the
-  **secrets** it needs (by name only), the **events it reacts to** (`subscribes:`) — which the
-  platform auto-wires into a governed subscription when the component is installed (see
-  [Interaction: verbs & events](/developer/deep-dives/interaction/)) — and its **lifecycle hooks**
-  (`lifecycle:`), handlers the platform calls automatically when the component is installed, its config
-  is changed, or it is uninstalled;
-- an **entrypoint** — the actual code (`run.py`), or for an app, a web page (`index.html`).
+- an **entrypoint** — the actual code (`run.py`), or for an app, a web page (`index.html`). You write it
+  against the SDK's one I/O object, **`ctx`**: `ctx.get`/`ctx.facts` to **read**, `ctx.write` to **write**,
+  `ctx.fetch` to **call** an outside site, `ctx.file` for blobs, and so on. Engines mark their actions with
+  `@engine.verb`; drivers mark their entrypoint with `@driver.main` (see the
+  [Quickstart](/developer/build/quickstart/) and [Working with governed data](/developer/build/governed-data/));
+- a **description file** (`meta.yaml`) that carries the component's **identity** (id, version, kind, title)
+  and the handful of things that can't be read off the code: its **runtime**, **config** schema, packaged
+  **assets**, and any **subscriptions**/**lifecycle hooks** you want wired up.
 
-That description file *is* the component's contract. An organization can read it before installing and
-know exactly what the software can and cannot do.
+The key move: **the code is the source of truth for the contract, not the description file.** Everything the
+component may *touch* — the data it **reads**, the data it **writes** (and into which scopes), the files it
+handles, the outside websites it may **call**, the **secrets** it needs (by name only) — is **derived from
+your code** by `aos check`, which writes it into `meta.yaml` for you. You never hand-maintain those lists;
+they can't drift from what the code actually does, because they *are* what the code does. (The **events a
+component reacts to** — `subscribes:` — the platform auto-wires into a governed subscription on install; see
+[Interaction: verbs & events](/developer/deep-dives/interaction/). **Lifecycle hooks** — `lifecycle:` — are
+handlers the platform calls automatically when the component is installed, reconfigured, or removed.)
+
+The resulting `meta.yaml` still *is* the component's contract — an organization reads it before installing and
+knows exactly what the software can and cannot do. What changed is *how it comes to exist*: derived from the
+code and signed into the certificate, not typed by hand and hopefully kept in sync.
 
 ## The kinds of component
 
