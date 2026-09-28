@@ -2,7 +2,7 @@
 
 *Build, publish, and install a tiny working solution on AirawatOS in about ten minutes — first the fast, AI-assisted way, then the same thing by hand so you can see every moving part.*
 
-Everything here happens in the browser. You don't install a toolchain, and you don't touch the servers — you build inside **Studio** (the platform's own build workspace) and the platform certifies, delivers, and runs your work for you.
+This quickstart uses **Studio**, the platform's own in-browser build workspace — no toolchain to install, and you never touch the servers; the platform certifies, delivers, and runs your work for you. Prefer to build in your own editor? The same lifecycle runs from the command line — see the [**`aos` CLI quickstart**](/developer/build/quickstart/). Studio and the CLI are two front doors onto the *same* governed pipeline; use whichever fits you.
 
 ## Before you start
 
@@ -62,7 +62,7 @@ reads:  []                  # this greeter needs no governed data
 writes: []                  # …and writes none
 ```
 
-The rules you declare here are the *complete* list of what your component can do. A driver or engine would add `reads` / `writes` (the data types it may touch), `egress` (outside websites it may call), and `secrets` (keys, delivered only at use). See [What your code can touch](/developer/build/capabilities/) and [Anatomy of a component](/developer/build/anatomy/).
+For an app this is just identity — a greeter touches no governed data. A driver or engine touches more (data it **reads** / **writes**, outside sites it may **call**, **secrets** it needs), but you don't hand-write those lists: you write the code against `ctx`, and `aos check` (or Studio) **derives** them into `meta.yaml` for you. See [What your code can touch](/developer/build/capabilities/) and [Anatomy of a component](/developer/build/anatomy/).
 
 ### 3 · Write the code
 
@@ -78,7 +78,7 @@ For our app, edit `dist/index.html` — a plain page. It reads the platform-prov
 </script>
 ```
 
-An **app holds no authority of its own** — it acts as the signed-in user and reaches data only through the platform, never a side channel. A **driver** or **engine** instead has a `run.py` with a small, declared surface: a driver's `main()` runs to completion; an engine exposes a table of named actions (verbs). Both do all their I/O through the **broker** — the single guarded door described in [Zero-Trust Architecture](/developer/deep-dives/zero-trust/).
+An **app holds no authority of its own** — it acts as the signed-in user and reaches data only through the platform, never a side channel. A **driver** or **engine** instead has a `run.py`: a driver marks its entrypoint with `@driver.main` (it runs to completion); an engine marks each action with `@engine.verb`. Both do all their I/O through the one `ctx` surface — backed by the **broker**, the single guarded door described in [Zero-Trust Architecture](/developer/deep-dives/zero-trust/).
 
 ### 4 · Test, publish, compose, install
 
@@ -102,7 +102,8 @@ Open it, and you've hand-built your first solution.
 
 ## Where to go next
 
-- **[Tutorial — build a real solution (Air Intelligence)](/developer/build/tutorial-air-intelligence/)** — the next step up: a driver, an engine, a cited recommendation, and the Inbox, on a real running solution.
+- **[Quickstart — the `aos` CLI](/developer/build/quickstart/)** — the same lifecycle from your own editor: `aos new → check → test → deploy --sandbox`.
+- **[Tutorial — build a real solution (Air Intelligence)](/developer/tutorials/air-intelligence/)** — the next step up: a driver, an engine, a cited recommendation, and the Inbox, on a real running solution.
 - **[What is a component?](/developer/build/what-is-a-component/)** and **[Anatomy of a component](/developer/build/anatomy/)** — the building block, in detail.
 - **[Working with governed data](/developer/build/governed-data/)** — how a driver or engine reads and writes the shared record book.
 - **[Build, test, publish](/developer/build/lifecycle/)** — the lifecycle and its two gates, spelled out.
