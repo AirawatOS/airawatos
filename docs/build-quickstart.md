@@ -11,14 +11,18 @@ workspace) is a second front door onto the *same* pipeline; this is the code-fir
 ## 1. Install
 
 ```bash
-pip install airawatos-aos        # the `aos` command lands on your PATH
-# from a checkout instead:  pip install -e path/to/components/_common
+pip install --pre airawatos-aos        # the `aos` command lands on your PATH
+# from Git instead:  pip install "git+https://github.com/AirawatOS/components.git#subdirectory=_common"
 aos --help
 ```
 
+`aos` is published as an **early alpha**, so `--pre` is required (plain `pip install airawatos-aos` skips
+pre-releases). If your system Python refuses the install (`externally-managed-environment`), create a venv
+first: `python3 -m venv ~/aos-env && source ~/aos-env/bin/activate`.
+
 `aos` is a thin client — it holds no data and runs no services. It talks to a network + kernel over HTTP,
 so you point it at whichever platform you want (step 3). Some drivers that bucket data by H3 cell also want
-the geo extra: `pip install "airawatos-aos[geo]"`.
+the geo extra: `pip install --pre "airawatos-aos[geo]"`.
 
 ## 2. (Optional) a platform to build against
 
@@ -111,7 +115,7 @@ promotion pipeline, with the governance gates in the UI). See
 ## The loop, end to end
 
 ```
-pip install airawatos-aos → aos config set → aos login
+pip install --pre airawatos-aos → aos config set → aos login
 aos new → write code (ctx) → aos check → aos test        # inner loop, offline
 aos deploy --sandbox [--live]                             # whole solution into your dev sandbox
 → promote to production (reviewed)
