@@ -1,126 +1,185 @@
-# Quickstart — build with the `aos` CLI
+# Quickstart — build & deploy with the `aos` CLI
 
-*From nothing to a running component in a dev sandbox — the code-first way.*
+*From nothing to an app running on your dev sandbox — the code-first way.*
 
-You build AirawatOS components in your own editor with a small CLI called **`aos`**. You write ordinary
-Python against **one object (`ctx`)**; the SDK derives the component's contract from your code, runs it,
-and deploys a whole solution into your **development sandbox** — a tenant that is yours, where governance
-is auto-approved and nothing can reach production until you promote it. Studio (the in-browser build
-workspace) is a second front door onto the *same* pipeline; this is the code-first one.
+You build AirawatOS components in your own editor with a small CLI, **`aos`**. You write ordinary Python
+against **one object (`ctx`)**; the SDK derives the component's contract from your code, runs it, and deploys
+a whole solution into your **development sandbox** — a tenant that's yours, where governance is auto-approved
+and nothing can reach production until you promote it. (Studio, the in-browser workspace, is a second front
+door onto the same pipeline.)
 
-## 1. Install
+## 1 · Install
 
 ```bash
-pip install --pre airawatos-aos        # the `aos` command lands on your PATH
-# from Git instead:  pip install "git+https://github.com/AirawatOS/components.git#subdirectory=_common"
+python3 -m venv ~/aos-env && source ~/aos-env/bin/activate
+pip install --pre airawatos-aos        # early alpha → --pre is required
 aos --help
 ```
 
-`aos` is published as an **early alpha**, so `--pre` is required (plain `pip install airawatos-aos` skips
-pre-releases). If your system Python refuses the install (`externally-managed-environment`), create a venv
-first: `python3 -m venv ~/aos-env && source ~/aos-env/bin/activate`.
+`aos` is a thin client — no data, no services. Some geo drivers also want the extra:
+`pip install --pre "airawatos-aos[geo]"`. (If your system Python refuses the install with
+`externally-managed-environment`, the venv above is the fix.)
 
-`aos` is a thin client — it holds no data and runs no services. It talks to a network + kernel over HTTP,
-so you point it at whichever platform you want (step 3). Some drivers that bucket data by H3 cell also want
-the geo extra: `pip install --pre "airawatos-aos[geo]"`.
-
-## 2. (Optional) a platform to build against
-
-You don't need one to *start* — `aos check`, `aos test`, and `aos deploy --sandbox` all run fully offline
-against an in-memory registry. You only need a live platform for `--live`. Three ways to have one:
-
-- **Hosted** — point `aos` at the shared platform (`https://airos.airawat.org`); your dev tenant lives there.
-- **Local** — run the platform's Docker stack on your machine and point `aos` at `localhost`.
-- **None** — stay offline; `--sandbox` proves the whole pipeline with no services at all.
-
-## 3. Configure the target once
-
-`aos config` persists your target to `~/.aos/config.json`, so you set it once instead of exporting env vars
-every run. (An env var still overrides for a one-off; resolution is env → config → default.)
+## 2 · Scaffold a component
 
 ```bash
-aos config set network=https://airos.airawat.org/network \
-               kernel=https://airos.airawat.org/kernel \
-               issuer=https://airos.airawat.org/auth/realms/airawatos \
-               client-id=aos-cli
-aos config list          # shows each value and where it came from (env | config | default)
+mkdir ~/aos-demo && cd ~/aos-demo
+aos new driver ds:airawatdeveloper:driver/hello-weather --into hello-weather
+# or:  aos new app <id>   |   aos new engine <id>
 ```
 
-## 4. Log in
+You get `run.py` (the SDK model) and a minimal `meta.yaml` carrying only identity — you never hand-write
+what the component reads, writes, or calls; `aos check` derives that from the code.
 
-`aos login` opens your browser, you authenticate, and the token is captured back and cached
-(`~/.aos/credentials.json`, auto-refreshed). No pasting tokens.
+## 3 · Write the logic — against `ctx`
 
-```bash
-aos login                # browser OIDC (Authorization Code + PKCE)
-aos login --device       # headless shells: shows a code to enter in a browser elsewhere
-```
-
-Against a **local** dev stack there's usually a passwordless dev login and you can skip this.
-
-## 5. Scaffold a component
-
-```bash
-aos new driver my-sensors        # or:  aos new engine my-engine   |   aos new app my-app
-```
-
-You get a folder with `run.py` (the SDK model — `@driver.main` / `@engine.verb`, using `ctx`) and a minimal
-`meta.yaml` carrying only identity. **You do not hand-write what the component reads, writes, or calls** —
-the SDK derives that from your code (next step). Write your logic:
+Edit `hello-weather/run.py`:
 
 ```python
+"""Hello Weather — a tiny driver that writes one governed fact."""
 from aos import driver, ctx
 
 @driver.main
 def run():
-    aoi = ctx.get(AOI_ID, "space.aoi")                       # a READ (tracked)
-    rows = fetch_readings(aoi)                               # your logic
-    ctx.write_many(rows, valid_from_field="observed_at")     # a WRITE (tracked), bitemporal
+    rows = [{
+        "schema": "demo.greeting",
+        "id": f"ds:{ctx.tenant}:demo.greeting/hello",
+        "observed_at": ctx.now(),
+        "prov": {},
+        "message": f"Hello from {ctx.tenant}!",
+    }]
+    n = ctx.write_many(rows)                      # a WRITE (tracked), bitemporal
+    print(f"{n} fact(s) written to tenant {ctx.tenant}")
 ```
 
-`ctx` is the one I/O surface — `facts / get / write / write_many / file.put|get / fetch` (brokered egress
-with server-side secret injection) / `facts_x` (cross-tenant) / `ai / recommend / …` — identical whether your
-code runs in-process or headless. See [Working with governed data](/developer/build/governed-data/) and
-[Anatomy of a component](/developer/build/anatomy/).
+`ctx` is the one I/O surface — `get`/`facts` to read, `write`/`write_many` to write, `fetch` to call an
+allowed site (secrets injected server-side), `file` for blobs, `ai` to ask the model. See
+[Working with governed data](/developer/build/governed-data/) and [Anatomy of a component](/developer/build/anatomy/).
 
-## 6. Check + test — locally, no services
+## 4 · Check, derive, test — all offline
 
 ```bash
-aos check my-sensors     # derives meta from the code (reads/writes/scopes/files/egress/secrets) + validates
-aos test  my-sensors     # runs it against an in-memory registry (seed with a fixtures.json) — no network
+aos check hello-weather        # derives reads/writes/scopes/egress/secrets into meta + validates
+aos meta  hello-weather --write
+aos test  hello-weather        # runs it against an in-memory registry — no services
+#   → 1 fact(s) written …  writes=['demo.greeting']
 ```
 
-`aos check` is the single gate: it prints the **derived** `meta.yaml` and fails if the vocabulary is
-malformed. What you touched is a function of what your code did — you never hand-maintain it.
+## 5 · Add an app (a clickable tile)
 
-## 7. Deploy to your sandbox
+A driver is headless — it writes **data** (visible in the Data app), not a screen. For something to open on
+the desktop, add an **app**. Create `hello-greeter/meta.yaml`:
 
-A whole vertical is declared once in a **`solution.yaml`** (members, subscriptions, schemas, viz layers).
-Deploy it:
+```yaml
+component_id: ds:airawatdeveloper:app/hello-greeter
+kind: app
+version: 0.1.0
+provider: ds:airawatdeveloper:developer
+display_name: Hello Greeter
+icon: 👋
+entrypoint: index.html        # SPA entry inside the bundle
+bundle: dist                  # the static bundle served under /apps/<id>/
+sandboxed: true
+required_schemas: [demo.greeting]    # the data it's allowed to read
+```
+
+and `hello-greeter/dist/index.html`:
+
+```html
+<!doctype html><meta charset="utf-8">
+<title>Hello Greeter</title>
+<style>
+  body{margin:0;min-height:100vh;display:grid;place-items:center;
+    background:#0e1310;color:#e7ede9;font-family:system-ui,sans-serif}
+  .card{background:#151b18;border:1px solid #26302b;border-radius:16px;padding:40px 44px;text-align:center}
+  .who{color:#57d6c4;font-weight:700}
+</style>
+<div class="card">
+  <div style="font-size:3rem">👋</div>
+  <h1>Hello from <span class="who" id="t">…</span></h1>
+  <p>Your first AirawatOS app — it runs in the browser as you, reading only what it declared.</p>
+</div>
+<script>
+  // the app-host injects config.json (tenant, the signed-in user's context)
+  fetch('config.json').then(r=>r.json()).then(c=>{
+    document.getElementById('t').textContent = c.tenant || 'your tenant';
+  }).catch(()=>{ document.getElementById('t').textContent = 'your tenant'; });
+</script>
+```
+
+An **app holds no authority** — it runs as the signed-in user and reaches data only through the platform.
+
+## 6 · Compose a `solution.yaml`
+
+A solution bundles members and installs them together:
+
+```yaml
+solution: hello-weather-demo
+environment: development
+members:
+  reuse: []
+  build:
+    - hello-weather        # the driver (writes demo.greeting)
+    - hello-greeter        # the app (the 👋 tile)
+```
+
+## 7 · Prove the whole closure offline
 
 ```bash
-aos deploy --sandbox my-solution                          # offline: proves the whole closure, no services
-aos deploy --sandbox --live my-solution --tenant <you>    # live: govern → certify → install → seed into your dev tenant
-aos destroy --sandbox --live my-solution --tenant <you>   # reverse it all (idempotent)
+aos deploy --sandbox . --tenant airawatdeveloper
+#   → build: hello-weather · build: hello-greeter · install · Under Development
 ```
 
-In a **development** tenant the network **auto-approves** the schemas/roles/verbs your solution declares
-(quarantined to your tenant), certifies your components from source, installs the closure, and seeds the
-subscriptions + viz layers — everything marked **"Under Development."** Nothing here can be published to the
-Marketplace or Service Directory: that gate is deliberate. When it's ready, you **promote** dev → production
-through a reviewed path — from the CLI or from **Solution Studio** (which drives the same publish +
-promotion pipeline, with the governance gates in the UI). See
-[Governance & Decisions](/developer/deep-dives/governance/).
+Offline dry-run — governs, certifies, installs, seeds, with **no services**. Confirms the solution is
+complete before you touch a platform.
+
+## 8 · Deploy to your sandbox and see it
+
+Two real sandboxes — pick whichever you have:
+
+**Your own local stack** (desktop at `localhost:8099`):
+```bash
+aos deploy --sandbox --live . --tenant airawatdeveloper
+```
+
+**The hosted sandbox** (`airawatdeveloper` on airos.airawat.org) — one command:
+```bash
+platform-spec/deploy/ec2/ec2-deploy.sh ~/aos-demo airawatdeveloper
+```
+
+Then open the tile:
+
+```
+https://<your-host>/apps/hello-greeter/          # e.g. https://airos.airawat.org/apps/hello-greeter/
+```
+
+Everything lands **"Under Development,"** quarantined to your tenant. Reverse any time with
+`aos destroy --sandbox --live`.
+
+## 9 · Promote (when it's ready)
+
+Dev tenants **cannot** publish directly — promotion to the **Marketplace** is a *reviewed* gate (via Studio
+or `aos publish`). That's deliberate: your sandbox is for building and testing; the world sees it only after
+review. See [Governance & Decisions](/developer/deep-dives/governance/).
 
 ## The loop, end to end
 
 ```
-pip install --pre airawatos-aos → aos config set → aos login
+pip install --pre airawatos-aos
 aos new → write code (ctx) → aos check → aos test        # inner loop, offline
-aos deploy --sandbox [--live]                             # whole solution into your dev sandbox
-→ promote to production (reviewed)
+aos deploy --sandbox [--live]                            # your own desktop (local)
+ec2-deploy.sh … airawatdeveloper                         # hosted sandbox → see the tile
+→ promote to the Marketplace (reviewed)
 ```
 
+## Good to know
+
+- **`solution.yaml` is format-agnostic** — block *or* inline, whether or not PyYAML is installed.
+- **Pointing at a platform:** `aos config set network=… kernel=…` persists a target to `~/.aos/config.json`
+  (env overrides per-run). The offline inner loop (steps 1–7) needs no config at all.
+- **Hosted deploy today** runs through `ec2-deploy.sh` (it executes the deploy inside the hosted app-host).
+  Running `aos deploy --live` straight from your laptop against the hosted sandbox arrives with auth
+  hardening (`aos login`); the dev sandbox is passwordless for now and intentionally not publicly exposed.
+
 Next: what a [component](/developer/deep-dives/components/) is, [the Clean Room](/developer/build/capabilities/)
-it runs in, [Build, test, publish](/developer/build/lifecycle/), and how
-[solutions](/developer/deep-dives/solutions-services/) compose components.
+it runs in, and how [solutions](/developer/deep-dives/solutions-services/) compose components.
