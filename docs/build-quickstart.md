@@ -158,9 +158,17 @@ Everything lands **"Under Development,"** quarantined to your tenant. Reverse an
 
 ## 9 · Promote (when it's ready)
 
-Dev tenants **cannot** publish directly — promotion to the **Marketplace** is a *reviewed* gate (via Studio
-or `aos publish`). That's deliberate: your sandbox is for building and testing; the world sees it only after
-review. See [Governance & Decisions](/developer/deep-dives/governance/).
+Deploying to a sandbox and promoting to the Marketplace are **two different acts by two different roles:**
+
+- **Any developer** with an id on the tenant builds and `aos deploy --live`s into the **sandbox**. That path
+  touches only the **kernel** (your dev-token writes) and the **app-host** (your bundle) — never the network.
+- **Only the tenant administrator** promotes to the **Marketplace**, and they do it in **Studio** (a *reviewed*
+  gate), not from a laptop. `aos` has no push-to-Marketplace path: a development-tenant publish is refused
+  both client-side (`aos.policy`) and server-side (the network's production gates).
+
+That separation is deliberate: your sandbox is for building and testing; the shared **network authority** —
+the one surface that certifies and lists a component for everyone — is reached only at promotion, by the
+administrator who answers for the tenant. See [Governance & Decisions](/developer/deep-dives/governance/).
 
 ## The loop, end to end
 
