@@ -135,17 +135,30 @@ complete before you touch a platform.
 
 ## 8 · Deploy to your sandbox and see it
 
-Two real sandboxes — pick whichever you have:
+Point `aos` at the sandbox, sign in, and deploy — the **same two commands** whether the sandbox is your
+own local stack or the hosted one. A `--live` deploy touches only the kernel (your dev-token writes) and
+the app-host (your bundle); it never calls the network.
 
-**Your own local stack** (desktop at `localhost:8099`):
+**Your own local stack** (desktop at `localhost:8099`, passwordless dev IdP):
 ```bash
+aos config set network=http://localhost:8090 kernel=http://localhost:8081 \
+               identity=http://localhost:8093 app-host=http://localhost:8099
 aos deploy --sandbox --live . --tenant airawatdeveloper
 ```
 
-**The hosted sandbox** (`airawatdeveloper` on airos.airawat.org) — one command:
+**The hosted sandbox** (`airawatdeveloper` on airos.airawat.org) — sign in once, then deploy:
 ```bash
-platform-spec/deploy/ec2/ec2-deploy.sh ~/aos-demo airawatdeveloper
+aos config set network=https://airos.airawat.org/network \
+               kernel=https://airos.airawat.org/kernel \
+               app-host=https://airos.airawat.org \
+               oidc_issuer=https://airos.airawat.org/kc/realms/airawatdeveloper \
+               oidc_client_id=aos-cli
+aos login                                            # opens the browser → sign in → token cached in ~/.aos
+aos deploy --sandbox --live . --tenant airawatdeveloper
 ```
+`aos login` is Authorization-Code + PKCE against the tenant's identity provider; the cached token
+authenticates every later command. (Headless/CI: `aos login` falls back to the device-code flow, or set
+`AIRAWAT_PASSWORD` for a direct password login.)
 
 Then open the tile:
 
@@ -175,19 +188,18 @@ administrator who answers for the tenant. See [Governance & Decisions](/develope
 ```
 pip install --pre airawatos-aos
 aos new → write code (ctx) → aos check → aos test        # inner loop, offline
-aos deploy --sandbox [--live]                            # your own desktop (local)
-ec2-deploy.sh … airawatdeveloper                         # hosted sandbox → see the tile
-→ promote to the Marketplace (reviewed)
+aos deploy --sandbox .                                   # offline dry-run (no services)
+aos login → aos deploy --sandbox --live .                # your sandbox (local or hosted) → see the tile
+→ promote to the Marketplace (tenant-admin, via Studio, reviewed)
 ```
 
 ## Good to know
 
 - **`solution.yaml` is format-agnostic** — block *or* inline, whether or not PyYAML is installed.
-- **Pointing at a platform:** `aos config set network=… kernel=…` persists a target to `~/.aos/config.json`
-  (env overrides per-run). The offline inner loop (steps 1–7) needs no config at all.
-- **Hosted deploy today** runs through `ec2-deploy.sh` (it executes the deploy inside the hosted app-host).
-  Running `aos deploy --live` straight from your laptop against the hosted sandbox arrives with auth
-  hardening (`aos login`); the dev sandbox is passwordless for now and intentionally not publicly exposed.
+- **Pointing at a platform:** `aos config set network=… kernel=… oidc_issuer=… oidc_client_id=…` persists a
+  target to `~/.aos/config.json` (env overrides per-run). The offline inner loop (steps 1–7) needs no config.
+- **Auth:** `aos login` caches an OIDC token in `~/.aos`; `aos logout` clears it. For non-interactive runs
+  set `AIRAWAT_PASSWORD` (or `aos config set password=…`) and `aos` signs in directly — no browser.
 
 Next: what a [component](/developer/deep-dives/components/) is, [the Clean Room](/developer/build/capabilities/)
 it runs in, and how [solutions](/developer/deep-dives/solutions-services/) compose components.
