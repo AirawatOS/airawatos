@@ -12,12 +12,12 @@ door onto the same pipeline.)
 
 ```bash
 python3 -m venv ~/aos-env && source ~/aos-env/bin/activate
-pip install --pre airawatos-aos        # early alpha → --pre is required
+pip install --pre "airawatos-aos>=0.1.0a3"   # early alpha → --pre is required
 aos --help
 ```
 
 `aos` is a thin client — no data, no services. Some geo drivers also want the extra:
-`pip install --pre "airawatos-aos[geo]"`. (If your system Python refuses the install with
+`pip install --pre "airawatos-aos[geo]>=0.1.0a3"`. (If your system Python refuses the install with
 `externally-managed-environment`, the venv above is the fix.)
 
 ## 2 · Scaffold a component
@@ -186,7 +186,7 @@ administrator who answers for the tenant. See [Governance & Decisions](/develope
 ## The loop, end to end
 
 ```
-pip install --pre airawatos-aos
+pip install --pre "airawatos-aos>=0.1.0a3"
 aos new → write code (ctx) → aos check → aos test        # inner loop, offline
 aos deploy --sandbox .                                   # offline dry-run (no services)
 aos login → aos deploy --sandbox --live .                # your sandbox (local or hosted) → see the tile
