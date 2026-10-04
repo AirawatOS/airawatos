@@ -78,6 +78,63 @@ Add a **reconciliation check** that diffs the running implementation against its
 ### Why AirawatOS is the right substrate (not Spec-Kit-on-a-blank-repo)
 Generic spec-driven dev generates into an unconstrained space, which is why it hits the completeness / architecture / verification walls. AirawatOS generates into a **narrow, governed, independently-checkable** space: governed vocabulary + certified components + one interaction spine + conformance. The constraint is the feature. This is the concrete realization of the idea that **the platform becomes the constrained execution substrate while the Service Specification becomes what humans author.**
 
+## Target end-to-end flow
+
+The decision above describes the artifact and the stratification; this is the **loop** they serve. A human
+authors and maintains one Service Specification; agents keep a running, governed civic service continuously
+reconciled to it; governance gates make each hop trustworthy.
+
+```
+   HUMAN                         AGENTS                       GOVERNANCE GATE            ARTIFACT / PRIMITIVE
+──────────────────────────────────────────────────────────────────────────────────────────────────────────
+1 author / edit  ────────────────────────────────────────────────────────────────────▶ platform.service_spec        (S1)
+   intent, rules, acceptance                                                              (Studio authoring surface)
+                                  │
+2                                 ├─ decompose + generate ──────────────────────────────▶ Solution Architect (ADR-0044)
+                                  │   schemas · interfaces · workflow ·                     → governed schemas, platform.workflow,
+                                  │   rules · engine/app code · tests                         governance.policy_rule, components, suite
+                                  │
+3                                 │                        certify ─────────────────────▶ certify spine + conformance (ADR-0090)
+                                  │                        (contract vs independent        ← REFUSES to sign unless the acceptance
+                                  │                         check — can't share a bug)       criteria pass  = the reliability gate
+                                  │
+4                                 ├─ compose + install ──────────────────────────────────▶ solution = declaration (ADR-0045/0106)
+                                  │                                                          deployed to a tenant (sandbox → prod)
+                                  │
+5  use the service ◀──────────────┴─ run ──────────────────────────────────────────────▶ kernel (governed, audited writes) +
+   citizens / staff                                                                        app-host + engines via broker
+                                  │
+6                                 ├─ observe ───────────────────────────────────────────▶ events / telemetry (ADR-0089) +
+                                  │   drift · incident · new need                            decision spine + alert engine
+                                  │
+7  review the diff ◀──────────────┴─ reconcile ────────────────────────────────────────▶ reconciliation check → a
+   (approve change)                  implementation vs spec                                 decided-change-request (ADR-0056)
+                                                                                            ──▶ back to step 1
+```
+
+**Traceability spine (threaded through every stage, S2).** Every object minted at every hop carries a `ds:`
+id, linked by `prov.derivation`:
+
+```
+requirement → business rule → interface → engine code → acceptance test → deployment
+```
+
+so *"which code implements Rule PT-37?"* and *"which requirement has no test?"* are **queries, not audits**.
+
+**The three reliability gates** (all already in the platform):
+1. **Governed vocabulary** — agents may only generate using Network-approved schemas/verbs/roles; an off-contract shape cannot be minted.
+2. **Independent conformance** — the spec defines behaviour; a *separate* certify suite checks it. The agent that wrote the code did not write the gate, so implementation and test cannot share a misunderstanding.
+3. **Human decision points** — step 1 (author) and step 7 (approve change) are human; everything between runs inside the rails ("AI proposes, human decides", ADR-0029).
+
+**Who does what.** Human effort concentrates at steps 1 and 7 — domain model, constraints, invariants,
+acceptance, and change approval. Agents own steps 2–3 and 6–7's diff — decomposition, code, schemas, tests,
+migration, and the continuous implementation↔spec reconciliation.
+
+**How the slices build this loop:** S1 stands up step 1's artifact; S2 wires the traceability spine; S3 binds
+steps 2–3 to the constitution; S4 runs the whole loop on Property Tax (generate the unbuilt
+`assess → demand → collect` tail from the spec's roadmap sections, certify against its acceptance criteria,
+deploy to the sandbox, and reconcile).
+
 ## Slices
 
 - **S1 — `platform.service_spec`**: govern the schema + a Studio authoring surface that composes the existing governed pieces (ADR-0067 service + ADR-0076 anatomy are ~80% of it).
