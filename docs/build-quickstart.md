@@ -193,6 +193,23 @@ aos login → aos deploy --sandbox --live .                # your sandbox (local
 → promote to the Marketplace (tenant-admin, via Studio, reviewed)
 ```
 
+## Spec-first (Studio): generate from a service specification
+
+The code-first loop above starts from a blank `run.py`. There is a second way in, for when the **contract
+exists before the code**: a governed **Service Specification** (`platform.service_spec`, [ADR-0109](/developer/deep-dives/ai-native-sdlc/)).
+In **Studio**, the **Solution Architect** can generate a component's scaffold *from* a spec element rather
+than a freeform ask — pick the spec and a **target** (an operation verb, a domain noun, or a workflow) and it
+derives the generation request from the spec itself:
+
+- **reads / writes** come from the spec's domain model (the noun the target touches);
+- the **acceptance criteria** and **business rules** that trace to the target are carried into the prompt;
+- the **constitution** the spec inherits is attached as non-negotiable constraints.
+
+The generated `meta.yaml` + `run.py` are written into the component for you to **review → test → publish** —
+the same gate as everything else (the AI writes, you enact). The spec stays the source of truth: as you build,
+its elements reconcile from `roadmap / impl:null` to `built` with the id of the code that realizes them. This
+is the in-browser front door onto the same pipeline the `aos` CLI drives.
+
 ## Good to know
 
 - **`solution.yaml` is format-agnostic** — block *or* inline, whether or not PyYAML is installed.
