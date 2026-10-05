@@ -196,7 +196,7 @@ aos login → aos deploy --sandbox --live .                # your sandbox (local
 ## Spec-first (Studio): generate from a service specification
 
 The code-first loop above starts from a blank `run.py`. There is a second way in, for when the **contract
-exists before the code**: a governed **Service Specification** (`platform.service_spec`, [ADR-0109](/developer/deep-dives/ai-native-sdlc/)).
+exists before the code**: a governed **Service Specification** (`platform.service_spec`).
 In **Studio**, the **Solution Architect** can generate a component's scaffold *from* a spec element rather
 than a freeform ask — pick the spec and a **target** (an operation verb, a domain noun, or a workflow) and it
 derives the generation request from the spec itself:
