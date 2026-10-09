@@ -1,0 +1,164 @@
+<title>AirawatOS — DJB Pilot Deployment (Oracle Cloud)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --bg:#f4f6f9; --panel:#ffffff; --ink:#15212e; --soft:#5a6b7b; --faint:#8a99a8;
+    --line:#dde4ec; --line2:#eef2f6; --primary:#0e2a47; --accent:#0b7285;
+    --good:#1f8a4c; --warn:#b4690e; --warnbg:#fcf3e6; --goodbg:#e8f5ec;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+    --bg:#0d141c; --panel:#141e29; --ink:#e7edf3; --soft:#9fb0bf; --faint:#6b7d8c;
+    --line:#243444; --line2:#1b2732; --primary:#dce9f6; --accent:#3bb6c9;
+    --good:#54c07e; --warn:#e0a254; --warnbg:#2a2113; --goodbg:#13281b;
+  }}
+  :root[data-theme="dark"]{
+    --bg:#0d141c; --panel:#141e29; --ink:#e7edf3; --soft:#9fb0bf; --faint:#6b7d8c;
+    --line:#243444; --line2:#1b2732; --primary:#dce9f6; --accent:#3bb6c9;
+    --good:#54c07e; --warn:#e0a254; --warnbg:#2a2113; --goodbg:#13281b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55;font-size:15px}
+  .wrap{max-width:820px;margin:0 auto;padding:0 22px 72px}
+  header.top{background:var(--primary);color:#fff;padding:28px 0 24px;margin-bottom:8px}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) header.top{background:#0a1722;color:#e7edf3}}
+  :root[data-theme="dark"] header.top{background:#0a1722;color:#e7edf3}
+  h1{font-size:24px;margin:0 0 6px;letter-spacing:-.01em;text-wrap:balance}
+  .sub{opacity:.85;font-size:14px}
+  .meta{margin-top:12px;font-size:12px;opacity:.75;font-family:var(--mono)}
+  h2{font-size:18px;margin:32px 0 4px;letter-spacing:-.01em;display:flex;align-items:baseline;gap:10px}
+  h2 .n{font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:700}
+  p{margin:8px 0} .lead{font-size:16px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin:14px 0}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:6px 0}
+  th,td{text-align:left;padding:8px 10px;border-top:1px solid var(--line2);vertical-align:top}
+  th{color:var(--soft);font-size:11px;text-transform:uppercase;letter-spacing:.04em;border-top:0}
+  tbody tr:first-child td{border-top:1px solid var(--line)}
+  .tablewrap{overflow-x:auto}
+  .mono,td.mono{font-family:var(--mono);font-size:12.5px}
+  code{font-family:var(--mono);font-size:12.5px;background:var(--line2);padding:1px 5px;border-radius:4px}
+  .pill{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--line)}
+  .pill.good{color:var(--good);border-color:var(--good);background:var(--goodbg)}
+  .pill.warn{color:var(--warn);border-color:var(--warn);background:var(--warnbg)}
+  .callout{border-left:3px solid var(--warn);background:var(--warnbg);padding:12px 16px;border-radius:0 10px 10px 0;margin:14px 0}
+  .callout.good{border-left-color:var(--good);background:var(--goodbg)}
+  ul{margin:8px 0;padding-left:20px} li{margin:4px 0}
+  figure{margin:16px 0;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+  figcaption{font-size:12px;color:var(--soft);margin-top:8px;text-align:center}
+  svg{display:block;max-width:100%;height:auto;margin:0 auto}
+  .foot{color:var(--faint);font-size:12px;margin-top:38px;border-top:1px solid var(--line);padding-top:14px}
+  .big{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--accent)}
+</style>
+<header class="top"><div class="wrap">
+  <h1>AirawatOS — Pilot Deployment for Delhi Jal Board</h1>
+  <div class="sub">Single-node provisioning spec for Oracle Cloud Infrastructure (OCI)</div>
+  <div class="meta">DJB · Oracle Cloud engagement — Pilot v1 · 2026-10-09</div>
+</div></header>
+<div class="wrap">
+
+<p class="lead">AirawatOS runs as <b>containerised micro-services on Docker</b>. The pilot is a <b>single Linux VM</b> running
+Docker Compose — the same shape as the live reference deployment. Everything runs <b>inside the OCI tenancy and an India
+region</b> (full data residency); the only component that may reach outside is the optional LLM (§6), which can also be
+deferred. This is what to provision for the pilot.</p>
+
+<div class="panel" style="text-align:center">
+  <div style="color:var(--soft);font-size:12px;text-transform:uppercase;letter-spacing:.05em">Provision for the pilot</div>
+  <div class="big" style="margin-top:6px;font-size:17px">1 × Oracle Linux VM · 8 OCPU (16 vCPU) · 64 GB RAM · 256 GB block · India region</div>
+  <div style="color:var(--soft);font-size:13px;margin-top:4px">+ VCN, Object Storage, OCI Vault/KMS, Container Registry, Bastion, DNS &amp; TLS cert</div>
+</div>
+
+<h2><span class="n">01</span> Architecture</h2>
+<figure>
+<svg viewBox="0 0 760 300" role="img" aria-label="Pilot architecture: one VM behind TLS runs ~16 application and platform containers plus a PostgreSQL registry and file store; an allow-listed outbound path reaches optional public-data APIs and the LLM.">
+  <defs><marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="currentColor"/></marker></defs>
+  <g font-family="ui-monospace,Menlo,monospace" font-size="11.5" fill="currentColor">
+    <text x="380" y="22" text-anchor="middle" font-weight="700">HTTPS :443  ·  nginx (TLS)</text>
+    <line x1="380" y1="30" x2="380" y2="52" stroke="currentColor" marker-end="url(#a)"/>
+    <rect x="40" y="56" width="680" height="150" rx="12" fill="none" stroke="currentColor"/>
+    <text x="56" y="76" font-weight="700">One OCI Compute VM — Docker Compose (~30 containers)</text>
+    <g font-size="10.5" fill="var(--soft)">
+      <text x="60" y="98">App &amp; platform: kernel (registry) · network (governance) · app-host (apps/UI)</text>
+      <text x="60" y="114">scheduler · runtime-manager · model-gateway · filestore · notify · workflow · …</text>
+      <text x="60" y="134">Identity &amp; secrets: Keycloak (OIDC) · HashiCorp Vault · OpenFGA (authz)</text>
+      <text x="60" y="154">Data: PostgreSQL 16 — governed bitemporal registry (system of record)</text>
+    </g>
+    <text x="60" y="184" fill="var(--accent)" font-size="10.5">Block Volume (data) · Object Storage (file store + backups) · OCI Vault/KMS (keys)</text>
+    <rect x="250" y="236" width="260" height="46" rx="10" fill="none" stroke="currentColor" stroke-dasharray="4 3"/>
+    <text x="380" y="254" text-anchor="middle" font-size="10.5">Optional egress (allow-listed, NAT):</text>
+    <text x="380" y="270" text-anchor="middle" font-size="10.5" fill="var(--warn)">public-data APIs · LLM (§6)</text>
+    <line x1="380" y1="206" x2="380" y2="234" stroke="currentColor" stroke-dasharray="4 3" marker-end="url(#a)"/>
+  </g>
+</svg>
+<figcaption>One public entry point (TLS). All services, identity, secrets and the registry run on the VM; outbound is allow-listed and optional.</figcaption>
+</figure>
+
+<h2><span class="n">02</span> Server specification</h2>
+<div class="tablewrap"><table>
+<tr><th>Item</th><th>Pilot spec</th><th>Note</th></tr>
+<tr><td>Compute</td><td class="mono">1 × VM.Standard.E5.Flex<br>8 OCPU (16 vCPU) · 64 GB RAM</td><td>Load is modest; RAM + storage growth drive sizing. (Reference box: 8 vCPU / 30 GB.)</td></tr>
+<tr><td>Boot volume</td><td class="mono">100 GB</td><td>OS + container images (~4 GB)</td></tr>
+<tr><td>Data volume</td><td class="mono">156 GB block (≈256 GB total)</td><td>PostgreSQL registry + file store; grows with governed data</td></tr>
+<tr><td>Object storage</td><td class="mono">50–200 GB bucket</td><td>File store (documents/assets) + backups</td></tr>
+<tr><td>Nodes</td><td class="mono">1</td><td>Single VM, Docker Compose</td></tr>
+</table></div>
+<p class="mono" style="color:var(--soft);font-size:12px">1 OCI OCPU = 2 vCPU. Start here; a production/HA design (OKE + managed PostgreSQL + load balancer) is a later step and does not change the application.</p>
+
+<h2><span class="n">03</span> Operating system &amp; runtime</h2>
+<ul>
+<li><b>Oracle Linux 9</b> (x86-64) — OCI-native; or Ubuntu 22.04 LTS. Standard cloud image, no kernel customisation.</li>
+<li><b>Docker Engine ≥ 24</b> + <b>Docker Compose v2</b> on the host.</li>
+<li>Images (~16 services, ≈ 4 GB total with shared layers) pulled from a private registry — we mirror them to <b>OCI Container Registry (OCIR)</b>.</li>
+</ul>
+
+<h2><span class="n">04</span> Database</h2>
+<ul>
+<li><b>PostgreSQL 16</b>, run as a container on the VM with the dedicated data volume.</li>
+<li>It is the platform's <b>system of record</b> — a governed, append-only, bitemporal registry (every record versioned, with provenance). Back it up (see §7).</li>
+<li>Keycloak and OpenFGA keep small PostgreSQL schemas; they co-locate on the same instance for the pilot.</li>
+</ul>
+
+<h2><span class="n">05</span> Network</h2>
+<ul>
+<li><b>VCN</b> with the VM on a private subnet; a <b>public IP / NAT</b> only where needed.</li>
+<li><b>Inbound:</b> only <code>443</code> (HTTPS). <b>No public SSH</b> — admin via <b>OCI Bastion</b>.</li>
+<li><b>TLS</b> terminated at nginx on the VM (OCI Certificates or Let's Encrypt). One public <b>DNS name</b> for the portal.</li>
+<li><b>Outbound (egress):</b> an <b>allow-list</b> via NAT Gateway — needed only for the optional public-data connectors and the LLM path. If DJB uses only its own data and defers AI, egress is effectively none.</li>
+</ul>
+
+<h2><span class="n">06</span> LLM — optional, one choice</h2>
+<p>The AI features (grounded "Ask the data", document understanding, the Studio copilot) call an LLM through an internal <b>model-gateway</b>. It's a thin proxy — pick one, or leave it unconfigured for phase 1 and everything else runs normally.</p>
+<div class="callout">
+<ul style="margin:0">
+<li><span class="pill good">Recommended · in-tenancy</span> &nbsp;<b>OCI Generative AI</b> — prompts/data stay inside the OCI tenancy &amp; region.</li>
+<li><span class="pill">Egress</span> &nbsp;An <b>external LLM API</b> over the NAT allow-list — simplest; prompts leave the tenancy (needs policy sign-off).</li>
+<li><span class="pill warn">Defer</span> &nbsp;Leave it off for the pilot; the rest of the platform is unaffected.</li>
+</ul></div>
+
+<h2><span class="n">07</span> Backup &amp; operations</h2>
+<ul>
+<li><b>PostgreSQL:</b> scheduled <code>pg_dump</code> / WAL archiving to the Object Storage bucket (daily; RPO/RTO to agree with DJB).</li>
+<li><b>File store:</b> Object Storage bucket with versioning.</li>
+<li><b>Monitoring:</b> OCI Logging + basic metric alarms (CPU, disk, container health) recommended.</li>
+<li><b>Data residency:</b> deploy in an OCI <b>India region</b> (Mumbai / Hyderabad). With AI off or the in-tenancy LLM, no DJB data leaves the region.</li>
+</ul>
+
+<h2><span class="n">08</span> Required OCI services — pilot checklist</h2>
+<div class="tablewrap"><table>
+<tr><th>OCI service</th><th>Purpose</th></tr>
+<tr><td>Compute — VM.Standard.E5.Flex (8 OCPU / 64 GB)</td><td>Runs all containers</td></tr>
+<tr><td>Block Volume (≈256 GB)</td><td>Boot + data (PostgreSQL, file store)</td></tr>
+<tr><td>Object Storage (bucket)</td><td>File store + backups</td></tr>
+<tr><td>VCN + NAT + Internet Gateway + Security Lists</td><td>Network isolation + egress allow-list</td></tr>
+<tr><td>OCI Vault + KMS</td><td>Secrets + key custody</td></tr>
+<tr><td>Container Registry (OCIR)</td><td>Private host for the platform images</td></tr>
+<tr><td>Bastion</td><td>Admin access (no public SSH)</td></tr>
+<tr><td>DNS + Certificates</td><td>Portal hostname + TLS</td></tr>
+<tr><td>Logging + Monitoring</td><td>Observability &amp; alerts (recommended)</td></tr>
+<tr><td>Generative AI</td><td>Optional — in-tenancy LLM (§6)</td></tr>
+</table></div>
+
+<div class="callout good"><b>In one line:</b> provision one <b>Oracle Linux 9 VM (8 OCPU / 64 GB / 256 GB block)</b> in an India region, with a <b>VCN</b> (443-only inbound, NAT egress allow-list, Bastion), an <b>Object Storage</b> bucket, <b>OCI Vault/KMS</b>, <b>OCIR</b>, and a <b>DNS name + TLS cert</b>. AirawatOS deploys on it via Docker Compose. The LLM (§6) is optional.</div>
+
+<p class="foot">Figures are from the live reference deployment with headroom for governed-data growth; confirm against DJB's expected data volume. AirawatOS is container-native and cloud-agnostic — this maps it onto OCI for the DJB pilot.</p>
+</div>
