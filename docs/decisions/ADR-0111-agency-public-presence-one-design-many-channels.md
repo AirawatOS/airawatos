@@ -21,7 +21,7 @@ AirawatOS already holds most of the substance as governed data + declared intera
 | **1 · Institutional model** | Who the agency is, its jurisdiction, authority | `platform.agency_profile` (governed this ADR), tenant/participant, roles ([[ADR-0028]]) |
 | **2 · Public capability model** | What it publishes, provides, discloses, accepts | `platform.capability` (**index**) over service offerings, publications, datasets, engagement forms |
 | **3 · Experience composition** | How capabilities are organised per audience/context | `platform.experience` (web config = `platform.site` within it) |
-| **4 · Channel adapters** | How capabilities are presented + interactions executed | Website (SSR), PWA, WhatsApp, voice/IVR, social, APIs/MCP |
+| **4 · Channel adapters** | How capabilities are presented + interactions executed | Website (SSR), PWA, WhatsApp, voice/IVR, social, APIs/MCP — **each a certified component (`kind: adapter`)** |
 
 The worked example: a **water-connection** capability declares eligibility, documents, fees, application schema, provider, workflow, tracking, policies — **once**. The website renders a form; WhatsApp a conversational flow; an AI agent discovers the contract and invokes authorized operations; a call-centre operator a guided interface. One capability, four renderings. No per-channel reimplementation of the service.
 
@@ -68,6 +68,41 @@ Publishing ≠ composing. A publication is governed public information with a li
 
 Conventional, documented surfaces are primary: **schema.org JSON-LD**, `sitemap.xml`, **OpenAPI** over the public read + service operations, and structured metadata. An **agents manifest** / MCP endpoint is *one additional* adapter. **Read is open; any state-changing operation requires explicit authorization + user consent** (reusing [[ADR-0067]] S5 consent). Slice-1 already ships the read-only web + JSON-LD + sitemap + agents-manifest surface.
 
+### 8. Channel adapters are components — the outbound edge (symmetric with drivers)
+
+A new component kind, **`kind: adapter`**, is registered on the certify spine (everything-is-a-component, [[ADR-0022]]) alongside driver/engine/app. This names a symmetry the platform has implied but never stated:
+
+> **Everything that crosses the agency boundary is a certified, confined, attributed component.** Drivers are the **inbound** edge (external source → governed facts); **adapters are the outbound** edge (governed facts/capabilities → the public and other channels). Same cert, egress allow-list, Vault secrets, prov, and per-tenant install.
+
+Adapters come in two runtime shapes (mirroring how the platform already splits host engines from confined drivers):
+- **(A) Presentation adapter — trusted, in the serving path.** Web SSR, JSON-LD, sitemap, OpenAPI responses. Runs as a **host engine** (fast, in-process), because it *is* the public request handler. It renders `platform.experience` + the capability registry → HTML/JSON; it holds no authoritative state.
+- **(B) Messaging adapter — confined, async, egress-heavy.** WhatsApp, IVR/voice, email, social, push. Runs in the **broker clean-room like a driver**, with a declared egress allow-list + Vault secrets, **triggered by events** ([[ADR-0089]]): it *subscribes* to `publication`/`notice`/`case` updates and *emits* channel messages.
+
+**Provenance becomes enforceable here:** every outbound message is attributable to `adapter@version` and cites the `publication.version` it rendered — so a WhatsApp reply, the website, and an AI summary demonstrably carry the same approved source. The trust contract (§6) is realised at the adapter.
+
+**Graduation of the built web adapter:** slice-1's SSR `/t/<tenant>` is currently hardcoded in the trusted app-host — a deliberate shortcut. Under this model it becomes a **governed presentation adapter (a site-renderer host engine)** driven by `platform.experience` + the capability registry; the app-host remains the trusted HTTP server, but *what it renders* is governed data produced by a certified component. Same for the machine surface.
+
+### 9. The Network becomes the inter-agency interoperability fabric
+
+The outbound/inbound symmetry has a profound consequence: **one agency's outbound adapter/capability is another participant's discoverable inbound binding.** A driver then generalises from "pull a fixed source" to "**bind to a capability another participant offers**," and the **Network is the matchmaker** — it already holds the pieces:
+
+- **participant directory** (who) · **service + capability directory** (what is offered) · **interaction contracts** ([[ADR-0058]], how) · **certs/trust** (whether to trust) · **consent + access grants + data-exchange** (terms: [[ADR-0067]] S5, [[ADR-0103]], [[ADR-0087]]).
+
+On top of this, each tenant's **AI agent** (Personal Agent [[ADR-0081]] as a scoped, signed delegate [[ADR-0026]]) can run the loop autonomously and in a trusted manner:
+
+```
+  Agency A  ──publishes capability (adapter + interaction contract + terms)──▶  NETWORK
+                                                                              (directories,
+  Agency B / citizen agent  ──1. DISCOVER (capability directory)──────────────▶  contracts,
+                            ◀─2. NEGOTIATE (terms · consent · fee quote)────────   certs,
+                            ──3. ENABLE (signed, consented, revocable grant)────▶   grants)
+                            ──4. INTERACT (attributed, audited, cites version)──▶  Agency A adapter
+```
+
+So "Moving to a New Home" is no longer a hand-composed experience — it is an **agent-negotiated cross-agency flow**: the citizen's agent discovers property-registration, tax, water, electricity, and address-update capabilities across agencies, negotiates consent and terms for each, enables signed bindings, and orchestrates the interactions — each agency keeping its own authority and records.
+
+**Guardrails (non-negotiable):** every cross-agency binding is a **governed, consented, signed, revocable grant**; any state-changing operation requires explicit authorization + consent (never implied by discovery); everything is attributed to the acting agent@version and auditable. Discovery is open; action is earned.
+
 ## Enforcement
 
 - **GIGW from the start** (not deferred to the end): accessibility (WCAG 2.2 AA + axe gate — have), mandatory institutional disclosures, content ownership, security, and publication controls are enforced from slice 1; comprehensive GIGW conformance checks phase in.
@@ -89,6 +124,7 @@ Conventional, documented surfaces are primary: **schema.org JSON-LD**, `sitemap.
 - **From websites to digital public institutions.** Every tenant becomes a digitally accessible institution that progressively activates capabilities (profile → notices → tax → grievance → PED → GIS → participatory planning); each new capability auto-composes into supported channels, subject to publication + access policy.
 - **Cross-agency experiences are reachable on existing rails.** A *"Moving to a New Home"* experience composing property registration + tax + water + electricity + address-update across agencies is the **person-centric jurisdiction/service federation** already in flight (+ the cross-tenant aggregator lane, [[ADR-0072]]/[[ADR-0087]]) — `platform.experience` composes capabilities across tenants through federation/grant rails, preserving each institution's authority and records.
 - A real SSR path now coexists with the sandboxed CSR apps; the two compose as SSR shell → optional CSR island.
+- **The boundary model unifies to one primitive.** `kind: adapter` makes drivers (inbound) and channel adapters (outbound) the two faces of one certified, confined, attributed edge. The Network — participant/service/capability directories + interaction contracts + certs + consent/grant rails — becomes a **federated capability exchange**: an agency *offers* capabilities and *discovers* others', and tenant AI agents negotiate and enable cross-agency interactions within governed, revocable bounds. This is the path from per-agency websites to a genuinely interoperable public-service network.
 
 ## Non-goals
 
