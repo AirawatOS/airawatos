@@ -1,70 +1,97 @@
-# ADR-0111 — Agency public presence: one design system, many channels, a machine-readable surface
+# ADR-0111 — Agency public presence as channel-agnostic public-interaction infrastructure
 
-- **Status:** Proposed (2026-10-11)
-- **Builds on:** [[ADR-0077]] (governed design system + WCAG 2.2 AA), [[ADR-0067]] (service directory + init→provider→fulfil), [[ADR-0048]] (universal Inbox + Case), [[ADR-0058]] (interaction contracts), [[ADR-0081]] (Personal Agent), [[ADR-0100]] (generic Campaign), public-apps/`/t/<tenant>` (the no-login tenant home)
-- **Relates to:** [[ADR-0056]] (decided-change-request = governed publishing lifecycle), [[ADR-0028]] (roles/RBAC), [[ADR-0100]]/[[ADR-0110]] (transparency surfaces: Campaign, PED), i18n spine, [[ADR-0057]] (content-anchored citations)
-- **Compliance baseline:** GIGW 3.0 (guidelines.india.gov.in), National Government Services Portal (services.india.gov.in) — user-centric IA, accessibility, multilingual, lifecycle, interoperability.
+- **Status:** Proposed (2026-10-11, rev.2 — adopts the four-layer / three-abstraction refinement)
+- **Builds on:** [[ADR-0077]] (design system + WCAG 2.2 AA), [[ADR-0067]] (service directory), [[ADR-0058]] (interaction contracts), [[ADR-0048]]/[[ADR-0270]] (universal Inbox + `platform.case`), [[ADR-0041]] (lineage/`prov.derivation`), [[ADR-0057]] (content-anchored citations), [[ADR-0056]] (decided-change-request = governed approval lifecycle), [[ADR-0081]] (Personal Agent), [[ADR-0100]] (Campaign), [[ADR-0072]]/[[ADR-0087]] (cross-tenant federation), i18n spine, public-apps/`/t/<tenant>`.
+- **Compliance baseline:** GIGW 3.0; National Government Services Portal (cross-institution service discovery).
 
 ## Context
 
-Every tenant already gets a no-login public home at `/t/<tenant>` that lists its public apps (built alongside [[ADR-0110]]). The ask is to grow that into a full, **configurable agency website** — municipal corporation, development authority, water board, transport dept, district admin, regulator — so each agency keeps its identity while citizens get a familiar experience.
+Every tenant gets a no-login public home at `/t/<tenant>`. The ask is to grow it into a configurable government website. But a **website is one channel**; agencies also reach the public via chat/WhatsApp, mobile, call-centre, social, and — increasingly — **AI assistants** acting on a citizen's behalf. If we build "a website framework" we solve one channel and rebuild the rest.
 
-But a website is **one channel**. Agencies also reach the public via chat/WhatsApp, a mobile app, a call centre, and social media; and increasingly via **AI assistants** that answer questions and transact on a citizen's behalf. If we build "a website framework" we solve one channel and rebuild the rest. The platform already holds most of the substance as **governed data + declared service interactions**, so the leverage is to treat the website as a **renderer over a channel-agnostic public-interaction spine**, not as the system of record.
+The correct abstraction is therefore **not a site but an *Agency Public Interface*** — the governed projection of an institution's identity, information, services, and interactions — of which a website is **one representation**. A website has pages, menus, and sections; a public interface has **information, capabilities, interactions, policies, and state**. Pages are only one way to organise those.
 
-**What already exists** (reuse, don't rebuild): the governed design system + WCAG gate ([[ADR-0077]]), i18n (en+hi), the service directory ([[ADR-0067]]), the universal Inbox/Case ([[ADR-0048]]), Campaign ([[ADR-0100]]), News (`news.item`), geography (`space.ward`, `viz.layer`, `geo.facility`), transparency surfaces (PED, procurement.tender, finance/budget), the Personal Agent ([[ADR-0081]]) + grounded assist, governed writes + RBAC + the decided-change-request lifecycle ([[ADR-0056]]), and publish→live app bundles. The genuine gaps are four: a **site-composition construct**, **server-side rendering + a machine-readable surface**, a **GIGW theme pack + conformance gate**, and **channel adapters + an engagement console**.
+AirawatOS already holds most of the substance as governed data + declared interactions. The design leverage is to treat every channel as an **adapter over a channel-agnostic capability spine**, and to keep **capabilities separate from their presentation**.
 
 ## Decision
 
-### 1. Author once (a channel-agnostic spine); render many (adapters)
+### 1. Four layers; capabilities separated from presentation
 
-An agency's public presence is **governed content + services + engagement**, authored once and rendered by per-channel **adapters**. The website is the first adapter; chat, mobile, IVR, social, and a **machine/AI surface** are peers. One publish → every channel. No channel is the system of record.
+| Layer | Responsibility | AirawatOS implementation |
+|---|---|---|
+| **1 · Institutional model** | Who the agency is, its jurisdiction, authority | `platform.agency_profile` (governed this ADR), tenant/participant, roles ([[ADR-0028]]) |
+| **2 · Public capability model** | What it publishes, provides, discloses, accepts | `platform.capability` (**index**) over service offerings, publications, datasets, engagement forms |
+| **3 · Experience composition** | How capabilities are organised per audience/context | `platform.experience` (web config = `platform.site` within it) |
+| **4 · Channel adapters** | How capabilities are presented + interactions executed | Website (SSR), PWA, WhatsApp, voice/IVR, social, APIs/MCP |
 
-### 2. Three architecturally-separable layers (shared chrome)
+The worked example: a **water-connection** capability declares eligibility, documents, fees, application schema, provider, workflow, tracking, policies — **once**. The website renders a form; WhatsApp a conversational flow; an AI agent discovers the contract and invokes authorized operations; a call-centre operator a guided interface. One capability, four renderings. No per-channel reimplementation of the service.
 
-- **Presentation — a GIGW "Gov" theme pack over `aos.css`.** The GIGW header (national emblem + configurable agency identity + jurisdiction), mega-menu, breadcrumbs, mandatory footer (RTI, accessibility statement, policies, contact), an **accessibility toolbar**, and a language switcher. *One design system; per-agency identity override* via `agency.profile` (name, seal/logo, colours, jurisdiction, contact). WCAG 2.2 AA is already enforced; a GIGW checklist gate joins the axe gate at publish.
-- **Structure — `platform.site`.** A governed declaration of the agency's **menu + pages + sections**, each section binding to a content type or an **installed public app** (PED, a service, a map). Generalises the hardcoded `/t/<tenant>` page into a configurable site, authored in a Site Studio, published→live via the existing bundle/overlay. The three website functions stay separable: **institutional presence** (mandate, org, officials), **public information & engagement** (notices, schemes, consultations, news), **service delivery** (apply/pay/track).
-- **Substance — the governed spine.** Small content types (`site.page`, `site.notice`, `gov.scheme`, `gov.official`, `gov.office`, `gov.consultation`) + the service directory + engagement (grievance/consultation/feedback → Inbox/Case). These are data and declared interactions, never web-specific.
+### 2. Three first-class abstractions + a publication contract — as *views over existing rails*, not a new store
 
-### 3. The machine-readable surface makes it AI- and search-native (the wedge)
+The governing discipline (per the one-subject-one-noun rule, [[ADR-0060]] §3a): **`platform.capability` is a typed discovery *index* that references existing records — never a copy.** Each new noun passes the reuse-or-propose gate.
 
-Because services are **declared interaction contracts** over **governed structured data**, an assistant — ours on-site, or an external search/AI assistant — can **discover and transact**, with provenance, not just read text. Every agency site therefore emits:
-- **schema.org JSON-LD** — `GovernmentOrganization` (identity) + an `ItemList` of `GovernmentService` (its public services/apps) + `Dataset` for each transparency dataset (e.g. PED). *(search + AI understanding)*
-- **`/t/<tenant>/sitemap.xml`** + crawl directives + canonical URLs. *(search indexing)*
-- **An agents manifest** (`/t/<tenant>/.well-known/ai-plugin.json`, an OpenAI-plugin-shaped descriptor pointing at the public-read query + grounded-assist + service endpoints). *(external AI can act on a citizen's behalf)*
-- **Server-side rendering** of public *pages* (the site shell is already SSR; transactional apps stay CSR behind SSR shells). *(crawlers/AI see real content, not an empty SPA)*
+| Abstraction | Status | Reconciliation (extend, don't fork) |
+|---|---|---|
+| `platform.agency_profile` | ✅ governed | Institutional identity. Done. |
+| `platform.capability` | **new (index)** | Points at a **service offering** ([[ADR-0067]]) · a `platform.publication` · a **dataset/`viz.layer`** · an **engagement form / `platform.case` type** ([[ADR-0048]]). The registry is a *projection*. |
+| `platform.experience` | **new** | Composition; `platform.site` becomes one channel config inside it. |
+| `platform.publication` | **new** | A **derived, approved projection** (`prov.derivation`, [[ADR-0041]]) of a system-of-record fact, with the **decided-change-request** ([[ADR-0056]]) as its approval lifecycle. Not the system of record. |
 
-This is the differentiator: most government sites are human-only and SPA-opaque. Answer-engine-ready, machine-actionable public services are rare.
+### 3. The canonical `platform.capability` model (the pivotal spec)
 
-### 4. Channels as adapters; one engagement console
+A capability is the atom of the public interface: the unit a web composer *and* an AI agent discover. It is an `entity` (index record) with these facets:
 
-- **Web** — the SSR site (primary).
-- **Chat/WhatsApp** — the Personal Agent + grounded assist over the service directory (discover → apply → track, cited).
-- **Mobile/PWA** — app-host bundle.
-- **Call-centre/IVR** — scripts generated from the service declarations; the same agent backs a human console.
-- **Social** — Campaign auto-drafts posts from new notices.
-- **Engagement Console** — the agency authors content once, sees inbound across channels in the **universal Inbox**, and schedules outbound via **Campaign**. One tool to manage public communications, not five.
+- **Identity & type** — `capability_id`, `publisher` (→ agency), `type ∈ {information, service, disclosure, dataset, consultation, grievance, subscription, map, directory}`, `title`, `summary`, `icon`.
+- **Applicability** — `jurisdiction`, `audience[] ∈ {citizen, business, institution, visitor}`, `languages[]`, `effective_from`/`effective_until`.
+- **Binding (the reference, never a copy)** — `target_ref` + `target_kind` pointing at the real record: `service_offering@id` | `publication@id` | `schema`+`app_id` (dataset) | `case_type` (engagement) | `viz.layer@id` (map).
+- **Interactions** — `operations[]` drawn from the bound record's **interaction contracts** ([[ADR-0058]]): e.g. `discover`, `read`, `apply`, `pay`, `track`, `subscribe`, `respond`. Each carries `authorization` (none / identified / role) + `consent_required`.
+- **Channel compatibility** — `channels[] ⊆ {web, whatsapp, voice, app, social, machine}` (not every capability fits every channel).
+- **Discovery metadata** — `keywords[]`, `topics[]`, `related[]`, and the structured-data mapping (schema.org type) for the machine surface.
+- **Trust** — `source` (authoritative record id), `approval` (decision id), `provenance_contract: true`.
 
-### 5. Cross-cutting guarantees
+Relationships: a capability **references** a service offering (transactional), a publication (informational), a dataset/layer (data), or a case-type (engagement) — it **unifies discovery** across the service directory, Knowledge layer, publication lifecycle, and engagement system without owning any of them. The **Public Capability Registry** is `GET` over `platform.capability` filtered by audience/jurisdiction/channel — the one discovery interface web composition and AI agents both use.
 
-Multilingual (i18n + per-locale content + MT fallback + `hreflang`); mobile (responsive `aos.css` + PWA); accessibility (WCAG 2.2 AA + axe gate + GIGW toolbar + conformance gate); governed lifecycle (decided-change-request + RBAC + Inbox approvals — GIGW's approval/lifecycle requirement).
+### 4. `platform.publication` — the public projection
 
-## Slices
+Publishing ≠ composing. A publication is governed public information with a lifecycle independent of its system of record: `publisher`, `content_type` (notice / order / scheme / budget / rate / plan / eligibility), `jurisdiction`, `audience`, `language` variants, `effective_from`/`effective_until`, `published_at`, `review_due_at`, `source` (authoritative record), `approval` (decision), **immutable `version`**, `status ∈ {draft, approved, published, superseded, archived}`. A municipal budget stays in finance; the publication is its *approved public projection* — preserving the system-of-record / system-of-interaction split.
 
-1. **SEO/AI-discoverable site (this ADR's first build).** Govern `platform.agency_profile`; make `/t/<tenant>` render a full SEO head + **schema.org JSON-LD** + identity chrome; add `/t/<tenant>/sitemap.xml` and the **agents manifest**. Proves the wedge end-to-end on janaagraha, with PED as the first `Dataset`/service.
-2. **`agency.profile` + GIGW Gov theme pack** — identity-configured, GIGW-compliant shell.
-3. **`platform.site` + Site Studio** — configurable menu/pages/sections.
-4. **Channel adapters + Engagement Console** — chat over the service directory; unified inbound/outbound.
-5. **GIGW conformance gate** — a publish-time checklist alongside the axe gate.
+### 5. Experience composition + archetypes
+
+`platform.experience` declares audience & purpose, the discoverable capabilities, navigation/hierarchy, presentation components, interaction journeys, supported channels, and localization/accessibility requirements. A website is one experience config. **Agency archetypes** (municipal corporation, development authority, water utility, district administration, state department, regulator, public institution) share the same design tokens, accessibility rules, identity components, search, and content primitives, and differ only in **default composition** — selecting an archetype *provisions* a sensible default experience the agency then configures. The homepage splits into a **universal agency shell** (identity, jurisdiction, language, search, accessibility, primary nav, contact, mandatory disclosures, footer) and a **configurable experience** (priority services, notices, transparency dashboards like PED, maps, campaigns, agency apps).
+
+### 6. Channels, continuity, and the trust envelope
+
+- **Adapters** render capabilities; they never hold authoritative state.
+- **Interaction continuity** reuses the existing channel-independent spine — **`platform.case`** ([[ADR-0048]]/[[ADR-0270]]): a service instance *is* a case; the only net-new piece is a thin **cross-channel session/identity token** that stitches an anonymous web start → a WhatsApp number → an at-counter identified citizen onto the same case.
+- **Trust as an interaction contract, not an AI feature.** Every public response — web, chat, or AI summary — cites the **same `publication.version`**, traceable to (1) issuing authority, (2) authoritative source, (3) approved publication version, (4) jurisdiction + validity. A **public-response envelope** separates *authoritative source statement* from *AI interpretation*. This extends the platform's existing stance (`prov` on every fact; content-anchored citations [[ADR-0057]]; the assist is forbidden from inventing figures).
+
+### 7. Machine surface (additive, not MCP-only)
+
+Conventional, documented surfaces are primary: **schema.org JSON-LD**, `sitemap.xml`, **OpenAPI** over the public read + service operations, and structured metadata. An **agents manifest** / MCP endpoint is *one additional* adapter. **Read is open; any state-changing operation requires explicit authorization + user consent** (reusing [[ADR-0067]] S5 consent). Slice-1 already ships the read-only web + JSON-LD + sitemap + agents-manifest surface.
+
+## Enforcement
+
+- **GIGW from the start** (not deferred to the end): accessibility (WCAG 2.2 AA + axe gate — have), mandatory institutional disclosures, content ownership, security, and publication controls are enforced from slice 1; comprehensive GIGW conformance checks phase in.
+- **One-subject-one-noun gate** on every new abstraction (capability/experience/publication) — reuse-or-propose ([[ADR-0038]]/[[ADR-0060]]).
+- **Consent + authorization** on any non-read operation exposed to any channel, including AI.
+
+## Slices (re-sequenced)
+
+1. `platform.agency_profile` + Gov theme + **agency archetypes** — consistent public identity. *(profile + SSR web adapter + machine surface already live; theme/archetypes next.)*
+2. **Public Capability Registry + `platform.publication` contracts** — the channel-independent foundation.
+3. `platform.experience` + Site Studio — configurable composition.
+4. SSR + search + structured data + public discovery APIs (OpenAPI) — discoverability. *(web+JSON-LD+sitemap+manifest done; OpenAPI + full SSR of pages next.)*
+5. **Conversational channel adapter** — validates genuine channel-independence.
+6. Unified Engagement Console — consolidate inbound/outbound.
+7. Additional adapters (voice/IVR/social) + cross-agency experiences.
 
 ## Consequences
 
-- A second agency (water board, dev authority, district admin) is **config over the same spine** — the federation story applied to public presence.
-- The machine surface turns every agency into an **AI-actionable public service**, not just a readable page — a structural advantage as answer engines mediate more citizen interactions.
-- SSR + a governed site construct add a real server-render path distinct from the sandboxed CSR apps; the two must compose cleanly (SSR shell → optional CSR app island).
-- GIGW compliance becomes a gate, not a one-time audit.
+- **From websites to digital public institutions.** Every tenant becomes a digitally accessible institution that progressively activates capabilities (profile → notices → tax → grievance → PED → GIS → participatory planning); each new capability auto-composes into supported channels, subject to publication + access policy.
+- **Cross-agency experiences are reachable on existing rails.** A *"Moving to a New Home"* experience composing property registration + tax + water + electricity + address-update across agencies is the **person-centric jurisdiction/service federation** already in flight (+ the cross-tenant aggregator lane, [[ADR-0072]]/[[ADR-0087]]) — `platform.experience` composes capabilities across tenants through federation/grant rails, preserving each institution's authority and records.
+- A real SSR path now coexists with the sandboxed CSR apps; the two compose as SSR shell → optional CSR island.
 
 ## Non-goals
 
-- Not replacing the transactional apps' CSR runtime — only server-rendering the site *pages* and wrapping apps in SSR shells.
-- Not building all channel adapters now (slice 4); slice 1 ships web + the machine/AI surface.
-- Not a generic page-builder CMS beyond the governed section/content model (deliberately constrained for consistency + accessibility).
+- Not making `platform.capability`/`publication` systems of record — they are indexes/projections over existing stores.
+- Not a generic page-builder CMS beyond the governed capability/section model (constrained for consistency + accessibility).
+- Not building all channel adapters now (slices 5–7); the read-only web + machine surface ships first.
