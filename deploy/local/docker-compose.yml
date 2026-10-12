@@ -1,0 +1,195 @@
+# AirawatOS — LOCAL install (laptop test). Pulls the SAME pinned manishsv/airawatos-* images that run in
+# production, so this is a faithful install test. See docs/install-local.md for the step-by-step.
+#
+# Images are amd64 (built on x86_64). On Apple Silicon they run under Docker Desktop emulation — set
+#   export DOCKER_DEFAULT_PLATFORM=linux/amd64   (or rely on the `platform:` pins below).
+#
+# This file is the CORE + active-loop engines, all volume-only (portable). It deliberately OMITS three
+# EC2-only services that need host-path mounts / separate setup: runtime-manager (heavy driver placement,
+# holds the docker socket), mospi-gateway (external-data sidecar), and keycloak (optional OIDC IdP). The
+# built-in passwordless reference IdP (identity) is enough for a local test.
+name: airawatos-local
+
+x-ref: &ref                                  # shared reference image: ONE image, many services (per-service command)
+  image: manishsv/airawatos-reference:0.2.115-settings-fixes
+  platform: linux/amd64
+  restart: unless-stopped
+  depends_on: { kernel: { condition: service_started } }
+
+services:
+  # ── infrastructure ────────────────────────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: airawat-postgres
+    environment: { POSTGRES_DB: kernel, POSTGRES_USER: kernel, POSTGRES_PASSWORD: kernel }
+    volumes: [ kernel_pg:/var/lib/postgresql/data ]
+    healthcheck: { test: ["CMD-SHELL","pg_isready -U kernel"], interval: 5s, timeout: 5s, retries: 10 }
+    restart: unless-stopped
+
+  vault:                                     # auto-init + auto-unseal on boot; root token lands in the vault_data volume
+    image: hashicorp/vault:1.15
+    container_name: airawat-vault
+    cap_add: [ IPC_LOCK ]
+    environment: { VAULT_ADDR: http://127.0.0.1:8200 }
+    volumes:
+      - vault_data:/vault/data
+      - ./vault/vault.hcl:/vault/config/vault.hcl:ro
+      - ./vault/entrypoint.sh:/usr/local/bin/airawat-vault-entrypoint.sh:ro
+    entrypoint: ["/bin/sh","/usr/local/bin/airawat-vault-entrypoint.sh"]
+    healthcheck: { test: ["CMD","vault","status"], interval: 5s, timeout: 3s, retries: 30 }
+    restart: unless-stopped
+
+  # ── platform core ─────────────────────────────────────────────────────────────────────────────────
+  kernel:                                    # governed registry + broker + zero-trust write gate (:8080)
+    image: manishsv/airawatos-kernel:0.2.8-devgrant
+    platform: linux/amd64
+    container_name: airawat-kernel
+    environment:
+      REGISTRY_BACKEND: postgres
+      DB_HOST: postgres
+      NETWORK_URL: http://network:8090
+      IDENTITY_JWKS: http://identity:8093/jwks
+      KERNEL_REQUIRE_STEWARD_GRANT: "1"
+      DEV_REQUIRE_DEVELOPER: "1"
+      SHARED_SCHEMAS: "knowledge.document,knowledge.version,knowledge.chunk,knowledge.embedding,governance.rule,platform.verb_alias,platform.lifecycle"
+      EVENT_SINK: http://automation:8098/events
+      SECRETS_URL: http://secrets:8102
+      SECRETS_INTERNAL: airawat-broker-secrets-internal
+      FILESTORE_URL: http://filestore:8095
+      EMBED_URL: http://model-gateway:8104
+      APPS_OVERLAY: /data/app-bundles/apps
+    depends_on:
+      postgres: { condition: service_healthy }
+      network: { condition: service_healthy }
+    restart: unless-stopped
+
+  network:                                   # AirawatNetwork authority: marketplace, governance, join/email (:8090)
+    image: manishsv/airawatos-network:0.3.5-zoho-keyprefix
+    platform: linux/amd64
+    container_name: airawat-network
+    environment:
+      NET_FILES_DIR: /data/netfiles
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: kernel
+      DB_USER: kernel
+      DB_PASSWORD: kernel
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_TOKEN}
+      IDENTITY_JWKS: http://identity:8093/jwks
+      IDENTITY_URL: http://identity:8093
+      IDENTITY_INTERNAL: airawat-identity-internal
+    depends_on:
+      postgres: { condition: service_healthy }
+      vault: { condition: service_healthy }
+    healthcheck: { test: ["CMD","python","-c","import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8090/v1/health').status==200 else 1)"], interval: 5s, timeout: 5s, retries: 20 }
+    restart: unless-stopped
+    volumes: [ netfiles:/data/netfiles ]
+
+  identity:                                  # reference IdP: realms, /login, JWKS (:8093). PINNED tag (ADR-0096).
+    <<: *ref
+    image: manishsv/airawatos-reference:0.2.83-auth
+    container_name: airawat-identity
+    command: ["python","reference/identity.py"]
+    environment:
+      NETWORK_URL: http://network:8090
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_TOKEN}
+      IDENTITY_USERS_FILE: /data/identity/identity-users.json
+      IDENTITY_PASSWORDS_FILE: /data/identity/identity-passwords.json
+    volumes: [ identity_data:/data/identity ]
+    depends_on:
+      network: { condition: service_healthy }
+      vault: { condition: service_healthy }
+
+  # ── supporting services ───────────────────────────────────────────────────────────────────────────
+  secrets:                                   # per-tenant component-secret manager → Vault (:8102)
+    <<: *ref
+    container_name: airawat-secrets
+    command: ["python","reference/secrets.py"]
+    environment:
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_TOKEN}
+      SECRETS_INTERNAL: airawat-broker-secrets-internal
+      IDENTITY_JWKS: http://identity:8093/jwks
+    depends_on: { vault: { condition: service_healthy } }
+
+  filestore:                                 # content-addressed blob store: app bundles, sources, uploads (:8095)
+    <<: *ref
+    container_name: airawat-filestore
+    command: ["python","reference/filestore.py","--port","8095"]
+    depends_on: {}
+    environment: { FILESTORE_DIR: /data/filestore }
+    volumes: [ filestore_data:/data/filestore ]
+
+  model-gateway:                             # LLM routing /embed + /complete (:8104). Needs a provider key to answer.
+    <<: *ref
+    image: manishsv/airawatos-reference:0.2.95-gwreason
+    container_name: airawat-model-gateway
+    environment: { GW_REASONING_BUDGET: "1200" }
+    command: ["python","reference/model_gateway.py","--kernel","http://kernel:8080","--vault","http://vault:8200","--vault-token","${VAULT_TOKEN}"]
+
+  # ── active-loop engines (optional for a boot test; needed for scheduled runs, workflows, alerts) ────
+  notify:
+    <<: *ref
+    container_name: airawat-notify
+    command: ["python","reference/notify.py","--kernel","http://kernel:8080"]
+  workflow:
+    <<: *ref
+    container_name: airawat-workflow
+    command: ["python","reference/workflow.py","--kernel","http://kernel:8080","--network","http://network:8090"]
+  decision:
+    <<: *ref
+    container_name: airawat-decision
+    command: ["python","reference/decision.py","--kernel","http://kernel:8080","--network","http://network:8090","--workflow","http://workflow:8097"]
+  automation:
+    <<: *ref
+    container_name: airawat-automation
+    command: ["python","reference/automation.py","--kernel","http://kernel:8080"]
+  event-relay:
+    <<: *ref
+    container_name: airawat-event-relay
+    command: ["python","reference/event_relay.py","--kernel","http://kernel:8080","--automation","http://automation:8098"]
+  scheduler:
+    <<: *ref
+    image: manishsv/airawatos-reference:0.2.100-sched-devenv
+    container_name: airawat-scheduler
+    command: ["python","reference/scheduler.py","--components-root","/app/components","--kernel","http://kernel:8080","--network","http://network:8090"]
+
+  # ── the OS the browser talks to (:8099) ─────────────────────────────────────────────────────────────
+  app-host:
+    <<: *ref
+    image: manishsv/airawatos-reference:0.2.115-settings-fixes
+    container_name: airawat-app-host
+    command: ["python","reference/app_host.py","/app/components/apps","--port","8099",
+              "--network","http://network:8090","--kernel","http://kernel:8080",
+              "--identity","http://identity:8093","--scheduler","http://scheduler:8103",
+              "--secrets","http://secrets:8102","--decision","http://decision:8096",
+              "--workflow","http://workflow:8097","--no-verify-cert"]
+    environment:
+      FILESTORE_URL: http://filestore:8095
+      EMBED_URL: http://model-gateway:8104
+      PUBLIC_BASE_URL: "http://localhost"          # THIS deployment's public base (links fall back to request Host)
+      TELEGRAM_BOT_TOKEN: ""
+      TELEGRAM_WEBHOOK_SECRET: ""
+    volumes: [ app_bundles:/data/app-bundles ]
+    depends_on:
+      kernel: { condition: service_started }
+      identity: { condition: service_started }
+
+  # ── edge: single front door on :80 → http://localhost ───────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: airawat-nginx
+    ports: [ "80:80" ]
+    volumes: [ ./nginx.conf:/etc/nginx/conf.d/default.conf:ro ]
+    depends_on: [ app-host, network, kernel ]
+    restart: unless-stopped
+
+volumes:
+  kernel_pg: {}
+  vault_data: {}
+  filestore_data: {}
+  identity_data: {}
+  app_bundles: {}
+  netfiles: {}
