@@ -169,6 +169,34 @@ https://<your-host>/apps/hello-greeter/          # e.g. https://airos.airawat.or
 Everything lands **"Under Development,"** quarantined to your tenant. Reverse any time with
 `aos destroy --sandbox --live`.
 
+## 8b · Edit it in Studio (optional) — `--studio`
+
+The CLI and **Studio** (the in-browser workspace) are two front doors to the same sandbox, but they don't
+cross-populate: a plain `aos deploy` publishes your components yet creates no Studio **project**, so the
+solution won't appear in Studio's Project menu on its own. Add **`--studio`** to register one:
+
+```bash
+aos deploy --sandbox --live --studio . --tenant airawatdeveloper
+#   → 🎛  Studio project registered: ds:airawatdeveloper:studio/project/<name> (N members)
+#        open Studio → Project menu → "<name>" to edit; editable: hello-greeter
+```
+
+This writes a `studio.project` whose members map 1:1 from your `solution.yaml`:
+
+- **build members** (e.g. `hello-greeter`) arrive **editable** — open them in Studio, change
+  `dist/index.html` or `run.py`, and **save** (the source was delivered to the filestore by the deploy, so
+  Studio's editor loads it);
+- **reuse members** arrive as *configure-only* (they belong to another steward — you tune their settings,
+  you don't rebuild them).
+
+It's **idempotent** (the project id is derived from the solution name), so re-run after each
+`aos deploy --studio` to keep Studio in sync with your repo. `--studio` needs `--live` — the project record
+is a real registry write; an offline run just prints a note and skips it.
+
+Use `--studio` when you want to hand the project to Studio's graph view, Solution Architect, or a teammate
+who prefers the browser; keep using the plain CLI loop (edit locally → `aos deploy`) when you're iterating
+fast in your own editor. Either way the source of truth is your project folder.
+
 ## 9 · Promote (when it's ready)
 
 Deploying to a sandbox and promoting to the Marketplace are **two different acts by two different roles:**
@@ -190,6 +218,7 @@ pip install --pre "airawatos-aos>=0.1.0a3"
 aos new → write code (ctx) → aos check → aos test        # inner loop, offline
 aos deploy --sandbox .                                   # offline dry-run (no services)
 aos login → aos deploy --sandbox --live .                # your sandbox (local or hosted) → see the tile
+aos deploy --sandbox --live --studio .                   # (optional) also register it in Studio, editable
 → promote to the Marketplace (tenant-admin, via Studio, reviewed)
 ```
 
