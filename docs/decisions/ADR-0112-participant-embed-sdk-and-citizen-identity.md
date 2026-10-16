@@ -1,6 +1,6 @@
 # ADR-0112 — Participant‑embed SDK: citizen identity, consent, services & credentials in a third‑party app
 
-- **Status:** Proposed — sketch (2026-10-16)
+- **Status:** Partially implemented — reference LIVE (2026-10-16). S1–S3 + S1b delivered and running on `airos.airawat.org` (reference image `manishsv/airawatos-reference:0.2.19-embed-seal`), spanning the full identity→services→credentials→presentation security chain with request signing + X25519 sealing. Mobile SDK (S4) and public-surface hardening (S5) remain. See **Implementation status** below.
 - **Builds on:** [[ADR-0039]] (federated identity = network citizenship), [[ADR-0068]] (pluggable IdP / auth methods), [[ADR-0049]] (Document Wallet + native Ed25519 VCs), [[ADR-0067]] (service federation: directory → init → provider fulfil → receipt), [[ADR-0105]] (scalable citizen service tier), [[ADR-0103]] (per‑object sharing / `access.grant` consent), [[ADR-0026]] (agent = signed scoped delegate), [[ADR-0087]] (governed bridge / Data Exchange), [[ADR-0024]] (participant message signing), [[ADR-0079]] (metering), [[ADR-0030]] (thin SDK over a governed broker seam — the precedent), [[ADR-0111]] (channel‑agnostic public interface; an embed is a *relying‑party channel adapter*), [[ADR-0082]] (offline/edge trust — device‑held wallet option), [[ADR-0056]] (decided change‑request = governed approval).
 
 ## Context
@@ -70,15 +70,49 @@ await aos.wallet.present(vcId, { disclose })   // selective disclosure
 await aos.issue({ subject, type, claims })     // Ed25519 VC → citizen's locker
 ```
 
+## Implementation status (reference, LIVE 2026-10-16)
+
+Delivered in the reference `app-host` (`platform-spec/reference/app_host.py`), self-contained over the existing kernel/network/IdP rails — **no new trust path, no kernel change**. Live image `manishsv/airawatos-reference:0.2.19-embed-seal`; demo at `https://airos.airawat.org/embed/demo` (built-in client `demo-embed`, test citizen `democitizen` in the `citizens` realm).
+
+**Endpoints (served same-origin by app-host, so the embed CSP stays `'self'`):**
+- `GET /embed/authorize` · `POST /embed/login` · `POST /embed/token` — hosted OIDC-style **PKCE** citizen login against the `citizens` realm; app-host is the embed authorization server, credentials never reach the embedding page.
+- `GET /embed/services` — the cross-participant **service directory** ([[ADR-0067]]), consent-gated.
+- `POST /embed/request` — invoke a federated service → **provider fulfils** (see below) → receipt (+ issued credential).
+- `GET /embed/wallet` — the citizen's **portable VC wallet** ([[ADR-0049]]); holder-keyed, visible to any app the citizen signs into.
+- `POST /embed/proof-request` · `POST /embed/present` · `POST /embed/verify-presentation` — **Verifiable Presentation** handshake (below).
+- `GET /embed/register` · `GET|POST /embed/clients` — **Developer-Portal app-client registration** (S1b).
+- `GET /embed/sdk.js` — the browser SDK: `init / login / handleCallback / discover / request / wallet / requestProof / present / verifyPresentation / logout`.
+
+**The trust chain actually enforced (what each layer proves):**
+1. **Citizen JWT (JWT-first, [[ADR-0039]]).** The provider's fulfilment **independently verifies** the citizen's token against the citizen realm's published keys and binds to the *verified* subject — it does not trust host-passed claims. Confined to trusted realms (`EMBED_CITIZEN_REALMS`).
+2. **App request signature ([[ADR-0024]], integrity).** The embedding app (BAP) **signs each request** with its own Ed25519 key over a canonical envelope `{service_id, inputs_sealed, citizen, client_id, nonce, ts}`; the provider verifies against the app's **published key on its `platform.app_client` record** (S1b registry = key directory) + enforces freshness (±300s) + single-use nonce.
+3. **X25519-sealed body ([[ADR-0024]], confidentiality).** The request inputs are **sealed to the provider's** X25519 key and the presentation is **sealed to the verifier's** — end-to-end, so the network gateway routes *blind*. Sealed-box = ephemeral X25519 → ECDH → HKDF → AES-256-GCM.
+4. **Consent ([[ADR-0067]]/[[ADR-0103]]).** A `governance.consent` grant gates service-invoke and credential-present; recorded in the citizen's tenant, revocable.
+5. **Provider-signed issuance ([[ADR-0049]]).** Issuance happens **inside the provider's own fulfilment step** (`_provider_fulfil`, under the provider's authority) when the offering declares `fulfillment.issues_credential` — not on the citizen-app side. The VC is signed by the provider's steward key, verifiable against the directory.
+6. **Holder-signed presentation ([[ADR-0049]]/[[ADR-0103]]).** Each citizen has an Ed25519 **holder key**; a Verifiable Presentation is bound to the verifier's challenge, holder-signed, sealed, and verified for: holder signature, issuer signature, challenge freshness (single-use), holder binding, not-revoked/expired.
+
+**Deviations from the sketch (deliberate):**
+- Issuance was moved from a citizen-app-side call to the **provider's fulfilment** (the correct BPP placement) after confirming — via Jan Seva — that the platform *does* invoke providers (`/bridge/service-route` → `_provider_fulfil`); the embed now routes the same way.
+- Consent is recorded as `governance.consent` (the live [[ADR-0067]] model) rather than a distinct `access.grant`; reconcile naming with [[ADR-0103]] in hardening.
+- **Credential presentation (VP)** was added beyond the original S3 (which stopped at issuance+portability) — it is the "submit a certificate as proof on request" half.
+
+**Reference-only shortcuts (to productionize):**
+- Signing/holder/provider/verifier **private keys live in app-host's durable keystore** (`/data/app-bundles/.secrets/*.json`); their **public keys** are co-located (resolved from the keystore) for app-client/provider/verifier/holder. In a distributed deployment these public keys must be **published in the network directory / a holder DID doc** so sealing + verification work across separate nodes. (The `platform.app_client` record already publishes the app's signing key — that path is the model.)
+- The demo provider `new-delhi`'s issuer credential is sourced from the `EMBED_ISSUERS` env (→ Vault); properly-onboarded providers use the standard passwordless `<provider>-admin` service principal.
+- `platform.app_client` records are durable (kernel registry, airawat tenant) but the **schema** lives in the network's in-memory catalog (re-publish on a network restart).
+
 ## Slicing (prove narrow, end‑to‑end, before generalizing)
 
-- **S1 — client + auth:** register one `platform.app_client`; JS SDK `login()` (PKCE) → show the consented citizen profile. Proves identity is network‑owned and redirect‑only.
-- **S2 — consent + one service:** consent handshake → `request()` one existing federated service → render its receipt.
-- **S3 — credential + portability:** that participant `issue()`s one VC type into the wallet; a **second** app `wallet.list()`/`present()`s it — proves the locker is portable, not app‑owned.
-- **S4 — mobile:** same contract with platform auth glue (system browser + secure store + deep link).
-- **S5 — hardening:** rate limits, grant revocation UX, metering dashboards, abuse controls on the public surface.
+- **S1 — client + auth:** ✅ **DONE.** JS SDK `login()` (PKCE) → consented citizen profile; identity network‑owned, redirect‑only.
+- **S1b — app‑client registration:** ✅ **DONE.** Governed, durable `platform.app_client` in the airawat platform registry; Developer‑Portal page (`/embed/register`); app-host resolves `client_id` from the registry (env default as fallback); the record also publishes the app's request‑signing key.
+- **S2 — consent + one service:** ✅ **DONE.** Consent handshake (`governance.consent`) → `request()` a federated service (new‑delhi Address Certificate) → signed receipt.
+- **S3 — credential + portability:** ✅ **DONE.** The **provider** issues a VC into the wallet *during its own fulfilment*; a second app/token for the same citizen sees the same credential (holder‑keyed, portable). VC cryptographically verified against the issuer's directory key.
+- **S3p — presentation (added):** ✅ **DONE.** Relying app requests proof → citizen consents → **holder‑signed, sealed Verifiable Presentation** → verifier checks holder+issuer signatures, challenge (single‑use), holder binding, revocation/expiry.
+- **Security hardening (ADR‑0024/0039):** ✅ **DONE.** JWT‑first provider verification; per‑request app signature (anti‑tamper + anti‑replay); X25519 end‑to‑end body sealing (request inputs → provider, VP → verifier).
+- **S4 — mobile:** ⏳ pending — same contract with platform auth glue (system browser + secure store + deep link).
+- **S5 — public‑surface hardening:** ⏳ pending — rate limits, grant‑revocation UX ("apps & permissions"), metering dashboards, abuse controls; move reference keystore secrets to Vault and publish public keys to the directory / holder DID for true cross‑node operation.
 
-S1–S3 exercise all four planes with real governance; the mobile SDK (S4) is the same contract.
+S1–S3 (+S1b, +presentation) exercise all four planes with real governance, now with signing + sealing; the mobile SDK (S4) is the same contract.
 
 ## Consequences
 
@@ -94,6 +128,7 @@ S1–S3 exercise all four planes with real governance; the mobile SDK (S4) is th
 
 ## Open questions
 
-1. **Wallet residency:** server‑held‑and‑presented (default, centrally revocable, portable) vs device‑synced ([[ADR-0082]], offline but heavier key management). Default to server‑held for S1–S3.
-2. **Delegate model:** reuse the [[ADR-0026]] signed‑scoped‑delegate token as‑is for citizen→app delegation, or a distinct `citizen_grant` facet? (Lean: reuse, with a `principal_type: citizen` facet.)
-3. **Discovery scope:** does an embedding app see the *whole* network service directory, or only services its participant is permitted to surface? (Lean: citizen‑scoped discovery, app‑filtered by declared allow‑list.)
+1. **Wallet residency:** server‑held‑and‑presented (default, centrally revocable, portable) vs device‑synced ([[ADR-0082]], offline but heavier key management). **Resolved for the reference:** server‑held, with a holder Ed25519 key that signs presentations; device‑held is the [[ADR-0082]] path if offline is required.
+2. **Delegate model:** **Resolved (reference):** consent is a `governance.consent` grant ([[ADR-0067]] model) per (citizen, app, service/credential); reconcile naming with [[ADR-0103]] `access.grant` and the [[ADR-0026]] signed‑delegate facet during hardening.
+3. **Discovery scope:** does an embedding app see the *whole* network service directory, or only services its participant is permitted to surface? **Reference today:** whole directory (consent‑gated to a signed‑in citizen); app‑declared allow‑list filtering is a hardening item.
+4. **Public‑key distribution (the main distributed‑deployment gap):** the reference resolves app / provider / verifier / holder **public** keys from app‑host's co‑located keystore (and the `platform.app_client` record for the app's signing key). For true cross‑node operation these must be published in the **network directory / a holder DID document** so signing + sealing verify across separate hosts.
