@@ -64,7 +64,7 @@ services:
     restart: unless-stopped
 
   network:                                   # AirawatNetwork authority: marketplace, governance, join/email (:8090)
-    image: manishsv/airawatos-network:0.3.5-zoho-keyprefix
+    image: manishsv/airawatos-network:0.3.5-dev-tenant-ensure   # = 0.3.5-zoho-keyprefix + ensure_dev_tenant.py self-heal (ENSURE_DEV_TENANT=1)
     platform: linux/amd64
     container_name: airawat-network
     environment:
@@ -79,6 +79,9 @@ services:
       IDENTITY_JWKS: http://identity:8093/jwks
       IDENTITY_URL: http://identity:8093
       IDENTITY_INTERNAL: airawat-identity-internal
+      ENSURE_DEV_TENANT: "1"                   # self-heal: ensure the developer sandbox is environment=development on boot (idempotent, non-fatal)
+      DEV_TENANT: airawatdeveloper
+      DEV_STEWARD: ds:airawatdeveloper:participant/developer   # used only to CREATE the record on a fresh/bedrock DB
     depends_on:
       postgres: { condition: service_healthy }
       vault: { condition: service_healthy }
