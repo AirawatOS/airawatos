@@ -51,12 +51,35 @@ container network (`http://kernel:8080`), not just loopback. The EC2 scheduler w
 - Fold both into the bake (or confirm the `/data/app-bundles` overlay is preserved). Console needs a proper
   Studio Publish/cert for role-gated cross-tenant serving.
 
-## 5. ⚠️ MOST FRAGILE — network tenant record: `airawatdeveloper` `environment: development`
+## 5. ✅ RESOLVED (2026-10-19) — network tenant record: `airawatdeveloper` `environment: development`
 It was mis-registered as `production` (the `POST /v1/tenants` default) despite being the dev sandbox, so the
 kernel refused to mint dev-tokens for it. Re-signed via `POST network /v1/tenants` (airawat steward) → now
-`development`. **The network's `TENANTS` map is IN-MEMORY — a network restart REVERTS it to `production`** and
-breaks the whole self-serve dev loop again. **Durable fix:** set `environment=development` wherever
-`airawatdeveloper` is provisioned/seeded, and/or make the network tenant registry durable.
+`development`.
+
+**The earlier "IN-MEMORY → reverts on restart" worry was WRONG.** The network's `TENANTS` namespace is
+**postgres-backed** (`network/kv.py` `KV`/`Namespace`, `_backend()` returns `_DURABLE=True` when `KV()`
+connects — and the EC2 network has `DB_HOST=postgres`). Verified live: the record is stored in the `kv` table
+(`store='tenants', key='airawatdeveloper'`) and has persisted since `issued_at: 2026-10-14` across many
+restarts. **A network restart does NOT revert it.**
+
+**Durable-in-provisioning fix (shipped):**
+- `network/ensure_dev_tenant.py` — idempotent, identity-preserving seed: flips an existing record to
+  `development` (preserving steward_participant / prefix / jurisdiction / host_operator — never mints a new
+  steward key), no-ops if already `development`, and (with `DEV_STEWARD=…`) creates it fresh on a bedrock DB.
+  Runs inside the network process (`import api` → same durable KV), so no HTTP / identity token / passwordless-
+  steward dependency. Run it as the final provisioning step: `docker compose exec network python
+  ensure_dev_tenant.py` (or `docker exec airawat-network python3 /app/ensure_dev_tenant.py`).
+- Baked into the image: `network/deploy/Dockerfile` COPYs the script + a **gated, non-fatal boot hook**
+  (`ENSURE_DEV_TENANT=1` → self-heal on boot; default OFF = byte-identical to `uvicorn api:app`). A
+  bake-exactly-running overlay is published: **`manishsv/airawatos-network:0.3.5-dev-tenant-ensure`**
+  (= `0.3.5-zoho-keyprefix` + the script; overlay Dockerfile in `deploy/ec2/network-dev-tenant-overlay.Dockerfile`).
+- `deploy/local/docker-compose.yml` points the `network` service at that tag and sets
+  `ENSURE_DEV_TENANT=1` + `DEV_TENANT=airawatdeveloper` + `DEV_STEWARD=ds:airawatdeveloper:participant/developer`.
+
+**Live EC2 status:** record is already `development` (durable in postgres) and the baked script was smoke-tested
+against the live KV (idempotent no-op). The live `airawat-network` still runs `0.3.5-zoho-keyprefix`; an
+*optional* cutover to `0.3.5-dev-tenant-ensure` (recreate the network with `ENSURE_DEV_TENANT=1`) activates the
+on-boot self-heal there too — not required for durability, since the record already persists.
 
 ## 6. Still-ephemeral in `/app/components` (from an earlier session)
 SDK `components/_common/aos/ingest.py`, the `water-complaints` driver, and the `water-setup` app are re-seeded
