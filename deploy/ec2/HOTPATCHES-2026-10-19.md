@@ -70,6 +70,32 @@ into `/app/components` after each recreate — fold into the bake too.
 | `platform-spec/reference/{app_host,scheduler,host_runner,host}.py` | `platform-spec` | `feat/participant-embed-sdk-s1` |
 | `components/apps/{console,file-explorer}`, `components/_common/aos/cli.py` | `components` | `feat/pm25-source-apportionment` |
 
+## ✅ Published to Docker Hub (2026-10-19)
+Bake-exactly-running overlays (only the deployed files, on top of each service's current base) + every
+local-only running image pushed so the whole stack is reproducible from the registry:
+
+| Image (Docker Hub) | What | Contains |
+|---|---|---|
+| `manishsv/airawatos-reference:0.2.47-selfserve-dev` | **NEW** app-host | `0.2.46-datasets` + patched `app_host.py` |
+| `manishsv/airawatos-reference:0.2.9-selfserve-dev` | **NEW** scheduler | `0.2.9-airfix` + patched `scheduler.py`,`host_runner.py`,`host.py` |
+| `manishsv/airawatos-kernel:0.2.10-datasets` | kernel (was local-only) | pushed as-is |
+| `manishsv/airawatos-reference:0.2.9-airfix-h3` | runtime-manager (was local-only) | pushed as-is |
+| `manishsv/airawatos-reference:0.2.46-datasets` | old app-host base (was local-only) | pushed as-is |
+
+Already on Docker Hub: `reference:0.2.83-auth` (identity), `reference:0.2.9-airfix` (scheduler base),
+`network:0.3.5-zoho-keyprefix`.
+
+### Cutover (recreate later — NOT done yet)
+In `/home/ec2-user/airawatos/docker-compose.yml`, point the two services at the baked tags:
+- app-host:  `0.2.46-datasets` → **`0.2.47-selfserve-dev`**
+- scheduler: `0.2.9-airfix` → **`0.2.9-selfserve-dev`**
+
+then `docker compose up -d --no-deps --force-recreate <app-host-svc> <scheduler-svc>`.
+⚠️ A recreate wipes the ephemeral `/app/components` driver re-seed (water-complaints etc.) — re-seed or bake
+those separately. The Console/file-explorer bundles survive (durable `/data/app-bundles` volume). The fragile
+`airawatdeveloper environment=development` network record is unaffected by this recreate (only a *network*
+restart reverts it).
+
 ## Optional follow-ups (not blockers)
 - `TAXONOMY_MAP` crosswalk for exact DJB label→canonical mapping (Setup Console ✨ Auto-map via kimi-k3).
 - Audit the remaining hardcoded `ADMIN_ROLES &` action gates and apply the sandbox-privilege predicate
