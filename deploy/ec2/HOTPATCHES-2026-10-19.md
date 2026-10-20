@@ -207,6 +207,21 @@ docker compose -f /home/ec2-user/airawatos/docker-compose.yml up -d --no-deps --
 ```
 LESSON: never `docker restart`/recreate the kernel on a hot-cp'd file without a bind-first boot + a staged
 rollback — app-host/scheduler tolerate it; the kernel's synchronous boot DDL did not.
+**CUTOVER DONE 2026-10-20:** EC2 kernel recreated on `0.2.11-bindfirst` → **healthy in ~8s** (vs ~90s); the
+background DDL/index + B1-repair maintenance logged `complete in 17.2s` — i.e. that ~17s of real work is now
+OFF the boot path. Kernel-repo `main` has both fixes (commit `c6040e1`).
+
+## 9. Dataset-index reconcile (2026-10-20) — re-applied the safe way (baked, not hot-cp)
+`kernel/api/app.py` `_ds_reconcile(tn)` + the `registry_datasets` `else:` branch: when a tenant's `tenant_datasets`
+index is non-null but may be stale (a schema written by a self-serve dev run that didn't bump the index — e.g.
+`water.complaint`, which `query` reads but `data` omitted), a **TTL-bounded (10min), background, merge-only**
+rescan self-heals it. Non-blocking; merge-only (keeps installed-but-empty datasets). This is the fix that caused
+the earlier outage when hot-cp'd + `docker restart`ed — now shipped properly: folded into kernel source (on
+`main`) + baked into **`manishsv/airawatos-kernel:0.2.12-reconcile`** (= `0.2.11-bindfirst` + reconcile app.py;
+`deploy/ec2/kernel-reconcile-overlay.Dockerfile`), built + pushed. Cutover = sed compose
+`0.2.11-bindfirst`→`0.2.12-reconcile` + `docker compose up -d --no-deps --force-recreate kernel` (now safe:
+bind-first boots in ~8s). After cutover, the first `data` call per tenant kicks the background reconcile; the
+second lists `water.complaint`.
 
 ## Optional follow-ups (not blockers)
 - `TAXONOMY_MAP` crosswalk for exact DJB label→canonical mapping (Setup Console ✨ Auto-map via kimi-k3).
