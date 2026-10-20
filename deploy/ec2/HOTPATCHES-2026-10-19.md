@@ -138,6 +138,14 @@ app-host + a schema register on the network — fold into the next bake.
 - **Verified:** schema published ✔ ; app_host compiles in-container + restarted ✔ ; `/bridge/vfs` auth-gate
   returns 403 without a session ✔ ; path-resolution logic unit-tested ✔. NOT yet live-verified for the
   owner-scoped data path (needs a logged-in session — do via the Console `ls/cd/cat` in-browser).
+- **`/projects` mount** (ADR-0114 Slice 3, read-only; deployed 2026-10-20): `_vfs_projects` in `app_host.py`
+  surfaces the caller's **Studio projects** → their **member components** → each component's **source files**
+  (read from `_find_component_dir(cid)` on disk), with a path-traversal guard. `ls /projects`,
+  `cd /projects/<proj>/<comp>`, `cat`/`head`/`grep` work on source; `run <comp>` runs it **install-free**
+  (self-serve dev, already live). `ls /` now shows a `projects/` entry. Scan logic refactored into the shared
+  `_vfs_scan` (used by both filestore blobs and on-disk source). Visibility = project owner/team (or admin).
+  Caveat: a component only lists source if its dir is on disk (baked or materialised) — a never-run unbaked
+  component may need one `run` (which materialises) before its files appear.
 - Source lives (uncommitted, like §1–§3) on `platform-spec@feat/participant-embed-sdk-s1` +
   `components@feat/pm25-source-apportionment`.
 
