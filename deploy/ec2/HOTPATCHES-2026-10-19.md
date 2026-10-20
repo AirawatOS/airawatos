@@ -161,6 +161,14 @@ app-host + a schema register on the network — fold into the next bake.
   + links the new cid into the current project's `members[]` (shows under `/projects/<proj>`; opens in Studio).
   No backend change. Full chain now Console-native: `project new → new engine → edit → run → logs → publish`.
   Remaining: `schema/iface propose` (S3c); `compose` + solution-publish + `install` (S3d).
+- **S3c/d** (Console-only wiring; 2026-10-20): `schema propose <domain.subject>` + `iface propose <id>` open a
+  JSON-skeleton modal → `/bridge/schema-request` / `/bridge/interface-request` (pending; standards body decides).
+  `compose [project]` → `/bridge/project-compose` (bundle PUBLISHED members → certified solution).
+  `install <id>` → `/bridge/install` (tenant-admin gated). The modal editor (`openEditor`) was generalized to
+  take a custom save handler (file-write default; schema/iface use it to POST their request). Also **fixed
+  `cat`** on component source: it required a `file_id`, but on-disk project files have none — now it reads any
+  blob via the resolver. Full Console-native solution chain: `project new → new <kind> → edit → run → logs →
+  publish → schema/iface propose → compose → install`.
 - Source lives (uncommitted, like §1–§3) on `platform-spec@feat/participant-embed-sdk-s1` +
   `components@feat/pm25-source-apportionment`.
 
