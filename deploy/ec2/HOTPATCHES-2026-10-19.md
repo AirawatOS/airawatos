@@ -134,7 +134,9 @@ app-host + a schema register on the network — fold into the next bake.
 - **Console bundle** (`components/apps/console/dist/index.html`): new `ls`/`cd`/`pwd`/`cat` + power commands
   `head`/`tail`/`grep [-i]`/`wc`/`stat`/`find` over `/bridge/vfs` (+ a `cwd`); `ls` no longer aliases `data`,
   `cat` no longer aliases `files` (both are real VFS commands). `cat` previews small files (≤256KB) and points
-  big ones at `head`/`grep`. Durable in `/data/app-bundles/apps/console` (survives recreate, not image rebuild).
+  big ones at `head`/`grep`. **TAB completion** (2026-10-20): first word → command name; args of the filesystem
+  commands → VFS path (one match fills, several complete the common prefix + list) via `/bridge/vfs?action=list`.
+  Durable in `/data/app-bundles/apps/console` (survives recreate, not image rebuild).
 - **Verified:** schema published ✔ ; app_host compiles in-container + restarted ✔ ; `/bridge/vfs` auth-gate
   returns 403 without a session ✔ ; path-resolution logic unit-tested ✔. NOT yet live-verified for the
   owner-scoped data path (needs a logged-in session — do via the Console `ls/cd/cat` in-browser).
