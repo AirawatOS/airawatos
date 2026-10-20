@@ -169,6 +169,12 @@ app-host + a schema register on the network — fold into the next bake.
   `cat`** on component source: it required a `file_id`, but on-disk project files have none — now it reads any
   blob via the resolver. Full Console-native solution chain: `project new → new <kind> → edit → run → logs →
   publish → schema/iface propose → compose → install`.
+- **Console AI Slice 1** (2026-10-20): `POST /bridge/console-ai {mode:"suggest"}` → `_llm` (kimi-k3) predicts
+  the next command from {command catalog, cwd, history}; fails SOFT (empty → never blocks). Console shows it as
+  a dim `⇥` ghost line (600ms idle debounce); **Tab-on-empty accepts into the line but NEVER auto-runs** (human
+  gate — Enter runs). `ask <question>` (alias ai/chat) → Personal Agent (`/bridge/agent`, ADR-0081 plan→confirm):
+  prints the reply + surfaces any proposed WRITE as a suggestion (no in-console auto-confirm yet). Console-only +
+  one thin bridge; reuses the governed model gateway (no new ML).
 - Source lives (uncommitted, like §1–§3) on `platform-spec@feat/participant-embed-sdk-s1` +
   `components@feat/pm25-source-apportionment`.
 
