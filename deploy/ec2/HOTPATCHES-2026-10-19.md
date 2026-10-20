@@ -125,13 +125,16 @@ app-host + a schema register on the network — fold into the next bake.
 - **`platform.fsnode` governed** — signed schema `ds:airawat:schema/platform.fsnode@0.1.0` published to the
   network (`platform-spec/reference/govern_fsnode.py`; superset of `platform.file`). Re-run on a fresh
   network: `docker exec -e NETWORK=http://localhost:8090 airawat-network python3 /app/govern_fsnode.py`.
-- **VFS resolver** in `platform-spec/reference/app_host.py`: `GET /bridge/vfs?action=stat|list|read&path=…`
-  (`_bridge_vfs` + `_vfs_nodes`/`_vfs_norm`/`_vfs_split`). Reads `platform.fsnode` UNION `platform.file`
-  (legacy projected as blob/folder), owner-scoped — same visibility as the Files app, so no behavior change.
-  Read-only (no write/mkdir/mount/publish yet). Route added in `do_GET` next to `/bridge/file`.
-- **Console bundle** (`components/apps/console/dist/index.html`): new `ls` / `cd` / `pwd` / `cat` commands
-  over `/bridge/vfs` + a `cwd`; `ls` no longer aliases `data`, `cat` no longer aliases `files`
-  (both are now real VFS commands). Durable in `/data/app-bundles/apps/console` (survives recreate, not image rebuild).
+- **VFS resolver** in `platform-spec/reference/app_host.py`: `GET /bridge/vfs?action=stat|list|read|head|tail|wc|grep&path=…`
+  (`_bridge_vfs` + `_vfs_nodes`/`_vfs_norm`/`_vfs_split`/`_vfs_iter_lines`). Reads `platform.fsnode` UNION
+  `platform.file` (legacy projected as blob/folder), owner-scoped — same visibility as the Files app, so no
+  behavior change. **head/grep stop early (bounded read); tail/wc full-scan** — the server returns a small
+  JSON result so a 48MB file never crosses the wire to preview/search. Read-only (no write/mkdir/mount/publish
+  yet). Route added in `do_GET` next to `/bridge/file`.
+- **Console bundle** (`components/apps/console/dist/index.html`): new `ls`/`cd`/`pwd`/`cat` + power commands
+  `head`/`tail`/`grep [-i]`/`wc`/`stat`/`find` over `/bridge/vfs` (+ a `cwd`); `ls` no longer aliases `data`,
+  `cat` no longer aliases `files` (both are real VFS commands). `cat` previews small files (≤256KB) and points
+  big ones at `head`/`grep`. Durable in `/data/app-bundles/apps/console` (survives recreate, not image rebuild).
 - **Verified:** schema published ✔ ; app_host compiles in-container + restarted ✔ ; `/bridge/vfs` auth-gate
   returns 403 without a session ✔ ; path-resolution logic unit-tested ✔. NOT yet live-verified for the
   owner-scoped data path (needs a logged-in session — do via the Console `ls/cd/cat` in-browser).
