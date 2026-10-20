@@ -183,6 +183,31 @@ app-host + a schema register on the network — fold into the next bake.
 - Source lives (uncommitted, like §1–§3) on `platform-spec@feat/participant-embed-sdk-s1` +
   `components@feat/pm25-source-apportionment`.
 
+## 8. KERNEL bind-first boot (2026-10-20) — fixes a cold-boot outage window
+**Root cause (found by reading the boot path):** `kernel/services/registry/pg_store.py` `PgRegistry.__init__`
+ran the full `_DDL` SYNCHRONOUSLY before uvicorn binds — not just `CREATE TABLE/ALTER`, but the index builds
+(incl. a GIN over the whole `object` column) **and a B1-repair `UPDATE` with a window-function scan over the
+entire tx-open set, every startup**. On the 32.3M-row `registry_version` table that stalls the boot ~90s, during
+which the kernel is "running" but refuses connections (the cold-boot outage hit on 2026-10-20 when the kernel
+was `docker restart`ed for the dataset-index patch).
+
+**Fix (baked):** split `_DDL` → `_DDL_CORE` (table + columns; catalog-only, instant when present) kept
+SYNCHRONOUS, and `_DDL_MAINT` (the 4 indexes + the B1-repair UPDATE + the `rv_one_open` unique backstop) moved to
+a **background daemon thread**. uvicorn now binds immediately; maintenance lands shortly after (logs
+`[registry] background DDL/index maintenance complete in N.Ns`). Reads/writes work meanwhile (only un-indexed-
+slower in the rare case an index is genuinely (re)building). Source: kernel repo `services/registry/pg_store.py`.
+Overlay image **`manishsv/airawatos-kernel:0.2.11-bindfirst`** (= `0.2.10-datasets` + patched pg_store.py;
+`deploy/ec2/kernel-bindfirst-overlay.Dockerfile`), built + pushed.
+
+**⚠️ Cutover (gated — recreate the kernel; NOT auto-applied):** point the live compose at the new tag + recreate.
+Because the new image binds first, this should NOT reproduce the ~90s outage.
+```
+sudo sed -i.bak 's#airawatos-kernel:0.2.10-datasets#airawatos-kernel:0.2.11-bindfirst#' /home/ec2-user/airawatos/docker-compose.yml
+docker compose -f /home/ec2-user/airawatos/docker-compose.yml up -d --no-deps --force-recreate kernel
+```
+LESSON: never `docker restart`/recreate the kernel on a hot-cp'd file without a bind-first boot + a staged
+rollback — app-host/scheduler tolerate it; the kernel's synchronous boot DDL did not.
+
 ## Optional follow-ups (not blockers)
 - `TAXONOMY_MAP` crosswalk for exact DJB label→canonical mapping (Setup Console ✨ Auto-map via kimi-k3).
 - Audit the remaining hardcoded `ADMIN_ROLES &` action gates and apply the sandbox-privilege predicate
