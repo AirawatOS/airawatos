@@ -114,9 +114,27 @@ A VFS resolver — `stat / list / read / write / mkdir / mount / publish` over a
 
 **Costs / risks.** A resolver + `platform.fsnode` migration is real work; the component mount must materialize lazily and cache (reuse [[ADR-0093]]) or listing a big component over the VFS is slow. "It looks like a filesystem" can tempt callers to expect POSIX semantics (random-access writes, rename-as-move, hardlinks) the governed model does not offer — the API must stay object-shaped (`publish`, not `fsync`). Path collisions / very deep trees need the same `folder`-record discipline `platform.file` already uses.
 
+## Resolved design positions
+
+These four were open questions when the model was drafted; resolved (with the product owner) as below. Every answer points the same way: **keep the three layers separate, reuse the properties/gates the platform already has, and resist re-fusing data-with-files or inventing a second source of truth.**
+
+### R1. No `datasets/<schema>/…` registry-as-files view — defer; if ever, export-not-live
+
+A `datasets/` folder would surface governed rows as "files". **Rejected for now.** It re-fuses the data/file layers this ADR deliberately keeps apart (the Data app already browses datasets), and a "file" that is really a row forces an invented serialization + pagination model duplicating the registry's query API — and rows are bitemporal + relational, so flattening them to files loses exactly what makes them governed data. If genuine demand appears, add an **export-on-demand** folder (a dataset yields a *generated snapshot blob* — a real, content-addressed, shareable file), **never** a live-row-as-file view. An export is honestly a file; a live row masquerading as one is a leaky abstraction.
+
+### R2. Component mount is **role-gated**: source to builders/admins, bundle to everyone
+
+Browsing `/<tenant>/components/<cid>/` is gated by the **same predicate the Console's `describe` already enforces** (source-read is Studio-gated) — so this is applied policy, not new policy. A **builder/admin** role sees the full certified tree (engine/driver source — the "browse what I'm building/debugging" value); an **ordinary civic role** sees only the runnable public assets (the app bundle + declared docs), not source. This protects third-party component IP and shrinks the insider attack surface while keeping full transparency for the people who need it. First-party (`airawatdeveloper`) components may opt into source-visible-to-all; third-party vendors default to source-for-builder / bundle-for-civic. The mount is **read-only** regardless of role — it can never be a write path onto certified code.
+
+### R3. Cross-tenant mounts: **pin the digest (copy semantics), fetch by digest (projection delivery)**
+
+When tenant B installs a solution whose components are stewarded by tenant A, B's mount is **neither** a blind live projection **nor** a full eager copy. Install **pins a specific certified digest** in B's lockfile (correctness — no silent drift when A re-certifies), and the **bytes are fetched lazily by that digest** from whichever filestore has them (dedup + portability — universal delivery, [[ADR-0093]]). The mount therefore shows *the pinned digest*; advancing it is the explicit, admin-gated `component-refresh` action, not an automatic follow. Cross-tenant read authorization goes through [[ADR-0085]] (the cross-tenant door) + [[ADR-0103]] (`access.grant`) — B may read A's bytes only because the install-grant/share says so. This is exactly the behaviour [[ADR-0093]] materialize-on-demand + the install lockfile already have; the VFS just surfaces it.
+
+### R4. Node versioning rides registry **bitemporality** — no second `version` edge
+
+A file that changes over time is simply a `platform.fsnode` whose `file_id` changed; the record is already bitemporal (B1–B4, [[ADR-0052]]), so "show me the version as-of T" is a free as-of query and each version is a distinct immutable blob (content-addressing makes history nearly free). We do **not** add an explicit `versions: [{file_id, at}]` array — that would duplicate bitemporal history and create a second, drift-prone source of truth. Instead a thin **read helper** *presents* the record's history as a version list, giving the UI first-class "file versions" ergonomics without storing them twice.
+
 ## Open questions
 
-- Does `datasets/<schema>/…` (registry-as-files) pull its weight, or does it blur the data/file line we deliberately keep separate? (Lean: defer; the registry already has the Data app.)
-- Mount granularity for components — whole certified tree, or only declared public assets (bundle/source)? Certified code is readable to a tenant that installed it, but should a non-dev role see engine source?
-- Cross-tenant mounts (a shared solution's components visible in a consumer tenant) — projection vs copy; align with [[ADR-0085]] / [[ADR-0103]].
-- Versioning a node (a file's history) — lean on registry bitemporality vs an explicit `version` edge.
+- Quota / lifecycle: does a tenant get storage quotas at the VFS layer, and does deleting an `fsnode` tombstone-only (bitemporal) while the underlying blob is GC'd by refcount? (Blobs dedup globally, so GC must be refcount-across-tenants, not per-node.)
+- Workspace concurrency: two developers editing the same `workspace` subtree — last-writer-wins on a node, or a soft lock? (Likely defer to the [[ADR-0113]] per-component ownership model rather than solving it in the VFS.)
