@@ -148,6 +148,15 @@ app-host + a schema register on the network — fold into the next bake.
   `_vfs_scan` (used by both filestore blobs and on-disk source). Visibility = project owner/team (or admin).
   Caveat: a component only lists source if its dir is on disk (baked or materialised) — a never-run unbaked
   component may need one `run` (which materialises) before its files appear.
+- **Writable workspace + publish** (ADR-0114 Slice 3 write side; deployed 2026-10-20): `POST /bridge/vfs`
+  `{path,content}` → `_bridge_vfs_write` → `_vfs_projects(action="write")` edits a component source file the
+  SAME way Studio `component-save` does (same `_component_edit_authorized` per-component ownership gate + the
+  same `{meta.yaml, run.py, dist/index.html}` allow-list; writes to the on-disk component dir, traversal-guarded).
+  Console: `edit <path>` (modal textarea, Ctrl/⌘-S) · `write <path> <text>` · `publish <component>` →
+  `/bridge/project-publish` (certify + list; enforces not-a-stub + a green dev run). Round-trips with Studio
+  (same files, same records). This completes the Console → build-a-solution inner loop
+  (`edit → run → logs → publish`); scaffolding (`new …`), `schema/iface propose`, and `compose` are the
+  remaining wiring slices (S3b–d).
 - Source lives (uncommitted, like §1–§3) on `platform-spec@feat/participant-embed-sdk-s1` +
   `components@feat/pm25-source-apportionment`.
 
