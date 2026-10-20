@@ -173,8 +173,13 @@ app-host + a schema register on the network — fold into the next bake.
   the next command from {command catalog, cwd, history}; fails SOFT (empty → never blocks). Console shows it as
   a dim `⇥` ghost line (600ms idle debounce); **Tab-on-empty accepts into the line but NEVER auto-runs** (human
   gate — Enter runs). `ask <question>` (alias ai/chat) → Personal Agent (`/bridge/agent`, ADR-0081 plan→confirm):
-  prints the reply + surfaces any proposed WRITE as a suggestion (no in-console auto-confirm yet). Console-only +
-  one thin bridge; reuses the governed model gateway (no new ML).
+  prints the reply + surfaces any proposed WRITE. Console-only + one thin bridge; reuses the governed model
+  gateway (no new ML).
+- **Console AI Slice 1b** (2026-10-20, frontend-only): **in-console confirm** — a proposed agent action is staged
+  as `PENDING`; `confirm` POSTs `/bridge/agent {confirm:{name,args}}` (runs it, then resumes the plan → may stage
+  the next step), `cancel` drops it; secret-kind steps are deferred to the GUI (console never handles secret
+  values). **Inline ghost** — the next-command suggestion now renders as grey text overlaid *inside* the input
+  (absolute span over `#cl`, trailing `⇥`), replacing the below-bar line; Tab-on-empty still accepts, Enter runs.
 - Source lives (uncommitted, like §1–§3) on `platform-spec@feat/participant-embed-sdk-s1` +
   `components@feat/pm25-source-apportionment`.
 
