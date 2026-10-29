@@ -30,3 +30,9 @@ services:
     volumes:
       - netfiles:/data/netfiles                                        # keep the base data volume
       - ../../network/authn.py:/app/authn.py:ro                        # RS256 verify (edited source)
+
+  app-host:
+    volumes:
+      - app_bundles:/data/app-bundles                                  # keep the base data volume
+      - ../../platform-spec/reference/app_host.py:/app/reference/app_host.py:ro    # must_reset login flow (edited source)
+      - ../../platform-spec/reference/login.html:/app/reference/login.html:ro
