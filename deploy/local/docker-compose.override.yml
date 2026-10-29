@@ -24,7 +24,7 @@ services:
       - identity_data:/data/identity                                   # keep the base data volume
       - ../../platform-spec/reference/identity.py:/app/reference/identity.py:ro   # de-seed (edited source)
     environment:
-      IDENTITY_SEED_DEMO: "1"   # ← toggle to "" to verify the empty-by-default (production) behaviour
+      IDENTITY_SEED_DEMO: "${IDENTITY_SEED_DEMO-1}"   # default seeds demo users; airawatos-install.sh sets "" → empty IdP (ADR-0115)
 
   network:
     volumes:
