@@ -100,6 +100,7 @@ services:
       VAULT_TOKEN: ${VAULT_TOKEN}
       IDENTITY_USERS_FILE: /data/identity/identity-users.json
       IDENTITY_PASSWORDS_FILE: /data/identity/identity-passwords.json
+      IDENTITY_SEED_DEMO: "1"   # dev/demo convenience: seed devrick/steward/… (ADR-0115). A production install OMITS this → empty IdP, principals provisioned at install.
     volumes: [ identity_data:/data/identity ]
     depends_on:
       network: { condition: service_healthy }
