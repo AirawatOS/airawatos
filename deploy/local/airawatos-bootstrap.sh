@@ -17,10 +17,13 @@ cd "$DIR"
 # ── 0 · preflight ──────────────────────────────────────────────────────────────────────────────────
 command -v docker >/dev/null 2>&1 || { echo "✗ Docker not found. Install Docker Desktop / Engine first."; exit 1; }
 docker compose version >/dev/null 2>&1 || { echo "✗ 'docker compose' (v2) not found."; exit 1; }
-# Apple-Silicon / arm64: the manishsv/airawatos-* images are amd64 → run under emulation.
+# Apple-Silicon / arm64 note: the manishsv/airawatos-* images are amd64 and carry explicit `platform: linux/amd64`
+# pins in the compose, so they run emulated regardless. Do NOT set a GLOBAL DOCKER_DEFAULT_PLATFORM=linux/amd64 —
+# that would force Vault/Postgres/nginx to emulate too, and Vault's Go binary CRASHES under QEMU/Rosetta. Leaving
+# it unset lets those infra images run native arm64 (fast, stable) while the Airawat services stay amd64 via the
+# pins. Enable "Use Rosetta for x86/amd64 emulation" in Docker Desktop for speed on the amd64 services.
 if [ "$(uname -m)" = "arm64" ] || [ "$(uname -m)" = "aarch64" ]; then
-  export DOCKER_DEFAULT_PLATFORM=linux/amd64
-  echo "  (arm64 host — forcing linux/amd64 emulation; enable Rosetta in Docker Desktop for speed)"
+  echo "  (arm64 host — Airawat images run amd64-emulated via compose pins; infra runs native. Enable Rosetta for speed.)"
 fi
 
 # ── 1 · write docker-compose.yml (quoted heredoc → ${VAULT_TOKEN} is NOT expanded here) ──────────────
@@ -286,7 +289,7 @@ echo "▶ starting Vault to mint its root token"
 docker compose up -d vault
 for i in $(seq 1 30); do
   TOKEN=$(docker compose exec -T vault sh -lc \
-    "sed -n 's/.*\"root_token\":\"\([^\"]*\)\".*/\1/p' /vault/data/init.json" 2>/dev/null | tr -d '\r\n ')
+    "tr -d '\n ' < /vault/data/init.json | sed 's/.*\"root_token\":\"\([^\"]*\)\".*/\1/'" 2>/dev/null | tr -d '\r\n ')
   [ -n "${TOKEN:-}" ] && break
   sleep 2
 done
