@@ -64,7 +64,7 @@ services:
     restart: unless-stopped
 
   network:                                   # AirawatNetwork authority: marketplace, governance, join/email (:8090)
-    image: manishsv/airawatos-network:0.3.14-joinfix   # + join page: proxy-prefix-aware fetches (/network/*) + generic org placeholder (api.py)
+    image: manishsv/airawatos-network:0.3.15-govcaps   # + provide/consume = governed Noun/Verb refs, validated (api.py)
     platform: linux/amd64
     container_name: airawat-network
     environment:
