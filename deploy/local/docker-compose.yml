@@ -64,7 +64,7 @@ services:
     restart: unless-stopped
 
   network:                                   # AirawatNetwork authority: marketplace, governance, join/email (:8090)
-    image: manishsv/airawatos-network:0.3.7-installer   # RS256 authn + ensure_install + seed_base + mint_base_listings baked (ADR-0115)
+    image: manishsv/airawatos-network:0.3.8-participation   # + ADR-0116 participation lifecycle (api.py + seed_base)
     platform: linux/amd64
     container_name: airawat-network
     environment:

@@ -1,0 +1,5 @@
+# Network overlay 0.3.8 (ADR-0116): bake the participation lifecycle (api.py) + updated base catalogue
+# (seed_base.py incl. network.participation) onto 0.3.7. Context = network repo.
+FROM manishsv/airawatos-network:0.3.7-installer
+COPY api.py        /app/api.py
+COPY seed_base.py  /app/seed_base.py
