@@ -1,0 +1,4 @@
+FROM manishsv/airawatos-network:0.3.8-participation
+COPY api.py /app/api.py
+COPY ensure_install.py /app/ensure_install.py
+COPY seed_base.py /app/seed_base.py
