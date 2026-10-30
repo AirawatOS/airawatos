@@ -163,7 +163,7 @@ services:
   # ── the OS the browser talks to (:8099) ─────────────────────────────────────────────────────────────
   app-host:
     <<: *ref
-    image: manishsv/airawatos-reference:0.2.124-portal  # + Slice 2: /portal participant dashboard + my-networks by subject (app_host.py)
+    image: manishsv/airawatos-reference:0.2.125-portalfix  # + portal Sign out = POST /logout (was broken GET) (app_host.py)
     container_name: airawat-app-host
     command: ["python","reference/app_host.py","/app/components/apps","--port","8099",
               "--network","http://network:8090","--kernel","http://kernel:8080",
