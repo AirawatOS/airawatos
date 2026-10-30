@@ -1,0 +1,6 @@
+# Network-image overlay (ADR-0115): bake the current provisioner + base-governance scripts so install.sh
+# runs them from the image (no source cp). RS256 authn + api.py already in 0.3.6-installer. Context = network repo.
+FROM manishsv/airawatos-network:0.3.6-installer
+COPY ensure_install.py      /app/ensure_install.py
+COPY seed_base.py           /app/seed_base.py
+COPY mint_base_listings.py  /app/mint_base_listings.py

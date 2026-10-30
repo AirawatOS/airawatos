@@ -1,0 +1,7 @@
+# Reference-image overlay (ADR-0115): bake the installer edits onto the proven services image so a clean
+# install needs NO source bind-mount. Build context = the platform-spec repo root.
+FROM manishsv/airawatos-reference:0.2.115-settings-fixes
+COPY reference/identity.py       /app/reference/identity.py
+COPY reference/app_host.py       /app/reference/app_host.py
+COPY reference/login.html        /app/reference/login.html
+COPY reference/seed_base_os.py   /app/reference/seed_base_os.py

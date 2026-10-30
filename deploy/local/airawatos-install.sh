@@ -58,9 +58,8 @@ for i in $(seq 1 40); do
 done
 
 # ── 4 · provision the four realms + admins + scheduler (password via env only) ───────────────────────
-docker compose cp ../../network/ensure_install.py network:/app/ensure_install.py >/dev/null
 docker compose exec -T -e INSTANCE="$INSTANCE" -e OPERATOR_PASSWORD="$OPERATOR_PASSWORD" \
-  network python3 /app/ensure_install.py
+  network python3 /app/ensure_install.py          # provisioner baked into the network image (0.3.7-installer)
 
 # ── 4b · seed the Base-OS app suite so every realm admin has working tools (ADR-0115 Phase 1) ─────────
 #   admin (add users) · settings · file-explorer · console · inbox · personal-assistant
@@ -70,13 +69,11 @@ docker compose exec -T -e INSTANCE="$INSTANCE" -e OPERATOR_PASSWORD="$OPERATOR_P
 # mint_base_listings.py via `import api`), delivers the bundles app-host-side (seed_base_os.py), and shelves them.
 echo "▶ seeding the Base-OS suite (admin · settings · files · console · inbox · assistant)…"
 BASE_APPS="admin settings file-explorer console inbox personal-assistant storefront network-admin"
-docker compose cp ../../network/seed_base.py          network:/app/seed_base.py          >/dev/null
-docker compose cp ../../network/mint_base_listings.py network:/app/mint_base_listings.py >/dev/null
-docker compose cp ../../platform-spec/reference/seed_base_os.py app-host:/app/reference/seed_base_os.py >/dev/null
+# seed_base.py / mint_base_listings.py / seed_base_os.py are BAKED into the network + app-host images — no cp.
 docker compose exec -T network python3 /app/seed_base.py >/dev/null         # govern base domains+roles+schemas
 docker compose exec -T app-host sh -lc 'mkdir -p /app/_seed'
-# stage base-app SOURCE into the app-host (the OS image strips components/apps; a local install has the repo —
-# the reference-image-bake variant stages these at build time instead).
+# stage base-app SOURCE into the app-host from the sibling components checkout (the OS image strips
+# components/apps per ADR-0093; the installer re-homes + certifies + bundles them at install time).
 for a in $BASE_APPS; do docker compose cp ../../components/apps/$a app-host:/app/_seed/$a >/dev/null; done
 docker compose exec -T -e INSTANCE="$INSTANCE" -e OPERATOR_PASSWORD="$OPERATOR_PASSWORD" -e MODE=deliver \
   app-host python3 /app/reference/seed_base_os.py                            # rehome + certify + bundle
