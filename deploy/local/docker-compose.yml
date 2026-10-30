@@ -64,7 +64,7 @@ services:
     restart: unless-stopped
 
   network:                                   # AirawatNetwork authority: marketplace, governance, join/email (:8090)
-    image: manishsv/airawatos-network:0.3.10-connect   # + ADR-0116 self-asserted remote application (api.py)
+    image: manishsv/airawatos-network:0.3.11-trust   # + ADR-0116/0084 trust handshake on approve (api.py)
     platform: linux/amd64
     container_name: airawat-network
     environment:
@@ -163,7 +163,7 @@ services:
   # ── the OS the browser talks to (:8099) ─────────────────────────────────────────────────────────────
   app-host:
     <<: *ref
-    image: manishsv/airawatos-reference:0.2.119-connect  # + ADR-0116 add-network-by-URL bridge (app_host.py)
+    image: manishsv/airawatos-reference:0.2.120-trust  # + ADR-0116 connect-network sends issuer+JWKS (app_host.py)
     container_name: airawat-app-host
     command: ["python","reference/app_host.py","/app/components/apps","--port","8099",
               "--network","http://network:8090","--kernel","http://kernel:8080",
