@@ -69,7 +69,7 @@ docker compose exec -T -e INSTANCE="$INSTANCE" -e OPERATOR_PASSWORD="$OPERATOR_P
 # IS the authority — seeds the base catalogue + mints the base listings IN-PROCESS (seed_base.py /
 # mint_base_listings.py via `import api`), delivers the bundles app-host-side (seed_base_os.py), and shelves them.
 echo "▶ seeding the Base-OS suite (admin · settings · files · console · inbox · assistant)…"
-BASE_APPS="admin settings file-explorer console inbox personal-assistant"
+BASE_APPS="admin settings file-explorer console inbox personal-assistant storefront network-admin"
 docker compose cp ../../network/seed_base.py          network:/app/seed_base.py          >/dev/null
 docker compose cp ../../network/mint_base_listings.py network:/app/mint_base_listings.py >/dev/null
 docker compose cp ../../platform-spec/reference/seed_base_os.py app-host:/app/reference/seed_base_os.py >/dev/null
