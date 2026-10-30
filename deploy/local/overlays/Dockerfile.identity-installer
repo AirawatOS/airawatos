@@ -1,0 +1,4 @@
+# Identity overlay (ADR-0115): bake the de-seeded, realm-scoped, must_reset identity.py onto identity's OWN
+# tested base (0.2.83-auth) so only identity.py changes from the proven override state. Context = platform-spec.
+FROM manishsv/airawatos-reference:0.2.83-auth
+COPY reference/identity.py /app/reference/identity.py
