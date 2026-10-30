@@ -79,7 +79,7 @@ services:
       IDENTITY_JWKS: http://identity:8093/jwks
       IDENTITY_URL: http://identity:8093
       IDENTITY_INTERNAL: airawat-identity-internal
-      ENSURE_DEV_TENANT: "1"                   # self-heal: ensure the developer sandbox is environment=development on boot (idempotent, non-fatal)
+      ENSURE_DEV_TENANT: "${ENSURE_DEV_TENANT-0}"      # OFF by default — the installer provisions <instance>-developer. Set =1 for the airawatdeveloper quick-dev sandbox.
       DEV_TENANT: airawatdeveloper
       DEV_STEWARD: ds:airawatdeveloper:participant/developer   # used only to CREATE the record on a fresh/bedrock DB
     depends_on:
@@ -100,7 +100,7 @@ services:
       VAULT_TOKEN: ${VAULT_TOKEN}
       IDENTITY_USERS_FILE: /data/identity/identity-users.json
       IDENTITY_PASSWORDS_FILE: /data/identity/identity-passwords.json
-      IDENTITY_SEED_DEMO: "${IDENTITY_SEED_DEMO-1}"   # dev/demo DEFAULT seeds devrick/steward/… (ADR-0115); the operator-first installer sets IDENTITY_SEED_DEMO="" → empty IdP, principals provisioned at install.
+      IDENTITY_SEED_DEMO: "${IDENTITY_SEED_DEMO-}"   # DE-SEEDED by default (operator-first install, ADR-0115). Set IDENTITY_SEED_DEMO=1 to opt INTO the devrick/steward/kmc demo accounts for quick-dev.
     volumes: [ identity_data:/data/identity ]
     depends_on:
       network: { condition: service_healthy }
