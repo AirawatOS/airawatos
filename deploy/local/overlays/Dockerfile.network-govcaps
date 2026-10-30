@@ -1,0 +1,2 @@
+FROM manishsv/airawatos-network:0.3.14-joinfix
+COPY api.py /app/api.py
