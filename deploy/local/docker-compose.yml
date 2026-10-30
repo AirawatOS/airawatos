@@ -64,7 +64,7 @@ services:
     restart: unless-stopped
 
   network:                                   # AirawatNetwork authority: marketplace, governance, join/email (:8090)
-    image: manishsv/airawatos-network:0.3.5-dev-tenant-ensure   # = 0.3.5-zoho-keyprefix + ensure_dev_tenant.py self-heal (ENSURE_DEV_TENANT=1)
+    image: manishsv/airawatos-network:0.3.6-installer   # RS256 network authn + ensure_install.py baked (ADR-0115)
     platform: linux/amd64
     container_name: airawat-network
     environment:
@@ -100,6 +100,7 @@ services:
       VAULT_TOKEN: ${VAULT_TOKEN}
       IDENTITY_USERS_FILE: /data/identity/identity-users.json
       IDENTITY_PASSWORDS_FILE: /data/identity/identity-passwords.json
+      IDENTITY_SEED_DEMO: "${IDENTITY_SEED_DEMO-1}"   # dev/demo DEFAULT seeds devrick/steward/… (ADR-0115); the operator-first installer sets IDENTITY_SEED_DEMO="" → empty IdP, principals provisioned at install.
     volumes: [ identity_data:/data/identity ]
     depends_on:
       network: { condition: service_healthy }

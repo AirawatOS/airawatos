@@ -1,0 +1,38 @@
+# DEV OVERLAY — run EDITED source over the pinned images WITHOUT rebuilding (ADR-0115 installer work).
+#
+# docker compose auto-loads this file alongside docker-compose.yml when you run from THIS directory, so the
+# running identity + network containers execute your working-tree code (de-seed + RS256) with no image build.
+# This is the fast build-verify loop; bake durable images only once the slices pass.
+#
+# Use:
+#   cd deploy/local
+#   docker compose up -d                 # runs with the overlay (edited code live)
+#   # edit platform-spec/reference/identity.py or network/authn.py, then:
+#   docker compose restart identity       # or: restart network   — picks up the edit (no rebuild)
+#
+# Prove the de-seed BOTH ways by toggling IDENTITY_SEED_DEMO below (then `docker compose up -d identity`):
+#   "1" → demo users present (devrick/steward/…)   |   "" → EMPTY IdP (production default)
+#
+# To run WITHOUT the overlay (pinned images as-shipped):  docker compose -f docker-compose.yml up -d
+#
+# Host paths are relative to this file (deploy/local/). The mounts are read-only; container paths come from the
+# image Dockerfiles: network COPY → /app/authn.py ; reference COPY → /app/reference/identity.py.
+
+services:
+  identity:
+    volumes:
+      - identity_data:/data/identity                                   # keep the base data volume
+      - ../../platform-spec/reference/identity.py:/app/reference/identity.py:ro   # de-seed (edited source)
+    environment:
+      IDENTITY_SEED_DEMO: "${IDENTITY_SEED_DEMO-1}"   # default seeds demo users; airawatos-install.sh sets "" → empty IdP (ADR-0115)
+
+  network:
+    volumes:
+      - netfiles:/data/netfiles                                        # keep the base data volume
+      - ../../network/authn.py:/app/authn.py:ro                        # RS256 verify (edited source)
+
+  app-host:
+    volumes:
+      - app_bundles:/data/app-bundles                                  # keep the base data volume
+      - ../../platform-spec/reference/app_host.py:/app/reference/app_host.py:ro    # must_reset login flow (edited source)
+      - ../../platform-spec/reference/login.html:/app/reference/login.html:ro

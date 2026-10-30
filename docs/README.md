@@ -2,6 +2,19 @@
 
 The single home for how AirawatOS works — the source the book is written from.
 
+## Start here
+
+**[Introducing AirawatOS](introduction-to-airawat.md)** is the single canonical introduction — what the platform
+is, why it exists, the operator/network/tenant roles, the kernel, schemas, components, and federation. Read it
+first, whatever your role.
+
+Progressive depth (one canonical doc per level, not a new intro per feature):
+1. **Introducing AirawatOS** — what it is, why, and how the parts fit. *For all readers.* → `introduction-to-airawat.md`
+2. **Understanding the Architecture** — Operator, Network, Tenant, Kernel, Registry, Broker, Identity, Components, Federation.
+3. **Developer Tutorials** — create a tenant & schema; store/query records; build an app; write a driver/engine/connector; assemble a solution.
+4. **Under the Hood** — kernel internals, identity & authorization, bitemporal storage, broker security, connector execution, federation protocols.
+5. **Reference** — APIs, schemas, component contracts, configuration, deployment, operations.
+
 ## Structure
 
 - **`decisions/`** — Architecture Decision Records (ADRs): the *why* behind each design choice, at the
