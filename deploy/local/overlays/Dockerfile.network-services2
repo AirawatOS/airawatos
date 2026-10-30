@@ -1,0 +1,3 @@
+FROM manishsv/airawatos-network:0.3.11-trust
+COPY api.py /app/api.py
+COPY seed_base.py /app/seed_base.py
