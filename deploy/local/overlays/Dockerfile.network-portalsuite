@@ -1,0 +1,2 @@
+FROM manishsv/airawatos-network:0.3.16-participant
+COPY api.py /app/api.py
