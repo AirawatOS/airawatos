@@ -61,6 +61,30 @@ done
 docker compose cp ../../network/ensure_install.py network:/app/ensure_install.py >/dev/null
 docker compose exec -T -e INSTANCE="$INSTANCE" -e OPERATOR_PASSWORD="$OPERATOR_PASSWORD" \
   network python3 /app/ensure_install.py
+
+# ── 4b · seed the Base-OS app suite so every realm admin has working tools (ADR-0115 Phase 1) ─────────
+#   admin (add users) · settings · file-explorer · console · inbox · personal-assistant
+# A fresh network has zero governed vocab + zero certified components, and the base apps are re-homed to the
+# DEVELOPMENT tenant <instance>-developer (which the HTTP govern/publish lanes refuse). So the installer — which
+# IS the authority — seeds the base catalogue + mints the base listings IN-PROCESS (seed_base.py /
+# mint_base_listings.py via `import api`), delivers the bundles app-host-side (seed_base_os.py), and shelves them.
+echo "▶ seeding the Base-OS suite (admin · settings · files · console · inbox · assistant)…"
+BASE_APPS="admin settings file-explorer console inbox personal-assistant"
+docker compose cp ../../network/seed_base.py          network:/app/seed_base.py          >/dev/null
+docker compose cp ../../network/mint_base_listings.py network:/app/mint_base_listings.py >/dev/null
+docker compose cp ../../platform-spec/reference/seed_base_os.py app-host:/app/reference/seed_base_os.py >/dev/null
+docker compose exec -T network python3 /app/seed_base.py >/dev/null         # govern base domains+roles+schemas
+docker compose exec -T app-host sh -lc 'mkdir -p /app/_seed'
+# stage base-app SOURCE into the app-host (the OS image strips components/apps; a local install has the repo —
+# the reference-image-bake variant stages these at build time instead).
+for a in $BASE_APPS; do docker compose cp ../../components/apps/$a app-host:/app/_seed/$a >/dev/null; done
+docker compose exec -T -e INSTANCE="$INSTANCE" -e OPERATOR_PASSWORD="$OPERATOR_PASSWORD" -e MODE=deliver \
+  app-host python3 /app/reference/seed_base_os.py                            # rehome + certify + bundle
+docker compose exec -T -e INSTANCE="$INSTANCE" network python3 /app/mint_base_listings.py >/dev/null  # store listings
+docker compose restart app-host >/dev/null                                   # boot re-admits the certified bundles
+for i in $(seq 1 30); do curl -fsS localhost/ >/dev/null 2>&1 && break; sleep 2; done
+docker compose exec -T -e INSTANCE="$INSTANCE" -e OPERATOR_PASSWORD="$OPERATOR_PASSWORD" -e MODE=shelf \
+  app-host python3 /app/reference/seed_base_os.py                            # shelf onto all four realms
 unset OPERATOR_PASSWORD
 
 # ── 5 · done ─────────────────────────────────────────────────────────────────────────────────────────
