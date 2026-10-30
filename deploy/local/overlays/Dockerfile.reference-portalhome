@@ -1,0 +1,2 @@
+FROM manishsv/airawatos-reference:0.2.125-portalfix
+COPY reference/app_host.py /app/reference/app_host.py
