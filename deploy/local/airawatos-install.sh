@@ -73,7 +73,7 @@ cat <<EOF
     ${INSTANCE}-operator  admin    platform.admin        runs the box (operator)
     ${INSTANCE}-network   admin    network.admin         the dictionary / authority
     ${INSTANCE}           admin    platform.tenant-admin the data tenant
-    ${INSTANCE}-sandbox   admin    platform.tenant-admin development
+    ${INSTANCE}-developer admin    platform.tenant-admin development (+ base-component steward)
 
   Teardown + fresh reinstall:  docker compose down -v
 EOF
