@@ -1,0 +1,3 @@
+FROM manishsv/airawatos-network:0.3.18-svcdecide
+COPY api.py /app/api.py
+COPY ensure_install.py /app/ensure_install.py
