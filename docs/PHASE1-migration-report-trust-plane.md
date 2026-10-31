@@ -1,10 +1,41 @@
 # Phase-1 Trust-plane migration report — `type_capability_map`
 
-**Status:** FIRST MIGRATION HUMAN GATE — analysis only. **No registry writes. No back-fill. No enforcement flip.**
-**Question answered:** *If we replace today's type-based authorization with explicit `CapabilityGrant`s, exactly what authority will every existing participant receive?*
+**Status:** FIRST MIGRATION HUMAN GATE **PASSED** (2026-10-31) — all six decisions **APPROVED**. This
+is now the **approved policy baseline**. **No registry writes. No back-fill. No enforcement flip.**
+**Question answered:** *If type-based authorization were replaced by explicit `CapabilityGrant`s, exactly what authority would every existing participant receive?* — and, given the answer, **what the first real authorization model is.**
 
-Companion machine-readable artifact: `network/trust/migration/type_capability_map.json`
-Deterministic generator (reads real config, not names): `network/trust/migration/build_migration_report.py` · rules: `map_rules.py` (tests `test_map_rules.py`, 6/6).
+Companion machine-readable artifact: `network/trust/migration/type_capability_map.json` (v0.2.0, approved)
+Deterministic generator (reads real config, not names): `network/trust/migration/build_migration_report.py` · rules: `map_rules.py` (tests `test_map_rules.py`, 7/7).
+
+## Approved policy (the semantic break)
+
+We are no longer *translating legacy authorization* — we are **defining the first real authorization
+model**. Because there are **zero production typed participants**, the break is made cleanly:
+
+```
+OLD   type → advisory provide/consume legs            (classification and authority conflated)
+NEW   classification / type → DESCRIPTIVE only
+      membership            → BELONGING   (Membership object)
+      capability grant      → ENFORCED AUTHORITY   (authored explicitly, never translated)
+```
+
+| # | Decision | Verdict |
+|---|---|---|
+| D1 | Explicit grants become the future enforced authority; legacy legs stay **descriptive metadata** (migration does not tighten behaviour) | **APPROVE** |
+| D2 | Current verb/interface legs use **`service`** scope; `event_type` reserved for the Event Plane (`event.publish:*` / `event.receive:*`) | **APPROVE** |
+| D3 | Capability family `service.provide:<interface>` v1 / `service.call:<interface>` v1 — **minted from governed interface definitions**, not names | **APPROVE** |
+| D4 | Noun/data authority **deferred beyond Phase 1** (recorded as unresolved metadata; no new data/schema scope now) | **APPROVE** |
+| D5 | Wildcard migration **by enumeration only**; a true network-wide wildcard is a separately designed capability | **APPROVE** |
+| D6 | Membership maps **only** to the `Membership` object, never a CapabilityGrant | **APPROVE** |
+
+```
+Legacy type
+   ├── membership         → Membership
+   ├── verb provide/call  → candidate service CapabilityGrants  (authored, not auto-written)
+   ├── noun read/write    → defer, not Phase 1
+   ├── wildcard '*'       → enumerate, or require an explicit decision
+   └── eKYC / workflow    → remain workflow policy, not authorization
+```
 
 ---
 
@@ -137,8 +168,9 @@ Proposed grants:
 | Clean mappings (GREEN) | **0** |
 | Ambiguous mappings (YELLOW) | **0 discovered** — *rule: every verb leg* |
 | Unrepresentable mappings (RED) | **0 discovered** — *rule: every noun leg + every `'*'`* |
-| Existing participants affected | **Requires a live authenticated query — not run at this gate** |
-| Proposed grants to create | **0 discovered** (one per YELLOW verb leg once types exist) |
+| Existing participants affected | **0** (and a live run confirms it — see no-op below) |
+| Candidate grants to author (D1: never auto-written) | **0 discovered** (one per verb leg once types exist) |
+| Grants auto-created by migration | **0** — policy D1: migration writes nothing |
 | New capabilities required | **0 discovered** (one per distinct verb interface) |
 | New capability versions required | **0 discovered** (a v1 per new capability) |
 
@@ -172,16 +204,38 @@ Proposed grants:
 
 ---
 
-## 7. Gate
+## 7. Zero-participant (no-op) migration confirmation
+
+Running the deterministic generator against the live authority (read-only):
 
 ```
-Generate type_capability_map   ✅ (rules + generator + tests; discovered instances empty today)
-Generate migration report      ✅ (this document)
-        ↓
-NO BACK-FILL                    ✅ (nothing written; shadow authorize stays observational)
-        ↓
-HUMAN REVIEW                    ← WE STOP HERE
+$ python3 network/trust/migration/build_migration_report.py --base https://airos.airawat.org/network
+  GET /v1/networks -> 404 (stale pre-ADR-0116 build)
+  → 0 networks · 0 types · 0 candidate grants · 0 grants auto-created · 0 participants affected
 ```
 
-The Commit-C shadow `authorize()` call site stays observational; it is not touched by this report and
-remains log-only until grants are human-approved and back-filled.
+**Production back-fill is a confirmed no-op.** The approved policy therefore becomes the **baseline for
+new networks and future participants**; it changes nothing for any existing participant. This is the
+clean moment to make the semantic break rather than translate legacy authorization.
+
+## 8. Gate — passed; forward sequence
+
+```
+Approve the six decisions            ✅ APPROVED (§Approved policy)
+Update type_capability_map + report  ✅ v0.2.0 (approved baseline)
+No-op / zero-participant confirmation ✅ (live run: 0/0/0)
+        ↓
+HOLD — no back-fill
+        ↓
+configure capability catalog         NEXT  (mint service.provide/call:<interface> v1 from governed interface defs, per network)
+create grants for test/dev           NEXT  (authored explicitly)
+dual-run shadow comparison           NEXT  (legacy membership gate vs grant decision, via the Commit-C shadow site)
+divergence report                    NEXT
+        ↓
+SECOND HUMAN GATE
+        ↓
+flip enforcement → grant
+```
+
+The Commit-C shadow `authorize()` call site stays observational — log-only — until explicit grants are
+authored and the second gate is passed. Nothing in this step writes to any registry.
