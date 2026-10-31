@@ -1,0 +1,347 @@
+<title>Trusted Network Platform — Architecture Review</title>
+<style>
+  :root{
+    --bg:#f5f7fa; --surface:#ffffff; --surface-2:#eef1f6; --ink:#19202c; --ink-2:#394357;
+    --muted:#667085; --line:#dfe4ec; --line-2:#cbd2de;
+    --accent:#3a4fc4; --accent-soft:#e7eaf9;
+    --ok:#1d8a52; --ok-soft:#e2f2e9; --warn:#a9700a; --warn-soft:#f6edda;
+    --gap:#c0394b; --gap-soft:#f7e4e7;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1117; --surface:#161b24; --surface-2:#1c222e; --ink:#e9edf4; --ink-2:#c3cbd9;
+      --muted:#8b95a7; --line:#272e3b; --line-2:#333c4c;
+      --accent:#8b9bf2; --accent-soft:#1e2540;
+      --ok:#5bc48c; --ok-soft:#14301f; --warn:#e0b455; --warn-soft:#332813;
+      --gap:#e78493; --gap-soft:#351a20;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1117; --surface:#161b24; --surface-2:#1c222e; --ink:#e9edf4; --ink-2:#c3cbd9;
+    --muted:#8b95a7; --line:#272e3b; --line-2:#333c4c;
+    --accent:#8b9bf2; --accent-soft:#1e2540;
+    --ok:#5bc48c; --ok-soft:#14301f; --warn:#e0b455; --warn-soft:#332813;
+    --gap:#e78493; --gap-soft:#351a20;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    font-size:16px;-webkit-font-smoothing:antialiased;margin:0}
+  .wrap{max-width:60rem;margin:0 auto;padding:3rem 1.5rem 5rem}
+  header.masthead{border-bottom:2px solid var(--ink);padding-bottom:1.5rem;margin-bottom:2.5rem}
+  .eyebrow{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  h1{font-size:2.1rem;line-height:1.15;margin:.5rem 0 .4rem;font-weight:700;letter-spacing:-.02em;text-wrap:balance}
+  .sub{color:var(--ink-2);font-size:1.05rem;max-width:48rem}
+  .meta{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.1rem;align-items:center}
+  h2{font-size:1.35rem;margin:3rem 0 .4rem;letter-spacing:-.01em;font-weight:700;text-wrap:balance}
+  h2 .n{color:var(--accent);font-variant-numeric:tabular-nums;margin-right:.5rem}
+  h3{font-size:1rem;margin:1.6rem 0 .3rem;font-weight:700;color:var(--ink-2)}
+  p{margin:.6rem 0}
+  section>p:first-of-type{margin-top:.3rem}
+  a{color:var(--accent)}
+  code{font-family:var(--mono);font-size:.86em;background:var(--surface-2);padding:.08em .35em;
+    border-radius:4px;border:1px solid var(--line)}
+  .lead{font-size:1.08rem;color:var(--ink)}
+  .chip{display:inline-flex;align-items:center;gap:.35em;font-size:.74rem;font-weight:600;
+    padding:.2em .6em;border-radius:999px;border:1px solid transparent;letter-spacing:.01em;white-space:nowrap}
+  .chip.ok{background:var(--ok-soft);color:var(--ok);border-color:color-mix(in srgb,var(--ok) 35%,transparent)}
+  .chip.design{background:var(--accent-soft);color:var(--accent);border-color:color-mix(in srgb,var(--accent) 35%,transparent)}
+  .chip.warn{background:var(--warn-soft);color:var(--warn);border-color:color-mix(in srgb,var(--warn) 35%,transparent)}
+  .chip.gap{background:var(--gap-soft);color:var(--gap);border-color:color-mix(in srgb,var(--gap) 35%,transparent)}
+  .callout{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);
+    border-radius:8px;padding:1.1rem 1.25rem;margin:1.2rem 0}
+  .callout.ok{border-left-color:var(--ok)}
+  .callout b{color:var(--ink)}
+  .scroll{overflow-x:auto;margin:1.1rem 0;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+  table{border-collapse:collapse;width:100%;font-size:.9rem;min-width:34rem}
+  th,td{text-align:left;padding:.6rem .8rem;border-bottom:1px solid var(--line);vertical-align:top}
+  thead th{background:var(--surface-2);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);font-weight:700;border-bottom:1px solid var(--line-2)}
+  tbody tr:last-child td{border-bottom:none}
+  td .k{font-weight:700;color:var(--ink);white-space:nowrap}
+  td code{white-space:nowrap}
+  figure{margin:1.4rem 0;background:var(--surface);border:1px solid var(--line);border-radius:10px;
+    padding:1.4rem 1.2rem .9rem}
+  figure svg{display:block;width:100%;height:auto;color:var(--ink-2)}
+  figcaption{font-size:.82rem;color:var(--muted);margin-top:.7rem;text-align:center}
+  .legend{display:flex;flex-wrap:wrap;gap:.6rem 1rem;font-size:.8rem;color:var(--muted);margin:.4rem 0 0}
+  .legend span{display:inline-flex;align-items:center;gap:.4em}
+  .dot{width:.7em;height:.7em;border-radius:3px;display:inline-block}
+  ul.tight{margin:.5rem 0;padding-left:1.2rem}
+  ul.tight li{margin:.3rem 0}
+  .files{font-family:var(--mono);font-size:.82rem;color:var(--ink-2);background:var(--surface-2);
+    border:1px solid var(--line);border-radius:8px;padding:.9rem 1rem;margin-top:1rem;line-height:1.9}
+  footer{margin-top:3.5rem;padding-top:1.5rem;border-top:1px solid var(--line);color:var(--muted);font-size:.85rem}
+  .svg-accent{color:var(--accent)}
+</style>
+
+<div class="wrap">
+<header class="masthead">
+  <div class="eyebrow">AirawatOS · Architecture Review · 2026-10-31</div>
+  <h1>Trusted Network Platform — four planes, one spine</h1>
+  <p class="sub">The design direction for evolving AirawatOS from a service/credential core into a generic
+  Trusted Network Platform on which networks like <b>Avsar</b> (service &amp; credential exchange) and <b>TOP</b>
+  (event exchange) are <em>configuration, not code</em>.</p>
+  <div class="meta">
+    <span class="chip ok">ADR-0119 / 0120 / plan approved</span>
+    <span class="chip design">Phase 1 design rev 3 — awaiting sign-off (impl on hold)</span>
+    <span class="chip design">Design only · no code written</span>
+  </div>
+</header>
+
+<section>
+  <h2><span class="n">01</span>The question &amp; the verdict</h2>
+  <p class="lead">Is this a genuine generic platform on which Avsar and TOP can both be configured — or an
+  Avsar-specific build partially generalized?</p>
+  <div class="callout">
+    <p style="margin-top:0"><b>As-built today:</b> a genuinely generic platform for the <b>service/credential
+    exchange</b> pattern (Avsar-class). The kernel and network authority carry essentially no domain logic;
+    native and external participants already share one service abstraction.</p>
+    <p style="margin-bottom:0"><b>But not yet</b> a multi-pattern Trusted Network Platform: the <b>event-exchange
+    plane</b> (resources, authority, events, subscriptions, routing) does not exist, so <b>TOP cannot be configured
+    without new code</b>. This design closes that gap while correcting five ontology weaknesses — without a
+    rewrite.</p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">02</span>Four orthogonal planes</h2>
+  <p>One system, presented as four planes. Service-exchange and event-exchange are two <b>runtimes in the Exchange
+  plane</b> standing on the same Trust, Knowledge and Governance — not two engines. That shared spine is what makes
+  the two patterns configurations of one platform.</p>
+
+  <figure>
+    <svg viewBox="0 0 720 430" role="img" aria-label="The four-plane architecture: an Experience band over Trust and Knowledge planes, and Exchange and Governance planes, with service-exchange and event-exchange as two runtimes inside Exchange.">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0L10 5L0 10z" fill="currentColor"/>
+        </marker>
+      </defs>
+      <!-- Experience band -->
+      <rect x="20" y="16" width="680" height="52" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <text x="360" y="39" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">EXPERIENCE</text>
+      <text x="360" y="56" text-anchor="middle" font-size="11" fill="currentColor">reference apps · Client SDK · portal / front-door · admin &amp; dev UX</text>
+
+      <!-- Trust -->
+      <rect x="20" y="90" width="330" height="128" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <text x="36" y="112" font-size="12.5" font-weight="700" fill="currentColor">TRUST</text>
+      <text x="36" y="133" font-size="11" fill="currentColor">ParticipantIdentity · Network · Membership</text>
+      <text x="36" y="150" font-size="11" fill="currentColor">Classification · CapabilityGrant (typed scope)</text>
+      <text x="36" y="167" font-size="11" fill="currentColor">IdentitySource · AssurancePolicy</text>
+      <text x="36" y="196" font-size="10" fill="currentColor" opacity=".7">authz = "holds a live grant, in scope" —</text>
+      <text x="36" y="209" font-size="10" fill="currentColor" opacity=".7">never "is of type X"</text>
+
+      <!-- Knowledge -->
+      <rect x="370" y="90" width="330" height="128" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <text x="386" y="112" font-size="12.5" font-weight="700" fill="currentColor">KNOWLEDGE</text>
+      <text x="386" y="133" font-size="11" fill="currentColor">Schema · Resource · CredentialType</text>
+      <text x="386" y="150" font-size="11" fill="currentColor">Credential · EventType · Offering</text>
+
+      <!-- Exchange -->
+      <rect x="20" y="238" width="330" height="172" rx="8" fill="none" stroke="var(--accent)" stroke-width="1.8"/>
+      <text x="36" y="260" font-size="12.5" font-weight="700" class="svg-accent" fill="currentColor">EXCHANGE</text>
+      <rect x="34" y="272" width="302" height="40" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1"/>
+      <text x="44" y="289" font-size="10.5" fill="currentColor">service-exchange: discover→request→present→</text>
+      <text x="44" y="303" font-size="10.5" fill="currentColor">verify→fulfil→outcome</text>
+      <rect x="34" y="318" width="302" height="40" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1"/>
+      <text x="44" y="335" font-size="10.5" fill="currentColor">event-exchange: publish→authorize→resolve→</text>
+      <text x="44" y="349" font-size="10.5" fill="currentColor">route→deliver</text>
+      <text x="36" y="378" font-size="10" fill="currentColor" opacity=".75">Presentation · Subscription · EndpointBinding</text>
+      <text x="36" y="392" font-size="10" fill="currentColor" opacity=".75">Router · async state machine</text>
+      <text x="36" y="405" font-size="9.5" fill="currentColor" opacity=".6">EventEnvelope/Delivery live in the event store, not the registry</text>
+
+      <!-- Governance -->
+      <rect x="370" y="238" width="330" height="172" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <text x="386" y="260" font-size="12.5" font-weight="700" fill="currentColor">GOVERNANCE</text>
+      <text x="386" y="282" font-size="11" fill="currentColor">RequirementExpression evaluator</text>
+      <text x="386" y="298" font-size="10.5" fill="currentColor" opacity=".8">(typed predicates · three-valued)</text>
+      <text x="386" y="320" font-size="11" fill="currentColor">Network configuration · Versioning</text>
+      <text x="386" y="336" font-size="11" fill="currentColor">Certification &amp; conformance</text>
+      <text x="386" y="352" font-size="11" fill="currentColor">Immutable audit stream</text>
+      <text x="386" y="368" font-size="11" fill="currentColor">Operator-neutrality controls</text>
+    </svg>
+    <figcaption>The four planes. Avsar leans on Offering + Credential + Request; TOP leans on Resource + Event +
+    Subscription + Authority; both authorize, audit and deliver through the same spine.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2><span class="n">03</span>The ontology corrections (D1–D11)</h2>
+  <p>Eleven decisions turn the as-built weaknesses into a clean model. All are design; each corrects a specific
+  as-built gap.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>#</th><th>Decision</th><th>Corrects</th></tr></thead>
+    <tbody>
+      <tr><td class="k">D1</td><td><b>Classification / Membership / CapabilityGrant independent.</b> One grant object, <b>typed scopes</b>; authority = a <code>ResourceScope</code> grant (terminology, not a 2nd object). Authority ≠ interest.</td><td>participant <em>type</em> implied capability</td></tr>
+      <tr><td class="k">D2</td><td><b>Network is a first-class governed object</b>, distinct from Tenant. One identity → many networks.</td><td>"network = a tenant with <code>network.admin</code>"</td></tr>
+      <tr><td class="k">D3</td><td><b>Generic event plane</b> (ADR-0120). Transformation is a <em>participant</em> that subscribes+publishes, not a core primitive.</td><td>no event/resource/authority plane</td></tr>
+      <tr><td class="k">D4</td><td><b>RequirementExpression</b> — generic typed-predicate tree, <b>three-valued</b> (<code>SATISFIED/UNSATISFIED/UNKNOWN</code>). Absence of evidence ≠ satisfies <code>not</code>.</td><td>flat <code>required_credentials[]</code></td></tr>
+      <tr><td class="k">D5</td><td><b>Offering first-class</b> (discovery) vs Service (executable).</td><td>no single discoverable offering</td></tr>
+      <tr><td class="k">D6</td><td><b>WalletProvider interface</b>; current store = default provider.</td><td>wallet = the platform store</td></tr>
+      <tr><td class="k">D7</td><td><b>Operator neutrality</b> explicit, audited, progressively removable; no silent self-grant.</td><td>neutrality only at API layer</td></tr>
+      <tr><td class="k">D8</td><td><b>Generic async transaction state machine</b> (idempotency / retry / timeout / dead-letter / compensation).</td><td>synchronous-only federation</td></tr>
+      <tr><td class="k">D9</td><td><b>Unify durability + an immutable audit stream</b> across planes.</td><td>second KV store; no unified audit</td></tr>
+      <tr><td class="k">D10</td><td><b>Credential format is a codec</b> — native signed-JSON now, W3C&nbsp;VC&nbsp;2.0 later. No W3C assumptions in the kernel.</td><td>format hardwired</td></tr>
+      <tr><td class="k">D11</td><td><b>IdentitySource + AssurancePolicy</b> as governed Trust-plane objects.</td><td>no IdP registry (single trust map)</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="callout">
+    <p style="margin:0"><b>Strengthened acceptance invariant.</b> Adding a new domain may need new schemas,
+    services, transformations and config — but must not need core-runtime edits <em>nor new core objects</em>
+    merely for a new noun. <b>A new interaction pattern requires an explicit platform ADR.</b> Final proof: Avsar +
+    TOP + public-health surveillance configured with an <em>empty</em> core-runtime diff and zero new core objects.</p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">04</span>The generic event plane</h2>
+  <p>Six objects across three stores + a Router — reusing the Trust-plane grant. Transaction objects stay out of
+  the bitemporal registry (volume + privacy + bounded-retention).</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Object</th><th>Store</th><th>Role</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Resource</td><td>governed registry</td><td>the thing an event is about / routed by; deterministic selectors (exact · hierarchy w/ explicit descendants · type+jurisdiction · geometry later)</td></tr>
+      <tr><td class="k">EventType</td><td>governed registry</td><td>owns <code>publish_capability</code> + <code>receive_capability</code> + <code>routable_attributes</code></td></tr>
+      <tr><td class="k">Subscription</td><td>governed registry</td><td>standing interest; filters on routable attributes only; cannot weaken security</td></tr>
+      <tr><td class="k">EndpointBinding</td><td>governed registry</td><td>participant-owned delivery target; no raw URLs enter via subscriptions</td></tr>
+      <tr><td class="k">EventEnvelope</td><td><b>event store</b> (ADR-0089)</td><td>separates <code>routing_metadata</code> (router-inspectable) from <code>payload</code> (sealable)</td></tr>
+      <tr><td class="k">EventDelivery</td><td><b>event store</b></td><td>one per (envelope, subscriber); at-least-once; <code>delivered</code> = endpoint acknowledged acceptance</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 720 150" role="img" aria-label="The Router pipeline: authenticate, authorize-publish, resolve resources, resolve authorities, resolve subscriptions, authorize recipients, fan-out, deliver (async), audit. The two authorize steps are the accented trust checks.">
+      <defs>
+        <marker id="ar2" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0 0L10 5L0 10z" fill="currentColor"/>
+        </marker>
+      </defs>
+      <g font-size="10.5" font-weight="600">
+        <!-- row of steps -->
+        <g>
+          <rect x="8"  y="40" width="70" height="34" rx="6" fill="none" stroke="currentColor"/>
+          <text x="43" y="61" text-anchor="middle" fill="currentColor">authenticate</text>
+          <rect x="92" y="40" width="78" height="34" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+          <text x="131" y="56" text-anchor="middle" fill="currentColor">authorize</text>
+          <text x="131" y="68" text-anchor="middle" fill="currentColor">publish</text>
+          <rect x="184" y="40" width="74" height="34" rx="6" fill="none" stroke="currentColor"/>
+          <text x="221" y="56" text-anchor="middle" fill="currentColor">resolve</text>
+          <text x="221" y="68" text-anchor="middle" fill="currentColor">resources</text>
+          <rect x="272" y="40" width="80" height="34" rx="6" fill="none" stroke="currentColor"/>
+          <text x="312" y="56" text-anchor="middle" fill="currentColor">resolve</text>
+          <text x="312" y="68" text-anchor="middle" fill="currentColor">authorities</text>
+          <rect x="366" y="40" width="86" height="34" rx="6" fill="none" stroke="currentColor"/>
+          <text x="409" y="56" text-anchor="middle" fill="currentColor">resolve</text>
+          <text x="409" y="68" text-anchor="middle" fill="currentColor">subscriptions</text>
+          <rect x="466" y="40" width="80" height="34" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+          <text x="506" y="56" text-anchor="middle" fill="currentColor">authorize</text>
+          <text x="506" y="68" text-anchor="middle" fill="currentColor">recipients</text>
+          <rect x="560" y="40" width="58" height="34" rx="6" fill="none" stroke="currentColor"/>
+          <text x="589" y="61" text-anchor="middle" fill="currentColor">fan-out</text>
+          <rect x="632" y="40" width="80" height="34" rx="6" fill="none" stroke="currentColor"/>
+          <text x="672" y="56" text-anchor="middle" fill="currentColor">deliver</text>
+          <text x="672" y="68" text-anchor="middle" fill="currentColor" opacity=".7">async</text>
+        </g>
+        <!-- connectors -->
+        <g stroke="currentColor" stroke-width="1.3" fill="none" opacity=".6">
+          <line x1="78" y1="57" x2="90" y2="57" marker-end="url(#ar2)"/>
+          <line x1="170" y1="57" x2="182" y2="57" marker-end="url(#ar2)"/>
+          <line x1="258" y1="57" x2="270" y2="57" marker-end="url(#ar2)"/>
+          <line x1="352" y1="57" x2="364" y2="57" marker-end="url(#ar2)"/>
+          <line x1="452" y1="57" x2="464" y2="57" marker-end="url(#ar2)"/>
+          <line x1="546" y1="57" x2="558" y2="57" marker-end="url(#ar2)"/>
+          <line x1="618" y1="57" x2="630" y2="57" marker-end="url(#ar2)"/>
+        </g>
+        <!-- audit rail -->
+        <rect x="8" y="104" width="704" height="26" rx="6" fill="none" stroke="currentColor" stroke-dasharray="4 3" opacity=".7"/>
+        <text x="360" y="121" text-anchor="middle" font-size="10" fill="currentColor" opacity=".8">every step → immutable audit stream (metadata + hashes, never payloads)</text>
+      </g>
+    </svg>
+    <figcaption>The Router. The two <span style="color:var(--accent);font-weight:600">accented</span> steps are the
+    grant checks — the same authorization primitive the service runtime uses. The router reads only routing
+    metadata, never a sealed payload.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2><span class="n">05</span>The evolution plan</h2>
+  <p>Evolve, don't restart. Trust-model-first; every phase has its own design-review gate before code. The async
+  state machine lands <em>before</em> the Router so event delivery is never built synchronously then replaced.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Phase</th><th>Theme</th><th>Headline acceptance</th></tr></thead>
+    <tbody>
+      <tr><td class="k">1</td><td>Trust plane: typed grants · Network≠Tenant · IdentitySource · <b>AuditEvent contract</b></td><td>type no longer authorizes; one identity, many networks; every decision emits a uniform AuditEvent</td></tr>
+      <tr><td class="k">2</td><td>RequirementExpression + Offering · <b>WalletProvider &amp; codec interfaces early</b></td><td>3-valued eligibility evaluates; discovery by eligibility; wallet behind an interface</td></tr>
+      <tr><td class="k">3A</td><td>Event control objects</td><td>Resource/EventType/Subscription/EndpointBinding govern; TOP config loads</td></tr>
+      <tr><td class="k">4A</td><td>Generic async transaction/delivery machine</td><td>retry/timeout/dead-letter/idempotency proven on service fulfilment</td></tr>
+      <tr><td class="k">3B</td><td>Router + EventEnvelope + EventDelivery</td><td><b>TOP routes an event to N authorities, no core edits</b></td></tr>
+      <tr><td class="k">4B</td><td>Operator-neutrality controls</td><td>admin self-grant blocked + audited</td></tr>
+      <tr><td class="k">5</td><td>Durability + unified audit backend</td><td>restart loses nothing; one queryable stream</td></tr>
+      <tr><td class="k">6</td><td>Extra wallet providers + W3C VC codec</td><td>second provider + VC 2.0 drop in, no call-site change</td></tr>
+      <tr><td class="k" style="color:var(--accent)">★</td><td><b>Three-network config proof</b></td><td>Avsar + TOP + public-health — empty core diff, zero new objects</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="legend">
+    <span><span class="dot" style="background:var(--ok)"></span>approved</span>
+    <span><span class="dot" style="background:var(--accent)"></span>design / proposed</span>
+    <span><span class="dot" style="background:var(--warn)"></span>partial (as-built)</span>
+    <span><span class="dot" style="background:var(--gap)"></span>gap (as-built)</span>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">06</span>Phase 1 — Trust plane (rev 2, awaiting sign-off)</h2>
+  <p>The registry schemas (<code>network.network</code>, <code>network.membership</code>,
+  <code>network.classification</code>, <code>governance.capability_grant</code>,
+  <code>network.capability_catalog</code>, <code>network.identity_source</code>,
+  <code>trust.assurance_assertion</code>, <code>governance.assurance_policy</code>), the <code>authorize()</code>
+  contract, the frozen tamper-evident <code>platform.audit_event</code>, and the <b>type→grant migration
+  runbook</b> (human-approved map → back-fill → dual-run on real cases → flip, with instant rollback).</p>
+  <h3>Review decisions — resolved</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Topic</th><th>Decision</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Network id</td><td>immutable <code>net:01J…</code> id + mutable <code>slug</code>; code uses the id only</td></tr>
+      <tr><td class="k">Revocation</td><td>close ACTIVE version + new <code>REVOKED</code> version (who/when/why); <code>grant_revoked</code> ≠ <code>no_grant</code></td></tr>
+      <tr><td class="k">Separation of duties</td><td>four roles: <code>network.admin</code> · <code>membership.steward</code> · <code>capability.steward</code> · <code>grant.steward</code></td></tr>
+      <tr><td class="k">Capabilities</td><td>governed grammar; <b>no implicit inheritance</b>; wildcards explicit per catalog entry</td></tr>
+      <tr><td class="k">Scope</td><td>discriminated union; one deterministic evaluator per type; ResourceScope body in Phase 3</td></tr>
+      <tr><td class="k">Delegation</td><td><b>none in v1</b> — only <code>grant.steward</code> mints/revokes grants</td></tr>
+      <tr><td class="k">Audit</td><td>mandatory from the first write; vocabulary frozen across phases</td></tr>
+      <tr><td class="k">Identity</td><td>IdentitySource asserts assurance <em>about</em> a ParticipantIdentity — never a replacement identity</td></tr>
+      <tr><td class="k">Migration</td><td><code>type_capability_map</code> = human-approved security artifact; dual-run on real cases, not just zero-divergence</td></tr>
+      <tr><td class="k">Network fields</td><td>per-field authority: catalog-repoint / IdP-register / audit-downgrade are <b>change-request-only</b>, not plain admin edits</td></tr>
+      <tr><td class="k">Role assignment</td><td><code>governance.role_assignment</code>: platform-authority bootstrap; <code>capability.steward</code>/<code>grant.steward</code> assignment is change-request-only; no self-escalation</td></tr>
+      <tr><td class="k">Capability immutability</td><td>a <b>used</b> capability definition is semantically frozen; change = new <code>version</code>; grants pin <code>capability_version</code></td></tr>
+      <tr><td class="k">No advisory authz</td><td>removed the unenforced <code>constraints</code> field and <code>grantable_by</code> (grant.steward-only in v1)</td></tr>
+      <tr><td class="k">Audit chain</td><td>hash-chain partitioned per <code>(network, emitter)</code>; <code>subject_hash = HMAC(network_audit_key, …)</code>, not bare SHA-256</td></tr>
+      <tr><td class="k">Terminal revoke</td><td>a <code>REVOKED</code> grant is terminal; restore = a new grant id</td></tr>
+      <tr><td class="k">Network status</td><td><code>authorize()</code> checks <code>network.status==active</code> first, with a narrow governance-recovery allowlist</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p style="color:var(--muted);font-size:.9rem">Implementation begins only on sign-off of this rev — schemas &amp;
+  roles → catalog → back-fill (after the approved migration report) → dual-run → flip.</p>
+</section>
+
+<footer>
+  <p><b>Source documents</b> — committed on branch <code>docs/trusted-network-platform-adr-0119-0120</code> (not pushed):</p>
+  <div class="files">
+    docs/decisions/ADR-0119-trusted-network-platform-four-planes.md<br>
+    docs/decisions/ADR-0120-generic-event-plane.md<br>
+    docs/PLAN-trusted-network-platform-evolution.md<br>
+    docs/PHASE1-design-trust-plane.md<br>
+    docs/REVIEW-PACK-trusted-network-platform.md  <span style="opacity:.6">(the as-built review that drove this)</span>
+  </div>
+  <p style="margin-top:1rem">Design only — no implementation code has been written. Implementation begins only
+  after the Phase-1 detailed-design sign-off.</p>
+</footer>
+</div>
