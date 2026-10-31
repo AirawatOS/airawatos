@@ -136,6 +136,12 @@ trust.assurance_assertion (v1.0.0):
 eShram ("worker-verified") and Aadhaar ("identity-proofed") are two assertions about one participant. Session live
 assurance = valid assertions ∪ the authenticating IdP's token assurance.
 
+**Live-assurance rule (rev-3.1 #I3).** An assertion contributes to *live* assurance only when
+`assertion.valid_to is null OR now < assertion.valid_to` **AND** its `identity_source.status == active`. Revoking
+an IdentitySource therefore makes its assertions immediately unusable for **new** authorization decisions, while
+the historical assertion records remain in the bitemporal registry for audit (they simply stop contributing live
+assurance). Historical evidence is never deleted; it only stops counting.
+
 ### 1.8 Stewardship roles — separation of duties
 ```
 network.admin        operational administration (non-security network fields, ops)
@@ -181,23 +187,35 @@ the Phase-2 evaluator as a `ContextPredicate`.
 
 ```
 authorize(caller_participant, network, required_capability, context) -> Decision
-  Decision := { result: ALLOW | DENY, evaluated_grant: ref|null, reason: enum, explanation: string }
+  Decision := { result: ALLOW | DENY,
+                evaluated_grants: [ref],   # ALL candidates considered (rev-3.1 #I1)
+                effective_grant: ref|null, # the grant that produced ALLOW (null on DENY)
+                reason: enum, explanation: string }
 ```
-Algorithm:
+Algorithm (**deterministic over all candidates — never DB return order**, rev-3.1 #I1):
 0. **Network status (rev-3 #8).** If `network.status != active` → DENY `network_inactive`, **except** a narrowly
    defined governance-recovery allowlist (reactivating the network, steward-role assignment, and other
    `governance.change` actions by the platform authority / an authorized steward) may proceed on a suspended
    network. Ordinary transactions do not authorize merely because grants remain valid.
 1. Resolve the caller's Membership; if not `approved` → DENY `not_a_member`.
-2. Find candidate grants where `grantee=caller`, `network`, and the capability **matches** `required_capability`
-   — equality, or an explicit `wildcard:true` catalog capability covering it. Never treat unqualified as covering
-   qualified.
-3. Require each candidate **live**: `status==ACTIVE AND valid_from<=now AND (valid_to IS NULL OR now<valid_to)`.
-4. For each live candidate, evaluate scope under the grant's **pinned `capability_version`** semantics
-   (`scope_types_allowed`, `wildcard`) via `scope_matches` (§1.6). First match → ALLOW with `evaluated_grant`.
-5. Else DENY with the most specific reason (all distinct for audit/federation): `network_inactive` · `not_a_member`
-   · `no_grant` · `grant_revoked` · `grant_expired` · `scope_mismatch`. `grant_revoked` ≠ `no_grant`.
-6. **Always** emit an `authz.decision` AuditEvent (§3).
+2. Gather **all** candidate grants where `grantee=caller`, `network`, and the capability **matches**
+   `required_capability` — equality, or an explicit `wildcard:true` catalog capability covering it. Never treat
+   unqualified as covering qualified. (`evaluated_grants` = this set.)
+3. Classify each candidate: *live* iff `status==ACTIVE AND valid_from<=now AND (valid_to IS NULL OR now<valid_to)`.
+4. **ALLOW** iff **any** live candidate's scope matches `scope_matches` under its **pinned `capability_version`**
+   semantics. The `effective_grant` is chosen deterministically among matching live grants by a total order
+   (e.g. narrowest-scope-first, then lowest grant id) so the recorded basis never depends on return order.
+5. Otherwise **DENY** with a **deterministic precedence** over the candidate set (specified + tested):
+   ```
+   a live grant exists but no scope matched   -> scope_mismatch
+   else a candidate matched but was expired    -> grant_expired
+   else a candidate matched but was revoked     -> grant_revoked
+   else                                         -> no_grant
+   ```
+   (plus the earlier `network_inactive` / `not_a_member`). All distinct for audit/federation; `grant_revoked` ≠
+   `no_grant`. The exact precedence is less important than that it is specified and tested; this is it.
+6. **Always** emit an `authz.decision` AuditEvent (§3) carrying `evaluated_grants` + `effective_grant`, so an
+   auditor can reconstruct *why* the decision occurred.
 
 No participant-type branch anywhere; classification is never read.
 
@@ -217,7 +235,8 @@ actor         { participant, session?, on_behalf_of? }                    -> WHO
 action        enum                     # frozen set (below)               -> WHAT
 capability    string? ; capability_version int?                           -> USING WHICH CAPABILITY (+ pinned version)
 scope         Scope?                                                      -> AGAINST WHICH SCOPE
-evaluated_grant ref?                                                      -> WHICH GRANT WAS EVALUATED (null on no_grant)
+evaluated_grants [ref]                                                    -> ALL GRANTS CONSIDERED (rev-3.1 #I1)
+effective_grant ref?                                                      -> THE GRANT THAT PRODUCED ALLOW (null on DENY)
 target_ref    ref?
 subject_hash  string? ; subject_hash_kid string?                         # keyed HMAC, see below
 decision      enum                     # allow | deny | unknown | n/a     -> DECISION
@@ -237,6 +256,12 @@ Frozen `action` set: `authz.decision`, `grant.issue`, `grant.revoke`, `membershi
 **Hash-chain partition (rev-3 #6).** The chain is **per `(network, emitter)`** — each emitter maintains its own
 monotonic `seq`/`prev_hash` chain within a network, avoiding global serialization across distributed emitters.
 Cross-chain anchoring (periodic roots) can be added later without changing the record.
+
+**Sequence allocation must be concurrency-safe (rev-3.1 #I2).** `seq`/`prev_hash` allocation per chain must be
+**atomic** — three replicas of `emitter=network.authz` must not all read `seq=97` and race to write `98`. Use
+either (a) atomic transactional sequence allocation per `(network, emitter)` chain (preferred — it keeps the clean
+`(network, logical-emitter)` audit model), or (b) chains keyed at the individual writer-instance level with later
+anchoring. The logical `(network, emitter)` model with atomic allocation is the target.
 
 **Subject hashing (rev-3 #6).** Never a bare `SHA-256(subject)` — predictable identifiers are trivially
 dictionary-attacked. Use a per-network keyed digest: `subject_hash = HMAC(network_audit_key, canonical_subject)`,
@@ -309,6 +334,26 @@ when ignored.
 | **R3-7** | REVOKED grants are terminal; restore = new grant id. |
 | **R3-8** | `authorize()` checks `network.status == active` first, with a narrow governance-recovery allowlist. |
 
-On sign-off of this rev, implementation begins in order: schemas + roles + `governance.role_assignment` →
-capability catalog (versioned) → back-fill (after the approved migration report) → dual-run → divergence
-resolution → flip. The migration report and the divergence report are each surfaced for review before their gates.
+## 6. Implementation invariants (added at sign-off; NOT ontology changes)
+
+| # | Invariant |
+|---|---|
+| I1 | `authorize()` is **deterministic over all candidate grants** (never DB return order); specified+tested DENY precedence `scope_mismatch > grant_expired > grant_revoked > no_grant`; audit records `evaluated_grants[]` + a deterministically-chosen `effective_grant`. |
+| I2 | Audit-chain `seq`/`prev_hash` allocation per `(network, emitter)` is **atomic/concurrency-safe** (no read-97-write-98 race across replicas). |
+| I3 | Revoking an `IdentitySource` immediately invalidates its assertions for **future** live-assurance evaluation (`live ⇔ not expired AND source.status==active`); historical assertions remain for audit. |
+
+## 7. Approved implementation sequence & review gates (sign-off 2026-10-31)
+
+**Phase 1 rev 3 APPROVED FOR IMPLEMENTATION.** Order:
+```
+schemas → governance roles + role_assignment → versioned capability catalog → authorize()
+  → [FIRST REVIEW GATE: Trust-kernel code + authorize() tests, BEFORE touching participants]
+  → migration report → [HUMAN GATE] → grant back-fill → dual-run vs legacy
+  → divergence report + evidence of real operational flows → [HUMAN GATE]
+  → grant enforcement → one-release legacy shadow → remove type-based authorization
+```
+**Neither human gate is crossed automatically.** The **first review gate is new and highest-value**: after
+schemas + role_assignment + catalog + `authorize()` (+ its tests) are implemented, STOP and surface the
+Trust-kernel code for review **before** migration/back-fill touches any existing participant. The migration
+report and the divergence report (with evidence representative operational flows were exercised) are each
+surfaced before their respective gates.
