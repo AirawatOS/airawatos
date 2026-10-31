@@ -1,0 +1,2 @@
+FROM manishsv/airawatos-network:0.3.17-portalsuite
+COPY api.py /app/api.py
