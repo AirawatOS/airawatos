@@ -76,6 +76,27 @@ AND caller is entitled to exercise the CR
 So an approved CR for "change network name" cannot be replayed to "assign grant.steward" — the
 mutation hash (and action/target) won't match.
 
+## Review additions (approved before coding)
+
+**CR consumption / replay protection.** A change-request is single-execution. The object gains
+`status: approved | consumed`, `consumed_at`, `consumed_by_op_id`. The flow is: verify CR → create
+`op_id` → perform the mutation idempotently → mark the CR `consumed` by that `op_id`. An already
+`consumed` CR is refused for a *new* op; replay of the *same* `op_id` (for an inherently idempotent
+op) is allowed, but a fresh operation can never be minted from a consumed approval. This reuses the
+repository's existing `op_id`, so `GovernanceService` generates one `op_id` and threads it to both the
+mutation and the CR consumption.
+
+**Canonical mutation-hash envelope (reproducible at execution).** `proposed_mutation_hash` =
+`HASH_SUITE(canonical({network, action, target, mutation}))`, where `mutation` contains ONLY the
+caller-supplied intent and EXCLUDES every server-generated value (`op_id`, timestamps, audit ids,
+generated grant/record ids, `status`, `grantor`). The endpoint recomputes the hash over the same
+envelope at execution; otherwise the approved hash can't be reproduced.
+
+**Defer the public authorize endpoint.** Commit C uses an INTERNAL `authorize(...)` call site only —
+no public `GET /v1/governance/authorize`. A generic external authorization oracle is a new public
+contract we don't need yet; add an introspection endpoint later with its own access policy if a real
+use case appears.
+
 ## Endpoints to wire (thin handlers over GovernanceService; no logic in api.py)
 
 Governance writes (each: authenticate → build verified ActorContext → call the service):
