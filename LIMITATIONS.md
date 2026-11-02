@@ -2336,3 +2336,51 @@ three. (maiac-aod + firms-fire were run-installed but only appeared in Connectio
   (electricity/water) and/or a cadastre-aligned change layer keyed to the survey uid; the engine + `ingest-utilities`
   0.2.0 (broker-contract fix + optional `parcel_id` link) are ready to consume them. Also: `ingest-utilities` is the
   legacy `ds:airawat` namespace and 403'd on steward-publish — re-home to `ds:airawatdeveloper` per ADR-0094 to ship it.
+
+## Water Intelligence → City Scan map layers (2026-11-02)
+
+Built: `water.hotspot` now renders as a governed `viz.layer` on the City Scan map (operational-load lead
+story — "Water complaints (load)", 350 res-9 cells over Delhi), with ward-name hover. Three stacked issues
+were fixed and two platform papercuts surfaced.
+
+- ✅ **The cell `space` block is the City Scan render contract — a flat top-level `h3` renders ZERO cells.**
+  The deployed City Scan reduces server-side on `cell_field:"space.h3"` and its geometry extractor reads
+  `o.cell_ref||o.space → {h3:g.h3_id||g.h3, c:g.centroid}`. A record with top-level `h3`/`h3_id` but no
+  `space` block silently draws nothing. Fix: `water-hotspots` now emits `space:{h3, res?, centroid?, name}`
+  (the ADR-0053 cell-measure convention, as `air.quality` does). The hover label also had to ride INSIDE
+  `space` (`space.name` = ward · zone) because the surface reducer only projects the `space` block + the
+  value field — a top-level `ward` never reaches the tooltip. 🟠
+
+- 🟠 **`write_many` reports an optimistic `len()`, hiding per-record write failures.** The deployed `aos`
+  SDK's `ctx.write_many` returns `len(objs)` regardless of outcome; the kernel's `put_many` strict-validates
+  each record against its governed schema, rolls a bad one back into `{id,error}` under a SAVEPOINT, and the
+  batch still returns HTTP 200. Net: a non-conforming record is silently dropped — the driver prints
+  "wrote N", the registry has N-1 live rows, and no error surfaces anywhere. This cost hours of blind
+  debugging on `water-setup` (one `viz.layer` whose `label` carried a non-ASCII em-dash `—` failed the
+  governed `label` constraint; the ASCII-labelled siblings passed). **Fix:** harden the DEPLOYED
+  `write_many` to return the server-confirmed count + per-record errors (task #285 did this in source, but
+  the EC2 SDK under `/app/components/_common/aos` is stale and still optimistic); drivers that need
+  per-record error visibility should single-write (`ctx.write`, which raises). Also document the governed
+  `viz.layer.label` constraint (appears ASCII/pattern-restricted).
+
+- 🔵 **Dev-loop gotcha: `run <component>` bundles APP-HOST's `/app/components` copy, not the scheduler's.**
+  `_stage_draft` (app-host) tars app-host's `_find_component_dir(cid)` into a filestore blob and threads its
+  id to the scheduler's `/run`; the scheduler also caches materialized source at
+  `/tmp/airawat-dev-src/<slug>-<file_id>` and reuses a cached extract if present. Editing only the
+  scheduler's `/app/components` (or relying on a stale `__component_source__` asset or a cached `/tmp`
+  extract) means `run` keeps executing OLD code with no warning. **Recipe:** stage dev edits to BOTH
+  containers' `/app/components` (app-host is the one `run` bundles), `rm -rf /tmp/airawat-dev-src/*<comp>*`
+  to bust the cache, then re-run — and for durability publish the source to the filestore
+  (`aos deploy`/`/bridge/component-publish`) so it survives a container redeploy (persist-generated-code rule).
+
+- ⚪ **This City Scan build ignores the `viz.layer.filters` field and keeps one layer per `source_schema`.**
+  So `water-critical` (severity filter) and `water-burden` (needs `POP_FILE_ID` for `rate_per_10k`) can't
+  render as distinct layers; only the lowest-`order` descriptor per schema wins the menu dedup. The honest
+  single layer is "Water complaints (load)" by raw count. A City Scan build that honors `filters` (plus a
+  population file) would unlock the critical-only and per-10k-burden views.
+
+- 🔵 **Demo-time changes are STAGED, not durable.** The `water-hotspots`/`water-setup` fixes live on the
+  running app-host + scheduler `/app/components` (and in the gitignored local `components/` tree); the City
+  Scan tooltip change is a hot-patch to the live bundle (`index.html`, backup `index.html.bak-water`).
+  A redeploy reverts all of it. **Fix after the demo:** `aos deploy` the two components to the filestore
+  and re-publish the city-scan app bundle.
