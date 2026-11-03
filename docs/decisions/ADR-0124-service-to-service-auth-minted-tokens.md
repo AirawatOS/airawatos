@@ -46,10 +46,14 @@ on demand with Vault-held credentials. Every shared-secret internal gate is reti
   credential* — A33; this ADR makes the Vault-held password that durable credential, re-minting tokens).
 
 ## Consequences
-- Closes B4 (fail-open internal gates), B14 (passwordless principals), and the internal-auth half of B5/B6;
-  moves service authorization onto F2/F8/F9.
-- One mint helper, one callee-side verify helper — retires the ~triplicated service-auth blocks and the
-  per-service shared-secret literals (A29, A36–A38; C-dup items).
+- **Decided; debt B4 (fail-open internal gates), B14 (passwordless principals), and the internal-auth half
+  of B5/B6 remain OPEN until implemented.** Implementing work: *service-principal mint-on-demand rollout* —
+  (1) give each service principal a Vault credential + mint-on-demand (generalized `_mint_token`); (2) add a
+  verify-token gate to each callee (secrets, filestore, notify, scheduler, model-gateway, automation,
+  event_relay, runtime-manager); (3) delete the shared-secret envs + fail-open branches; (4) flip IdP
+  `IDENTITY_PASSWORD_REQUIRED=enforce`. Target principles: F2/F8/F9/F16.
+- One mint helper + one callee-side verify helper replace the ~triplicated service-auth blocks and the
+  per-service shared-secret literals (A29, A36–A38; C-dup items) — **debt open until that refactor lands**.
 - Rollout (separate slices): (1) give each service principal a Vault credential + mint-on-demand; (2) add the
   verify-token gate to each callee and switch the caller to a Bearer; (3) delete the shared-secret env +
   fail-open branches; (4) flip IdP password mode to `enforce`. Each callee migrates caller-then-gate to avoid

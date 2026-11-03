@@ -35,7 +35,7 @@ first-class authority primitive).
 
 ---
 
-## 2. Principles F1–F13
+## 2. Principles F1–F16
 
 Status key: **HELD** (upheld in the agreed direction), **PARTIAL** (held in the new surfaces, violated in
 legacy/transitional ones), **VIOLATED** (currently contradicted and tracked as debt).
@@ -55,6 +55,9 @@ legacy/transitional ones), **VIOLATED** (currently contradicted and tracked as d
 | **F11** | **Separation of duties + last-holder floor for security-critical authority.** Granting `platform.authority`/`tenant.admin` needs a ChangeRequest approved by a *different* live holder; the last live holder cannot be revoked (break-glass is separate). | **PARTIAL** (designed/enforced for Trust-plane roles; platform.authority still tenant-based) | B18; A17; **ADR-0122** |
 | **F12** | **Every authorization decision is audited** — allow and deny, durably — and failed authentication is logged (issuer, reason, source). | **PARTIAL** (admin-plane allow/deny audited + hash-chained; failed auth and most service gates are not) | B5 (no audit on unauth endpoints); A9 (failed-auth not logged) |
 | **F13** | **Consent is a first-class authority primitive.** A subject grants a recipient × purpose × scope × period, revocable, with evidence; cross-party data access is authorized by a recorded Consent. | **PARTIAL** (embed consent exists but scope not bound; no DEPA alignment) | B12; **ADR-0125** |
+| **F14** | **Authority is traceable.** Every authority record names its grantor (`granted_by`/`audited_by`/`decided_by`), and the grantor chain resolves back to the installation bootstrap record (the first-grant seed) — so any live grant can be explained by *who granted it, under whose authority*. | **PARTIAL** (Trust-plane role_assignment carries `granted_by`/op_id + audit chain, and `platform.authority`'s first grant is the installer seed per ADR-0122; but token-role / tenant-name authority has no grantor, and legacy grants are not uniformly chained to bootstrap) | B1, B2, B3, B18; **ADR-0122** (first-grant seed) |
+| **F15** | **External issuers are scoped.** A non-home (federated/external) issuer is bound to a recorded tenant (later: a recorded Network); a token from it that claims a tenant/role outside that binding is **rejected** (and self-asserted roles are stripped) — authority never widens by changing issuer. | **PARTIAL** (held in the Network trust boundary: `authn.register_issuer` pins the tenant, `verify` rejects a tenant mismatch and strips roles, `network/authn.py:163-167`; the Kernel's home-issuer scoping is the matching rule — but there is no Network-scoped binding yet, and the kernel still trusts issuer+role for admin, B1) | B1, B13; **ADR-0117** (credential/services network), **ADR-0119** |
+| **F16** | **Safe defaults.** No default value points at a specific deployment (no built-in `ds:airawat:identity`, `airawatos`, `airawat` steward); every enforcement check defaults to **enforce**, not off/shadow; and a missing **required** configuration **stops startup** (fail-loud) rather than silently assuming a value. | **VIOLATED** (prod-pointing defaults; enforcement gates default off/shadow; most missing config does not stop startup — only the network durable-backend check fails loud) | A1–A8, A30, A36; B8; **ADR-0124** (no fail-open), PLAN.md "remove production-pointing defaults" |
 
 ---
 
@@ -132,5 +135,6 @@ file:line evidence):
 
 ## 5. Adoption posture
 These foundations describe the target invariants and the agreed authority model; they do **not** change code.
-The debt register is the backlog to reach them; ADR-0122/0123/0124/0125 are the first four decisions that
-retire the largest violations (F7, F8, F9, F11, F13). Consolidation sequences the rest.
+The debt register is the backlog to reach them; ADR-0122/0123/0124/0125 **decide** the direction for the
+largest violations (F7, F8, F9, F11, F13, F14, F16) — **the debt stays open until each is implemented** (the
+implementing work is named in each ADR's Consequences). Consolidation sequences the rest.

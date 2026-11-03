@@ -38,9 +38,10 @@ it.
 - **Granted by the subject** — only the verified data subject (`subject == claims.sub`) may create a Consent
   for their data; never an admin, never a recipient on the subject's behalf (F1/F2).
 - **Scope is bound, not asserted** — the recorded scope/purpose is what is enforced; a recipient's requested
-  scope must be ≤ the recipient's registered capability AND ≤ the subject's granted Consent. This closes
-  B12: the consent's `scope`/`service` must match the client's registered scopes, and `service:"*"` is only
-  valid if the client is actually registered for all services.
+  scope must be ≤ the recipient's registered capability AND ≤ the subject's granted Consent. **This is the
+  decided fix for B12; the debt stays OPEN until implemented** — the consent's `scope`/`service` must match
+  the client's registered scopes, and `service:"*"` is only valid if the client is actually registered for
+  all services.
 - **Decision** — a cross-party data access authorizes iff `authorize(...)` finds a live Consent with
   `subject == data owner`, `recipient == caller`, `purpose ∈ allowed`, `scope covers resource`, `status
   active`, within `period` (FOUNDATIONS §3). No Consent ⇒ deny (F8).
@@ -58,7 +59,11 @@ and map to DEPA at the boundary. Resolve with a DEPA-mapping sub-ADR before buil
 
 ## Consequences
 - Consent joins RoleAssignment + CapabilityGrant as the third authority primitive under one decision
-  function (F2/F13); cross-party access stops relying on client-asserted scope (B12).
+  function (F2/F13). **Decided; debt B12 remains OPEN until implemented.** Implementing work: *Consent
+  primitive enforcement slice* — govern `governance.consent`, bind embed `/authorize` scope to the
+  registered client, write the Consent with the bound scope, gate `/embed/request` (and any cross-party
+  read) on a live Consent, surface revocation — **preceded by the DEPA-mapping sub-ADR** (open question
+  above).
 - Enforcement work (separate slices): bind embed `/authorize` scope to the registered client; write the
   Consent with the bound scope; gate `/embed/request` (and any cross-party read) on the live Consent;
   surface revocation. Pending the DEPA-mapping decision for the artefact shape.

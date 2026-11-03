@@ -35,7 +35,11 @@ write path. The Kernel makes no synchronous call to the Network to obtain an aut
 
 ## Consequences
 - The Kernel is self-contained and fail-closed on its own state (F7, F8): no Network call in the hot path,
-  no upward coupling, no "standalone mode self-signs with no authority key" fallback (A13 retired).
+  no upward coupling, no "standalone mode self-signs with no authority key" fallback.
+  **Decided; debt B9 (and A13) remains OPEN until implemented.** Implementing work: *Kernel-local trust-records
+  migration* — move each Network-call authorization input (trusted-issuer keys, schema catalog mirror, grant
+  resolution, tenant/dev classification) to a locally-held governed record maintained by a Network-driven
+  governed write, then delete the hot-path `NETWORK_URL` calls and the standalone self-sign fallback.
 - The Network's authority is expressed as **recorded state in the Kernel**, consistent with F2 (authority
   from recorded state) — the Network writes the grants/keys/schemas; the Kernel reads them locally.
 - Migration (separate slice, not this ADR): move each Network-call input to a locally-held record +
