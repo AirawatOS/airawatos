@@ -155,6 +155,57 @@ Driven by **direct network-service calls** (the authorised fallback). Role mode 
 ### Findings from C.e
 1. **Role mode requires a Trust-store reader that was unconfigured.** `require_network_admin_role → _reader_from_env()` (`network/trust_admin_authz.py:87`) fail-closes to **HTTP 503** unless **`KERNEL_URL` and `TRUST_READ_TOKEN`** are both set on the network container; the committed `docker-compose.dev.yml` set `NETWORK_ADMIN_AUTHZ=role` but neither companion, so checks 1–4 initially returned 503 (*trust_store_unavailable*). Fixed for this run by injecting both via a **job-local override** (not committed; the token is an ephemeral secret).
 2. **No durable service credential exists for `TRUST_READ_TOKEN`.** The reference identity service issues **1-hour** tokens only (`identity.py:364`, `exp = now + 3600`); there is no long-lived service token. A long-running network service in role mode therefore needs a **token-refresh mechanism** (or a dedicated service-credential path) before role mode can be left on durably — otherwise it reverts to 503 when the token expires or on any plain container restart. **Design item, not yet built.**
-3. **Federated issuer registrations are in-memory** (`api.TRUSTED_ISS` namespace): a `--force-recreate` of the network container wiped the C.b handshake, so checks 5/6 had to re-run the governed handshake. Matches the recorded *"network certs+requests IN-MEMORY (restart wipes)"* gap.
+3. ~~**Federated issuer registrations are in-memory**~~ **(CORRECTED below — this was a mis-read).** The C.e run believed the C.b handshake was lost on `--force-recreate`; it was not. See the durability reconcile in the follow-up section — trusted-issuer registration **is durable** (Postgres KV write-through + startup rehydration). The "lost" reading came from inspecting `authn._TRUSTED` in a *separate* `compose exec python3` process (its own empty module singleton), not the live uvicorn worker.
 
 > Note: checks were run inside the container against the live uvicorn worker over HTTP. Some diagnostic `authn._TRUSTED`/direct-`verify` readouts in-script printed `NO`/`unknown signing key` because `compose exec python3` is a **separate process** with its own empty `authn` singleton — the HTTP responses (which hit the real worker) are the authoritative evidence.
+
+## Validation C — follow-up (2026-11-03): bridge e2e · durability reconcile · mint-on-demand · kernel auth-logging
+
+### 1. Durability reconcile — trusted issuers ARE durable (no fix needed)
+The handshake write path, with file:line:
+- `POST /v1/participation/request` stores `issuer` + `jwks` into the participation rec (`network/api.py:838-847`); `PARTICIPATION` is a durable namespace.
+- `POST /v1/participation/decide` approve → `TRUSTED_ISS[iss] = {...}` + `authn.register_issuer(...)` (`network/api.py:866-876`). `TRUSTED_ISS = _NS["trusted_issuers"]` (`network/api.py:100`) is a **durable** namespace.
+- `Namespace.__setitem__` → `kv.put` → Postgres `INSERT … ON CONFLICT DO UPDATE` with `autocommit=True` (`network/kv.py:64-65`, `kv.py:33-34`) — an immediate durable write-through.
+- At boot the service **rehydrates** every stored issuer into the verifier (`network/api.py:104-107`).
+
+**Proof:** durable `kv` rows (store=`trusted_issuers`) survived a `--force-recreate`; a fresh worker then rejected a spoof token from `contract-local` with `issuer/tenant mismatch` over HTTP (requires the issuer registered + signature verified against the rehydrated key) — not `no jwks configured`. So **no code change** — the prior "lost on recreate" was a diagnostic artifact (a separate `compose exec` process has its own empty `authn._TRUSTED`; the live uvicorn worker rehydrated correctly).
+
+### 2. Mint-on-demand TRUST_READ_TOKEN — BUILT (network `feat/trust-plane-phase1` @ 56fd371; image dev-56fd371)
+Role mode no longer needs a manual token. `network/trust_admin_authz.py`:
+- `_read_token()` — static `TRUST_READ_TOKEN` wins if set (tests/break-glass); otherwise mint-on-demand, cached, re-minted ~120s before expiry.
+- `_mint_reader_token()` — reads the **dedicated read-only principal**'s password from **Vault** (`VAULT_ADDR`/`VAULT_TOKEN` + `TRUST_READER_VAULT_PATH`), logs in at the **local identity service** (`IDENTITY_URL`/realms/`TRUST_READER_TENANT`), returns `(token, exp)`.
+- Principal: `trust-reader@localdev-network`, role `[]` — **never `platform.service`** (registry reads are tenant-scoped via `kernel/api/app.py` `_read_scope`, so a bare member reads only its own tenant's Trust records).
+- Fail-closed: no `KERNEL_URL`, Vault down, missing secret, or IdP down → HTTP **503**.
+- `bootstrap-dev.sh` **Phase 5** provisions the principal + Vault password (idempotent — reuses an existing password, no rotation).
+- Compose now sets `NETWORK_ADMIN_AUTHZ=role` + `KERNEL_URL` + `TRUST_READER_{TENANT,PRINCIPAL,VAULT_PATH}` and **no `TRUST_READ_TOKEN`**.
+
+**Proven locally:** role mode ALLOW (admin→config 200) / DENY (faker→config 403) with the manual token unset; **fail-closed 503** (`reader-token mint failed (HTTP Error 404)`) when the Vault path is wrong. The credential rotates transparently as the 1-hour IdP token nears expiry — the durability gap from C.e is closed for the admin-plane reader.
+
+### 3. Bridge end-to-end (required) — checks 1–4 through the App Host console bridges
+Real `POST /login` browser sessions (cookie `airawat_sid`) → `POST /bridge/network-configure` (→ `/v1/networks`, config) and `POST /bridge/network-decide` (→ `/v1/participation/decide`, membership). Slug `localdev` ≠ admins' tenant `localdev-network`. Check 2 used a **real pending membership request**.
+
+**Prerequisite discovered:** the bridge's role-based network gate `_manageable_networks` (`app_host.py` ~4075) calls `GET /v1/governance/networks/mine`, which belongs to the **ADR-0119 Trust plane** — a *separate* subsystem from the Commit-D admin-plane role authz, env-gated by `TRUST_PLANE_ENABLED` + `TRUST_KERNEL_URL`/`TRUST_REGISTRY_TOKEN`/`TRUST_AUDIT_HMAC_KEY` (`network/trust_wiring.py:81-89`, registered at `network/api.py:3633`). With it off (local-dev default) `networks/mine` 404s, so no role-based selection can be verified and every admin 403s **at the bridge** except the tenant-collision case. Enabled transiently (minted read token) for this validation; then `networks/mine` returned the correct role-derived sets (admin/memsteward/xadmin → `[localdev]`, **faker → `[]`**).
+
+| # | principal (session tenant) | bridge | HTTP | how the bridge resolved the Network |
+|---|----------------------------|--------|------|-------------------------------------|
+| 1 | admin (localdev-network) | network-configure | **200 ALLOW** | **by selection + recorded role** — `networks/mine` verified `localdev` → forwarded slug (`app_host.py:4094-4096`); network authority `matched=network.admin` |
+| 2a | memsteward (localdev-network) | network-decide (real pending req) | **200** | **by selection + role** — forwarded slug; authority `matched=membership.steward` |
+| 2b | memsteward (localdev-network) | network-configure | **403** | **by selection + role** — authority DENY `lacks ['network.admin']` (not the bridge) |
+| 3 | xadmin (**localdev**) | network-configure | **200 ALLOW** | **by CALLER TENANT** — `app_host.py:4092` (`requested == tn`) short-circuits because xadmin's tenant `localdev` **equals the slug**; `networks/mine` is bypassed. Forwarded key is still correct and the authority re-checked the role (`matched=network.admin`). **Finding.** |
+| 4 | faker (localdev-network) | network-configure | **403** | **by selection + role** — DENY **at the bridge** (`app_host.py:4097`): faker's `networks/mine` is `[]`, so the selection isn't in the manageable set; the request never reaches the network authority |
+
+**Findings (step 2):**
+- **F1 (tenant==slug collision, `app_host.py:4092`):** when a caller's session tenant equals the selected Network's slug, `_resolve_read_network` returns `(tenant, True)` via the legacy own-tenant shortcut *before* consulting `networks/mine`, so resolution is by **caller tenant**, not recorded role (check 3). Harmless when the forwarded key matches and the authority re-checks the role, but it means the bridge's role-verification is skipped on that path. Keeping Network slugs distinct from every admin's tenant avoids it; a stricter fix would consult `networks/mine` even when `requested == tenant`.
+- **F2 (bridge depends on the ADR-0119 Trust plane):** the console's role-based selection is unusable unless `TRUST_PLANE_ENABLED` + its kernel/token/HMAC config are set — a heavier subsystem than the admin-plane role authz. Its `TRUST_REGISTRY_TOKEN` is read once at boot (`register_trust_endpoints`), so the mint-on-demand pattern (per-request refresh) does not drop in directly; enabling the Trust plane durably in the committed local-dev compose is a follow-up slice (extend mint/refresh to the Trust store, or accept a boot-time token). For this validation it was enabled transiently.
+
+### 4. Kernel — log failed authentication on admin endpoints (DESIGN NOTE ONLY, not built)
+Today `kernel/api/kernelcore.py` `_authenticate` raises `401 "invalid token: {err}"` on a bad/unknown-issuer token (`kernelcore.py:~40`) **before** any endpoint handler runs, and the durable `kernel_admin_audit` is written only inside `_require_admin` (`kernel/api/app.py:29-41`) — which a failed-auth request never reaches. So an **unknown-issuer / bad-signature / bad-audience attempt on an admin endpoint is invisible to monitoring** (only *verifiable-but-unauthorized* calls are audited, as shown in C.e check 6).
+
+**Proposed (design):**
+- Add a lightweight **auth-failure log** at the `_authenticate` reject point: emit a structured record `{ts, event:"auth_failure", issuer:<unverified iss, parsed best-effort>, reason:<err>, source_ip:<X-Forwarded-For/peer>, path:<request path>, method}` to stderr (so it lands in container logs) and, optionally, to the same `kernel_admin_audit` sink with `decision:"auth_failure"` so admin-surface monitoring has one table.
+- Parse the issuer **without trusting it** (decode the JWT payload for display only; never use it for a decision) so a flood of forged-issuer attempts is attributable.
+- Scope: log on **every** endpoint or at least the admin-gated set; rate-limit/sample to avoid log amplification from a hostile client. Keep it a pure side-effect (never changes the 401).
+- Boundary: this records *attempts*; it does not widen what authenticates. Pairs with the existing allow/deny audit so the admin surface has both "unauthorized by a known principal" and "unauthenticated/forged" visibility.
+
+### Current local-dev resting state
+Network on `dev-56fd371`, `NETWORK_ADMIN_AUTHZ=role` via **mint-on-demand** (no manual token), `TRUST_PLANE_ENABLED` **unset** (Trust-plane/console-bridge path is enabled only transiently for validation — see F2). All committed: outer repo `docs/trusted-network-platform-adr-0119-0120` (compose+bootstrap+PLAN), network repo `feat/trust-plane-phase1` @ 56fd371 (both pushed, no merge).
