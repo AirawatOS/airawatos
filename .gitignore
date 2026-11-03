@@ -17,3 +17,4 @@ deploy/ec2/seed/*.sql
 
 deploy/ec2/.env
 deploy/**/init.json
+.DS_Store
