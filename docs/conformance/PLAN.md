@@ -159,6 +159,67 @@ Suite exit: non-zero only on a **FAIL** (a TESTABLE-NOW case that did not behave
 
 ---
 
+## Internal runner (step 3)
+The reference services are not published at the edge, so external mode cannot reach them. An **internal
+runner** executes the same suite (`AOS_MODE=internal`) inside a container on the local-dev docker network
+(`airawatos-localdev_default`), against in-cluster addresses. It covers cases that external mode could only
+mark SKIP_BUILD "not reachable black-box":
+- **F10 / B5** — reference endpoints accept **tokenless** privileged calls (filestore, notify, scheduler
+  `/run`, model-gateway `/complete`, automation `/events`).
+- **F9 / B4** — fail-open internal-token gates (secrets `/materialize`, `/fetch`; runtime-manager `/invoke`).
+  The fail-*open* only manifests when the gate env is **unset**; where the gate is **active** in local-dev
+  (e.g. `SECRETS_INTERNAL` set) the tokenless call is correctly rejected (403) and the case is **SKIP_BUILD**
+  ("not reproducible without unsetting the gate env"), **not** a pass and **not** a fix.
+- **B6** — identity `/users` directory disclosure.
+
+Classifier rule for internal tokenless probes: a handler that **runs without a token** (2xx/400/500/501) =
+XFAIL (violation present); **401/403** = gate active → SKIP_BUILD; **404 / unreachable** = SKIP_BUILD.
+
+## Run results — 2026-11-03
+
+**External mode** (`127.0.0.1:8080`, credentials supplied):
+
+| Spec | PASS | XFAIL | XPASS | FAIL | nCRED | nBUILD |
+|------|----|----|----|----|----|----|
+| FOUNDATIONS | 4 | 0 | 0 | 0 | 2 | 4 |
+| REGISTRY | 1 | 2 | 0 | 0 | 3 | 6 |
+| DECISION | 0 | 0 | 0 | 0 | 0 | 9 |
+| NETWORK | 1 | 0 | 0 | 0 | 2 | 3 |
+| ACCOUNT | 1 | 0 | 0 | 0 | 0 | 7 |
+| CLIENT | 0 | 0 | 0 | 0 | 1 | 2 |
+| **TOTAL** | **7** | **2** | **0** | **0** | **8** | **31** |
+
+XFAIL: anon kernel read = 200, anon existence-check = 200 (debt A1). admin session opens (PASS).
+
+**Internal mode** (in-cluster, container on the ld network):
+
+| Spec | PASS | XFAIL | XPASS | FAIL | nCRED | nBUILD |
+|------|----|----|----|----|----|----|
+| FOUNDATIONS | 0 | 3 | 0 | 0 | 0 | 5 |
+| REGISTRY | 0 | 1 | 0 | 0 | 0 | 0 |
+| CLIENT | 0 | 1 | 0 | 0 | 0 | 0 |
+| **TOTAL** | **0** | **5** | **0** | **0** | **0** | **5** |
+
+Internal XFAIL (violations confirmed live): scheduler `/run` 200, model-gateway `/complete` 501, automation
+`/events` 200 — all tokenless (F10/B5); identity `/users` 200 discloses the directory (B6); kernel anon read
+200 (A1). Internal SKIP_BUILD: filestore (`/` 404 — needs a real privileged route), notify (unreachable),
+secrets `/materialize` & `/fetch` (403 — gate active; fail-open needs env unset), runtime-manager (absent
+from the ld stack). Both modes exit 0 (no FAIL, no XPASS).
+
+### "Feature not built" vs "now covered by the internal runner"
+- **Now covered by the internal runner** (were external SKIP_BUILD "not reachable black-box"): **B5**
+  (unauth privileged reference endpoints) → confirmed XFAIL for scheduler/model-gateway/automation; **B6**
+  (identity directory disclosure) → confirmed XFAIL; **B4** (fail-open gates) → reachable and probed, but
+  SKIP_BUILD where the gate is active (needs the env unset).
+- **Genuinely not built / not black-box-assertable** (remain SKIP_BUILD in both modes): the DECISION plane
+  (D1,D3,D4,D6,D7,D8,D10,D11,D12 — no decision records emitted), REGISTRY R12/R14/R15/R16, FOUNDATIONS
+  F5/F7/F16/F17, ACCOUNT A2/A3/A7/A8/A9/W3/W4, CLIENT C6, NETWORK N4 — each for a stated reason (feature
+  PLANNED, startup/restart-time, or audit store not externally readable).
+- **B15** (run_token leak): no false pass anymore — SKIP_BUILD because the local-dev component catalogue is
+  empty (nothing to install to populate INSTALLED); set `AOS_TEST_COMPONENT` to a published cid to exercise.
+- **R10** (determinism): no longer a trivial-on-empty pass — NEEDS-CREDENTIALS/SKIP (anon reads return 0
+  rows; a records-returning resolve bridge was not found black-box).
+
 ## First-suite scope (what `conformance/` actually runs)
 The runnable suite (`conformance/run.py`) implements every **TESTABLE NOW** and **EXPECTED FAIL** case above
 that is reachable at `:8080` without credentials. **NEEDS-CREDENTIALS** cases are included but skip unless
