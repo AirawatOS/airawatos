@@ -147,4 +147,27 @@ s=_req(f"{IDN}/set-password", data={"username":USER,"tenant":TENANT,"password":p
 print("[phase5] trust-reader login password set:", "OK" if not isinstance(s, urllib.error.HTTPError) else f"{s.code}")
 PY
 
+echo "── Phase 6 · Trust-plane audit HMAC → Vault (ADR-0119 console/governance endpoints) ────────────"
+# The Trust plane (networks/mine + governance reads the console bridge uses) needs an audit HMAC base
+# secret. Held in VAULT (never compose); the network reads it at boot via TRUST_AUDIT_HMAC_VAULT_PATH.
+# The Trust store's kernel-read token is mint-on-demand (reuses the Phase-5 trust-reader credential) —
+# no TRUST_REGISTRY_TOKEN in compose. Idempotent: reuse an existing key, don't rotate.
+XNET env VPATH="secret/data/${INSTANCE}-network/trust-plane/audit_hmac" python3 - <<'PY'
+import os, json, secrets, urllib.request, urllib.error
+VADDR=os.environ.get("VAULT_ADDR","http://vault:8200"); VTOK=os.environ["VAULT_TOKEN"]; VPATH=os.environ["VPATH"]
+def _req(url, data=None, method="GET"):
+    r=urllib.request.Request(url, data=(json.dumps(data).encode() if data is not None else None),
+                             headers={"X-Vault-Token":VTOK,"Content-Type":"application/json"}, method=method)
+    try: return urllib.request.urlopen(r, timeout=10).read()
+    except urllib.error.HTTPError as e: return e
+b=_req(f"{VADDR}/v1/{VPATH}")
+cur = None if isinstance(b, urllib.error.HTTPError) else (((json.loads(b) or {}).get("data") or {}).get("data") or {}).get("value")
+if cur:
+    print(f"[phase6] trust-plane audit HMAC already in Vault at {VPATH} — reusing (idempotent)")
+else:
+    w=_req(f"{VADDR}/v1/{VPATH}", data={"data":{"value":secrets.token_hex(32)}}, method="POST")
+    print(f"[phase6] stored trust-plane audit HMAC at {VPATH}" if not isinstance(w, urllib.error.HTTPError)
+          else f"[phase6] VAULT WRITE FAILED: {w.code}")
+PY
+
 echo "✓ bootstrap-dev complete."
