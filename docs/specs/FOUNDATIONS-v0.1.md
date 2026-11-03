@@ -35,7 +35,7 @@ first-class authority primitive).
 
 ---
 
-## 2. Principles F1–F16
+## 2. Principles F1–F17
 
 Status key: **HELD** (upheld in the agreed direction), **PARTIAL** (held in the new surfaces, violated in
 legacy/transitional ones), **VIOLATED** (currently contradicted and tracked as debt).
@@ -58,6 +58,7 @@ legacy/transitional ones), **VIOLATED** (currently contradicted and tracked as d
 | **F14** | **Authority is traceable.** Every authority record names its grantor (`granted_by`/`audited_by`/`decided_by`), and the grantor chain resolves back to the installation bootstrap record (the first-grant seed) — so any live grant can be explained by *who granted it, under whose authority*. | **PARTIAL** (Trust-plane role_assignment carries `granted_by`/op_id + audit chain, and `platform.authority`'s first grant is the installer seed per ADR-0122; but token-role / tenant-name authority has no grantor, and legacy grants are not uniformly chained to bootstrap) | B1, B2, B3, B18; **ADR-0122** (first-grant seed) |
 | **F15** | **External issuers are scoped.** A non-home (federated/external) issuer is bound to a recorded tenant (later: a recorded Network); a token from it that claims a tenant/role outside that binding is **rejected** (and self-asserted roles are stripped) — authority never widens by changing issuer. | **PARTIAL** (held in the Network trust boundary: `authn.register_issuer` pins the tenant, `verify` rejects a tenant mismatch and strips roles, `network/authn.py:163-167`; the Kernel's home-issuer scoping is the matching rule — but there is no Network-scoped binding yet, and the kernel still trusts issuer+role for admin, B1) | B1, B13; **ADR-0117** (credential/services network), **ADR-0119** |
 | **F16** | **Safe defaults.** No default value points at a specific deployment (no built-in `ds:airawat:identity`, `airawatos`, `airawat` steward); every enforcement check defaults to **enforce**, not off/shadow; and a missing **required** configuration **stops startup** (fail-loud) rather than silently assuming a value. | **VIOLATED** (prod-pointing defaults; enforcement gates default off/shadow; most missing config does not stop startup — only the network durable-backend check fails loud) | A1–A8, A30, A36; B8; **ADR-0124** (no fail-open), PLAN.md "remove production-pointing defaults" |
+| **F17** | **Acting on behalf.** An agent — human or AI — is a **principal with its own identity** and acts for another **only via a recorded delegation** (scope, expiry, revocation). Decision records show **both the acting principal and the represented principal**. Some acts are **non-delegable or require step-up**: granting consent for sensitive data, closing an account, and changing the identity binding. An agent can **never create or widen its own delegation**. | **NOT BUILT** (no delegation primitive; agents act under the represented principal's token today, so "actor ≠ represented" is not recorded, and nothing bars self-widening) | B1 (token-role authority), B3 (authentication ≠ authorization); **DECISION D12** (automated decisions re a person); relates to **ADR-0125** (consent as the sensitive-data step-up) |
 
 ---
 
