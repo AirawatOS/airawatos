@@ -1,0 +1,166 @@
+# Conformance test plan (Consolidation Phase 3)
+
+**Date:** 2026-11-03 · **Target:** local-dev at `http://127.0.0.1:8080` · **Scope:** black-box only — HTTP
+calls, returned records, decision records. No internal code is inspected or called.
+
+Covers every rule in [[FOUNDATIONS-v0.1]] (F1–F17), [[REGISTRY-v0.1]] (R1–R16), [[DECISION-v0.1]] (D1–D12),
+[[NETWORK-v0.1]] (N1–N12), [[ACCOUNT-v0.1]] (A1–A9, W1–W4), [[CLIENT-v0.1]] (C1–C6). Debt refs → `../consolidation/DEBT-REGISTER.md`.
+
+## Black-box surface (local-dev)
+The only host-published port is the ld edge nginx at `127.0.0.1:8080`, which routes:
+- `/kernel/*` → kernel (`/kernel/v1/registry/{resolve,objects,exists,count}`, `/kernel/v1/components`, …)
+- `/network/*` → network (`/network/v1/health`, `/network/v1/governance/roles`, `/network/v1/participants`, …)
+- `/*` → app-host (`/login`, `/bridge/*`, `/embed/*`)
+
+Identity (`:8093`) and the other reference services (filestore, notify, scheduler, model-gateway, secrets,
+runtime-manager, automation, event_relay) are **not** published, so their endpoints are **not black-box
+reachable** at `:8080` — cases that need them are classified **NEEDS-BUILD (not reachable black-box here)**.
+
+## Auth model for tests
+- **Anonymous** — no token. Used for all "no anonymous X" / fail-closed / disclosure cases.
+- **Forged token** — a syntactically-valid JWT with role claims but an invalid signature and/or foreign
+  `iss`. Used for the "token role / foreign issuer is not authority" abuse cases.
+- **Session (cookie)** — `POST /login {realm,username,password}` opens a browser session; authenticated user
+  actions then go through `/bridge/*`. Requires real test-user passwords.
+- **Bearer** — a home-issuer token from identity `/realms/<realm>/login`. Identity is not published at
+  `:8080`, so bearers are obtained only if credentials are supplied to the harness.
+
+The test users (`admin`, `memsteward`, `xadmin`, `outsider`, `faker` in `localdev-network`) have passwords in
+Vault; the harness reads them from the optional env var `AOS_TEST_USERS` (JSON `{"admin":"pw",…}`) or
+`conformance/.creds.json` (gitignored). **If no credentials are supplied, every case needing a valid
+session/bearer is reported NEEDS-CREDENTIALS (skipped), and the suite still passes on the no-credential
+cases.** This keeps the suite runnable and green today without embedding secrets.
+
+## Classification
+- **TESTABLE NOW** — executes black-box today; asserts the spec-correct observable; PASS/FAIL.
+- **EXPECTED FAIL (xfail)** — a known live violation (cites the debt item); the case asserts the *current
+  (wrong)* observable, so it is **green today**. If the violation is later fixed, the assertion flips to an
+  **XPASS (unexpected pass)** — the signal that the debt is closed.
+- **NEEDS-CREDENTIALS** — testable in principle but needs a supplied session/bearer; skipped without creds.
+- **NEEDS-BUILD** — the feature or endpoint does not exist / is not black-box reachable; not executed.
+
+Suite exit: non-zero only on a **FAIL** (a TESTABLE-NOW case that did not behave as the spec requires).
+**XPASS** is printed prominently (good news: a debt closed) but does not fail the run.
+
+---
+
+## FOUNDATIONS (F1–F17)
+
+| Rule | Case (type) | Classification | Expected observable |
+|------|-------------|----------------|---------------------|
+| F1 | forged JWT with `roles:[network.admin]`, bad sig → kernel resolve (abuse) | TESTABLE NOW | reject (401) — role claim is not authority; **live: 401 ✓** |
+| F1 | valid user bearer carries identity; privileged action still needs a grant (pos) | NEEDS-CREDENTIALS | allow only with a recorded grant |
+| F2 | valid-signature token with a role claim but **no recorded grant** → privileged write (abuse) | NEEDS-CREDENTIALS | deny (debt B1 — may currently allow) |
+| F3 | token whose `iss` ≠ home issuer → privileged op (abuse) | TESTABLE NOW | reject (401/403) — **live: 401 ✓** |
+| F3 | tenant/membership/classification alone grants nothing (abuse) | NEEDS-CREDENTIALS | deny without a grant |
+| F4 | tenant id == network slug used as authority (abuse) | NEEDS-CREDENTIALS | deny — distinct namespaces (debt B11/B2) |
+| F5 | durable authority survives restart (pos) | NEEDS-BUILD | out of black-box scope (restart orchestration) |
+| F6 | kernel treats an unknown schema opaquely (pos) | TESTABLE NOW | write/resolve of a novel schema is schema-governed, not domain-special-cased |
+| F7 | kernel authorizes with no Network call in hot path (pos) | NEEDS-BUILD | requires network-down orchestration (debt B9) |
+| F8 | anonymous privileged op → deny (abuse) | TESTABLE NOW | anon write = 403 ✓; anon governance = 401 ✓ |
+| F8 | anonymous read → **deny** (abuse) | EXPECTED FAIL (debt A1) | rule: 401; **live: 200** (REQUIRE_AUTH off) → xfail |
+| F9 | service-to-service uses minted home-issuer tokens, no shared secret (pos) | NEEDS-BUILD | internal hop, not black-box |
+| F10 | scope not widenable beyond grant (abuse) | NEEDS-CREDENTIALS | deny (debt B12) |
+| F11 | grant platform.authority needs a 2nd-holder CR; last holder not revocable (abuse) | NEEDS-CREDENTIALS | deny (debt A17; ADR-0122) |
+| F12 | every decision audited; failed auth logged (pos) | NEEDS-BUILD | audit store not black-box readable (debt A9) |
+| F13 | consent granted only by subject (abuse) | NEEDS-CREDENTIALS | admin cannot self-grant another's consent |
+| F14 | authority record names its grantor (pos) | NEEDS-CREDENTIALS | read a role_assignment, assert `granted_by` present |
+| F15 | foreign-issuer token with a tenant/role claim → rejected/stripped (abuse) | TESTABLE NOW | reject (401) — **live: 401 ✓** |
+| F16 | missing required config stops startup; no prod-pointing default (pos) | NEEDS-BUILD | startup-time, not black-box |
+| F17 | agent acts only via recorded delegation; cannot self-widen (abuse) | NEEDS-BUILD | no delegation primitive exists (F17 NOT BUILT) |
+
+## REGISTRY (R1–R16)
+
+| Rule | Case (type) | Classification | Expected observable |
+|------|-------------|----------------|---------------------|
+| R1 | write a record, re-read by id — id stable (pos) | NEEDS-CREDENTIALS | same id resolves |
+| R2 | write with an ungoverned/unknown schema → reject (neg) | NEEDS-CREDENTIALS | reject (anon write already 403 ✓ at the gate) |
+| R2 | anonymous write → reject (neg) | TESTABLE NOW | **live: 403 ✓** |
+| R3 | supersede creates a new version; prior still addressable (pos) | NEEDS-CREDENTIALS | two versions resolvable |
+| R4 | as-of read returns the version live at that time (pos) | NEEDS-CREDENTIALS | bitemporal answer |
+| R5 | anonymous/forged write → deny (abuse) | TESTABLE NOW | anon 403 ✓; forged 401 ✓ |
+| R5 | valid writer without grant → deny (abuse) | NEEDS-CREDENTIALS | deny (debt B1) |
+| R6 | anonymous read → **deny** (abuse) | EXPECTED FAIL (debt A1) | rule: 401; **live: 200** → xfail |
+| R6 | anonymous existence/count check → **deny** (abuse) | EXPECTED FAIL (debt A1) | rule: 401; live: likely 200 → xfail |
+| R7 | every write carries provenance (pos) | NEEDS-CREDENTIALS | written record has prov (PROV_ENFORCE shadow, A2) |
+| R8 | committed version is signed (pos) | NEEDS-CREDENTIALS | signature present on read-back |
+| R9 | identical re-write creates no new version (pos) | NEEDS-CREDENTIALS | version count unchanged (to-confirm) |
+| R10 | resolve same ref twice → same version (pos) | TESTABLE NOW (anon read) | deterministic result for a public/empty resolve |
+| R11 | schema is a governed record; adopting ≠ owning (pos/abuse) | NEEDS-CREDENTIALS | non-owner cannot evolve a schema |
+| R12 | trust-bearing write is audited (pos) | NEEDS-BUILD | audit not black-box readable |
+| R13 | kernel treats a novel schema opaquely (abuse) | TESTABLE NOW | no domain special-casing of an unknown schema name |
+| R14 | personal data stored by reference; erasure deletes + records (pos) | NEEDS-BUILD | erasable store not built (PLANNED) |
+| R15 | public is a schema-level flag changed via CR (abuse) | NEEDS-BUILD | hardcoded allow-list today (debt B8) |
+| R16 | archived version resolves identically (pos) | NEEDS-BUILD | archiving not built (PLANNED) |
+
+## DECISION (D1–D12)
+
+| Rule | Case (type) | Classification | Expected observable |
+|------|-------------|----------------|---------------------|
+| D1 | a protected authorization produces a decision record (pos) | NEEDS-BUILD | decision records not emitted for routine authz (debt A9/B1) |
+| D2 | decision record carries request/policy-version/inputs/decider (pos) | NEEDS-CREDENTIALS | fields present on a decision read |
+| D3 | same inputs → same outcome; model output recorded as input (pos) | NEEDS-BUILD | replay harness + model-input capture not exposed |
+| D4 | decider with no recorded authority → deny / not recorded (abuse) | EXPECTED FAIL (debt B3) | rule: deny; live: authentication accepted as authority |
+| D5 | decision never edited; override = new record (pos) | NEEDS-CREDENTIALS | original immutable |
+| D6 | a denial is recorded with reason (abuse) | NEEDS-BUILD | denials not logged (debt A9) |
+| D7 | personal data in a decision by reference only (pos) | NEEDS-BUILD | inherits R14 (PLANNED) |
+| D8 | reason codes present; subject reads own decisions (pos) | NEEDS-BUILD | subject-access not built |
+| D9 | decision linked by correlation/op id (pos) | NEEDS-CREDENTIALS | op_id/correlation present |
+| D10 | personal-data read always gets a full record (pos) | NEEDS-BUILD | tiered logging not built |
+| D11 | contest = recorded request; reviewer ≠ decider; new decision (pos) | NEEDS-BUILD | contest flow not proven |
+| D12 | automated decision labelled + contestable; engine needs human authority (abuse) | NEEDS-BUILD | engines write governance.decision (debt B18) |
+
+## NETWORK (N1–N12)
+
+| Rule | Case (type) | Classification | Expected observable |
+|------|-------------|----------------|---------------------|
+| N1 | net:id ≠ slug; slug/tenant not accepted as net authority (abuse) | NEEDS-CREDENTIALS | deny when slug==tenant is used as authority (debt B11/B2) |
+| N2 | create network needs policy+role; draft invisible; draft→active needs catalog (pos) | NEEDS-CREDENTIALS | creation gated; draft has empty catalog |
+| N3 | anonymous/forged governance role write → deny (abuse) | TESTABLE NOW | **live: anon governance = 401 ✓** |
+| N3 | security-critical role assign needs a 2nd-holder CR; never zero admin (abuse) | NEEDS-CREDENTIALS | deny single-holder self-assign |
+| N4 | suspended network refuses exchange, allows governance/history reads (pos) | NEEDS-BUILD | status machine not verified |
+| N5 | membership invite→accept / request→approve; members are existing tenants (pos) | NEEDS-CREDENTIALS | participation request/decide |
+| N6 | join never creates a login from the Network side (abuse) | EXPECTED FAIL (debt B9) | rule: no login created; live: join path provisions a user+password |
+| N7 | issuer trust needs network.admin, scoped to member tenant+net (abuse) | EXPECTED FAIL (debt — N7) | rule: admin-only, scoped; live: membership.steward can approve, service-wide |
+| N8 | a classification does not gate exchange (abuse) | NEEDS-CREDENTIALS | deny classification-as-authority |
+| N9 | grant with a wildcard / unversioned capability → reject (abuse) | NEEDS-CREDENTIALS | reject `service:"*"` (debt B12) |
+| N10 | publish a Service without the provide grant → reject (abuse) | NEEDS-CREDENTIALS | reject |
+| N11 | exchange checks call+provide grant + consent, emits a decision (pos) | NEEDS-CREDENTIALS | allow only with both grants |
+| N12 | member list is members-only; only chosen offerings public (abuse) | NEEDS-CREDENTIALS | anon cannot read the member list |
+
+## ACCOUNT (A1–A9, W1–W4)
+
+| Rule | Case (type) | Classification | Expected observable |
+|------|-------------|----------------|---------------------|
+| A1 | account owned by person; cross-network link needs consent (pos) | NEEDS-CREDENTIALS | link only with consent |
+| A2 | id ≠ handle ≠ binding; handle unique in namespace; old handle reserved (pos) | NEEDS-BUILD | handle/reservation model not verified |
+| A3 | raw identifier never an id / never shown; one identity → one account (abuse) | NEEDS-BUILD | assurance not trustworthy (debt B13); R14 store PLANNED |
+| A4 | handle is never a credential; login via approved issuer (abuse) | TESTABLE NOW | `POST /login` with a handle-as-password fails (401) |
+| A5 | provider connect needs consent + provider confirm; revocable (pos) | NEEDS-CREDENTIALS | ADR-0067 flow |
+| A6 | wallet separate/replaceable (pos) | NEEDS-CREDENTIALS | wallet swap preserves account |
+| A7 | consent granted by holder; one withdraw view; withdraw→erase (pos) | NEEDS-BUILD | consent enforcement pending (debt B12); erasure PLANNED |
+| A8 | assisted access via F17 delegation (pos) | NEEDS-BUILD | no delegation primitive (F17 NOT BUILT) |
+| A9 | closure withdraws consents + triggers erasure (pos) | NEEDS-BUILD | not built |
+| W1 | credential verifies offline via Registry keys (pos) | NEEDS-CREDENTIALS | VC verify |
+| W2 | revocation checkable (pos) | NEEDS-CREDENTIALS | revoked credential fails verify |
+| W3 | presentation bound to holder/recipient/purpose (abuse) | NEEDS-BUILD | recipient/purpose binding PLANNED |
+| W4 | selective disclosure (pos) | NEEDS-BUILD | PLANNED |
+
+## CLIENT (C1–C6)
+
+| Rule | Case (type) | Classification | Expected observable |
+|------|-------------|----------------|---------------------|
+| C1 | unregistered client → reject; registered client recorded (abuse) | NEEDS-CREDENTIALS | reject unknown client (debt A47 demo client) |
+| C2 | app requests scope beyond registered/consented → bounded (abuse) | EXPECTED FAIL (debt B12) | rule: intersection enforced; live: `/embed/authorize` takes scope from query, consent `service:"*"` |
+| C3 | token short-lived, app-addressed, identity-only, consent ref (pos) | NEEDS-CREDENTIALS | token claims shape |
+| C4 | protocol operations present (pos) | NEEDS-CREDENTIALS / partial | embed/request/offerings live |
+| C5 | handle resolution registered-only + anti-enumeration (abuse) | EXPECTED FAIL (debt B6) | rule: gated, minimal, rate-limited; live: directory enumerable (identity not at :8080, but the invariant is unheld platform-wide) |
+| C6 | clients use a public versioned protocol, never /bridge/* (abuse) | EXPECTED FAIL (debt A23) | rule: public protocol; live: only /bridge/* + /embed/* exist |
+
+---
+
+## First-suite scope (what `conformance/` actually runs)
+The runnable suite (`conformance/run.py`) implements every **TESTABLE NOW** and **EXPECTED FAIL** case above
+that is reachable at `:8080` without credentials. **NEEDS-CREDENTIALS** cases are included but skip unless
+`AOS_TEST_USERS` / `conformance/.creds.json` is supplied. **NEEDS-BUILD** cases are listed (as skips with the
+reason) but not executed. See `conformance/README.md` to run and to supply credentials.
