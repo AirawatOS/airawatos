@@ -217,6 +217,9 @@ Archiving is a first-class, governed operation — not an out-of-band ops action
 | R15 | Public = schema designation via CR | VIOLATED/PARTIAL | B8; ADR-0056/0103 |
 | R16 | Archiving in the protocol | PLANNED | tasks #201, #202 |
 
+**Tally:** 4 IN PLACE (R1, R3, R4, R10), **6 PARTIAL** (R2, R5, R7, R8, R11, R12), 3 VIOLATED (R6, R13,
+R15), 2 PLANNED (R14, R16), 1 TO CONFIRM (R9). R5 and R15 carry a secondary VIOLATED.
+
 ---
 
 ## Open item
