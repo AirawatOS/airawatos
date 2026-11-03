@@ -170,4 +170,60 @@ else:
           else f"[phase6] VAULT WRITE FAILED: {w.code}")
 PY
 
+echo "── Phase 7 · trust-writer service principal (Trust-plane governance WRITES) ─────────────────────"
+# Governance writes (role assign, capability define, grant issue/revoke) persist via a DEDICATED write
+# principal — own-tenant write to the Trust steward (ds:<inst>-network:), role [], NEVER platform.service;
+# password in Vault, minted on demand. Separate from the read-only trust-reader. Idempotent (reuse).
+XNET env II="airawat-ld-identity-internal" TENANT="${INSTANCE}-network" USER="trust-writer" \
+        VPATH="secret/data/${INSTANCE}-network/trust-writer/password" python3 - <<'PY'
+import os, json, secrets, urllib.request, urllib.error
+IDN="http://identity:8093"; VADDR=os.environ.get("VAULT_ADDR","http://vault:8200"); VTOK=os.environ["VAULT_TOKEN"]
+II=os.environ["II"]; TENANT=os.environ["TENANT"]; USER=os.environ["USER"]; VPATH=os.environ["VPATH"]
+def _req(url, data=None, headers=None, method="GET"):
+    r=urllib.request.Request(url, data=(json.dumps(data).encode() if data is not None else None), headers=headers or {}, method=method)
+    try: return urllib.request.urlopen(r, timeout=10).read()
+    except urllib.error.HTTPError as e: return e
+def vault_get():
+    b=_req(f"{VADDR}/v1/{VPATH}", headers={"X-Vault-Token":VTOK})
+    return None if isinstance(b, urllib.error.HTTPError) else (((json.loads(b) or {}).get("data") or {}).get("data") or {}).get("value")
+pw=vault_get()
+if pw:
+    print(f"[phase7] trust-writer password already in Vault at {VPATH} — reusing (idempotent)")
+else:
+    pw=secrets.token_urlsafe(18)
+    w=_req(f"{VADDR}/v1/{VPATH}", data={"data":{"value":pw}}, headers={"X-Vault-Token":VTOK,"Content-Type":"application/json"}, method="POST")
+    print(f"[phase7] stored trust-writer password in Vault at {VPATH}" if not isinstance(w, urllib.error.HTTPError) else f"[phase7] VAULT WRITE FAILED: {w.code}")
+u=_req(f"{IDN}/users", data={"username":USER,"tenant":TENANT,"roles":[]}, headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
+print("[phase7] identity user ensured:", "OK" if not isinstance(u, urllib.error.HTTPError) else f"{u.code} (exists ok)")
+s=_req(f"{IDN}/set-password", data={"username":USER,"tenant":TENANT,"password":pw,"must_reset":False}, headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
+print("[phase7] trust-writer login password set:", "OK" if not isinstance(s, urllib.error.HTTPError) else f"{s.code}")
+PY
+
+echo "── Phase 8 · network capability_catalog (Trust-plane governance needs it for grants) ────────────"
+# define_capability/issue_grant require the network.network to carry a capability_catalog ref. The minimal
+# Phase-3 network record has none; create an empty catalog + link it (own-tenant writes by the network admin).
+XNET env INSTANCE="$INSTANCE" OPERATOR_PASSWORD="$OPERATOR_PASSWORD" python3 - <<'PY'
+import os, json, urllib.request, urllib.error
+inst=os.environ["INSTANCE"]; pw=os.environ["OPERATOR_PASSWORD"]; IDN="http://identity:8093"; KRN="http://kernel:8080"
+lg=json.loads(urllib.request.urlopen(urllib.request.Request(f"{IDN}/realms/{inst}-network/login",
+    data=json.dumps({"username":"admin","password":pw}).encode(),headers={"Content-Type":"application/json"},method="POST"),timeout=20).read())
+tok=lg.get("token") or lg.get("access_token")
+def post(path,body):
+    rr=urllib.request.Request(KRN+path,data=json.dumps(body).encode(),headers={"Content-Type":"application/json","Authorization":"Bearer "+tok},method="POST")
+    try: return urllib.request.urlopen(rr,timeout=20).getcode()
+    except urllib.error.HTTPError as e: return e.code
+q=post  # alias
+cur=json.loads(urllib.request.urlopen(urllib.request.Request(KRN+"/v1/registry/resolve",
+    data=json.dumps({"filter":{"schema":"network.network"},"id_prefix":[f"ds:{inst}-network:"]}).encode(),
+    headers={"Content-Type":"application/json","Authorization":"Bearer "+tok},method="POST"),timeout=20).read())
+net=next((o for r in (cur.get("results") or []) for o in [r.get("object") or r] if isinstance(o,dict) and o.get("slug")=="localdev"), None)
+if not net: print("[phase8] localdev network not found — skip"); raise SystemExit(0)
+ulid=net["id"].split(":",1)[1]; net_oid=f"ds:{inst}-network:network/network/{ulid}"; cat_oid=f"ds:{inst}-network:network/capability_catalog/localdev"
+if net.get("capability_catalog")==cat_oid:
+    print("[phase8] capability_catalog already linked — idempotent"); raise SystemExit(0)
+print("[phase8] create capability_catalog:", post("/v1/registry/objects",{"id":cat_oid,"object":{"schema":"network.capability_catalog","id":cat_oid,"network":net["id"],"capabilities":[]}}))
+net["capability_catalog"]=cat_oid
+print("[phase8] link into network.network:", post("/v1/registry/objects",{"id":net_oid,"object":net}))
+PY
+
 echo "✓ bootstrap-dev complete."

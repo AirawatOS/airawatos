@@ -1,7 +1,7 @@
 # AirawatOS — LOCAL-DEV stack, built FROM SOURCE (committed hashes), separate from deploy/local/.
 #   kernel      = manishsv/airawatos-kernel:dev-021fa22     (kernel feat/admin-issuer-scope)
 #   network     = manishsv/airawatos-network:dev-56fd371    (network feat/trust-plane-phase1; mint-on-demand TRUST_READ_TOKEN)
-#   reference   = manishsv/airawatos-reference:dev-82472e7  (platform-spec feat/network-console-multinetwork)
+#   reference   = manishsv/airawatos-reference:dev-44a3706  (platform-spec feat/network-console-multinetwork)
 #     (components feat/network-console-multinetwork @ 0250c71 delivered from the working tree at install)
 # NO data-mount here (that is kernel/platform-spec feat/data-mount — a later slice).
 #
@@ -21,7 +21,7 @@ x-devenv: &devenv
   AIRAWAT_ALLOW_PASSWORDLESS: "1"     # reference IdP passwordless dev auth (gated: prod-guard blocks under production)
 
 x-ref: &ref                          # one source-built reference image; many services (per-service command)
-  image: manishsv/airawatos-reference:dev-82472e7
+  image: manishsv/airawatos-reference:dev-44a3706
   restart: unless-stopped
   entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]     # production guard (effective-settings check)
   volumes: [ ./prod-guard.sh:/local-dev/prod-guard.sh:ro ]
@@ -84,7 +84,7 @@ services:
     restart: unless-stopped
 
   network:
-    image: manishsv/airawatos-network:dev-c08ba28
+    image: manishsv/airawatos-network:dev-ec365a4
     container_name: airawat-ld-network
     entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]
     command: ["sh","-c","exec uvicorn api:app --host 0.0.0.0 --port 8090"]   # entrypoint override clears image CMD → set it
@@ -118,8 +118,14 @@ services:
       # authority_tenant=airawat → no local principal is platform-authority, so networks/mine is role-scoped.
       TRUST_PLANE_ENABLED: "1"
       TRUST_KERNEL_URL: http://kernel:8080
-      TRUST_AUTHORITY_TENANT: airawat
+      TRUST_AUTHORITY_TENANT: airawat                       # is_platform_authority identity (no local principal is in it → role-scoped)
+      TRUST_WRITE_STEWARD: localdev-network                 # store WRITE/ownership steward = where the Trust records live (ds:localdev-network:)
       TRUST_AUDIT_HMAC_VAULT_PATH: secret/data/localdev-network/trust-plane/audit_hmac
+      # Governance WRITES persist via a DEDICATED trust-writer principal (own-tenant write to the steward
+      # above; role []; NEVER platform.service), minted on demand from Vault — separate from trust-reader.
+      TRUST_WRITER_TENANT: localdev-network
+      TRUST_WRITER_PRINCIPAL: trust-writer
+      TRUST_WRITER_VAULT_PATH: secret/data/localdev-network/trust-writer/password
       ENSURE_DEV_TENANT: "0"                                # operator-first; bootstrap-dev.sh provisions
     depends_on:
       postgres: { condition: service_healthy }
