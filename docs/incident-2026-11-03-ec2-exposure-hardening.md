@@ -86,3 +86,60 @@ All command blocks are in the owner's runbook (this session's reply of 2026-11-0
 - Identity signing-key rotation (invalidate in-flight JWTs) — approved separately, gated on step 3.
 - Capture + commit the live EC2 nginx config (step 7).
 - Broader: ADR-0124 (retire shared-secret internal gates, no fail-open) addresses B4/B5/B14 durably.
+
+---
+
+## Outage post-mortem — self-inflicted, caused by the hardening's persistence step (2026-11-03, ~evening IST)
+
+**Severity:** full production outage. `https://airos.airawat.org/` returned **502 Bad Gateway** for all users.
+**Cause:** my own guidance. **Duration:** until the FORWARD REJECT was deleted (below). **Fully resolved.**
+
+### Architecture (clarified during triage)
+Internet → **edge nginx** (separate Ubuntu host, `nginx/1.24.0 (Ubuntu)`, terminates TLS) → **this box**
+(`13.205.13.220`, Amazon Linux 2023) `airawat-nginx` container on `:80` → proxies by vhost to
+`app-host:8099`, `keycloak:8080`, `network:8090` over the `airawatos_default` Docker bridge.
+
+### What happened
+While persisting the earlier port-containment drops, I had the owner run **`sudo systemctl enable --now
+iptables`**. On AL2023 that starts **`iptables-services`**, which `iptables-restore`s the stock
+`/etc/sysconfig/iptables`. That default ruleset contains **`-A FORWARD -j REJECT --reject-with
+icmp-host-prohibited`**, which **rejects all forwarded traffic** — i.e. every Docker inter-container hop.
+`airawat-nginx` could no longer reach **any** upstream (`network`, `keycloak`, `app-host` all showed
+*"host unreachable"* / 100% ping loss on the shared bridge) → nginx returned 502 for everything.
+
+### What it was NOT
+- **Not** the DOCKER-USER port drops (9000/8082/8083/1162). On this **nft-backed** box those legacy-iptables
+  inserts largely no-op'd and never matched the serving path; `nft` isn't even installed.
+- **Not** app-host. Its PID 1 (`python reference/app_host.py … --port 8099`) was alive and had served nginx
+  as recently as minutes before; only non-fatal `BrokenPipeError`s (clients disconnecting) in its log.
+- **Not** disk (41% used) and **not** a crashed/exited container (all `Up`).
+
+### Diagnosis trail
+`curl localhost:80` on the box → **502** (so the box itself, not the edge, was answering 502) → from
+`airawat-nginx`, **all three** upstreams connect-fail + ping 100% loss though on the same bridge → bridge
+forwarding broken, not a single service → `sudo iptables -S FORWARD` →
+`-P FORWARD ACCEPT` **+ `-A FORWARD -j REJECT --reject-with icmp-host-prohibited`** = smoking gun.
+
+### Fix (owner-run; the Claude Code classifier blocked the delete as "Security Weaken")
+```
+sudo iptables -D FORWARD -j REJECT --reject-with icmp-host-prohibited   # → site_local=200 immediately
+# make reboot-safe without touching live rules:
+sudo systemctl disable iptables                                         # off the boot target
+sudo sed -i.bak '/-A FORWARD -j REJECT --reject-with icmp-host-prohibited/d' /etc/sysconfig/iptables
+```
+Verified: `https://airos.airawat.org/` → **200** end-to-end (from outside, ~1.0s); `is-enabled: disabled`;
+saved file FORWARD line is now only `:FORWARD ACCEPT [0:0]`. Backup at `/etc/sysconfig/iptables.bak`.
+**Undo (re-add the host firewall) if ever wanted:** `sudo iptables -A FORWARD -j REJECT --reject-with
+icmp-host-prohibited`.
+
+### HARD RULE (carry forward)
+**On this EC2 box, never use host-level `iptables` / `iptables-services` to firewall ports.** It collides
+with Docker's nft-managed rules and can take the whole stack down. Before today `iptables-services` was
+*disabled* and the stack ran fine for days on Docker's own rules + the AWS security group.
+- **Perimeter** = the **AWS security group** (restrict a port to the edge host's IP there).
+- **Local scoping** = **container port-binding** (publish on `127.0.0.1:PORT` in compose), not host firewall.
+
+### Still-open (deferred; do NOT redo with host iptables)
+- The OpenFGA (`8082/8083`), Portainer (`9000`), backend (`1162`) **internet exposure** that this hardening
+  was trying to contain is **still open**. Contain it the safe way only: tighten the **security group**, or
+  rebind those containers to `127.0.0.1` in their compose — never host iptables on this box.
