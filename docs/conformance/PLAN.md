@@ -205,19 +205,28 @@ XFAIL (violation present); **401/403** = gate active → SKIP_BUILD; **404 / unr
 
 ## Run results — 2026-11-03
 
+**Credentials diagnosis:** `.creds.json` loads correctly (5 users; admin and outsider sessions both open) —
+the loader was never broken. The 8 cases that previously showed SKIP_CREDS were **unimplemented stubs
+mislabeled**. Fixed: implemented **F2** (valid non-admin session denied a governance write — outsider →
+`/bridge/role-grant` 403) and **C1** (unregistered embed client → 400); the remaining six (F14, R1, R3, R7,
+N1, N9) are reclassified **SKIP_BUILD** with honest reasons (no black-box registry-write bridge; `/bridge/roles`
+and the capability-grant bridge refuse even the tenant admin). Net: **nCRED = 0** — nothing skips for
+"missing credentials" any more.
+
 **External mode** (`127.0.0.1:8080`, credentials supplied):
 
 | Spec | PASS | XFAIL | XPASS | FAIL | nCRED | nBUILD |
 |------|----|----|----|----|----|----|
-| FOUNDATIONS | 4 | 0 | 0 | 0 | 2 | 4 |
-| REGISTRY | 1 | 2 | 0 | 0 | 3 | 6 |
+| FOUNDATIONS | 5 | 0 | 0 | 0 | 0 | 5 |
+| REGISTRY | 1 | 2 | 0 | 0 | 0 | 9 |
 | DECISION | 0 | 0 | 0 | 0 | 0 | 9 |
-| NETWORK | 1 | 0 | 0 | 0 | 2 | 3 |
+| NETWORK | 1 | 0 | 0 | 0 | 0 | 5 |
 | ACCOUNT | 1 | 0 | 0 | 0 | 0 | 7 |
-| CLIENT | 0 | 0 | 0 | 0 | 1 | 2 |
-| **TOTAL** | **7** | **2** | **0** | **0** | **8** | **31** |
+| CLIENT | 1 | 0 | 0 | 0 | 0 | 2 |
+| **TOTAL** | **9** | **2** | **0** | **0** | **0** | **37** |
 
-XFAIL: anon kernel read = 200, anon existence-check = 200 (debt A1). admin session opens (PASS).
+PASS now includes F1 (admin session opens), **F2** (outsider denied governance write 403), **C1**
+(unregistered client rejected 400). XFAIL: anon kernel read = 200, anon existence-check = 200 (debt A1).
 
 **Internal mode** (in-cluster, container on the ld network):
 
@@ -243,8 +252,26 @@ from the ld stack). Both modes exit 0 (no FAIL, no XPASS).
   (D1,D3,D4,D6,D7,D8,D10,D11,D12 — no decision records emitted), REGISTRY R12/R14/R15/R16, FOUNDATIONS
   F5/F7/F16/F17, ACCOUNT A2/A3/A7/A8/A9/W3/W4, CLIENT C6, NETWORK N4 — each for a stated reason (feature
   PLANNED, startup/restart-time, or audit store not externally readable).
-- **B15** (run_token leak): no false pass anymore — SKIP_BUILD because the local-dev component catalogue is
-  empty (nothing to install to populate INSTALLED); set `AOS_TEST_COMPONENT` to a published cid to exercise.
+- **B15** (run_token leak): no false pass anymore — SKIP_BUILD. **Apps ≠ kernel-installed components:** the
+  bootstrap *certifies and shelves 8 base **apps*** (kind:app — static front-end bundles delivered via
+  filestore and made visible per tenant via `platform.app_shelf`); apps get **no runtime container and no
+  `run_token`** and are **not** in the kernel `INSTALLED` map. Only **engines/drivers/connectors** installed
+  via `POST /v1/components/install` (`_install_one` → `_mint_run_token`) populate `INSTALLED` with a
+  `run_token`. So "8 certified apps but INSTALLED empty" is expected, not a bug. B15 cannot be exercised live
+  on this local-dev stack for two reasons: (1) **no components are published** — `platform.component` /
+  `component.listing` / `marketplace.listing` all return 0 records and `/bridge/components` is empty, so
+  there is nothing to install; (2) the admin session is **403 on `/bridge/install`** (lacks the
+  `platform.component_install` grant). The leak itself is **structurally confirmed** in code (kernel
+  `/v1/components` returns `list(INSTALLED.values())` unauthenticated, and `INSTALLED` entries carry
+  `run_token` — debt B15, `app.py:2369/2058`); it only manifests once `INSTALLED` is non-empty. To exercise:
+  publish+certify a driver from `components/drivers/*`, grant `platform.component_install`, install it, then
+  set `AOS_TEST_COMPONENT` — the suite auto-discovers a cid from `/bridge/components` and will flip B15 to
+  XFAIL when `run_token` appears.
+- **B4 runtime-manager fail-open** (`RUNTIME_MANAGER_INTERNAL` unset → `/invoke` fail-open): **cannot be
+  exercised locally** — there is **no runtime-manager service in the local-dev stack** (not in the ld
+  compose). The internal runner records it SKIP_BUILD. This case is **covered by the EC2 hardening task**,
+  where runtime-manager runs; the secrets `/materialize` & `/fetch` fail-open likewise needs the gate env
+  UNSET, which the EC2 task can assess without a local service change.
 - **R10** (determinism): no longer a trivial-on-empty pass — NEEDS-CREDENTIALS/SKIP (anon reads return 0
   rows; a records-returning resolve bridge was not found black-box).
 

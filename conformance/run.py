@@ -119,6 +119,16 @@ def run_no_cred_cases():
     expect("ACCOUNT", "A4", "handle/username is not a credential (abuse)", st in (401, 403),
            "login admin/pw=admin -> %s" % st)
 
+    # C1 — an unregistered client is rejected at /embed/authorize (no cred needed).
+    st, _, _ = http("GET", "/embed/authorize?client_id=__conformance_unregistered__&scope=profile"
+                           "&redirect_uri=https://x.test/cb&code_challenge=x&code_challenge_method=S256")
+    if st in (0, 404):
+        record("CLIENT", "C1", "unregistered client rejected (abuse) [debt A47]", "testable", "SKIP_BUILD",
+               "/embed/authorize not reachable (%s)" % st)
+    else:
+        expect("CLIENT", "C1", "unregistered client rejected (abuse) [debt A47]", st not in (200, 302),
+               "unregistered client_id -> %s (want reject, not 200/302)" % st)
+
     st, _, _ = http("GET", "/embed/authorize?client_id=demo-embed&scope=service:invoke"
                            "&redirect_uri=https://example.test/cb&code_challenge=x&code_challenge_method=S256")
     if st in (200, 302):
@@ -189,21 +199,29 @@ def case_R10(cookie):
     expect("REGISTRY", "R10", "deterministic resolution over %d records (pos)" % n, s1 == s2 and b1 == b2,
            "two resolves of %s -> %s/%s identical=%s" % (schema, s1, s2, b1 == b2))
 
-CRED_PLACEHOLDERS = [
-    ("FOUNDATIONS","F2","valid token w/o grant cannot do privileged write [debt B1]"),
-    ("FOUNDATIONS","F14","role assignment names its grantor (granted_by)"),
-    ("REGISTRY","R1","write then re-read by id — id stable"),
-    ("REGISTRY","R3","supersede creates new version; prior addressable"),
-    ("REGISTRY","R7","written record carries provenance [debt A2 shadow]"),
-    ("NETWORK","N1","slug/tenant not accepted as net authority [debt B11/B2]"),
-    ("NETWORK","N9","wildcard/unversioned capability grant rejected [debt B12]"),
-    ("CLIENT","C1","unregistered client rejected [debt A47]"),
+# Remaining needs-cred rules with no black-box write/read bridge mapped in the first suite.
+# /bridge/resolve returns 500 for these schemas and there is no registry-write bridge, and /bridge/roles
+# refuses even the tenant admin ("requires a tenant admin") — so these are honestly SKIP_BUILD, not SKIP_CREDS.
+CRED_NO_BRIDGE = [
+    ("FOUNDATIONS","F14","role assignment names its grantor (granted_by)","no grantor-returning read bridge (/bridge/roles refuses tenant admin)"),
+    ("REGISTRY","R1","write then re-read by id — id stable","no black-box registry-write bridge"),
+    ("REGISTRY","R3","supersede creates new version; prior addressable","no black-box registry-write bridge"),
+    ("REGISTRY","R7","written record carries provenance [debt A2 shadow]","no black-box registry-write bridge"),
+    ("NETWORK","N1","slug/tenant not accepted as net authority [debt B11/B2]","needs a governance call asserting slug==tenant; no bridge mapped"),
+    ("NETWORK","N9","wildcard/unversioned capability grant rejected [debt B12]","capability-grant bridge refuses the tenant admin; shape not drivable black-box"),
 ]
+def case_F2_no_grant(outsider_cookie):
+    """A valid NON-admin session must be denied a governance write — authority from a grant, not auth."""
+    st, _, _ = http("POST", "/bridge/role-grant", {"principal": "x", "role": "network.admin"}, cookie=outsider_cookie)
+    expect("FOUNDATIONS", "F2", "valid non-admin session denied governance write (abuse)",
+           st in (401, 403), "outsider POST /bridge/role-grant -> %s (want 401/403)" % st)
+
 def run_cred_cases():
     if not CREDS:
         record("REGISTRY","B15","components list does not leak run_token (abuse) [debt B15]","needs-creds","SKIP_CREDS","needs admin session to install first")
         record("REGISTRY","R10","deterministic resolution over records (pos)","needs-creds","SKIP_CREDS","needs a reader session to see records")
-        for s,r,n in CRED_PLACEHOLDERS: record(s,r,n,"needs-creds","SKIP_CREDS","supply AOS_TEST_USERS to enable")
+        record("FOUNDATIONS","F2","valid non-admin session denied governance write (abuse)","needs-creds","SKIP_CREDS","needs a non-admin session")
+        for s,r,n,why in CRED_NO_BRIDGE: record(s,r,n,"needs-build","SKIP_BUILD",why)
         return
     cookie, msg = login_session("admin")
     expect("FOUNDATIONS","F1","authenticated session opens (pos)", bool(cookie), "admin login: %s" % msg)
@@ -212,7 +230,12 @@ def run_cred_cases():
     else:
         record("REGISTRY","B15","components list does not leak run_token (abuse) [debt B15]","needs-creds","SKIP_CREDS","admin login failed: %s"%msg)
         record("REGISTRY","R10","deterministic resolution over records (pos)","needs-creds","SKIP_CREDS","admin login failed: %s"%msg)
-    for s,r,n in CRED_PLACEHOLDERS: record(s,r,n,"needs-creds","SKIP_CREDS","not implemented in first suite")
+    ocookie, omsg = login_session("outsider")
+    if ocookie:
+        case_F2_no_grant(ocookie)
+    else:
+        record("FOUNDATIONS","F2","valid non-admin session denied governance write (abuse)","needs-creds","SKIP_CREDS","outsider login failed: %s"%omsg)
+    for s,r,n,why in CRED_NO_BRIDGE: record(s,r,n,"needs-build","SKIP_BUILD",why)
 
 # ============================ EXTERNAL: NEEDS-BUILD (genuinely not built) ============================
 NEEDS_BUILD = [
