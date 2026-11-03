@@ -109,4 +109,42 @@ else:
     print("[phase4] self-membership NOT created (set SELF_MEMBERSHIP=1 to opt in)")
 PY
 
+echo "── Phase 5 · trust-reader service principal (role-mode mint-on-demand reader) ──────────────────"
+# Role mode (NETWORK_ADMIN_AUTHZ=role) mints its kernel-read token on demand for a DEDICATED read-only
+# principal, password in Vault (never compose). Provision both here so role mode works with NO manual token.
+# Idempotent: if the Vault password + identity user already exist, reuse them (no rotation, no write).
+XNET env II="airawat-ld-identity-internal" TENANT="${INSTANCE}-network" USER="trust-reader" \
+        VPATH="secret/data/${INSTANCE}-network/trust-reader/password" python3 - <<'PY'
+import os, json, secrets, urllib.request, urllib.error
+IDN="http://identity:8093"; VADDR=os.environ.get("VAULT_ADDR","http://vault:8200"); VTOK=os.environ["VAULT_TOKEN"]
+II=os.environ["II"]; TENANT=os.environ["TENANT"]; USER=os.environ["USER"]; VPATH=os.environ["VPATH"]
+def _req(url, data=None, headers=None, method="GET"):
+    r=urllib.request.Request(url, data=(json.dumps(data).encode() if data is not None else None),
+                             headers=headers or {}, method=method)
+    try: return urllib.request.urlopen(r, timeout=10).read()
+    except urllib.error.HTTPError as e: return e
+def vault_get():
+    b=_req(f"{VADDR}/v1/{VPATH}", headers={"X-Vault-Token":VTOK})
+    if isinstance(b, urllib.error.HTTPError): return None
+    return (((json.loads(b) or {}).get("data") or {}).get("data") or {}).get("value")
+existing = vault_get()
+if existing:
+    print(f"[phase5] trust-reader password already in Vault at {VPATH} — reusing (idempotent, no write)")
+    pw = existing
+else:
+    pw = secrets.token_urlsafe(18)
+    # KV v2 write
+    w=_req(f"{VADDR}/v1/{VPATH}", data={"data":{"value":pw}},
+           headers={"X-Vault-Token":VTOK,"Content-Type":"application/json"}, method="POST")
+    print(f"[phase5] stored trust-reader password in Vault at {VPATH}" if not isinstance(w, urllib.error.HTTPError)
+          else f"[phase5] VAULT WRITE FAILED: {w.code} {(w.read() or b'').decode()[:120]}")
+# ensure the identity user exists (role [] — NOT platform.service) + set its password (idempotent)
+u=_req(f"{IDN}/users", data={"username":USER,"tenant":TENANT,"roles":[]},
+       headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
+print("[phase5] identity user ensured:", "OK" if not isinstance(u, urllib.error.HTTPError) else f"{u.code} (exists ok)")
+s=_req(f"{IDN}/set-password", data={"username":USER,"tenant":TENANT,"password":pw,"must_reset":False},
+       headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
+print("[phase5] trust-reader login password set:", "OK" if not isinstance(s, urllib.error.HTTPError) else f"{s.code}")
+PY
+
 echo "✓ bootstrap-dev complete."

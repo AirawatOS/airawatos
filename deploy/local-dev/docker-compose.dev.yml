@@ -1,6 +1,6 @@
 # AirawatOS — LOCAL-DEV stack, built FROM SOURCE (committed hashes), separate from deploy/local/.
 #   kernel      = manishsv/airawatos-kernel:dev-021fa22     (kernel feat/admin-issuer-scope)
-#   network     = manishsv/airawatos-network:dev-f981178    (network feat/trust-plane-phase1)
+#   network     = manishsv/airawatos-network:dev-56fd371    (network feat/trust-plane-phase1; mint-on-demand TRUST_READ_TOKEN)
 #   reference   = manishsv/airawatos-reference:dev-7c778ec  (platform-spec feat/network-console-multinetwork)
 #     (components feat/network-console-multinetwork @ 0250c71 delivered from the working tree at install)
 # NO data-mount here (that is kernel/platform-spec feat/data-mount — a later slice).
@@ -84,7 +84,7 @@ services:
     restart: unless-stopped
 
   network:
-    image: manishsv/airawatos-network:dev-f981178
+    image: manishsv/airawatos-network:dev-56fd371
     container_name: airawat-ld-network
     entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]
     command: ["sh","-c","exec uvicorn api:app --host 0.0.0.0 --port 8090"]   # entrypoint override clears image CMD → set it
@@ -103,6 +103,15 @@ services:
       IDENTITY_INTERNAL: airawat-ld-identity-internal
       EXPECTED_AUDIENCE: *aud                               # network token-aud check must match the local IdP audience (§8 alignment)
       IDENTITY_HOME_ISS: *iss                               # issuer-scoped admin/publisher authority = the local home issuer (hardening)
+      NETWORK_ADMIN_AUTHZ: role                             # Commit-D role-based admin authz (local-dev validation; global all-or-nothing)
+      # Role-mode Trust reader — mint-on-demand (NO manual token): the network mints a short-lived read token
+      # for a dedicated READ-ONLY principal (role []; never platform.service) from the LOCAL identity service,
+      # using a password held in VAULT (bootstrap-dev.sh provisions both), and caches it until shortly before
+      # expiry. Fail-closed if the mint fails. (A static TRUST_READ_TOKEN, if ever set, still wins — tests only.)
+      KERNEL_URL: http://kernel:8080
+      TRUST_READER_TENANT: localdev-network                 # reader's home realm = where the Trust records' steward lives
+      TRUST_READER_PRINCIPAL: trust-reader                  # dedicated read-only service principal
+      TRUST_READER_VAULT_PATH: secret/data/localdev-network/trust-reader/password   # KV v2; value under .data.data.value
       ENSURE_DEV_TENANT: "0"                                # operator-first; bootstrap-dev.sh provisions
     depends_on:
       postgres: { condition: service_healthy }
