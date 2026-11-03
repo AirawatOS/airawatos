@@ -159,6 +159,34 @@ Suite exit: non-zero only on a **FAIL** (a TESTABLE-NOW case that did not behave
 
 ---
 
+## PLATFORM (P1–P15) — see [[PLATFORM-v0.1]]
+
+All Platform rules are governance/installer/onboarding flows that are not built or need a platform-authority
+session + onboarding records that do not exist in local-dev → **NEEDS-BUILD**, except the slivers noted.
+
+| Rule | Case (type) | Classification | Expected observable |
+|------|-------------|----------------|---------------------|
+| P1 | installer creates only the minimum; idempotent (pos) | NEEDS-BUILD | install-time; inspect the seed set (not black-box at runtime) |
+| P2 | first platform.authority via one-time expiring installer cred (pos) | NEEDS-BUILD | install-time; one-time cred not built [A17] |
+| P3 | operator holds no governance role (abuse) | NEEDS-BUILD | needs operator identity; separation not enforced [A38] |
+| P4 | platform-tenant member w/o a grant is denied a privileged act (abuse) | NEEDS-CREDENTIALS | EXPECTED-FAIL [B2/A17] — needs a platform-tenant session (not in local-dev creds) |
+| P5 | grant platform.authority needs 2nd-holder CR; last holder not removable (abuse) | NEEDS-BUILD | recorded-role path not the enforced one [A17] |
+| P5a | break-glass custodian quorum restores only platform.authority (pos) | NEEDS-BUILD | not built (ADR-0122 open item) |
+| P6 | security-sensitive policy change requires a ChangeRequest (abuse) | NEEDS-BUILD | tier/issuer/suspension policy records not built |
+| P7 | onboarding mode is a recorded policy (pos) | NEEDS-BUILD | onboarding-mode policy not a single record |
+| P8 | application record + ≥1 steward review; authority-fallback recorded (pos) | NEEDS-BUILD | application record + steward queue not built |
+| P8a | verification methods (gov email+letter / GST) (pos) | NEEDS-BUILD | no verification-method registry |
+| P9 | self-provisioned tenant starts sandbox; sandbox cannot create a Network (abuse) | NEEDS-CREDENTIALS | needs a sandbox-tenant session; tier constraints [A28] *to confirm* |
+| P10 | approval creates identity+keys+platform-signed directory entry+tenant.admin (pos) | NEEDS-BUILD | keys + signed directory entry at approval *to confirm* |
+| P11 | tenant.admin never zero; network.creator tier-gated (abuse) | NEEDS-CREDENTIALS | needs tenant-admin session; floor/gating *to confirm* |
+| P12 | tenant own-login allowed only if tier+policy permit; approval recorded (abuse) | NEEDS-BUILD | tier/policy gating of own-IdP not built; N7 VIOLATED |
+| P13 | suspension halts principals, history readable; closure cascades + erases (pos) | NEEDS-BUILD | suspend/close lifecycle not built (N4, R14) |
+| P14 | admin visibility + action re-checked server-side from recorded roles (abuse) | PARTIAL / NEEDS-CREDENTIALS | anon governance-write denied (N3) already PASSes as one slice; full recheck needs sessions [B17/B1] |
+| P15 | public front door exposes only apply/verify/status; admin routes separate (abuse) | NEEDS-BUILD | apply/verify/status front door + bot-protection not built |
+
+Testable-now slivers already covered elsewhere: P14's server-side denial of an anonymous governance write =
+the NETWORK **N3** PASS; P4's authority-from-tenant is the same root as the external R6 posture + debt B2.
+
 ## Internal runner (step 3)
 The reference services are not published at the edge, so external mode cannot reach them. An **internal
 runner** executes the same suite (`AOS_MODE=internal`) inside a container on the local-dev docker network

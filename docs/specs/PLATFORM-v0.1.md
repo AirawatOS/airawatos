@@ -1,0 +1,195 @@
+# PLATFORM-v0.1 — Platform lifecycle: install, platform authority, tenants, onboarding, administration
+
+**Status:** Draft v0.1 · **Date:** 2026-11-03
+**Builds on:** [[FOUNDATIONS-v0.1]] (F1–F17), [[REGISTRY-v0.1]] (R1–R16), [[DECISION-v0.1]] (D1–D12),
+[[NETWORK-v0.1]] (N1–N12), [[ACCOUNT-v0.1]] (A1–A9/W1–W4), [[CLIENT-v0.1]] (C1–C6) — assumed, not restated.
+This spec governs the **platform itself**: what the installer creates, how platform authority is held and
+recovered, how tenants are onboarded and tiered, and how platform administration is exposed. Every object
+here is a governed registry record (REGISTRY), every authorizing act a decision (DECISION), authority only
+from recorded grants (FOUNDATIONS §3).
+**Debt references** → `../consolidation/DEBT-REGISTER.md` (A1–A61, B1–B18). *(to confirm)* = not traced.
+**Status legend:** IN PLACE · PARTIAL · VIOLATED · PLANNED · TO CONFIRM.
+
+---
+
+## Platform rules
+
+### P1 — The installer creates only the minimum
+A fresh install creates **only**: keys in Vault; a **required durable store** (fail-loud if absent); **base
+schemas**; **exactly one platform tenant**; **service identities with recorded service roles**; **certified
+platform apps**. It creates **no other tenants, Networks, memberships, or grants**. **Demo tenants exist only
+under the dev profile.** Re-runs are **idempotent**.
+- **Status: PARTIAL.** The installer seeds base vocab + base apps in-process (ADR-0115) and bootstrap is
+  idempotent; the network requires a durable backend (fail-loud). But: prod-pointing defaults still exist
+  (`ds:airawat:identity`/`airawatos`, debt A7/A8); demo seeding is a flag (`IDENTITY_SEED_DEMO`, A32) rather
+  than strictly dev-profile-gated; "exactly one platform tenant and nothing else" is **(to confirm)** against
+  the seed set. Service identities are **passwordless** today (debt A26/B14), not credentialed service roles.
+- **Refs:** ADR-0115 (installer base-OS seeding), platform-content-reset; A7, A8, A32, A26, B14; F16 (safe
+  defaults).
+
+### P2 — First platform.authority via a one-time installer credential
+The **first `platform.authority`** is created **once** via a **one-time installer credential that then
+expires**; a **second holder is added promptly**.
+- **Status: PARTIAL / PLANNED.** ADR-0122 defines the first-grant seed (installer-seeded `platform.authority`),
+  but `is_platform_authority` is still derived from a **tenant name** (debt A17), not a recorded role, and
+  the **one-time-expiring installer credential** + enforced **prompt second holder** are PLANNED.
+- **Refs:** ADR-0122 (first-grant seed), A17; F11 (SoD), F14 (traceable).
+
+### P3 — The operator holds no governance role
+The **operator** (host/infra) holds **no governance role**. **Identity-service and Vault administration**
+require **strong auth**, **audited admin actions**, and **separation from governance roles**.
+- **Status: PARTIAL / TO CONFIRM.** The operator model exists (ADR-0086 operator certification; ADR-0096
+  operator = `kind:operator`). "Operator holds no governance role" separation is **(to confirm)**; Vault
+  admin uses a dev root token today (debt A38) — not strong-auth + audited; identity admin audit **(to
+  confirm)**.
+- **Refs:** ADR-0086, ADR-0096; A38 (dev root Vault token); F12 (audit). Separation enforcement **(to
+  confirm)**.
+
+### P4 — The platform tenant confers nothing
+Membership of, or being, the **platform tenant grants no authority** by itself (FOUNDATIONS F3).
+- **Status: VIOLATED.** Today `is_platform_authority = (tenant == authority_tenant)` and network-admin is
+  implied by `tenant == "airawat"` — the platform tenant **does** confer authority (debt B2, A17).
+- **Refs:** **B2**, A17; F3. The fix is P5 (recorded `platform.authority` role) — PLANNED.
+
+### P5 — platform.authority is a recorded role
+`platform.authority` is a **recorded role**, with **never zero holders**. A grant requires a **ChangeRequest
+approved by a different holder** (SoD); **removing the last holder is refused**.
+- **Status: PARTIAL.** SoD + last-holder floor for `platform.authority` are **defined** (ADR-0122) and the
+  Trust-plane role path is proven, but the live `is_platform_authority` is still tenant-name-derived (A17),
+  so the recorded-role form is not yet the enforced one.
+- **Refs:** ADR-0122, A17; F11.
+
+### P5a — Break-glass recovery
+A **recovery key split among named custodians**; **quorum required**; it can **only restore a
+`platform.authority` holder**; its use is **publicly and permanently recorded**.
+- **Status: PLANNED (open item).** ADR-0122 explicitly lists break-glass recovery as an **open item**; no
+  custodian-quorum key, restore-only scope, or public record exists yet.
+- **Refs:** ADR-0122 (break-glass open item); F11, F12.
+
+### P6 — What platform authority decides
+Platform authority decides: **tenant policy and tiers**, **allowed external issuers and proofing sources**,
+**Network-creation permission**, and **tenant/Network suspension with recorded reasons**. **Security-sensitive
+policy changes go via ChangeRequest.**
+- **Status: PARTIAL / PLANNED.** A governed policy primitive exists (`governance.policy_rule`, rule engine
+  ADR-0088 S1) and ChangeRequest is first-class (ADR-0056). But tiers, the allowed-issuer/proofing registry,
+  Network-creation permission, and suspension-with-reason (N4) are PLANNED; allowed issuers are configured by
+  env today (debt A5–A8), not a platform-authority policy record.
+- **Refs:** ADR-0088 (rule engine), ADR-0056 (CR); N4; A5–A8; DECISION D4/D6.
+
+### P7 — Onboarding mode is a recorded policy
+Onboarding mode is a **recorded policy**: **invite-only** / **request-and-approve (default)** /
+**self-provision**.
+- **Status: PARTIAL / TO CONFIRM.** Onboarding composition exists (`f(type)×f(packs)`) and participation
+  request/decide is live (ADR-0116), but onboarding **mode** as a single recorded platform policy with those
+  three values is **(to confirm)** / PLANNED.
+- **Refs:** ADR-0116, onboarding-composition, network-join-provision; P6.
+
+### P8 — Applications are records
+A tenant application is a **record**: the **applicant has their own login**; it carries **organisation,
+purpose, contact, verification evidence**; lifecycle **submitted → review → approved/rejected**. Reviews are
+by a **platform-scoped `tenant.steward`** (**at least one** required); **platform authority reviews only when
+no steward is available, and that is recorded**.
+- **Status: PLANNED.** Participation request/decide (ADR-0116) is the nearest primitive, and publish-request
+  review governance exists for components, but a **tenant-application record** with evidence, the steward
+  review queue, the ≥1-steward rule, and the platform-authority-fallback-recorded rule are **not built**.
+- **Refs:** ADR-0116, publish-request-review-governance; N6 (join); DECISION D1/D11.
+
+### P8a — Verification methods
+**Government bodies:** an **official government email domain** plus an **authorising letter**. **Companies:**
+a **registration or GST number**. **More methods addable via ChangeRequest.**
+- **Status: PLANNED.** No verification-method registry or evidence capture exists; GST appears only as a
+  natural-key in the Kernel (debt B8), not as a governed proofing method.
+- **Refs:** B8 (GST baked in kernel), ADR-0056 (CR to add methods); P8, A3 (assurance).
+
+### P9 — Tiers: sandbox and verified
+**Sandbox** (no Network creation, no own issuer, quotas, cannot join verified-only Networks) and **verified**.
+**Self-provisioned tenants start as sandbox.**
+- **Status: PARTIAL.** A tenant `environment` field + dev/sandbox relaxation exists (ADR-0051) and the
+  sandbox-privilege rule (`authz = builder-role × dev-env`) is live, but the **tier constraints** (no
+  Network creation, no own issuer, quotas, verified-only-Network gating) and **self-provision→sandbox
+  default** are **(to confirm)** / PLANNED.
+- **Refs:** ADR-0051 (environment field, sandbox relaxation), sandbox-privilege-rule; A28 (sandbox gates);
+  N2/N9.
+
+### P10 — What approval creates
+Approving an application creates: the **workspace**, a **permanent participant identity and keys**, a
+**platform-signed directory entry**, and a **recorded `tenant.admin`** for the applicant.
+- **Status: PARTIAL.** Provisioning creates a tenant + admin (network-join-provision; dev-tenant
+  provisioning) and participants have identities; the **permanent participant keys** and **platform-signed
+  directory entry** at approval are **(to confirm)**; the join path also currently provisions a **login**
+  from the Network side (debt B9 / NETWORK N6 violation).
+- **Refs:** network-join-provision, dev-tenant-provisioning, ADR-0116; B9; NETWORK N6, N1.
+
+### P11 — Tenant roles
+**`tenant.admin`** (never zero; security-critical changes by a second holder) and **`network.creator`**
+(subject to tier and policy).
+- **Status: PARTIAL.** Roles are defined (ADR-0122) with SoD + last-holder floor for `tenant.admin`;
+  `network.creator` exists. **Tier/policy gating of `network.creator`** and the per-tenant never-zero /
+  second-holder enforcement are **(to confirm)**.
+- **Refs:** ADR-0122; P9, NETWORK N3; F11.
+
+### P12 — A tenant's own login system
+A tenant may run **its own login system only if tier and policy permit**; it is **scoped to that tenant**,
+carries **identity only** (F1), and its **approval is recorded** (F15).
+- **Status: PARTIAL / VIOLATED.** Pluggable IdP + per-tenant realms exist (ADR-0068, ADR-0117,
+  identity-login-realms), and `authn.register_issuer` pins the tenant (F15 PARTIAL). But issuer trust is
+  **service-wide, approvable by membership.steward** today (NETWORK N7 VIOLATED), and **tier/policy gating**
+  of running an own IdP is PLANNED.
+- **Refs:** ADR-0068, ADR-0117, identity-login-realms; F15, NETWORK N7; P9.
+
+### P13 — Suspension and closure
+**Suspension** stops a tenant's principals acting; **history stays readable**. **Closure** withdraws
+memberships and grants and triggers **erasure subject to legal retention**. A tenant **governing Networks
+cannot close until each is transferred or retired**.
+- **Status: PLANNED.** The suspend/close lifecycle (principals-halted + history-readable, cascade
+  withdrawal, erasure-subject-to-retention, the governing-Network transfer/retire precondition) is **not
+  built** — erasure inherits REGISTRY R14 (PLANNED) and the suspend semantics inherit NETWORK N4 (PLANNED).
+- **Refs:** NETWORK N4, REGISTRY R14, ADR-0125; DECISION D6.
+
+### P14 — Platform Administration
+Admin **visibility is computed server-side from recorded roles**; **every action is re-checked server-side**;
+**tenant stewards see only the application queue and tenant list**.
+- **Status: PARTIAL / VIOLATED.** Apps gate UI by role/session in JS (debt B17), and authority is largely
+  read from token role claims rather than recorded state (debt B1) — so server-side-recheck-from-recorded-
+  roles is not uniformly held. The multi-network console computes manageable sets by role, but with the
+  app-host `networks-mine` fabrication caveat (debt B2/A25). Server-side re-check on **every** admin action
+  is **(to confirm)**.
+- **Refs:** B17 (client-side role gating), B1, B2/A25; network-console-multinetwork; F2.
+
+### P15 — Public front door
+The public front door exposes **only** apply / verify-email / check-status; it is **rate-limited**,
+**bot-protected**, and **separate from admin routes**.
+- **Status: PLANNED / TO CONFIRM.** Public no-login surfaces exist (`/t/<tenant>` public apps + SSR agency
+  presence, public-apps-and-tenant-home, ADR-0111), but a dedicated **apply/verify/status** front door with
+  rate-limiting, bot-protection, and route-separation from admin is **not built / (to confirm)**; CAPTCHA/bot
+  protection is not present.
+- **Refs:** public-apps-and-tenant-home, ADR-0111; P8/P8a; CLIENT C5 (anti-enumeration).
+
+---
+
+## Summary of status
+
+| Rule | Topic | Status | Key debt / refs |
+|------|-------|--------|-----------------|
+| P1 | Installer minimum + idempotent | PARTIAL | ADR-0115; A7/A8/A32/A26/B14 |
+| P2 | First platform.authority via one-time cred | PARTIAL/PLANNED | ADR-0122; A17 |
+| P3 | Operator holds no governance role | PARTIAL/TO CONFIRM | ADR-0086/0096; A38 |
+| P4 | Platform tenant confers nothing | **VIOLATED** | **B2**, A17 |
+| P5 | platform.authority recorded, never zero, SoD | PARTIAL | ADR-0122; A17 |
+| P5a | Break-glass recovery (custodian quorum) | PLANNED | ADR-0122 (open item) |
+| P6 | Platform authority decides policy/tiers/issuers/suspension | PARTIAL/PLANNED | ADR-0088/0056; N4; A5–A8 |
+| P7 | Onboarding mode recorded policy | PARTIAL/TO CONFIRM | ADR-0116; onboarding-composition |
+| P8 | Applications are records + steward review | PLANNED | ADR-0116; publish-request-review |
+| P8a | Verification methods (gov/company) | PLANNED | B8; ADR-0056 |
+| P9 | Tiers sandbox/verified; self-prov→sandbox | PARTIAL | ADR-0051; sandbox-privilege-rule; A28 |
+| P10 | Approval creates workspace+identity+keys+dir+admin | PARTIAL | network-join-provision; B9 (N6) |
+| P11 | Tenant roles (tenant.admin, network.creator) | PARTIAL | ADR-0122; N3 |
+| P12 | Tenant own login if tier+policy permit | PARTIAL/VIOLATED | ADR-0068/0117; F15; N7 |
+| P13 | Suspension + closure + erasure | PLANNED | N4; R14; ADR-0125 |
+| P14 | Platform admin: server-side from recorded roles | PARTIAL/VIOLATED | B17, B1, B2/A25 |
+| P15 | Public front door (apply/verify/status only) | PLANNED/TO CONFIRM | public-apps; ADR-0111 |
+
+**Tally:** 0 IN PLACE, 7 PARTIAL (P1, P2, P3, P5, P9, P10, P11), 1 VIOLATED (**P4**), 5 PLANNED (P5a, P8,
+P8a, P13, P15), 3 mixed (P6, P7, P12, P14 carry PARTIAL+PLANNED/VIOLATED). The governing gap is **P4/B2/A17**
+— the platform tenant confers authority instead of a recorded `platform.authority` role (the ADR-0122 cutover
+closes P2/P4/P5).
