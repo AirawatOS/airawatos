@@ -256,12 +256,21 @@ services:
       PUBLIC_BASE_URL: "http://localhost:8080"
       TELEGRAM_BOT_TOKEN: ""
       TELEGRAM_WEBHOOK_SECRET: ""
+      # ADR-0124 — app-host mints its own Vault-backed, audience-bound service tokens (component-publisher /
+      # dev-sandbox), not passwordless steward/devrick borrows.
+      IDENTITY_URL: http://identity:8093
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_TOKEN}
+      SERVICE_TOKEN_AUDIENCE: *aud
+      COMPONENT_PUBLISHER_TENANT: localdev-network
+      DEV_SANDBOX_TENANT: localdev-developer
     volumes:
       - ./prod-guard.sh:/local-dev/prod-guard.sh:ro
       - localdev_appbundles:/data/app-bundles
     depends_on:
       kernel: { condition: service_started }
       identity: { condition: service_started }
+      vault: { condition: service_healthy }
 
   # ── edge: front door on 127.0.0.1:8080 → http://localhost:8080 ───────────────────────────────────────
   nginx:
