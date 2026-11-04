@@ -104,20 +104,12 @@ else:
 # ADR-0122 P4 — seed platform.authority (platform scope) for the local steward, idempotently. With
 # PLATFORM_AUTHORITY_MODE=enforce the network derives is_platform_authority from THIS recorded role (no
 # tenant fallback); without the seed, no local principal would hold platform authority.
-pa = {"schema": "governance.role_assignment",
-      "id": f"ds:{inst}-network:governance/role_assignment/platform-authority--admin",
-      "principal": f"user://{inst}-network/admin",
-      "scope": {"type": "platform", "ref": None},
-      "role": "platform.authority", "status": "active"}
-curpa = _post(f"{KRN}/v1/registry/resolve", {"id": pa["id"]}, tok)
-livepa = next((r.get("object") or r for r in (curpa.get("results") or [])), None)
-samepa = (isinstance(livepa, dict) and all(livepa.get(k) == pa[k] for k in ("principal", "role", "status"))
-          and (livepa.get("scope") or {}).get("type") == "platform")
-if samepa:
-    print(f"[phase4b] platform.authority role_assignment already current ({pa['id']}) — idempotent, no write")
-else:
-    print(f"[phase4b] seed platform.authority (platform scope) for {pa['principal']}")
-    print("   ->", _post(f"{KRN}/v1/registry/objects", {"id": pa["id"], "object": pa}, tok))
+# ADR-0122 P4 — platform.authority is seeded in phase 7b through the GOVERNANCE path (GovernanceService.
+# assign_role, first-holder-only rule), NEVER a direct registry write here. The previous phase4b direct-write
+# granted admin UNCONDITIONALLY, so when platauth already held platform.authority it created a SECOND holder —
+# bypassing ADR-0122's zero-holder-only bootstrap rule + the different-holder ChangeRequest. Deferred so the
+# write goes through the same path+rule as assign_role, and only when there are zero live holders.
+print("[phase4b] platform.authority seed deferred to phase 7b (governance path, first-holder-only)")
 
 if os.environ.get("SELF_MEMBERSHIP") == "1":
     mem = {"schema": "network.membership", "id": f"ds:{inst}-network:network/membership/{ulid}--{inst}",
@@ -215,6 +207,33 @@ u=_req(f"{IDN}/users", data={"username":USER,"tenant":TENANT,"roles":[]}, header
 print("[phase7] identity user ensured:", "OK" if not isinstance(u, urllib.error.HTTPError) else f"{u.code} (exists ok)")
 s=_req(f"{IDN}/set-password", data={"username":USER,"tenant":TENANT,"password":pw,"must_reset":False}, headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
 print("[phase7] trust-writer login password set:", "OK" if not isinstance(s, urllib.error.HTTPError) else f"{s.code}")
+PY
+
+echo "── Phase 7b · platform.authority FIRST-HOLDER seed via the governance path (ADR-0122) ───────────"
+# Seed platform.authority ONLY when there are ZERO live holders, through GovernanceService.assign_role (the
+# first-holder-only rule) — NEVER a direct registry write, and NEVER a second grant when a holder already
+# exists (that needs a different-holder ChangeRequest). Runs after the trust-writer + audit key (phases 6-7)
+# so the governed store is available. Idempotent + safe to re-run.
+XNET env INSTANCE="$INSTANCE" python3 - <<'PY'
+import os, time
+from trust_wiring import build_store_from_env
+from trust import GovernanceService
+from trust.governance import actor_context_from_claims
+from trust.platform_authority import live_holders, PLATFORM_SCOPE
+inst = os.environ.get("INSTANCE", "localdev")
+now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+store = build_store_from_env(); gov = GovernanceService(store)
+holders = live_holders(store, "platform.authority", PLATFORM_SCOPE, now)
+if holders:
+    print(f"[phase7b] platform.authority already held by {sorted(holders)} — SKIP seed "
+          f"(ADR-0122 first-holder-only bootstrap; a further grant requires a different-holder ChangeRequest)")
+else:
+    ctx = actor_context_from_claims({"sub": f"service://{inst}-network/trust-bootstrap",
+                                     "roles": ["platform.steward"]})
+    rec = gov.assign_role(ctx, {"role": "platform.authority",
+                                "principal": f"user://{inst}-network/admin",
+                                "scope": {"type": "platform", "ref": None}, "status": "active"}, now)
+    print(f"[phase7b] seeded FIRST platform.authority holder (admin) via governance — id={rec.get('id')}")
 PY
 
 echo "── Phase 8 · network capability_catalog (Trust-plane governance needs it for grants) ────────────"

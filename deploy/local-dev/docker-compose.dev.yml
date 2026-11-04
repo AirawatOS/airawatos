@@ -1,7 +1,7 @@
 # AirawatOS — LOCAL-DEV stack, built FROM SOURCE (committed hashes), separate from deploy/local/.
 #   kernel      = manishsv/airawatos-kernel:dev-021fa22     (kernel feat/admin-issuer-scope)
-#   network     = manishsv/airawatos-network:dev-1211be4    (network feat/trust-plane-phase1; mint-on-demand TRUST_READ_TOKEN)
-#   reference   = manishsv/airawatos-reference:dev-44a3706  (platform-spec feat/network-console-multinetwork)
+#   network     = manishsv/airawatos-network:dev-abc2a34    (network feat/trust-plane-phase1; mint-on-demand TRUST_READ_TOKEN)
+#   reference   = manishsv/airawatos-reference:dev-c9c7533  (platform-spec feat/network-console-multinetwork)
 #     (components feat/network-console-multinetwork @ 0250c71 delivered from the working tree at install)
 # NO data-mount here (that is kernel/platform-spec feat/data-mount — a later slice).
 #
@@ -21,7 +21,7 @@ x-devenv: &devenv
   AIRAWAT_ALLOW_PASSWORDLESS: "1"     # reference IdP passwordless dev auth (gated: prod-guard blocks under production)
 
 x-ref: &ref                          # one source-built reference image; many services (per-service command)
-  image: manishsv/airawatos-reference:dev-44a3706
+  image: manishsv/airawatos-reference:dev-c9c7533
   restart: unless-stopped
   entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]     # production guard (effective-settings check)
   volumes: [ ./prod-guard.sh:/local-dev/prod-guard.sh:ro ]
@@ -101,7 +101,7 @@ services:
     restart: unless-stopped
 
   network:
-    image: manishsv/airawatos-network:dev-1211be4
+    image: manishsv/airawatos-network:dev-abc2a34
     container_name: airawat-ld-network
     entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]
     command: ["sh","-c","exec uvicorn api:app --host 0.0.0.0 --port 8090"]   # entrypoint override clears image CMD → set it
@@ -165,6 +165,7 @@ services:
       VAULT_TOKEN: ${VAULT_TOKEN}
       IDENTITY_USERS_FILE: /data/identity/identity-users.json
       IDENTITY_PASSWORDS_FILE: /data/identity/identity-passwords.json
+      IDENTITY_PASSWORD_REQUIRED: enforce                   # ADR-0124 Step 4 — passwordless login REFUSED
       IDENTITY_SEED_DEMO: ""                                # de-seeded (operator-first); bootstrap provisions admins
       IDENTITY_INTERNAL: airawat-ld-identity-internal       # provisioner shared secret (must match network + app-host)
       IDENTITY_ISSUER: *iss
@@ -222,7 +223,7 @@ services:
     <<: *ref
     container_name: airawat-ld-automation
     command: ["python","reference/automation.py","--kernel","http://kernel:8080"]
-    environment: *svcid
+    environment: { <<: *svcid, AUTOMATION_EVENTS_REQUIRE_TOKEN: "1" }   # ADR-0124 Step 4
     depends_on:
       kernel: { condition: service_started }
       vault: { condition: service_healthy }

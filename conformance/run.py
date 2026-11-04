@@ -457,11 +457,39 @@ def case_login_audience_allowlist():
         expect("FOUNDATIONS", "F15/ADR-0124", "human (platauth) refused a service audience", h[0] == 403, "platauth svc:automation -> %s" % str(h))
 
 
+def case_platform_authority_bootstrap_rule():
+    """ADR-0122 — with a platform.authority holder already present, a NON-CR grant is REFUSED (403): re-running
+    bootstrap's first-holder seed (phase 7b) grants nothing. Proven via the governance endpoint as trust-writer."""
+    vaddr = (os.environ.get("VAULT_ADDR") or "").rstrip("/"); vtok = os.environ.get("VAULT_TOKEN") or ""
+    name = "bootstrap grants no platform.authority when a holder exists (ADR-0122)"
+    if not (vaddr and vtok):
+        record("NETWORK", "P5/ADR-0122", name, "needs-creds", "SKIP_CREDS", "no VAULT_ADDR/VAULT_TOKEN"); return
+    try:
+        r = _req("GET", f"{vaddr}/v1/secret/data/localdev-network/trust-writer/password", headers={"X-Vault-Token": vtok})
+        pw = (((json.loads(r[1]) or {}).get("data") or {}).get("data") or {}).get("password") if r[0] == 200 else None
+    except Exception as e:
+        record("NETWORK", "P5/ADR-0122", name, "needs-creds", "SKIP_CREDS", "vault: %s" % str(e)[:50]); return
+    if not pw:
+        record("NETWORK", "P5/ADR-0122", name, "needs-creds", "SKIP_CREDS", "trust-writer cred absent"); return
+    st, b, _ = _req("POST", INTERNAL["identity"] + "/login", {"username": "trust-writer", "tenant": "localdev-network", "password": pw})
+    tok = (json.loads(b) or {}).get("access_token") if st == 200 else None
+    if not tok:
+        record("NETWORK", "P5/ADR-0122", name, "needs-creds", "SKIP_CREDS", "trust-writer login -> %s" % st); return
+    body = {"role": "platform.authority", "principal": "user://localdev-network/__bootstrap_probe__",
+            "scope": {"type": "platform", "ref": None}, "status": "active"}
+    st2, b2, _ = _req("POST", INTERNAL["network"] + "/v1/governance/roles", body, token=tok)
+    if st2 in (0, 404):
+        record("NETWORK", "P5/ADR-0122", name, "testable", "SKIP_BUILD", "/v1/governance/roles -> %s" % st2); return
+    expect("NETWORK", "P5/ADR-0122", name, st2 in (401, 403),
+           "/v1/governance/roles grant -> %s (refused expected: a holder exists, no CR)" % st2)
+
+
 def run_internal_cases():
     T = INTERNAL
     case_component_publisher_refused()
     case_dev_sandbox_confined()
     case_login_audience_allowlist()
+    case_platform_authority_bootstrap_rule()
     def tokenless_accepted(spec, rule, name, method, url, body=None):
         st, b, _ = _req(method, url, body=body)
         if st == 0:
