@@ -28,6 +28,19 @@ x-ref: &ref                          # one source-built reference image; many se
   environment: { <<: *devenv }
   depends_on: { kernel: { condition: service_started } }
 
+# ADR-0124 — the reference-plane daemons (scheduler/automation/event-relay) authenticate as their OWN
+# provisioned principal (scheduler@<instance>-operator) with a VAULT-backed password, minting a short-lived
+# audience-bound token. No passwordless bare-login. The scheduler credential is seeded by ensure_install into
+# Vault at secret/data/localdev-operator/scheduler/password.
+x-svc-identity: &svcid
+  <<: *devenv
+  IDENTITY_URL: http://identity:8093
+  VAULT_ADDR: http://vault:8200
+  VAULT_TOKEN: ${VAULT_TOKEN}
+  SERVICE_PRINCIPAL: scheduler
+  SERVICE_TENANT: localdev-operator
+  SERVICE_TOKEN_AUDIENCE: *aud
+
 services:
   # ── infrastructure ────────────────────────────────────────────────────────────────────────────────
   postgres:
@@ -205,14 +218,26 @@ services:
     <<: *ref
     container_name: airawat-ld-automation
     command: ["python","reference/automation.py","--kernel","http://kernel:8080"]
+    environment: *svcid
+    depends_on:
+      kernel: { condition: service_started }
+      vault: { condition: service_healthy }
   event-relay:
     <<: *ref
     container_name: airawat-ld-event-relay
     command: ["python","reference/event_relay.py","--kernel","http://kernel:8080","--automation","http://automation:8098"]
+    environment: *svcid
+    depends_on:
+      kernel: { condition: service_started }
+      vault: { condition: service_healthy }
   scheduler:
     <<: *ref
     container_name: airawat-ld-scheduler
     command: ["python","reference/scheduler.py","--components-root","/app/components","--kernel","http://kernel:8080","--network","http://network:8090"]
+    environment: *svcid
+    depends_on:
+      kernel: { condition: service_started }
+      vault: { condition: service_healthy }
 
   # ── the OS the browser talks to (:8099 internal) ────────────────────────────────────────────────────
   app-host:
