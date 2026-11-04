@@ -398,7 +398,7 @@ def case_component_publisher_refused():
     probes = [
         ("REGISTRY", "F11/B1", "component.publisher refused at kernel admin (registry.usage)", "POST", INTERNAL["kernel"] + "/v1/registry/usage", {}),
         ("NETWORK",  "N3/B1",  "component.publisher refused at network admin (assign role)",     "POST", INTERNAL["network"] + "/v1/roles", {"role": "network.admin", "principal": "x"}),
-        ("NETWORK",  "N3/B1",  "component.publisher refused at network admin (issue grant)",      "POST", INTERNAL["network"] + "/v1/grants/issue", {"network": "localdev", "grantee": "x"}),
+        ("NETWORK",  "N3/B1",  "component.publisher refused at network admin (issue grant)",      "POST", INTERNAL["network"] + "/v1/grants/issue", {"tenant": "localdev", "component_id": "ds:localdev:driver/probe"}),
         ("ACCOUNT",  "A?/B1",  "component.publisher refused at secrets admin (/set)",             "POST", INTERNAL["secrets"] + "/set", {"tenant": "localdev", "component": "x", "name": "y", "value": "z"}),
     ]
     if not tok:
