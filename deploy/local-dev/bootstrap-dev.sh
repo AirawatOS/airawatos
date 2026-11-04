@@ -17,7 +17,9 @@ cd "$(dirname "$0")"
 P=airawatos-localdev
 F=docker-compose.dev.yml
 INSTANCE="${INSTANCE:-localdev}"
-OPERATOR_PASSWORD="${OPERATOR_PASSWORD:-localdev-admin-pw}"      # dev-only; reset on first login
+OPERATOR_PASSWORD="${OPERATOR_PASSWORD:-}"                      # #282: NO committed literal. Empty ⇒ ensure_install
+                                                               # GENERATES the admin password into Vault (reused
+                                                               # idempotently); bootstrap reads it back after Phase 1.
 SELF_MEMBERSHIP="${SELF_MEMBERSHIP:-0}"                         # §4: platform-tenant self-membership is OPT-IN
 COMPOSE() { docker compose -p "$P" --project-directory . -f "$F" "$@"; }
 XNET()  { COMPOSE exec -T network "$@"; }
@@ -29,6 +31,20 @@ curl -fsS http://127.0.0.1:8080/kernel/v1/health  >/dev/null || { echo "✗ kern
 
 echo "── Phase 1 · base-OS install (instance=$INSTANCE) ─────────────────────────────────────────────"
 XNET env INSTANCE="$INSTANCE" OPERATOR_PASSWORD="$OPERATOR_PASSWORD" python3 /app/ensure_install.py
+# #282 — ensure_install generated the admin password into Vault (no committed literal). Read it back so the
+# remaining phases (seed_base_os, the network-admin login, the kernel steward bootstrap) can authenticate.
+if [ -z "$OPERATOR_PASSWORD" ]; then
+  OPERATOR_PASSWORD="$(XNET env INSTANCE="$INSTANCE" python3 - <<'PY'
+import os, json, urllib.request
+inst=os.environ["INSTANCE"]; VA=(os.environ.get("VAULT_ADDR") or "http://vault:8200").rstrip("/")
+VT=os.environ.get("VAULT_TOKEN","")
+r=urllib.request.Request(f"{VA}/v1/secret/data/{inst}-operator/admin/password", headers={"X-Vault-Token":VT})
+print(((json.load(urllib.request.urlopen(r,timeout=8)).get("data") or {}).get("data") or {}).get("password",""), end="")
+PY
+)"
+  [ -n "$OPERATOR_PASSWORD" ] && echo "  · admin password read from Vault (generated at install; not printed)" \
+                             || { echo "✗ could not read generated admin password from Vault"; exit 1; }
+fi
 echo "  · govern base domains/roles/schemas"
 XNET python3 /app/seed_base.py
 echo "  · stage base-app source into app-host + deliver + list + shelf"
