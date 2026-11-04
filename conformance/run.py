@@ -345,8 +345,52 @@ def run_needs_build():
     for s,r,n,why in NEEDS_BUILD: record(s,r,n,"needs-build","SKIP_BUILD",why)
 
 # ============================ INTERNAL mode cases ============================
+def _mint_component_publisher_token():
+    """Mint a `component.publisher` bearer by reading its Vault credential + logging in at identity — so the
+    refusal cases exercise the REAL narrow role. None if Vault/identity is unreachable (→ SKIP_CREDS)."""
+    vaddr = (os.environ.get("VAULT_ADDR") or "").rstrip("/"); vtok = os.environ.get("VAULT_TOKEN") or ""
+    tenant = os.environ.get("COMPONENT_PUBLISHER_TENANT", "localdev-network")
+    if not (vaddr and vtok):
+        return None, "no VAULT_ADDR/VAULT_TOKEN (cannot read component-publisher credential)"
+    try:
+        r = _req("GET", f"{vaddr}/v1/secret/data/{tenant}/component-publisher/password",
+                 headers={"X-Vault-Token": vtok})
+        pw = (((json.loads(r[1]) or {}).get("data") or {}).get("data") or {}).get("password") if r[0] == 200 else None
+    except Exception as e:
+        return None, "vault read failed: %s" % str(e)[:60]
+    if not pw:
+        return None, "component-publisher credential absent in Vault (run bootstrap)"
+    st, b, _ = _req("POST", INTERNAL["identity"] + "/login",
+                    {"username": "component-publisher", "tenant": tenant, "password": pw})
+    tok = (json.loads(b) or {}).get("access_token") if st == 200 else None
+    return (tok, None) if tok else (None, "component-publisher login -> %s" % st)
+
+
+def case_component_publisher_refused():
+    """ADR-0124 — component.publisher is a NARROW service role (NOT admin). Prove it is REFUSED at the
+    kernel admin, network-administration (assign role / issue grant) and secrets gates it would have passed
+    as platform.steward. A 2xx here is a real FAIL (the role leaked admin reach)."""
+    tok, why = _mint_component_publisher_token()
+    probes = [
+        ("REGISTRY", "F11/B1", "component.publisher refused at kernel admin (registry.usage)", "POST", INTERNAL["kernel"] + "/v1/registry/usage", {}),
+        ("NETWORK",  "N3/B1",  "component.publisher refused at network admin (assign role)",     "POST", INTERNAL["network"] + "/v1/roles", {"role": "network.admin", "principal": "x"}),
+        ("NETWORK",  "N3/B1",  "component.publisher refused at network admin (issue grant)",      "POST", INTERNAL["network"] + "/v1/grants/issue", {"network": "localdev", "grantee": "x"}),
+        ("ACCOUNT",  "A?/B1",  "component.publisher refused at secrets admin (/set)",             "POST", INTERNAL["secrets"] + "/set", {"tenant": "localdev", "component": "x", "name": "y", "value": "z"}),
+    ]
+    if not tok:
+        for spec, rule, name, *_ in probes:
+            record(spec, rule, name, "needs-creds", "SKIP_CREDS", why)
+        return
+    for spec, rule, name, method, url, body in probes:
+        st, b, _ = _req(method, url, body=body, token=tok)
+        if st == 0 or st == 404:
+            record(spec, rule, name, "testable", "SKIP_BUILD", "%s -> %s (route unreachable)" % (url, st)); continue
+        expect(spec, rule, name, st in (401, 403), "%s -> %s (refused expected; 2xx = admin leak)" % (url, st))
+
+
 def run_internal_cases():
     T = INTERNAL
+    case_component_publisher_refused()
     def tokenless_accepted(spec, rule, name, method, url, body=None):
         st, b, _ = _req(method, url, body=body)
         if st == 0:

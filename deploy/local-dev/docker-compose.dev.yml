@@ -80,6 +80,10 @@ services:
       KERNEL_REQUIRE_STEWARD_GRANT: "1"
       DEV_REQUIRE_DEVELOPER: "1"
       SCHEMA_VALIDATE: strict                               # not shadow
+      # ADR-0124 — component.publisher is a SCOPED platform-service principal (publishes component_asset +
+      # verb_binding cross-tenant), NOT an admin: it is NOT in _ADMIN_ROLES, so it stays refused at every
+      # admin / network-admin / secrets gate. (default set + component.publisher)
+      PLATFORM_SERVICE_ROLES: "platform.steward,platform.scheduler,platform.service,component.publisher"
       # §8 — ENFORCE the local issuer + audience (IDENTITY_AUD_ISS_SHADOW deliberately UNSET = hard 401 on mismatch)
       IDENTITY_EXPECTED_ISS: *iss
       IDENTITY_EXPECTED_AUD: *aud
