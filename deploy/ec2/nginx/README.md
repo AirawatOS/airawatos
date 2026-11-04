@@ -16,4 +16,6 @@ git commit -m "docs(ec2): capture live edge nginx config (as of <YYYY-MM-DD HH:M
 git push origin HEAD   # no merge
 ```
 
-**Captured:** _(pending — fill in the timestamp when the live config is added)_
+**Captured:** `nginx.conf` captured 2026-11-04 from `ec2-user@13.205.13.220:/home/ec2-user/airawatos/nginx.conf`
+(sha256 `db08240e8c5abafbbcdc72d30492547e13d8a074053c2d85a431d341acbb137a`). On-box proxy only (airawat-nginx
+`:80`); the TLS-terminating edge host (13.61.56.103) config is not on this box and is not captured here.
