@@ -412,10 +412,56 @@ def case_component_publisher_refused():
         expect(spec, rule, name, st in (401, 403), "%s -> %s (refused expected; 2xx = admin leak)" % (url, st))
 
 
+def _login_with_aud(principal, tenant, vault_path, aud):
+    """(status, token-aud) logging in through the REAL identity /login requesting `aud`. Reads the principal's
+    Vault password so it works under enforce. status None → creds unavailable (SKIP)."""
+    vaddr = (os.environ.get("VAULT_ADDR") or "").rstrip("/"); vtok = os.environ.get("VAULT_TOKEN") or ""
+    if not (vaddr and vtok):
+        return None, "no VAULT_ADDR/VAULT_TOKEN"
+    try:
+        r = _req("GET", f"{vaddr}/v1/{vault_path}", headers={"X-Vault-Token": vtok})
+        pw = (((json.loads(r[1]) or {}).get("data") or {}).get("data") or {}).get("password") if r[0] == 200 else None
+    except Exception as e:
+        return None, "vault read failed: %s" % str(e)[:50]
+    if not pw:
+        return None, "credential absent in Vault"
+    body = {"username": principal, "tenant": tenant, "password": pw}
+    if aud is not None:
+        body["aud"] = aud
+    st, b, _ = _req("POST", INTERNAL["identity"] + "/login", body)
+    if st != 200:
+        return st, None
+    pp = json.loads(b)["access_token"].split(".")[1]; pp += "=" * (-len(pp) % 4)
+    return 200, json.loads(base64.urlsafe_b64decode(pp)).get("aud")
+
+
+def case_login_audience_allowlist():
+    """ADR-0124 — identity /login enforces a RECORDED per-principal audience allow-list (never silent default).
+    The daemons share the `scheduler` principal (recorded audience: svc:automation)."""
+    sp_t, sp_v = "localdev-operator", "secret/data/localdev-operator/scheduler/password"
+    granted = _login_with_aud("scheduler", sp_t, sp_v, "svc:automation")
+    if granted[0] is None:
+        for n in ("granted", "svc:kernel refused", "svc:app-host refused", "human refused"):
+            record("FOUNDATIONS", "F15/ADR-0124", "login audience allow-list: " + n, "needs-creds", "SKIP_CREDS", str(granted[1]))
+        return
+    expect("FOUNDATIONS", "F15/ADR-0124", "scheduler may request its recorded audience (svc:automation)",
+           granted == (200, "svc:automation"), "scheduler svc:automation -> %s" % str(granted))
+    expect("FOUNDATIONS", "F15/ADR-0124", "scheduler refused svc:kernel (not recorded)",
+           _login_with_aud("scheduler", sp_t, sp_v, "svc:kernel")[0] == 403, "expect 403")
+    expect("FOUNDATIONS", "F15/ADR-0124", "scheduler refused svc:app-host (not recorded)",
+           _login_with_aud("scheduler", sp_t, sp_v, "svc:app-host")[0] == 403, "expect 403")
+    h = _login_with_aud("platauth", "localdev-network", "secret/data/localdev-network/test-users/platauth", "svc:automation")
+    if h[0] is None:
+        record("FOUNDATIONS", "F15/ADR-0124", "login audience allow-list: human refused", "needs-creds", "SKIP_CREDS", str(h[1]))
+    else:
+        expect("FOUNDATIONS", "F15/ADR-0124", "human (platauth) refused a service audience", h[0] == 403, "platauth svc:automation -> %s" % str(h))
+
+
 def run_internal_cases():
     T = INTERNAL
     case_component_publisher_refused()
     case_dev_sandbox_confined()
+    case_login_audience_allowlist()
     def tokenless_accepted(spec, rule, name, method, url, body=None):
         st, b, _ = _req(method, url, body=body)
         if st == 0:
