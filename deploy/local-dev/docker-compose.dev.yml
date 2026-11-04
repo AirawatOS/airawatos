@@ -1,6 +1,6 @@
 # AirawatOS — LOCAL-DEV stack, built FROM SOURCE (committed hashes), separate from deploy/local/.
 #   kernel      = manishsv/airawatos-kernel:dev-021fa22     (kernel feat/admin-issuer-scope)
-#   network     = manishsv/airawatos-network:dev-56fd371    (network feat/trust-plane-phase1; mint-on-demand TRUST_READ_TOKEN)
+#   network     = manishsv/airawatos-network:dev-1211be4    (network feat/trust-plane-phase1; mint-on-demand TRUST_READ_TOKEN)
 #   reference   = manishsv/airawatos-reference:dev-44a3706  (platform-spec feat/network-console-multinetwork)
 #     (components feat/network-console-multinetwork @ 0250c71 delivered from the working tree at install)
 # NO data-mount here (that is kernel/platform-spec feat/data-mount — a later slice).
@@ -84,7 +84,7 @@ services:
     restart: unless-stopped
 
   network:
-    image: manishsv/airawatos-network:dev-b375cfe
+    image: manishsv/airawatos-network:dev-1211be4
     container_name: airawat-ld-network
     entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]
     command: ["sh","-c","exec uvicorn api:app --host 0.0.0.0 --port 8090"]   # entrypoint override clears image CMD → set it

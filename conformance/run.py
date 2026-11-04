@@ -237,8 +237,10 @@ def run_cred_cases():
         record("FOUNDATIONS","F2","valid non-admin session denied governance write (abuse)","needs-creds","SKIP_CREDS","outsider login failed: %s"%omsg)
     # ADR-0122 P4 black-box — platform.authority is a recorded role (enforce). admin holds it; faker (same
     # tenant) does not. Requires the ld-network running dev-b375cfe + bootstrap phase 4b seed.
-    fcookie, fmsg = login_session("faker")
-    case_platform_authority(cookie, fcookie)
+    pacookie, _ = login_session("platauth")
+    pncookie, _ = login_session("platnone")
+    case_platform_authority(pacookie, pncookie)
+    case_admin_network_admin(cookie)
     for s,r,n,why in CRED_NO_BRIDGE: record(s,r,n,"needs-build","SKIP_BUILD",why)
 
 def _networks_mine(cookie):
@@ -249,46 +251,64 @@ def _networks_mine(cookie):
         rows = []
     return st, rows
 
-def case_platform_authority(admin_cookie, faker_cookie):
+def case_platform_authority(pa_cookie, pn_cookie):
+    # Uses the dedicated ADR-0122 test users: platauth (holds platform.authority after 2b) and platnone
+    # (same platform tenant, no recorded role). Supply their passwords in .creds.json to run these.
     # PA1 — the platform.authority holder performs a platform-authority action (sees all networks, flag true).
-    if not admin_cookie:
-        record("PLATFORM","P4","platform.authority holder performs a platform-authority action (pos)","needs-creds","SKIP_CREDS","admin login failed")
+    if not pa_cookie:
+        record("PLATFORM","P4","platauth (platform.authority) performs a platform-authority action (pos)","needs-creds","SKIP_CREDS","platauth not in .creds.json")
     else:
-        st, rows = _networks_mine(admin_cookie)
+        st, rows = _networks_mine(pa_cookie)
         ok = st == 200 and len(rows) >= 1 and all(r.get("platform_authority") is True for r in rows)
-        expect("PLATFORM","P4","platform.authority holder sees all networks w/ platform_authority=true (pos)",
-               ok, "admin /bridge/networks-mine -> %s rows=%d pa=%s" % (st, len(rows),
+        expect("PLATFORM","P4","platauth sees all networks w/ platform_authority=true (pos)",
+               ok, "platauth /bridge/networks-mine -> %s rows=%d pa=%s" % (st, len(rows),
                     sorted({bool(r.get("platform_authority")) for r in rows}) if rows else []))
     # PA2 — a same-tenant user WITHOUT the role is not platform authority.
-    if not faker_cookie:
-        record("PLATFORM","P4","same-tenant no-role user is not platform authority (abuse)","needs-creds","SKIP_CREDS","faker login failed")
+    if not pn_cookie:
+        record("PLATFORM","P4","platnone (same tenant, no role) is not platform authority (abuse)","needs-creds","SKIP_CREDS","platnone not in .creds.json")
     else:
-        st, rows = _networks_mine(faker_cookie)
+        st, rows = _networks_mine(pn_cookie)
         ok = st == 200 and all(r.get("platform_authority") is not True for r in rows)
-        expect("PLATFORM","P4","same-tenant no-role user is NOT platform authority (abuse)",
-               ok, "faker /bridge/networks-mine -> %s rows=%d pa=%s" % (st, len(rows),
+        expect("PLATFORM","P4","platnone (same tenant, no role) is NOT platform authority (abuse)",
+               ok, "platnone /bridge/networks-mine -> %s rows=%d pa=%s" % (st, len(rows),
                     sorted({bool(r.get("platform_authority")) for r in rows}) if rows else []))
     # PA3 — granting platform.authority without a different-holder CR is refused (a holder already exists).
-    if admin_cookie:
-        st, body, _ = http("POST", "/bridge/gov-assign-role",
-                            {"principal": "user://localdev-network/conf-probe", "role": "platform.authority",
-                             "status": "active"}, cookie=admin_cookie)
+    if not pa_cookie:
+        record("PLATFORM","P5","grant platform.authority without a CR refused (abuse)","needs-creds","SKIP_CREDS","platauth not in .creds.json")
+    else:
+        st, _, _ = http("POST", "/bridge/gov-assign-role",
+                        {"principal": "user://localdev-network/conf-probe", "role": "platform.authority",
+                         "status": "active"}, cookie=pa_cookie)
         if st in (0, 404):
             record("PLATFORM","P5","grant platform.authority without a CR refused (abuse)","needs-build","SKIP_BUILD",
                    "/bridge/gov-assign-role not reachable (%s)" % st)
         else:
             expect("PLATFORM","P5","grant platform.authority without a different-holder CR is refused (abuse)",
-                   st in (400, 401, 403, 409), "admin assign platform.authority (no CR) -> %s (want refuse)" % st)
-        # PA4 — revoking the last platform.authority holder is refused.
-        st, body, _ = http("POST", "/bridge/gov-assign-role",
-                            {"principal": "user://localdev-network/admin", "role": "platform.authority",
-                             "status": "revoked"}, cookie=admin_cookie)
+                   st in (400, 401, 403, 409), "platauth assign platform.authority (no CR) -> %s (want refuse)" % st)
+        # PA4 — revoking the LAST platform.authority holder (now platauth) is refused.
+        st, _, _ = http("POST", "/bridge/gov-assign-role",
+                        {"principal": "user://localdev-network/platauth", "role": "platform.authority",
+                         "status": "revoked"}, cookie=pa_cookie)
         if st in (0, 404):
             record("PLATFORM","P5","revoke last platform.authority holder refused (abuse)","needs-build","SKIP_BUILD",
                    "/bridge/gov-assign-role not reachable (%s)" % st)
         else:
-            expect("PLATFORM","P5","revoking the last platform.authority holder is refused (abuse)",
-                   st in (400, 401, 403, 409), "admin revoke last platform.authority -> %s (want refuse)" % st)
+            expect("PLATFORM","P5","revoking the last platform.authority holder (platauth) is refused (abuse)",
+                   st in (400, 401, 403, 409), "platauth revoke own platform.authority (last holder) -> %s (want refuse)" % st)
+
+def case_admin_network_admin(admin_cookie):
+    # After 2b, admin is a PLAIN network.admin (platform.authority revoked). It must still work as
+    # network.admin (sees its network, role network.admin) and must NOT be platform authority.
+    if not admin_cookie:
+        record("NETWORK","N3","admin works as plain network.admin after losing platform.authority (pos)","needs-creds","SKIP_CREDS","admin login failed")
+        return
+    st, rows = _networks_mine(admin_cookie)
+    has_na = any("network.admin" in (r.get("roles") or []) for r in rows)
+    no_pa = all(r.get("platform_authority") is not True for r in rows)
+    expect("NETWORK","N3","admin is a plain network.admin (network.admin role, not platform authority) (pos)",
+           st == 200 and has_na and no_pa,
+           "admin /bridge/networks-mine -> %s rows=%d network.admin=%s platform_authority=%s"
+           % (st, len(rows), has_na, sorted({bool(r.get("platform_authority")) for r in rows}) if rows else []))
 
 # ============================ EXTERNAL: NEEDS-BUILD (genuinely not built) ============================
 NEEDS_BUILD = [
