@@ -235,7 +235,60 @@ def run_cred_cases():
         case_F2_no_grant(ocookie)
     else:
         record("FOUNDATIONS","F2","valid non-admin session denied governance write (abuse)","needs-creds","SKIP_CREDS","outsider login failed: %s"%omsg)
+    # ADR-0122 P4 black-box — platform.authority is a recorded role (enforce). admin holds it; faker (same
+    # tenant) does not. Requires the ld-network running dev-b375cfe + bootstrap phase 4b seed.
+    fcookie, fmsg = login_session("faker")
+    case_platform_authority(cookie, fcookie)
     for s,r,n,why in CRED_NO_BRIDGE: record(s,r,n,"needs-build","SKIP_BUILD",why)
+
+def _networks_mine(cookie):
+    st, body, _ = http("GET", "/bridge/networks-mine", cookie=cookie)
+    try:
+        rows = json.loads(body).get("result", [])
+    except Exception:
+        rows = []
+    return st, rows
+
+def case_platform_authority(admin_cookie, faker_cookie):
+    # PA1 — the platform.authority holder performs a platform-authority action (sees all networks, flag true).
+    if not admin_cookie:
+        record("PLATFORM","P4","platform.authority holder performs a platform-authority action (pos)","needs-creds","SKIP_CREDS","admin login failed")
+    else:
+        st, rows = _networks_mine(admin_cookie)
+        ok = st == 200 and len(rows) >= 1 and all(r.get("platform_authority") is True for r in rows)
+        expect("PLATFORM","P4","platform.authority holder sees all networks w/ platform_authority=true (pos)",
+               ok, "admin /bridge/networks-mine -> %s rows=%d pa=%s" % (st, len(rows),
+                    sorted({bool(r.get("platform_authority")) for r in rows}) if rows else []))
+    # PA2 — a same-tenant user WITHOUT the role is not platform authority.
+    if not faker_cookie:
+        record("PLATFORM","P4","same-tenant no-role user is not platform authority (abuse)","needs-creds","SKIP_CREDS","faker login failed")
+    else:
+        st, rows = _networks_mine(faker_cookie)
+        ok = st == 200 and all(r.get("platform_authority") is not True for r in rows)
+        expect("PLATFORM","P4","same-tenant no-role user is NOT platform authority (abuse)",
+               ok, "faker /bridge/networks-mine -> %s rows=%d pa=%s" % (st, len(rows),
+                    sorted({bool(r.get("platform_authority")) for r in rows}) if rows else []))
+    # PA3 — granting platform.authority without a different-holder CR is refused (a holder already exists).
+    if admin_cookie:
+        st, body, _ = http("POST", "/bridge/gov-assign-role",
+                            {"principal": "user://localdev-network/conf-probe", "role": "platform.authority",
+                             "status": "active"}, cookie=admin_cookie)
+        if st in (0, 404):
+            record("PLATFORM","P5","grant platform.authority without a CR refused (abuse)","needs-build","SKIP_BUILD",
+                   "/bridge/gov-assign-role not reachable (%s)" % st)
+        else:
+            expect("PLATFORM","P5","grant platform.authority without a different-holder CR is refused (abuse)",
+                   st in (400, 401, 403, 409), "admin assign platform.authority (no CR) -> %s (want refuse)" % st)
+        # PA4 — revoking the last platform.authority holder is refused.
+        st, body, _ = http("POST", "/bridge/gov-assign-role",
+                            {"principal": "user://localdev-network/admin", "role": "platform.authority",
+                             "status": "revoked"}, cookie=admin_cookie)
+        if st in (0, 404):
+            record("PLATFORM","P5","revoke last platform.authority holder refused (abuse)","needs-build","SKIP_BUILD",
+                   "/bridge/gov-assign-role not reachable (%s)" % st)
+        else:
+            expect("PLATFORM","P5","revoking the last platform.authority holder is refused (abuse)",
+                   st in (400, 401, 403, 409), "admin revoke last platform.authority -> %s (want refuse)" % st)
 
 # ============================ EXTERNAL: NEEDS-BUILD (genuinely not built) ============================
 NEEDS_BUILD = [
@@ -316,7 +369,7 @@ def run_internal_cases():
 
 # ============================ runner ============================
 def report(mode):
-    specs = ["FOUNDATIONS","REGISTRY","DECISION","NETWORK","ACCOUNT","CLIENT"]
+    specs = ["FOUNDATIONS","REGISTRY","DECISION","NETWORK","ACCOUNT","CLIENT","PLATFORM"]
     kinds = ["PASS","XFAIL","XPASS","FAIL","SKIP_CREDS","SKIP_BUILD"]
     print("\n== mode: %s ==" % mode)
     print("%-13s %5s %6s %6s %5s %6s %6s" % ("SPEC","PASS","XFAIL","XPASS","FAIL","nCRED","nBUILD"))

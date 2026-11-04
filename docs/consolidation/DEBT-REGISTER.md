@@ -76,6 +76,8 @@
 | A59 | image-tag drift (network dev-ec365a4 vs docs; local bootstrap fork; INSTALL.md) | deploy local-dev:3,87; local/airawatos-bootstrap.sh; INSTALL.md:87 | — | deploy wrong build | single-source tags |
 | A60 | EC2 hot-patches not baked (revert on recreate) | deploy/ec2/HOTPATCHES-2026-10-19.md | emergency fixes | container recreate reverts | bake + cutover |
 | A61 | `local` nginx binds `0.0.0.0:80` while running prod-default auth | deploy/local/docker-compose.yml:188 | eval exposure | eval stack reachable beyond loopback on prod-default envelope | loopback bind |
+| A62 | `governance.role_assignment@0.1.0` read-compat kept alongside 0.2.0 (ADR-0122) | network trust/schemas.py (0.1.0 + 0.2.0 both governed); platform_authority.py `_scope_of` reads legacy `network` alias | let 0.1.0 (network-only) records keep resolving during migration to the scoped 0.2.0 shape | two live shapes for the same schema; a reader must handle both | migrate all 0.1.0 records to 0.2.0 (`trust.migration.migrate_role_assignment_v2`), then retire 0.1.0 + the `network`-alias read path |
+| A63 | `PLATFORM_AUTHORITY_MODE` shadow dual-compute (ADR-0122) | network trust_wiring.py `_actor_context` | compute recorded-role platform authority alongside the legacy tenant rule and log divergences before cutover | two authority sources computed per request; the tenant rule is still authoritative wherever mode≠enforce | flip every deployment to `enforce` once each has a seeded `platform.authority` holder; then delete the tenant-rule branch + the mode switch (local-dev already `enforce`) |
 
 ## B. Invariant violations
 

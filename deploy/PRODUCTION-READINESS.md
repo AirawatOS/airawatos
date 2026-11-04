@@ -87,4 +87,21 @@ treat as cleared.
 | 6 | canary order | ✅ documented; follow in order |
 | 7 | open incident items | ❓ five items need owner context before sign-off |
 
+## ADR-0122 — platform.authority cutover (`PLATFORM_AUTHORITY_MODE`)
+- **Unset default = `shadow`.** With the env unset, the network computes the recorded-role result alongside
+  the legacy tenant rule and logs `[adr0122][divergence]`, but the **tenant rule stays authoritative** — no
+  behavioural change. EC2 therefore stays shadow until explicitly cut over. Local-dev is already `enforce`.
+- **Seed before enforce.** `enforce` derives `is_platform_authority` from the recorded `platform.authority`
+  role **only, with no tenant fallback**. A deployment MUST seed at least one `platform.authority` holder
+  (platform scope) for the steward **before** setting `PLATFORM_AUTHORITY_MODE=enforce`, or no principal will
+  hold platform authority and platform-authority-gated governance will be unoperable. Order: (1) govern
+  `governance.role_assignment@0.2.0`; (2) **reload the kernel** so its schema validator accepts 0.2.0 (a
+  long-running kernel caches schemas at boot — see note); (3) seed the steward's `platform.authority`
+  (bootstrap phase 4b); (4) soak in `shadow` and confirm the divergence log shows the steward recorded==true;
+  (5) flip to `enforce`.
+- **Kernel-reload note:** after governing a new schema version into a **running** stack, restart/reload the
+  kernel before writing records against it — the kernel validates writes against its boot-loaded schema set,
+  so a freshly-governed version 422s ("role not in enum") until reload. A fresh install is unaffected (kernel
+  boots after schemas are seeded).
+
 _Generated for the next EC2 deploy. Nothing here has been applied to production._
