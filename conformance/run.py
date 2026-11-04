@@ -345,25 +345,49 @@ def run_needs_build():
     for s,r,n,why in NEEDS_BUILD: record(s,r,n,"needs-build","SKIP_BUILD",why)
 
 # ============================ INTERNAL mode cases ============================
-def _mint_component_publisher_token():
-    """Mint a `component.publisher` bearer by reading its Vault credential + logging in at identity — so the
-    refusal cases exercise the REAL narrow role. None if Vault/identity is unreachable (→ SKIP_CREDS)."""
+def _mint_service_bearer(principal, tenant):
+    """Mint a service principal's bearer by reading its Vault credential + logging in at identity — so refusal/
+    confinement cases exercise the REAL role. None if Vault/identity is unreachable (→ SKIP_CREDS)."""
     vaddr = (os.environ.get("VAULT_ADDR") or "").rstrip("/"); vtok = os.environ.get("VAULT_TOKEN") or ""
-    tenant = os.environ.get("COMPONENT_PUBLISHER_TENANT", "localdev-network")
     if not (vaddr and vtok):
-        return None, "no VAULT_ADDR/VAULT_TOKEN (cannot read component-publisher credential)"
+        return None, "no VAULT_ADDR/VAULT_TOKEN (cannot read %s credential)" % principal
     try:
-        r = _req("GET", f"{vaddr}/v1/secret/data/{tenant}/component-publisher/password",
-                 headers={"X-Vault-Token": vtok})
+        r = _req("GET", f"{vaddr}/v1/secret/data/{tenant}/{principal}/password", headers={"X-Vault-Token": vtok})
         pw = (((json.loads(r[1]) or {}).get("data") or {}).get("data") or {}).get("password") if r[0] == 200 else None
     except Exception as e:
         return None, "vault read failed: %s" % str(e)[:60]
     if not pw:
-        return None, "component-publisher credential absent in Vault (run bootstrap)"
-    st, b, _ = _req("POST", INTERNAL["identity"] + "/login",
-                    {"username": "component-publisher", "tenant": tenant, "password": pw})
+        return None, "%s credential absent in Vault (run bootstrap)" % principal
+    st, b, _ = _req("POST", INTERNAL["identity"] + "/login", {"username": principal, "tenant": tenant, "password": pw})
     tok = (json.loads(b) or {}).get("access_token") if st == 200 else None
-    return (tok, None) if tok else (None, "component-publisher login -> %s" % st)
+    return (tok, None) if tok else (None, "%s login -> %s" % (principal, st))
+
+
+def _mint_component_publisher_token():
+    return _mint_service_bearer("component-publisher", os.environ.get("COMPONENT_PUBLISHER_TENANT", "localdev-network"))
+
+
+def case_dev_sandbox_confined():
+    """ADR-0124 item (c) — dev-sandbox holds platform.developer, which the KERNEL confines to dev-token mint +
+    writes in its own development tenant. Prove the service token is CONFINED: refused at kernel admin, and
+    refused a CROSS-TENANT write. (The platform.developer app-host gates are human-session only — never reached
+    by this service token — so the role needs no narrowing.)"""
+    dev_tenant = os.environ.get("DEV_SANDBOX_TENANT", "localdev-developer")
+    tok, why = _mint_service_bearer("dev-sandbox", dev_tenant)
+    probes = [
+        ("REGISTRY", "F11", "dev-sandbox refused at kernel admin (registry.usage)", INTERNAL["kernel"] + "/v1/registry/usage", {}),
+        ("REGISTRY", "F2",  "dev-sandbox refused a cross-tenant write", INTERNAL["kernel"] + "/v1/registry/objects",
+         {"id": "ds:localdev:probe/devsandbox", "object": {"schema": "viz.layer", "id": "ds:localdev:probe/devsandbox"}}),
+    ]
+    if not tok:
+        for spec, rule, name, *_ in probes:
+            record(spec, rule, name, "needs-creds", "SKIP_CREDS", why)
+        return
+    for spec, rule, name, url, body in probes:
+        st, b, _ = _req("POST", url, body=body, token=tok)
+        if st == 0 or st == 404:
+            record(spec, rule, name, "testable", "SKIP_BUILD", "%s -> %s (route unreachable)" % (url, st)); continue
+        expect(spec, rule, name, st in (401, 403), "%s -> %s (confined: refused expected)" % (url, st))
 
 
 def case_component_publisher_refused():
@@ -391,6 +415,7 @@ def case_component_publisher_refused():
 def run_internal_cases():
     T = INTERNAL
     case_component_publisher_refused()
+    case_dev_sandbox_confined()
     def tokenless_accepted(spec, rule, name, method, url, body=None):
         st, b, _ = _req(method, url, body=body)
         if st == 0:
