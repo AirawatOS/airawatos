@@ -119,6 +119,7 @@ services:
       TRUST_PLANE_ENABLED: "1"
       TRUST_KERNEL_URL: http://kernel:8080
       TRUST_AUTHORITY_TENANT: airawat                       # is_platform_authority identity (no local principal is in it → role-scoped)
+      PLATFORM_AUTHORITY_MODE: enforce                      # ADR-0122 P4 cutover: is_platform_authority = recorded platform.authority role ONLY, no tenant fallback (bootstrap phase 4b seeds the local steward). EC2 default stays "shadow".
       TRUST_WRITE_STEWARD: localdev-network                 # store WRITE/ownership steward = where the Trust records live (ds:localdev-network:)
       TRUST_AUDIT_HMAC_VAULT_PATH: secret/data/localdev-network/trust-plane/audit_hmac
       # Governance WRITES persist via a DEDICATED trust-writer principal (own-tenant write to the steward

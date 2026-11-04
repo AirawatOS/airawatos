@@ -101,6 +101,24 @@ if same:
 else:
     print(f"[phase4] record network.admin on {nid} for {ra['principal']} (governance.role_assignment)")
     print("   ->", _post(f"{KRN}/v1/registry/objects", {"id": ra["id"], "object": ra}, tok))
+# ADR-0122 P4 — seed platform.authority (platform scope) for the local steward, idempotently. With
+# PLATFORM_AUTHORITY_MODE=enforce the network derives is_platform_authority from THIS recorded role (no
+# tenant fallback); without the seed, no local principal would hold platform authority.
+pa = {"schema": "governance.role_assignment",
+      "id": f"ds:{inst}-network:governance/role_assignment/platform-authority--admin",
+      "principal": f"user://{inst}-network/admin",
+      "scope": {"type": "platform", "ref": None},
+      "role": "platform.authority", "status": "active"}
+curpa = _post(f"{KRN}/v1/registry/resolve", {"id": pa["id"]}, tok)
+livepa = next((r.get("object") or r for r in (curpa.get("results") or [])), None)
+samepa = (isinstance(livepa, dict) and all(livepa.get(k) == pa[k] for k in ("principal", "role", "status"))
+          and (livepa.get("scope") or {}).get("type") == "platform")
+if samepa:
+    print(f"[phase4b] platform.authority role_assignment already current ({pa['id']}) — idempotent, no write")
+else:
+    print(f"[phase4b] seed platform.authority (platform scope) for {pa['principal']}")
+    print("   ->", _post(f"{KRN}/v1/registry/objects", {"id": pa["id"], "object": pa}, tok))
+
 if os.environ.get("SELF_MEMBERSHIP") == "1":
     mem = {"schema": "network.membership", "id": f"ds:{inst}-network:network/membership/{ulid}--{inst}",
            "network": nid, "participant": f"user://{inst}/admin", "status": "approved"}
