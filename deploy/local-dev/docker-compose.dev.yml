@@ -268,6 +268,7 @@ services:
       SERVICE_TOKEN_AUDIENCE: *aud
       COMPONENT_PUBLISHER_TENANT: localdev-network
       DEV_SANDBOX_TENANT: localdev-developer
+      EMBED_CLIENT_TENANT: localdev-operator           # ADR-0124 item (b): embed-service principal's tenant (platform.app_client own-tenant)
     volumes:
       - ./prod-guard.sh:/local-dev/prod-guard.sh:ro
       - localdev_appbundles:/data/app-bundles
