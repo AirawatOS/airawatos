@@ -159,7 +159,7 @@ Suite exit: non-zero only on a **FAIL** (a TESTABLE-NOW case that did not behave
 
 ---
 
-## PLATFORM (P1–P15) — see [[PLATFORM-v0.1]]
+## PLATFORM (P1–P21) — see [[PLATFORM-v0.1]]
 
 All Platform rules are governance/installer/onboarding flows that are not built or need a platform-authority
 session + onboarding records that do not exist in local-dev → **NEEDS-BUILD**, except the slivers noted.
@@ -183,6 +183,12 @@ session + onboarding records that do not exist in local-dev → **NEEDS-BUILD**,
 | P13 | suspension halts principals, history readable; closure cascades + erases (pos) | NEEDS-BUILD | suspend/close lifecycle not built (N4, R14) |
 | P14 | admin visibility + action re-checked server-side from recorded roles (abuse) | PARTIAL / NEEDS-CREDENTIALS | anon governance-write denied (N3) already PASSes as one slice; full recheck needs sessions [B17/B1] |
 | P15 | public front door exposes only apply/verify/status; admin routes separate (abuse) | NEEDS-BUILD | apply/verify/status front door + bot-protection not built |
+| P16 | component reaches a vendor directly, bypassing the platform gateway (abuse) | NEEDS-BUILD | blocked — capabilities only via gateways; declared-egress does not include vendor hosts for gatewayed capabilities |
+| P17 | use a provider not in the CR-approved catalog (abuse) | NEEDS-BUILD | no governed provider catalog exists (PLANNED); nothing to assert black-box |
+| P18 | a component receives a provider credential / a non-approved provider is selectable (abuse) | NEEDS-BUILD | creds stay gateway-side in the tenant Vault; selection limited to approved set (depends on P17) |
+| P19 | a member using a provider below the Network's minimum (assurance/region) (abuse) | NEEDS-BUILD | no network minimum-requirement record enforced (PLANNED) |
+| P20 | personal data sent to a provider without a lawful-basis/decision record (abuse) | NEEDS-BUILD | egress blocked without consent + processor record (PLANNED) |
+| P21 | provider + version recorded on every call; per-tenant metering; recorded failover (pos) | NEEDS-BUILD | per-call provider/version stamp (DECISION D3) + tenant failover not fully built; metering hook partial |
 
 Testable-now slivers already covered elsewhere: P14's server-side denial of an anonymous governance write =
 the NETWORK **N3** PASS; P4's authority-from-tenant is the same root as the external R6 posture + debt B2.

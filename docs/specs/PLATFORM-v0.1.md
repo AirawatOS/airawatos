@@ -176,6 +176,67 @@ The public front door exposes **only** apply / verify-email / check-status; it i
 
 ---
 
+## Shared services and providers
+
+### P16 — Capabilities through platform gateways
+Components and apps call capabilities — **notify, model, payment, proofing, …** — through **platform
+gateways**, **never a vendor directly**. The gateway is the one place a vendor is reached; the caller names a
+capability, not a vendor.
+- **Status: PARTIAL.** Gateways exist for several capabilities (model-gateway `/v1/complete|/embed`, notify,
+  transcription `/bridge/transcribe`, embed) and the broker mediates all component egress; but not every
+  capability is gatewayed (some drivers reach declared hosts directly), and the gateway↔provider binding is
+  configured operationally, not from a governed catalog (P17).
+- **Refs:** ADR-0074 (operator-configurable platform services), model-gateway, notify, driver-secrets-vault;
+  A41; COMPONENT CP1/CP5/CP6.
+
+### P17 — The platform authority approves the provider catalog
+The **platform authority** approves the **provider catalog** — **security review, data-processing terms,
+residency** — via **ChangeRequest**, and sets the **defaults** a tenant inherits.
+- **Status: PLANNED.** No governed provider-catalog record or CR-approved provider entries exist; providers
+  are wired operationally (Vault keys + env), with no recorded security review / DP-terms / residency.
+- **Refs:** ADR-0056 (ChangeRequest), P6 (platform authority decides policy); attribution-source-disclosure
+  (ref.source precedent).
+
+### P18 — Tenant admins choose among approved providers; BYO accounts
+**Tenant admins choose** among the approved providers and **may bring their own accounts**. Credentials are
+stored in the **tenant's Vault area**, used **only by the gateway**, and **never given to components**.
+- **Status: PARTIAL.** Per-tenant secrets live in the tenant's Vault area and are injected into gateways/
+  drivers by name; components never hold the value (ADR-0030, driver-secrets-vault). But "choose among
+  **approved** providers" depends on the P17 catalog (PLANNED), so today it is operator configuration rather
+  than an admin choice among a governed set.
+- **Refs:** driver-secrets-vault, ADR-0030 (no secrets in components), ADR-0074; COMPONENT CP5. P17.
+
+### P19 — Networks may set minimum provider requirements
+A **Network** may set **minimum requirements** for its members — e.g. **proofing assurance level**, **model
+hosting region**.
+- **Status: PLANNED.** No network-level minimum-requirement record is defined or enforced against member
+  provider choices.
+- **Refs:** NETWORK (membership requirements); P8a (verification/assurance methods); P17.
+
+### P20 — Personal data to a provider needs a lawful basis + a decision record
+Sending **personal data** to a provider requires a **lawful basis or consent** and produces a **decision
+record**; the provider is **recorded as a data processor**.
+- **Status: PLANNED.** No lawful-basis/consent gate on provider egress and no data-processor record; provider
+  calls are not currently joined to a consent/decision record.
+- **Refs:** REGISTRY R14/R17 (data protection, erasure), ADR-0103 (consent), DECISION (decision record); DPDP
+  (processor obligations). P17.
+
+### P21 — Metered, recorded, with tenant-defined failover
+Usage is **metered per tenant**; the **provider and version** are **recorded on every call** (for models,
+**identity and version per DECISION D3**); **failover is tenant-defined and recorded**.
+- **Status: PARTIAL.** A metering hook exists (component-contract metering, ADR-0049 Part D) and the
+  model-gateway records the model used; but **per-call provider+version** recording, the DECISION D3
+  model-identity-and-version stamp on every inference, and **tenant-defined, recorded failover** are
+  PARTIAL / PLANNED.
+- **Refs:** DECISION D3 (model identity+version), ADR-0046..0050 (metering), model-gateway-reasoning-split. P16.
+
+**Identity note.** The **home issuer is not swappable** — it is the tenant's root of trust. A tenant's own
+**login system** is a **scoped external issuer** (F15), trusted only for that tenant and carrying identity
+only. **Proofing sources** are **platform-approved providers** (P16/P17), not issuers of home identity. The
+provider-gateway model never applies to the home issuer.
+
+---
+
 ## Summary of status
 
 | Rule | Topic | Status | Key debt / refs |
@@ -197,8 +258,16 @@ The public front door exposes **only** apply / verify-email / check-status; it i
 | P13 | Suspension + closure + erasure | PLANNED | N4; R14; ADR-0125 |
 | P14 | Platform admin: server-side from recorded roles | PARTIAL/VIOLATED | B17, B1, B2/A25 |
 | P15 | Public front door (apply/verify/status only) | PLANNED/TO CONFIRM | public-apps; ADR-0111 |
+| P16 | Capabilities via platform gateways, never vendors directly | PARTIAL | ADR-0074; model-gateway/notify; A41 |
+| P17 | Platform authority approves the provider catalog (CR; security/DP-terms/residency) | PLANNED | ADR-0056; P6 |
+| P18 | Tenant admins choose approved providers / BYO; creds in tenant Vault, gateway-only | PARTIAL | driver-secrets-vault; ADR-0030; P17 |
+| P19 | Networks set minimum member requirements (assurance, region) | PLANNED | NETWORK; P8a |
+| P20 | Personal data to a provider needs lawful basis/consent + decision; processor recorded | PLANNED | R14/R17; ADR-0103; DPDP |
+| P21 | Metered per tenant; provider+version per call (models: D3); recorded failover | PARTIAL | DECISION D3; ADR-0046..0050 metering |
 
-**Tally:** 0 IN PLACE, 7 PARTIAL (P1, P2, P3, P5, P9, P10, P11), 1 VIOLATED (**P4**), 5 PLANNED (P5a, P8,
-P8a, P13, P15), 3 mixed (P6, P7, P12, P14 carry PARTIAL+PLANNED/VIOLATED). The governing gap is **P4/B2/A17**
-— the platform tenant confers authority instead of a recorded `platform.authority` role (the ADR-0122 cutover
-closes P2/P4/P5).
+**Tally:** 0 IN PLACE, **10 PARTIAL** (P1, P2, P3, P5, P9, P10, P11, P16, P18, P21), 1 VIOLATED (**P4**),
+**8 PLANNED** (P5a, P8, P8a, P13, P15, P17, P19, P20), 3 mixed (P6, P7, P12, P14 carry PARTIAL+PLANNED/
+VIOLATED). The governing gap is **P4/B2/A17** — the platform tenant confers authority instead of a recorded
+`platform.authority` role (the ADR-0122 cutover closes P2/P4/P5). P16–P21 (shared services + providers) are
+almost entirely ahead of the build: gateways exist, but the governed provider catalog (P17), consent-on-egress
+(P20) and per-call provider/version metering (P21) are not yet enforced.

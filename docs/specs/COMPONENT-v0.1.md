@@ -27,13 +27,16 @@ built) · **TO CONFIRM** (not verified this pass).
 
 ### CP1 — A component is code + a manifest
 A component is code plus a **manifest** that declares everything it may touch: the schemas it **reads** and
-**writes**, the **files** it uses, the **egress hosts** it may reach, the **named secrets** it needs, and its
-**resource** envelope. The manifest is the whole of its authority surface; a component **never exceeds its
-declaration** at runtime.
+**writes**, the **files** it uses, the **egress hosts** it may reach, the **named secrets** it needs, the
+**capabilities** it requires (notify, model, payment, proofing, …), and its **resource** envelope. The manifest
+declares a **required capability, never a specific vendor** — the platform gateway binds the capability to an
+approved provider (PLATFORM P16–P18). The manifest is the whole of its authority surface; a component **never
+exceeds its declaration** at runtime.
 - **Status: PARTIAL.** `meta.yaml` declares reads/writes/scopes/egress/`confinement_min`; the broker + run
   token enforce reads/writes/egress against the declaration (ADR-0030). Named secrets are declared and
   injected by name. **Resources/quotas are not yet declared or enforced** (see CP5/CP11).
-- **Refs:** ADR-0030 (SDK/broker/clean-room); REGISTRY R2 (schema-governed writes); CP3, CP5.
+- **Refs:** ADR-0030 (SDK/broker/clean-room); REGISTRY R2 (schema-governed writes); PLATFORM P16–P18
+  (capabilities via gateways, never vendors); CP3, CP5.
 
 ### CP2 — Private lane: build and run in your own tenant, no certification
 A person holding a recorded **`component.builder`** or **`component.operator`** role (both included in
