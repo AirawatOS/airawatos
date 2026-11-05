@@ -320,4 +320,38 @@ print("[phase9] ADR-0122 test users ready: platauth, platnone — passwords in V
       "platauth SEPARATELY via a ChangeRequest approved by a different holder (ADR-0122 step 2b), never here.")
 PY
 
+echo "── Phase 10 · app-host scheduler-caller principal (ADR-0124 item 1) ─────────────────────────────"
+# app-host calls the scheduler's /run,/reload as a DEDICATED least-privilege principal: role [] (NO platform
+# reach of its own — the run's authority rides the run-token/dev-token in the body), recorded audience
+# svc:scheduler so it may mint a token the scheduler's ingress accepts. Password in Vault, minted on demand;
+# NO passwordless login. Idempotent: reuse an existing Vault password, don't rotate.
+XNET env II="airawat-ld-identity-internal" TENANT="${INSTANCE}-operator" python3 - <<'PY'
+import os, json, secrets, urllib.request, urllib.error
+IDN="http://identity:8093"; VADDR=os.environ.get("VAULT_ADDR","http://vault:8200"); VTOK=os.environ["VAULT_TOKEN"]
+II=os.environ["II"]; TENANT=os.environ["TENANT"]; USER="app-host"; AUDS=["svc:scheduler"]
+def _req(url, data=None, headers=None, method="GET"):
+    r=urllib.request.Request(url, data=(json.dumps(data).encode() if data is not None else None),
+                             headers=headers or {}, method=method)
+    try: return urllib.request.urlopen(r, timeout=10).read()
+    except urllib.error.HTTPError as e: return e
+VPATH=f"secret/data/{TENANT}/{USER}/password"
+b=_req(f"{VADDR}/v1/{VPATH}", headers={"X-Vault-Token":VTOK})
+pw = None if isinstance(b, urllib.error.HTTPError) else (((json.loads(b) or {}).get("data") or {}).get("data") or {}).get("password")
+if pw:
+    print(f"[phase10] app-host: password already in Vault at {VPATH} — reusing (idempotent, no write)")
+else:
+    pw = secrets.token_urlsafe(18)
+    w=_req(f"{VADDR}/v1/{VPATH}", data={"data":{"password":pw}},
+           headers={"X-Vault-Token":VTOK,"Content-Type":"application/json"}, method="POST")
+    print(f"[phase10] app-host: stored password in Vault at {VPATH}" if not isinstance(w, urllib.error.HTTPError)
+          else f"[phase10] app-host: VAULT WRITE FAILED {w.code}")
+# role [] + the svc:scheduler audience allow-list (so /login honours an aud request for it, ADR-0124)
+u=_req(f"{IDN}/users", data={"username":USER,"tenant":TENANT,"roles":[],"audiences":AUDS},
+       headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
+s=_req(f"{IDN}/set-password", data={"username":USER,"tenant":TENANT,"password":pw,"must_reset":False,"only_if_unset":True},
+       headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
+print(f"[phase10] app-host scheduler-caller ready: tenant={TENANT} roles=[] audiences={AUDS}",
+      "OK" if not isinstance(s, urllib.error.HTTPError) else f"set-pw {s.code}")
+PY
+
 echo "✓ bootstrap-dev complete."
