@@ -56,10 +56,17 @@ request path without opening the store.
 
 Bytes at rest are encrypted per the registry's field-level scheme (ADR-0126 / REGISTRY R17): the Kernel
 envelope-encrypts the blob with a Vault-transit data key keyed by `(tenant, sensitivity)`; `restricted`/`secret`
-files are always encrypted, `public` may be clear. **Erasure (R14):** because the record holds the only pointer
-and the key is per-tenant/per-subject, erasing a person's data = destroy the record + crypto-shred the key so
-the ciphertext is unrecoverable (the content-addressed store's dedup must therefore be scoped per key domain,
-not global, or erasure is defeated — a concrete change from today's global dedup). Legal-hold suspends erasure.
+files are always encrypted, `public` may be clear.
+
+**Erasure is deletion (REGISTRY R17).** Erasing a file **deletes the bytes** — the primary mechanism, not
+crypto-shredding. Because content-addressed bytes may be referenced by more than one owner's `platform.file`
+record (dedup), the Kernel **reference-counts** them: deleting one owner's record removes that reference, and
+the **underlying bytes are deleted only when no remaining owner references them**. **Key destruction is used
+only for backups and replicas** — copies that cannot be deleted in place (immutable snapshots, off-site
+replicas); there, destroying the per-`(tenant, sensitivity)` data key renders the copy unrecoverable, which is
+why the key domain must be narrow enough that shredding one subject's key does not strand another's data.
+Legal-hold suspends erasure. (This aligns the files path with R17's "erasure = deletion; key destruction only
+where content cannot be deleted in place.")
 
 ## f. Migration from the current filestore + its ~23 callers
 
@@ -77,9 +84,9 @@ not global, or erasure is defeated — a concrete change from today's global ded
 ## What changes, per component (design only)
 
 - **Kernel:** new `platform.file` schema + `POST /v1/files` (authorized write, hashes + encrypts + writes
-  record), `GET /v1/files/{id}` (authorized read; inline small, signed-link large), `DELETE` (R14 erasure +
-  crypto-shred); R5/R6/consent/decision/audit reuse; Vault-transit integration; signed-link mint+verify;
-  per-key-domain dedup.
+  record), `GET /v1/files/{id}` (authorized read; inline small, signed-link large), `DELETE` (R17 erasure = delete
+  the bytes; reference-counted dedup so bytes go only when no owner references them; key destruction only for
+  backups/replicas); R5/R6/consent/decision/audit reuse; Vault-transit integration; signed-link mint+verify.
 - **Broker:** `file.read`/`file.write` capabilities mapped to the Kernel file endpoints under the run token +
   declared file scopes; large-file path returns/redeems the signed link; never exposes `blob_ref`.
 - **app-host:** replace all ~16 direct `FILESTORE_URL` reads/writes with broker/Kernel file calls under the
@@ -89,7 +96,7 @@ not global, or erasure is defeated — a concrete change from today's global ded
   fetch); it receives already-placed, digest-verified source from the runtime manager.
 - **runtime manager:** fetches component source as a Kernel file read under its own identity, digest-verifies,
   places it for the launcher; owns the one privileged source-read path.
-- **blob storage:** a Kernel-only backend (object store or disk), encrypted at rest, per-key-domain dedup,
+- **blob storage:** a Kernel-only backend (object store or disk), encrypted at rest, reference-counted dedup (bytes deleted only when unreferenced),
   signed-link redemption endpoint for large objects; not routable from any other service.
 
 ## Order of work
@@ -97,7 +104,7 @@ not global, or erasure is defeated — a concrete change from today's global ded
 1. `platform.file` schema + Kernel file endpoints (small-file inline) + blob backend behind the Kernel; audit.
 2. Broker `file.read`/`file.write` under run token + scopes; migrate ENGINE/driver reads (closes the
    launcher/runtime-manager split, D-R13).
-3. R17 encryption at rest + R14 erasure/crypto-shred + per-key-domain dedup.
+3. R17 encryption at rest + erasure-by-deletion with reference-counted dedup (key destruction only for backups/replicas).
 4. Large-file signed-link path.
 5. Migrate app-host (the 16 sites) to Kernel/broker; back-fill `platform.file` records; dual-write.
 6. Seal `filestore:8095` to Kernel-only; retire the `svc:filestore` shadow gate (A72) and the interim caller
