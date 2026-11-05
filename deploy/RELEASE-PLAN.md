@@ -14,6 +14,63 @@ This plan rolls out everything hardened since the **current EC2 images**:
 The EC2 images **predate the entire ADR-0124/0122/#282 series**, so the whole series below is the delta.
 Confirm each image's exact source commit from its OCI label at build time; the ranges below are the authority.
 
+Sequence at a glance: **Stage 0** (backups + restore drill) → **Stage 0b** (housekeeping) → **Stage 1** (full
+rehearsal on an amd64 copy of prod) → §4 image rollouts → §5 enforce flips (one observed step each) → §8 gate.
+Do not start §4 on production until Stage 0, 0b and 1 are green.
+
+---
+
+## 0. Stage 0 — backups + restore drill (before touching anything)
+
+A deploy that flips authentication/authority enforcement must be recoverable to the exact pre-cutover state.
+
+- [ ] **Postgres logical backup** of every prod DB (`kernel`/registry, `platform`, `openfga`): `pg_dump -Fc`
+      per DB to off-box storage (S3), checksummed. The registry (`registry_version`) is the system of record —
+      back it up last, immediately before Stage-1 rehearsal and again immediately before the real §4.
+- [ ] **Volume backups** — EBS snapshot of the data volume(s) backing the Docker named volumes
+      (`airawatos_filestore_data` → `/data/filestore`, the Postgres data volume, the Vault + `identity_data`
+      volumes). Snapshot while the stack is quiesced or use a crash-consistent snapshot + the logical dump above.
+- [ ] **Restore drill (tested, not assumed):** on the Stage-1 amd64 copy (below), restore the `pg_dump` into a
+      fresh Postgres and attach copies of the EBS snapshots; bring the stack up and confirm: site 200, a known
+      record resolves, a login succeeds, the filestore serves a known blob. Record restore time (RTO) and the
+      backup timestamp (RPO). **A backup that has not been restored does not count.**
+- Rollback dependency: every §4/§5 rollback assumes these backups exist and restore cleanly.
+
+## 0b. Stage 0b — housekeeping (remove ambiguity before rehearsal)
+
+- [ ] **Authoritative Vault.** Confirm which Vault the prod stack unseals and reads from (one, not several);
+      record its address, seal/auto-unseal mode (see §2c), and that no stale/second Vault is reachable from the
+      services. Decommission or firewall any non-authoritative Vault so a service can never mint against the
+      wrong one.
+- [ ] **Remove stray images** from the prod host and the registry namespace so a deploy can only pick a real
+      image: `buildx`/QEMU scratch images, `vms-fixture`, `demo-connector`, and every `dev-*`-tagged image
+      (e.g. `dev-a70`, `dev-pwguard`, `dev-adr0124` — those are **local-dev only** and must never run on prod).
+      `docker image ls | grep -E 'dev-|buildx|vms-fixture|demo-connector'` → remove; keep only the pinned
+      prod digests from §1.
+- [ ] **Resolve compose drift.** The EC2 host has drifted trees (`~/airos` vs `~/airawatos`) and the running
+      compose has been hand-edited / `docker cp`-patched (see the A60 hot-patches). Reconcile to ONE committed
+      compose that matches the running services, pin every image by digest, and delete the unused tree. The
+      prod compose must equal what source produces — no hand edits on the box.
+- [ ] **Decide `central_auth_framework`.** No code references it in any repo today (`grep` clean). Decide
+      explicitly: is it an adopted direction (then record the ADR/owner + where it lands relative to the
+      reference IdP + the ADR-0124 service identities), or dropped (then strike the term)? Do not carry an
+      undefined auth concept into a cutover that hardens auth.
+
+## 1b. Stage 1 — full rehearsal on an amd64 copy of production
+
+Before any production change, rehearse the **entire** plan end to end on a throwaway box that is production
+shaped, not the local-dev Mac stack.
+
+- [ ] Stand up a **separate native amd64 host** (CI runner or an EC2 instance of the same family/region).
+- [ ] Seed it from a **restored prod backup** (Stage 0): same registry data, same identity accounts/passwords,
+      same Vault secrets (or a sealed copy), same tenant graph — so enforcement behaves as it will on prod.
+- [ ] Build the amd64 images there (§1/§4) and run **every step of §4 and §5 in order**, including each
+      **rollback**, proving both directions work against prod-shaped data. Capture the conformance suite
+      (`conformance/run.py`, external + internal) green at each enforce step.
+- [ ] Record timings per step (for the real change windows) and any data-specific surprise (e.g. a legacy
+      account without a password, a steward record lacking provenance) so it is fixed on prod **before** the flip.
+- [ ] Tear the rehearsal host down. Go/no-go for production = the rehearsal ran clean, including rollbacks.
+
 ---
 
 ## 1. Commit range per repo
@@ -144,30 +201,60 @@ Keep each image pinned by **digest** in the prod compose. Build all three on a *
 
 ---
 
-## 5. Flags to flip — shadow → enforce (in this order, each its own change window)
+## 5. Flags to flip — shadow → enforce (each a SEPARATE, observed step)
 
-Only after §4 is deployed-and-green and every account/principal has a real Vault-backed credential:
+Only after §4 is deployed-and-green and every account/principal has a real Vault-backed credential. **One flip
+per change window** — never batch two. Each step below has its own soak and an explicit go/no-go. If any
+go-criterion is not met, **do not proceed; roll that flip back** (§7) and re-diagnose. Watch during each soak:
+service logs (denials/divergence), the conformance suite, and the edge (site 200, login success rate).
 
-1. **`PLATFORM_AUTHORITY_MODE=shadow → enforce`** (network). Precondition: ≥1 recorded `platform.authority`
-   holder at platform scope for the steward (ADR-0122 phase-4b seed, through the governance path). Soak shadow,
-   confirm the divergence log shows the steward `recorded==true`, then enforce.
-2. **`TRUST_ENFORCE_STEWARD_PROVENANCE=0 → 1`** (network). Precondition: the reseed migration reported no
-   un-provenanced active steward records (no-op on EC2). After the flip, un-provenanced steward records are
-   ignored by the read path.
-3. **`AUTOMATION_EVENTS_REQUIRE_TOKEN=0 → 1`** (automation). Precondition: event-relay (reference image) mints
-   `svc:automation` tokens for `/events` delivery.
-4. **`IDENTITY_PASSWORD_REQUIRED=shadow → enforce`** (identity). Preconditions (ALL): the account-password audit
-   returns 0 default/literal offenders (PRODUCTION-READINESS §8); **`component-publisher` is provisioned and
-   proven publish-capable** (so marketplace/publish keeps working once passwordless is gone); the **human
-   steward** and every human admin have a real password; the service daemons have their Vault creds. Soak shadow
-   (identity logs "SHADOW would-refuse passwordless"), confirm the log is empty for real traffic, then enforce.
-5. **Account-password guard** rides `AIRAWAT_ENV=production` — it is already active once the guarded reference
-   image boots under production. It is a **boot gate**, so it is effectively "flipped" at step §4's reference
-   rollout; ensure §8's audit is 0 **before** that image boots, or identity will refuse to start.
+**Order rationale:** authority first (governance stays operable), then steward-provenance (read-path, low blast
+radius), then the automation token, then the passwordless cutover **last** — it is the most likely to lock
+something out and depends on every service principal + `component-publisher` already working.
 
-Rationale for the order: authority first (so governance stays operable), then steward-provenance (read-path,
-low blast radius), then the automation token, then the passwordless cutover **last** — because it is the most
-likely to lock something out, and it depends on every service principal and `component-publisher` already working.
+### Step 5.1 — `PLATFORM_AUTHORITY_MODE: shadow → enforce` (network)
+- Precondition: ≥1 recorded `platform.authority` holder at platform scope (ADR-0122 phase-4b seed, via the
+  governance path).
+- Soak **in shadow ≥ 24 h** of real traffic.
+- **Go:** the `[adr0122][divergence]` log shows the steward `recorded==true` and **zero** divergences where the
+  recorded result would deny what the tenant rule allowed (or vice-versa) for any live admin.
+- **No-go:** any divergence on a principal that must stay authoritative, or no recorded holder.
+- Flip → observe ≥ 1 h: `networks/mine` shows `platform_authority=true` for the holder, false for a non-holder;
+  grant-without-CR and last-holder-revoke both 403.
+
+### Step 5.2 — `TRUST_ENFORCE_STEWARD_PROVENANCE: 0 → 1` (network)
+- Precondition: reseed migration reports **0** un-provenanced active steward records (no-op on EC2 — its one
+  `network.admin` is already governed).
+- Soak: re-run the read-only survey immediately before the flip; it must still show 0 un-provenanced.
+- **Go:** survey clean AND, post-flip observe ≥ 1 h, the live `network.admin` steward still resolves (admin
+  console administrable, `networks/mine` unchanged).
+- **No-go:** any steward that must stay live lacks provenance (would be dropped) → reseed it first.
+
+### Step 5.3 — `AUTOMATION_EVENTS_REQUIRE_TOKEN: 0 → 1` (automation)
+- Precondition: event-relay (reference image) mints `svc:automation` tokens for `/events` delivery.
+- Soak: with the token required, confirm a **real** event-relay delivery succeeds end-to-end in a canary.
+- **Go:** tokened `/events` post → 2xx; un-tokened and wrong-audience posts → refused; no legitimate
+  automation flow regressed during a ≥ 1 h observe.
+- **No-go:** any legitimate producer still posts un-tokened.
+
+### Step 5.4 — `IDENTITY_PASSWORD_REQUIRED: shadow → enforce` (identity) — LAST
+- Preconditions (ALL): account-password audit returns **0** default/literal offenders (PRODUCTION-READINESS §8);
+  **`component-publisher` provisioned and proven publish-capable** (marketplace/publish must survive the loss of
+  passwordless); the **human steward** + every human admin have a real password; every service daemon has its
+  Vault credential and is minting.
+- Soak **in shadow ≥ 48 h** (longer than the others — this is the lock-out risk). Identity logs
+  `SHADOW would-refuse passwordless` for every passwordless attempt.
+- **Go:** the shadow log shows **zero** would-refuse events for any account that must keep working (i.e. nothing
+  real is still passwordless) across the full soak, and the external conformance suite is green.
+- **No-go:** any would-refuse for a real principal → give it a password first.
+- Flip → observe closely: all real logins + embed + consumer + publish still work; a passwordless attempt → 401
+  "a password is required". Keep the shadow→enforce revert ready as the fastest unlock (§7).
+
+### Step 5.5 — Account-password guard (boot gate, rides `AIRAWAT_ENV=production`)
+- Not a runtime flip: it is active the moment the guarded reference image boots under `production`. It is
+  therefore effectively exercised at **§4's reference rollout**, not here.
+- **Go precondition for §4 reference rollout:** §8's audit returns **0** offenders, or identity refuses to boot
+  (`SystemExit 3`). Treat a refusal as expected-and-correct: rotate the named account, do not disable the guard.
 
 ---
 
@@ -224,5 +311,32 @@ Vault credentials, generated admin passwords) and are inert when the old images 
 - [ ] identity envelope (iss/aud) set to prod, one shadow soak clean (PRODUCTION-READINESS §2).
 - [ ] trust-reader / trust-writer / audit HMAC provisioned (PRODUCTION-READINESS §4/§5).
 - [ ] `governance.role_assignment@0.2.0` governed + kernel reloaded; reseed migration run (no-op).
+- [ ] **A60 — every October hot-patch is in the new images, not re-`docker cp`-ed** (see §9).
+
+---
+
+## 9. A60 — October hot-patches must be baked into the new images
+
+The live EC2 stack carries the **2026-10-19 hot-patches** applied by `docker cp` into running containers
+(`deploy/ec2/HOTPATCHES-2026-10-19.md`). A fresh image/recreate **reverts** anything not baked. The source for
+each is committed in the nested repos' HEADs, so building the new amd64 images from those HEADs bakes them —
+**confirm each below is present in the built image before shipping** (don't assume the range covers it):
+
+| # | hot-patch | lands in | source at | introducing commit | confirm in image |
+|---|---|---|---|---|---|
+| 1 | `/bridge/file-push` large-file upload (aos upload); run-gate `is_studio_builder × dev/sandbox`; dev-run routing; **async `/bridge/run`** (`{status:"started"}`) | reference (app-host) | `platform-spec/reference/app_host.py` | `d292aa0` (file-push) + the async-run change at HEAD | `grep -c 'bridge/file-push\|"started"' app_host.py` in the image |
+| 2 | scheduler `DEV_RUN_TIMEOUT` 600→1800 s; dev/installed log tail 8/60→400 lines | reference (scheduler) | `platform-spec/reference/scheduler.py` | `9908610` | `grep DEV_RUN_TIMEOUT scheduler.py` shows 1800 |
+| 3 | runtime launcher **`broker_ips`** L1-egress fix (component reaches kernel-as-broker over the container net) | reference (scheduler) | `platform-spec/reference/host_runner.py` + `host.py` | `3092018` | `grep broker_ips host_runner.py` present |
+| 4 | **console** app (in-platform CLI, `roles:[]`, data browser) + **file-explorer** upload-error + 25 MB pre-check | app bundles (filestore `/data/app-bundles`, NOT the image) | `components/apps/console`, `components/apps/file-explorer` | `d0e5236` (console) | ship via Studio publish OR confirm the `/data/app-bundles` overlay is preserved on recreate |
+| 5 | network tenant `airawatdeveloper` → `environment: development` | postgres-backed `TENANTS` (durable) | n/a (data, already corrected) | — | already durable; verify `development` on prod if that sandbox exists |
+
+Notes:
+- The `components` repo is a 4th nested repo (branch `feat/network-console-multinetwork`); its HEAD carries the
+  console/file-explorer bundles. App **bundles** live in the filestore overlay (`/data/app-bundles/apps/<id>`),
+  which survives a container recreate but **not** a volume loss — back it up in Stage 0 and either re-publish
+  via Studio or confirm the overlay is intact after the reference rollout.
+- Items 1–3 are plain source in `platform-spec/reference` → baked when the reference image builds from HEAD
+  (`2258d09`); they are **ahead of** the EC2 `0.2.x` images, so this is also part of why the whole series is the
+  delta. The confirm column is the gate: run the `grep` inside the built image, not just against the repo.
 
 _Generated as a plan for the next EC2 deploy. Nothing has been applied to production._
