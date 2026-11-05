@@ -354,4 +354,39 @@ print(f"[phase10] app-host scheduler-caller ready: tenant={TENANT} roles=[] audi
       "OK" if not isinstance(s, urllib.error.HTTPError) else f"set-pw {s.code}")
 PY
 
+echo "── Phase 11 · identity_lockout least-privilege DB role (ADR-0121 hardening) ─────────────────────"
+# Dedicated Postgres login role for identity's brute-force lockout counters: access ONLY to
+# identity_login_fails, NEVER the registry/audit tables (docs/security/IDENTITY-DB-LEAST-PRIVILEGE.md).
+# Password in Vault (no compose literal), generated once + reused. Idempotent.
+ILPW="$(XNET env INSTANCE="$INSTANCE" python3 - <<'PY'
+import os, json, secrets, urllib.request, urllib.error
+inst=os.environ["INSTANCE"]; VA=(os.environ.get("VAULT_ADDR") or "http://vault:8200").rstrip("/"); VT=os.environ.get("VAULT_TOKEN","")
+P=f"secret/data/{inst}/identity-lockout/password"
+def rd():
+    try:
+        d=json.load(urllib.request.urlopen(urllib.request.Request(VA+"/v1/"+P, headers={"X-Vault-Token":VT}), timeout=8))
+        return ((d.get("data") or {}).get("data") or {}).get("password")
+    except urllib.error.HTTPError:
+        return None
+pw=rd()
+if not pw:
+    pw="il_"+secrets.token_hex(24)
+    urllib.request.urlopen(urllib.request.Request(VA+"/v1/"+P, data=json.dumps({"data":{"password":pw}}).encode(),
+        headers={"X-Vault-Token":VT,"Content-Type":"application/json"}, method="POST"), timeout=8).read()
+print(pw, end="")
+PY
+)"
+[ -n "$ILPW" ] || { echo "✗ could not obtain identity_lockout password from Vault"; exit 1; }
+COMPOSE exec -T postgres psql -U kernel -d kernel -v ON_ERROR_STOP=1 -v ilpw="$ILPW" <<'SQL'
+SELECT 'CREATE ROLE identity_lockout LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE'
+  WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='identity_lockout') \gexec
+ALTER ROLE identity_lockout WITH LOGIN PASSWORD :'ilpw' NOSUPERUSER NOCREATEDB NOCREATEROLE;
+CREATE TABLE IF NOT EXISTS identity_login_fails (k TEXT NOT NULL, ts DOUBLE PRECISION NOT NULL);
+CREATE INDEX IF NOT EXISTS identity_login_fails_k_ts ON identity_login_fails (k, ts);
+GRANT USAGE ON SCHEMA public TO identity_lockout;
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM identity_lockout;
+GRANT SELECT, INSERT, DELETE ON identity_login_fails TO identity_lockout;
+SQL
+echo "  · identity_lockout ready — grants: SELECT/INSERT/DELETE on identity_login_fails only (no registry/audit)"
+
 echo "✓ bootstrap-dev complete."
