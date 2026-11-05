@@ -1,5 +1,12 @@
 # ADR-0096 — The platform operator: a key-rooted participant with a node-side CLI
 
+> **⚠️ PARTIALLY SUPERSEDED (2026-11-05).** The *"a tenant = network citizenship"* framing (Relates-to line,
+> via ADR-0039) is overturned by **ADR-0116** (participant ≠ tenant; membership is tenant-free) — see
+> **PLATFORM-v0.1 P4** (the platform/any tenant confers no authority), **NETWORK-v0.1 N1** (slug/tenant not
+> accepted as network authority), **FOUNDATIONS-v0.1 F3**. The operator model itself (key-rooted participant,
+> node-side CLI, operator holds no governance role per **PLATFORM-v0.1 P3**) stands; only the
+> tenant-as-citizenship premise is corrected. Body unchanged below.
+
 **Status:** Proposed. First slice DONE & proven on EC2 (2026-09-19): the node-side `airawat` CLI with `provision-runtime` (pull → digest-verify → attest), reusing ADR-0095 R3's attestation endpoints. The identity/signing machinery below is the follow-on.
 
 **Relates to:** ADR-0011 (realms/RBAC), ADR-0039 (federated identity — a tenant = network citizenship), ADR-0030 (clean-room runtime + broker), ADR-0051 (point-of-use cert/image enforcement), ADR-0082 (offline/edge device credential), ADR-0085 (filestore delivery), ADR-0086 (operator certification — host integrity), ADR-0093 (retire baking — the OS ships services-only), ADR-0095 (runtime lifecycle; this ADR lands its **R4**).

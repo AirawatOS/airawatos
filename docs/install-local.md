@@ -75,6 +75,9 @@ the sign-in screen.
 
 ## 7 · Log in (passwordless dev IdP)
 
+> **Local development only.** Production enforces passwords (`IDENTITY_PASSWORD_REQUIRED=enforce`, **ADR-0121**);
+> the passwordless sign-in below works solely because this is a local/offline dev stack.
+
 A fresh stack ships the reference IdP's seed realms (no passwords set yet), so you can sign straight in:
 
 | Realm | User | Role |
@@ -82,7 +85,8 @@ A fresh stack ships the reference IdP's seed realms (no passwords set yet), so y
 | `airawatdeveloper` | `devrick` | developer (build/publish in Studio) |
 | `airawat` | `steward` | network admin (Marketplace, Components) |
 
-Pick the realm on the login screen, type the username, leave password blank, sign in.
+Pick the realm on the login screen, type the username, leave password blank, sign in. *(Local development
+only; production enforces passwords — `IDENTITY_PASSWORD_REQUIRED=enforce`, ADR-0121.)*
 
 ## 8 · What "installed" looks like
 
@@ -108,7 +112,8 @@ none is required to test the core install:
 - **runtime-manager** — places heavy sandboxed *runtime-profile* containers; holds the Docker socket and mounts
   a host components dir. Needed only for drivers/engines that require a runtime image.
 - **mospi-gateway** — an external-data sidecar (national statistics); bind-mounts its own source.
-- **keycloak** — optional OIDC IdP. The built-in passwordless reference IdP covers local testing.
+- **keycloak** — optional OIDC IdP. The built-in passwordless reference IdP covers local testing *(local
+  development only; production enforces passwords — `IDENTITY_PASSWORD_REQUIRED=enforce`, ADR-0121)*.
 
 Add them later from the production compose on the deploy host if you need those features.
 

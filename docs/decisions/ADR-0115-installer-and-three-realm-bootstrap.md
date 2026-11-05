@@ -1,5 +1,15 @@
 # ADR-0115 — Installer & the three-realm bootstrap (operator / network / tenant)
 
+> **⚠️ PARTIALLY SUPERSEDED (2026-11-05).** Two premises are overturned: (1) **passwordless service accounts
+> baked into the image** (explicitly flagged as open item #282) → superseded by **ADR-0124** (dedicated service
+> identities with Vault-backed credentials) and **PLATFORM-v0.1 P1** (service identities carry recorded service
+> credentials, never passwordless). (2) **first platform authority seeded via the realm/tenant bootstrap** →
+> superseded by **ADR-0122** (first `platform.authority` via a one-time installer credential that expires; a
+> **recorded role** with SoD + last-holder floor) — **PLATFORM-v0.1 P2 & P5** — and **P4** (the platform tenant
+> confers no authority; no tenant-name authority). The cited *"federated identity = network citizenship"* is
+> overturned by **ADR-0116** / **PLATFORM-v0.1 P4** / **NETWORK-v0.1 N1**. The installer-minimum / idempotency
+> shape (P1) otherwise stands. Body unchanged below.
+
 - **Status:** Proposed — 2026-10-29
 - **Context carried from:** ADR-0068 (pluggable identity + assurance tiers), ADR-0086/0096 (operator model),
   ADR-0039 (federated identity = network citizenship), ADR-0038 (spec governance), ADR-0051 (dev-tenant sandbox),

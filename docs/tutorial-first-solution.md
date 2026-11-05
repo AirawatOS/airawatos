@@ -41,6 +41,8 @@ zero integration. That's the whole point.
                   identity=http://localhost:8093 app-host=http://localhost:8099
    aos login                         # local dev IdP is passwordless: realm=airawatdeveloper, user=devrick
    ```
+   > **Local development only.** Production enforces passwords (`IDENTITY_PASSWORD_REQUIRED=enforce`, **ADR-0121**);
+   > passwordless `aos login` works only against a local/offline dev stack.
 
 > **The mental model.** You build components locally; the platform **governs, certifies, delivers, and runs**
 > them. You never hand‑wire infrastructure, and you never get unrestricted access — a component gets exactly the

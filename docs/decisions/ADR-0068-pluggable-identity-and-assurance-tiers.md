@@ -1,5 +1,12 @@
 # ADR-0068 — Pluggable identity providers + auth-method assurance tiers
 
+> **⚠️ PARTIALLY SUPERSEDED (2026-11-05).** The cited *"tenant login = network citizenship; participant derived
+> from realm"* model is overturned by **ADR-0116** (participant ≠ tenant; membership is tenant-free) — see
+> **PLATFORM-v0.1 P4**, **NETWORK-v0.1 N1**, **FOUNDATIONS-v0.1 F3**. The passwordless tier (A0) is retained
+> **only** as scoped by **ADR-0121**: permitted in local/offline dev, while production enforces
+> `IDENTITY_PASSWORD_REQUIRED=enforce` (every account presents a password; #282). The pluggable-IdP /
+> assurance-tier design otherwise stands. Body unchanged below.
+
 - **Status:** Proposed (2026-09-02)
 - **Deciders:** Airawat (platform steward), product owner
 - **Composes / relates to:** ADR-0011 (per-tenant realms + **assurance tiers** — this ADR implements the tiers),
