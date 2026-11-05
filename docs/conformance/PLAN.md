@@ -270,6 +270,27 @@ minimum disclosure, the function catalog and the publish-time test gate are **NE
 | PL7 | a clause calls a function outside the governed catalog (abuse) | NEEDS-BUILD | governed function catalog not built |
 | PL8 | publish a policy whose own tests fail (abuse) | NEEDS-BUILD | publish-time test gate not built |
 
+## PARTICIPANT (PP1–PP12) — see [[PARTICIPANT-v0.1]]
+
+Mechanisms for exchange (ADR-0067) and credentials (ADR-0049) are live but under legacy authorization and are
+reachable only with a participant identity/bearer (NEEDS-CREDENTIALS); the decision/consent-referenced request,
+events, settlement and the public non-`/bridge` protocol are **NEEDS-BUILD**.
+
+| Rule | Case (type) | Classification | Expected observable |
+| --- | --- | --- | --- |
+| PP1 | a participant key not in the platform-signed directory is trusted (abuse) | NEEDS-BUILD | reject — identity keys come from the signed directory |
+| PP2 | a scoped-issuer token claiming a tenant/role outside its binding (abuse) | TESTABLE NOW | reject (401) — F15 issuer-scoping; **live: foreign-issuer → 401 ✓** |
+| PP3 | register a Service without the `service.provide` grant (abuse) | NEEDS-CREDENTIALS | refuse; data-use declaration not built |
+| PP4 | offering rules | — | see OFFERINGS O1–O12 |
+| PP5 | inbound request missing the Network signature / decision ref → refuse (abuse) | NEEDS-BUILD | verify signature + decision ref (+consent for personal); provider never widens access |
+| PP6 | response unsigned / no fulfilment evidence (abuse) | NEEDS-BUILD | signed response + evidence joined to the decision |
+| PP7 | issue a credential type without the `issue` grant (abuse) | NEEDS-CREDENTIALS | refuse; per-type issue grant not built (issuance is member-gated today) |
+| PP8 | present a credential to the wrong recipient / purpose (abuse) | NEEDS-BUILD | verification binds holder/recipient/purpose (W3) |
+| PP9 | publish an ungranted event type; subscribe to gain access; replay without idempotency (abuse) | NEEDS-BUILD | event spine Proposed (ADR-0089) — not built |
+| PP10 | a settled interaction reports no settlement reference (abuse) | NEEDS-BUILD | settlement ref reported + matched (O8) — not built |
+| PP11 | activate a Service that fails health / Network conformance (abuse) | NEEDS-BUILD | activation gated on health + conformance — not built |
+| PP12 | a participant uses a `/bridge/*` route as the federation protocol (abuse) | NEEDS-BUILD | public versioned protocol only; `/bridge/*` is host-internal (today VIOLATED for first-party) |
+
 ## Internal runner (step 3)
 The reference services are not published at the edge, so external mode cannot reach them. An **internal
 runner** executes the same suite (`AOS_MODE=internal`) inside a container on the local-dev docker network
