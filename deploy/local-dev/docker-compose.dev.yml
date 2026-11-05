@@ -21,7 +21,7 @@ x-devenv: &devenv
   AIRAWAT_ALLOW_PASSWORDLESS: "1"     # reference IdP passwordless dev auth (gated: prod-guard blocks under production)
 
 x-ref: &ref                          # one source-built reference image; many services (per-service command)
-  image: manishsv/airawatos-reference:dev-hard1
+  image: manishsv/airawatos-reference:dev-hard2
   restart: unless-stopped
   entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]     # production guard (effective-settings check)
   volumes: [ ./prod-guard.sh:/local-dev/prod-guard.sh:ro ]
@@ -240,7 +240,7 @@ services:
     <<: *ref
     container_name: airawat-ld-scheduler
     command: ["python","reference/scheduler.py","--components-root","/app/components","--kernel","http://kernel:8080","--network","http://network:8090"]
-    environment: *svcid
+    environment: { <<: *svcid, SCHEDULER_REQUIRE_TOKEN: "1" }   # ADR-0124 item 1 — gate /run+/reload (callers wired)
     depends_on:
       kernel: { condition: service_started }
       vault: { condition: service_healthy }
@@ -271,6 +271,11 @@ services:
       COMPONENT_PUBLISHER_TENANT: localdev-network
       DEV_SANDBOX_TENANT: localdev-developer
       EMBED_CLIENT_TENANT: localdev-operator           # ADR-0124 item (b): embed-service principal's tenant (platform.app_client own-tenant)
+      # ADR-0124 item 1 — app-host calls the scheduler's /run,/reload as a DEDICATED least-privilege principal
+      # (`app-host`, roles [], recorded audience svc:scheduler), minting a Vault-backed token. bootstrap-dev.sh
+      # provisions the credential + the audience allow-list.
+      SCHEDULER_CALLER_PRINCIPAL: app-host
+      SCHEDULER_CALLER_TENANT: localdev-operator
     volumes:
       - ./prod-guard.sh:/local-dev/prod-guard.sh:ro
       - localdev_appbundles:/data/app-bundles

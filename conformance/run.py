@@ -446,6 +446,26 @@ def _login_with_aud(principal, tenant, vault_path, aud):
     return 200, json.loads(base64.urlsafe_b64decode(pp)).get("aud")
 
 
+def _login_token(principal, tenant, vault_path, aud=None):
+    """The raw access_token from a REAL identity /login (reads the principal's Vault password, works under
+    enforce). None when creds/login unavailable. Used to mint a WRONG-audience token for ingress abuse tests."""
+    vaddr = (os.environ.get("VAULT_ADDR") or "").rstrip("/"); vtok = os.environ.get("VAULT_TOKEN") or ""
+    if not (vaddr and vtok):
+        return None
+    try:
+        r = _req("GET", f"{vaddr}/v1/{vault_path}", headers={"X-Vault-Token": vtok})
+        pw = (((json.loads(r[1]) or {}).get("data") or {}).get("data") or {}).get("password") if r[0] == 200 else None
+    except Exception:
+        return None
+    if not pw:
+        return None
+    body = {"username": principal, "tenant": tenant, "password": pw}
+    if aud is not None:
+        body["aud"] = aud
+    st, b, _ = _req("POST", INTERNAL["identity"] + "/login", body)
+    return (json.loads(b).get("access_token") if st == 200 else None)
+
+
 def case_login_audience_allowlist():
     """ADR-0124 — identity /login enforces a RECORDED per-principal audience allow-list (never silent default).
     The daemons share the `scheduler` principal (recorded audience: svc:automation)."""
@@ -521,7 +541,21 @@ def run_internal_cases():
     # F10 / debt B5 — unauthenticated privileged reference endpoints
     tokenless_accepted("FOUNDATIONS","F10/B5","filestore serves without a service token (abuse)","GET",  T["filestore"]+"/")
     tokenless_accepted("FOUNDATIONS","F10/B5","notify /notify accepts without a service token (abuse)","POST", T["notify"]+"/notify", {})
-    tokenless_accepted("FOUNDATIONS","F10/B5","scheduler /run accepts without a service token (abuse)","POST", T["scheduler"]+"/run", {"component":"__conformance_probe__"})
+    # ADR-0124 item 1 — scheduler /run,/reload now REQUIRE a svc:scheduler token from an allow-listed caller.
+    # Promoted from the tokenless-abuse probe to a real assertion: anonymous AND wrong-audience are refused.
+    _s_anon, _s_b, _ = _req("POST", T["scheduler"]+"/run", body={"component":"__conformance_probe__","tenant":"kmc"})
+    if _s_anon == 0:
+        record("FOUNDATIONS","F10/B5","scheduler /run requires a service token (abuse)","expected-fail","SKIP_BUILD","scheduler unreachable (%s)"%_s_b[:40])
+    else:
+        expect("FOUNDATIONS","F10/B5","scheduler /run refuses an anonymous call (abuse)", _s_anon in (401,403),
+               "anon /run -> %s (expect 403)" % _s_anon)
+        _wrong = _login_token("scheduler","localdev-operator","secret/data/localdev-operator/scheduler/password","svc:automation")
+        if not _wrong:
+            record("FOUNDATIONS","F10/B5","scheduler /run refuses a wrong-audience token (abuse)","needs-creds","SKIP_CREDS","could not mint a svc:automation token")
+        else:
+            _stw, _bw, _ = _req("POST", T["scheduler"]+"/run", body={"component":"__conformance_probe__","tenant":"kmc"}, token=_wrong)
+            expect("FOUNDATIONS","F10/B5","scheduler /run refuses a wrong-audience token (abuse)", _stw == 403,
+                   "svc:automation token -> %s (expect 403 wrong audience)" % _stw)
     tokenless_accepted("FOUNDATIONS","F10/B5","model-gateway /complete accepts without a service token (abuse)","POST", T["model-gateway"]+"/complete", {})
     tokenless_accepted("FOUNDATIONS","F10/B5","automation /events accepts without a service token (abuse)","POST", T["automation"]+"/events", {})
     # F9 / debt B4 — fail-open internal-token gates
