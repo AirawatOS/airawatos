@@ -248,6 +248,23 @@ Supporting rules:
   ADR-0124 (Kernel service identity), ADR-0125 (consent), DECISION D10 (decision record), ACCOUNT A3
   (identity-binding uniqueness → blind index); DPDP (Open item). New surface — no debt item exists yet.
 
+### R18 — Files are records
+A file is a **governed record** (`platform.file`: owner, schema, content hash, size, sensitivity) **plus
+bytes** held in **blob storage reachable only by the Kernel** — never a flat, directly-reachable blob store.
+A file's **reads and writes use the same authorization as any record** (R5/R6, consent, decision records,
+audit); **components reach files only through the Kernel broker** under their run token and declared scopes.
+For **large files** the Kernel makes the authorization decision and then issues a **short-lived, single-use
+signed link** so the bytes bypass the Kernel body without bypassing its decision. **R17** (encryption of
+sensitive bytes at rest) and **R14** apply: **erasure is deletion** — content-addressed bytes are
+**reference-counted** and deleted only when **no remaining owner references them**, with **key destruction
+only for backups and replicas** that cannot be deleted in place.
+- **Status: PLANNED.** The design is specified ([[KERNEL-MEDIATED-FILES-DESIGN]]); today files live in a flat
+  content-addressed filestore reached directly by ~23 callers, behind only the interim `svc:filestore` shadow
+  gate (ADR-0124 item 1, debt A72). No `platform.file` record, no per-file authorization, no broker file
+  capability, no at-rest encryption or erasure on the bytes yet.
+- **Refs:** [[KERNEL-MEDIATED-FILES-DESIGN]]; R5/R6 (authority), R14 (erasure), R17 (encryption), R12 (audit);
+  ADR-0030 (broker), ADR-0124 item 1 (shadow gate), A72. New surface — no debt item beyond A72.
+
 ---
 
 ## Summary of status
@@ -271,9 +288,10 @@ Supporting rules:
 | R15 | Public = schema designation via CR | VIOLATED/PARTIAL | B8; ADR-0056/0103 |
 | R16 | Archiving in the protocol | PLANNED | tasks #201, #202 |
 | R17 | Data protection (field encryption) | PLANNED | ADR-0126; R14; DPDP (below) |
+| R18 | Files are records (Kernel-mediated bytes) | PLANNED | KERNEL-MEDIATED-FILES-DESIGN; A72 |
 
 **Tally:** 4 IN PLACE (R1, R3, R4, R10), **6 PARTIAL** (R2, R5, R7, R8, R11, R12), 3 VIOLATED (R6, R13,
-R15), **3 PLANNED (R14, R16, R17)**, 1 TO CONFIRM (R9). R5 and R15 carry a secondary VIOLATED.
+R15), **4 PLANNED (R14, R16, R17, R18)**, 1 TO CONFIRM (R9). R5 and R15 carry a secondary VIOLATED.
 
 ---
 

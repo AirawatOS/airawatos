@@ -92,6 +92,10 @@ Suite exit: non-zero only on a **FAIL** (a TESTABLE-NOW case that did not behave
 | R14 | personal data stored by reference; erasure deletes + records (pos) | NEEDS-BUILD | erasable store not built (PLANNED) |
 | R15 | public is a schema-level flag changed via CR (abuse) | NEEDS-BUILD | hardcoded allow-list today (debt B8) |
 | R16 | archived version resolves identically (pos) | NEEDS-BUILD | archiving not built (PLANNED) |
+| R18 | file write creates a platform.file record + bytes; anon/unauthorized read denied (abuse) | NEEDS-BUILD | platform.file + Kernel file endpoints not built; today a flat filestore behind the svc:filestore shadow gate (A72) |
+| R18 | component reads/writes a file only via the broker under its run token + scope (abuse) | NEEDS-BUILD | broker file.read/file.write capability not built |
+| R18 | large-file read issues a short-lived single-use signed link; replay/expiry rejected (abuse) | NEEDS-BUILD | signed-link path not built |
+| R18 | erasing a file deletes the bytes; shared bytes kept while another owner references them (pos) | NEEDS-BUILD | reference-counted deletion + R14/R17 on files not built |
 
 ## DECISION (D1–D12)
 
