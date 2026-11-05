@@ -8,6 +8,9 @@
 !/LIMITATIONS.md
 !/ALPHA-RELEASE-PLAN.md
 !/deploy/
+# root docs tree (specs, decisions/ADRs, operator guide, consolidation) — tracked normally; genuine
+# artefacts are still excluded by the per-type rules below (*.pem/*.key/.DS_Store) + any docs/ artefact rule.
+!/docs/
 # standalone auxiliary services deployed alongside the stack (not big enough for their own repo yet)
 !/services/
 # never track the data dump or keys even under deploy/

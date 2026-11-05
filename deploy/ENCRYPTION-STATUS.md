@@ -79,8 +79,18 @@ EC2 was touched only by read-only probes.
 
 ## Design-only proposal — minimum field-level encryption via Vault transit
 
+> **SUPERSEDED (2026-11-05).** This proposal has been promoted into the governed spec: **REGISTRY-v0.1 rule
+> **R17 — Data protection**** and **ADR-0126 — Field-level data protection** are now the authoritative design;
+> conformance cases are registered NEEDS-BUILD (`conformance/run.py`: REGISTRY R17, ACCOUNT A3, DECISION D10).
+> Where this section and R17/ADR-0126 differ, **R17/ADR-0126 win** — notably: **personal** fields
+> (`x-sensitivity: personal`) live in the **R14 erasable store** (erasure = real deletion), **sensitive**
+> non-personal fields are inline per-tenant ciphertext, and **a derived per-person key does NOT provide
+> erasure** (crypto-shredding an append-only value is not deletion — erasability comes only from the R14
+> store). The sketch below is kept for history only.
+
 Encrypt annotated fields at the kernel boundary so plaintext PII never lands in `registry_version.object` or in
-logs, with per-tenant/per-person keys and audited key use. **Design only — not implemented.**
+logs, with per-tenant/per-person keys and audited key use. **Design only — not implemented. Superseded by R17 /
+ADR-0126 (see banner above).**
 
 1. **Schema annotation (one new marker).** On a field: `"x-encrypt": true` + `"x-encrypt-scope":
    "tenant" | "person"` (default `tenant`); optionally reuse `x-sensitivity: personal|sensitive` as the human
