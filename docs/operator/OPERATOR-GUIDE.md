@@ -104,6 +104,22 @@ to shadow.
 - **Periodic perimeter review.** On a fixed cadence, re-verify the perimeter: only 80/443 public, SSH from the
   current admin CIDRs only (prune stale addresses), every service port still bound to 127.0.0.1, and no new
   inbound rule has crept in.
+- **Registry audit-chain verification (scheduled integrity check).** On a fixed cadence (e.g. nightly or
+  weekly), run the Kernel's read-only audit verifier to confirm no stored registry row was altered in place:
+
+  ```
+  docker exec <kernel-container> python3 /app/tools/audit_verify.py            # whole table
+  docker exec <kernel-container> python3 /app/tools/audit_verify.py --from <seq> --to <seq>   # a range
+  ```
+
+  It recomputes each `registry_version` row's `content_hash` with the kernel's own hash and reports the FIRST
+  row whose stored bytes no longer match (the strongest check the current layout supports; rows are
+  content-hashed, not per-row signed). **Exit 0** = all rows verified; **exit 2** = a hash break (investigate
+  that `seq`/`id` immediately — a row's JSON changed after write); **exit 3** = a present signature failed
+  verification. It is **read-only** (a read-only transaction; SELECTs only), so it is safe to run against
+  production and against a restored backup. Throughput is ~40k rows/s (~250 ms per 10k) on local-dev; for a
+  very large table, schedule it over seq ranges or during a quiet window, and alert on any non-zero exit. See
+  `../performance/PERFORMANCE-BUDGETS.md` for the budget (≤ 800 ms / 10k) and the measured number.
 
 ---
 

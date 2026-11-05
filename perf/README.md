@@ -37,3 +37,34 @@ login · service-token mint · authorization decision (cached + uncached proxy) 
 / query / point-in-time · audit-chain verify per 10k · consent check for a personal read (D10) · scheduler
 dispatch · automation event handling · file upload/download (1 MB). Budgets live in
 `../docs/performance/PERFORMANCE-BUDGETS.md` (the harness mirrors the p95 gate).
+
+## Seeding a realistic corpus
+
+Near-empty reads are a floor, not a measurement. Seed a synthetic, **non-personal, dev-only** corpus first:
+
+```
+python3 perf/seed.py --confirm-dev            # ~1M registry_version rows + a point-in-time fixture; idempotent
+```
+
+~1,000,260 rows across 5 `perf.*` schemas × 3 synthetic tenants × ~16.7k ids × 4 versions, plus a small
+`perf.pit` fixture (owned by `localdev-network`) so the owner-gated history endpoint is measurable. It refuses
+without `--confirm-dev` (or `SEED_CONFIRM=1`) and under `AIRAWAT_ENV=production`, writes only `perf.*`/`perfcity-*`,
+and prints the one-line DELETE to remove it. Re-running is a no-op once present. **Never run against production.**
+
+## Concurrency pass
+
+`run.py` also fires the core read-path ops under parallel clients and reports p50/p95 + throughput per level:
+
+```
+docker exec -e CONC_LEVELS=10,50,100 -e CONC_REQS=300 airawat-ld-app-host python3 /tmp/perf_run.py
+```
+
+## Audit-chain verify (out-of-band)
+
+Not an HTTP op — measured by the Kernel's read-only verifier, which recomputes every row's `content_hash`:
+
+```
+docker exec airawat-ld-kernel python3 /app/tools/audit_verify.py        # whole table; exit 2 = a hash break
+```
+
+See `kernel/tools/audit_verify.py` and OPERATOR-GUIDE §4 (scheduled integrity check).

@@ -108,3 +108,90 @@ endpoint) are reported **BLOCKED** with the reason, not faked.
    registry; the tail is the cold re-read, still inside budget.
 5. Everything else is far under budget on this hardware — expected, since there is no network latency, no
    concurrency, and almost no data. **These are a loose lower bound, not an SLO.**
+
+---
+
+## Run — 2026-11-05 (local-dev, SEEDED ~1M records + concurrency; INDICATIVE: arm64 laptop, co-located, N=50)
+
+Seeded a synthetic, non-personal corpus with `perf/seed.py`: **999,960** `registry_version` rows across 5
+`perf.*` schemas × 3 synthetic tenants × ~16.7k ids × 4 versions, **plus 300** point-in-time fixture rows
+(`perf.pit` @ `localdev-network`, 50 ids × 6 versions) a harness principal owns — so point-in-time and the
+seeded read/query paths are now exercised against a ~1M-row table (the `rv_live_schema_id` index present). The
+corpus is dev-only and idempotent (re-run = no-op); remove with the one-line DELETE the seeder prints.
+
+### Single-client (p95 gate)
+
+| Operation | p50 (ms) | p95 (ms) | budget p95 | result |
+|---|---:|---:|---:|---|
+| login | 18.5 | 20.3 | 400 | PASS |
+| service-token mint | 19.1 | 21.0 | 150 | PASS |
+| authz decision — cached | 1.4 | 1.7 | 8 | PASS |
+| authz decision — uncached (proxy) | 2.1 | 4.4 | 60 | PASS |
+| Kernel record write | 6.3 | 34.8 | 80 | PASS |
+| **read by ID — `filter:{id}` (no schema)** | **1722.4** | **2065.2** | 25 | **FAIL** |
+| query (schema-filtered, `perf.pit`) | 2.8 | 5.5 | 150 | PASS |
+| point-in-time (history, `perf.pit` id, 6 versions) | 1.7 | 3.2 | 80 | PASS |
+| audit-chain verify / 10k | 251 (tool) | — | 800 | **PASS (tool)** |
+| consent personal read (D10) | — | — | 90 | **BLOCKED** |
+| scheduler dispatch | 2.2 | 3.4 | 100 | PASS |
+| automation event handling | 0.4 | 0.7 | 80 | PASS |
+| file upload 1 MB | 0.8 | 1.4 | 150 | PASS |
+| file download 1 MB | 0.9 | 1.9 | 80 | PASS |
+
+**11 PASS · 1 FAIL (read_by_id) · 1 PASS-via-tool (audit) · 1 BLOCKED (consent).** point-in-time is now
+**unblocked and PASS** (was BLOCKED near-empty: no owned record with history).
+
+### Concurrency (10 / 50 / 100 parallel clients; 300 requests per op·level)
+
+| Operation | clients | p50 (ms) | p95 (ms) | throughput (/s) | ok | bad |
+|---|---:|---:|---:|---:|---:|---:|
+| authz_cached | 10 | 162 | 292 | 60 | 300 | 0 |
+| authz_cached | 50 | 841 | 1488 | 37 | 208 | 92 |
+| authz_cached | 100 | 1608 | 1802 | 45 | 212 | 88 |
+| read_by_id (`filter:{id}`) | 10 | 5377 | 9655 | 2 | 300 | 0 |
+| read_by_id (`filter:{id}`) | 50 | 15373 | 16422 | 1 | 24 | 276 |
+| read_by_id (`filter:{id}`) | 100 | 15091 | 16038 | 1 | 24 | 276 |
+| query | 10 | 175 | 464 | 49 | 300 | 0 |
+| query | 50 | 768 | 1370 | 42 | 206 | 94 |
+| query | 100 | 1768 | 2353 | 40 | 216 | 84 |
+| point_in_time | 10 | 179 | 333 | 52 | 300 | 0 |
+| point_in_time | 50 | 971 | 1639 | 39 | 215 | 85 |
+| point_in_time | 100 | 2049 | 2854 | 37 | 230 | 70 |
+
+### Findings (seeded volume + concurrency)
+
+1. **FAIL — resolve-by-id via `filter:{id}` (no schema) seq-scans the whole table.** p95 **2065 ms** at 1 M
+   rows (was 4.7 ms near-empty). `EXPLAIN` confirms a **parallel sequential scan** filtering on the
+   **unindexed** `object #>> '{id}'`, removing ~333k rows/worker. The resolver's fast path
+   (`id = <col>`, index `rv_one_open`) is reached only when the caller passes a dedicated `id_` or **includes
+   a `schema`** in the filter; a lone `{"filter":{"id":…}}` falls through to the general JSONB-filter path. The
+   **indexed single-key read is fine** — point-in-time/history (which calls `resolve_as_of(id_=…)` → `id =`)
+   is **3.2 ms p95 live**, and the raw `id =` query is 4.7 ms by `EXPLAIN`. So this is a **query-routing gap,
+   not a storage limit**: either map a lone-`id` filter to the indexed `id` column, add an expression index on
+   `object #>> '{id}'`, or require callers to pass `id_`/`schema`. **Reported, not fixed** (measurement-only
+   slice; a fix is a separate Kernel code slice). This is the headline value of seeding — invisible at
+   near-empty, show-stopping at city scale.
+2. **Audit-chain verify now MEASURED (not BLOCKED): ~251 ms per 10k rows** (≈40k rows/s), whole 1M-row table
+   in ~25 s, 0 breaks — well inside the 800 ms/10k budget. Measured by the new read-only tool
+   `kernel/tools/audit_verify.py` (not an HTTP op; see OPERATOR-GUIDE §4). Tamper-detection verified: a row
+   whose bytes were altered without updating its hash is caught (exit 2), and exact restore re-verifies (exit
+   0).
+3. **Concurrency: graceful-ish degradation + connection-pool saturation.** authz/query/point-in-time hold
+   ~40–60 req/s single-node and their p95 grows with clients as expected; past ~pool size (`PG_POOL_MAX=24`)
+   the `bad` column climbs (requests time out / are refused) — the tail is pool contention, the signal the
+   budget's "one node" assumption anticipates. **read_by_id collapses hardest** (276/300 fail at 50 clients)
+   because each request is the ~1.7 s seq scan from finding 1, holding a pool connection for seconds — a direct
+   amplification of the routing gap, not an independent issue. Fix finding 1 and this row should rejoin the
+   others.
+4. **Query/point-in-time stayed fast at 1 M rows** (2.8 / 1.7 ms p50) — the `rv_live_schema_id` partial index
+   and the `id =` fast path do their job; the budgeted index-bounded behaviour holds at volume. The earlier
+   "reads are a floor, re-measure at scale" caveat is now discharged for these two.
+5. **Login/KDF unchanged** (p95 20 ms) — still the KDF-strength security finding, now written up in
+   `IDENTITY-KDF-REPORT.md` (PBKDF2-SHA256 @ 200k < ~600k guidance; recommend ≥600k or Argon2id + durable
+   lockout counters). Not a perf issue.
+
+**Still laptop-indicative.** Absolute numbers remain a loose bound (co-located services, no network latency,
+one Docker engine, one Postgres, `PG_POOL_MAX=24`). What transfers to production is the **shape**: finding 1
+(a seq-scan routing bug that only appears with data) and the pool-saturation tail. Re-run on a
+production-shaped deployment (horizontal read tier per ADR-0105, tuned pool, real network) before any number
+here is treated as an SLO.
