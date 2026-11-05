@@ -1,7 +1,7 @@
 # AirawatOS — LOCAL-DEV stack, built FROM SOURCE (committed hashes), separate from deploy/local/.
 #   kernel      = manishsv/airawatos-kernel:dev-hard3     (kernel feat/admin-issuer-scope)
 #   network     = manishsv/airawatos-network:dev-a71    (network feat/trust-plane-phase1; mint-on-demand TRUST_READ_TOKEN)
-#   reference   = manishsv/airawatos-reference:dev-hard5  (platform-spec feat/network-console-multinetwork)
+#   reference   = manishsv/airawatos-reference:dev-hard6  (platform-spec feat/network-console-multinetwork)
 #     (components feat/network-console-multinetwork @ 0250c71 delivered from the working tree at install)
 # NO data-mount here (that is kernel/platform-spec feat/data-mount — a later slice).
 #
@@ -21,7 +21,7 @@ x-devenv: &devenv
   AIRAWAT_ALLOW_PASSWORDLESS: "1"     # reference IdP passwordless dev auth (gated: prod-guard blocks under production)
 
 x-ref: &ref                          # one source-built reference image; many services (per-service command)
-  image: manishsv/airawatos-reference:dev-hard5
+  image: manishsv/airawatos-reference:dev-hard6
   restart: unless-stopped
   entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]     # production guard (effective-settings check)
   volumes: [ ./prod-guard.sh:/local-dev/prod-guard.sh:ro ]
@@ -171,12 +171,19 @@ services:
       IDENTITY_INTERNAL: airawat-ld-identity-internal       # provisioner shared secret (must match network + app-host)
       IDENTITY_ISSUER: *iss
       IDENTITY_AUDIENCE: *aud
+      # Durable + shared brute-force lockout store (ADR-0121). Reuses the shared Postgres; its own table.
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: kernel
+      DB_USER: kernel
+      DB_PASSWORD: kernel
     volumes:
       - ./prod-guard.sh:/local-dev/prod-guard.sh:ro
       - localdev_identity:/data/identity
     depends_on:
       network: { condition: service_healthy }
       vault: { condition: service_healthy }
+      postgres: { condition: service_healthy }
 
   # ── supporting services ───────────────────────────────────────────────────────────────────────────
   secrets:
