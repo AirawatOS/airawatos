@@ -101,15 +101,24 @@ a **registration or GST number**. **More methods addable via ChangeRequest.**
   natural-key in the Kernel (debt B8), not as a governed proofing method.
 - **Refs:** B8 (GST baked in kernel), ADR-0056 (CR to add methods); P8, A3 (assurance).
 
-### P9 — Tiers: sandbox and verified
-**Sandbox** (no Network creation, no own issuer, quotas, cannot join verified-only Networks) and **verified**.
-**Self-provisioned tenants start as sandbox.**
+### P9 — Tenant verification status (not tiers)
+A tenant carries a **verification status**: **verified** or **unverified**. There are no "tiers"; status is a
+single recorded property of the tenant. **Unverified** exists **only when self-provisioning is enabled** (an
+operator policy, P7) — otherwise every tenant is onboarded through review and is verified. An **unverified**
+tenant is restricted to: **quotas** (COMPONENT CP11), **no Network creation**, **no own issuer**, and **no
+marketplace contributions** (COMPONENT CP10). It may still **build and run its own components privately**
+within those quotas (COMPONENT CP2). Promotion to **verified** is the reviewed onboarding step (P8/P10).
 - **Status: PARTIAL.** A tenant `environment` field + dev/sandbox relaxation exists (ADR-0051) and the
-  sandbox-privilege rule (`authz = builder-role × dev-env`) is live, but the **tier constraints** (no
-  Network creation, no own issuer, quotas, verified-only-Network gating) and **self-provision→sandbox
-  default** are **(to confirm)** / PLANNED.
-- **Refs:** ADR-0051 (environment field, sandbox relaxation), sandbox-privilege-rule; A28 (sandbox gates);
-  N2/N9.
+  sandbox-privilege rule (`authz = builder-role × dev-env`) is live, but it is modelled as a **dev/prod
+  environment tier** (ADR-0051/0106), not as a single **verification status** on the tenant; the restrictions
+  (quotas, no Network creation, no own issuer, no marketplace contribution) are only partly enforced — the
+  marketplace-contribution block is live (network `store_publish` refuses a development tenant, ADR-0106),
+  but **quotas**, **no-own-issuer** and **no-Network-creation** gating by status are **PLANNED**, and the
+  private-build lane for an unverified tenant depends on COMPONENT **CP2** (PLANNED). The dev/prod environment
+  machinery (`tenant_env` authority A28, `--sandbox` bypass A50, dev-token paths, ADR-0106) is **transitional**
+  and retires once CP2 (private lane) and CP8 (certified sharing) land.
+- **Refs:** ADR-0051 (environment field — transitional), ADR-0106 (dev↔prod boundary — transitional);
+  sandbox-privilege-rule; A28, A50; COMPONENT CP2/CP8/CP10/CP11; N2/N9.
 
 ### P10 — What approval creates
 Approving an application creates: the **workspace**, a **permanent participant identity and keys**, a
@@ -181,7 +190,7 @@ The public front door exposes **only** apply / verify-email / check-status; it i
 | P7 | Onboarding mode recorded policy | PARTIAL/TO CONFIRM | ADR-0116; onboarding-composition |
 | P8 | Applications are records + steward review | PLANNED | ADR-0116; publish-request-review |
 | P8a | Verification methods (gov/company) | PLANNED | B8; ADR-0056 |
-| P9 | Tiers sandbox/verified; self-prov→sandbox | PARTIAL | ADR-0051; sandbox-privilege-rule; A28 |
+| P9 | Tenant verification status (verified/unverified); unverified only when self-prov on; quotas, no Network/issuer/marketplace | PARTIAL | ADR-0051/0106 (transitional); A28, A50; COMPONENT CP2/CP8/CP10/CP11 |
 | P10 | Approval creates workspace+identity+keys+dir+admin | PARTIAL | network-join-provision; B9 (N6) |
 | P11 | Tenant roles (tenant.admin, network.creator) | PARTIAL | ADR-0122; N3 |
 | P12 | Tenant own login if tier+policy permit | PARTIAL/VIOLATED | ADR-0068/0117; F15; N7 |

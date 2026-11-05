@@ -187,6 +187,40 @@ session + onboarding records that do not exist in local-dev → **NEEDS-BUILD**,
 Testable-now slivers already covered elsewhere: P14's server-side denial of an anonymous governance write =
 the NETWORK **N3** PASS; P4's authority-from-tenant is the same root as the external R6 posture + debt B2.
 
+## COMPONENT (CP1–CP18) — see [[COMPONENT-v0.1]]
+
+Mostly **NEEDS-BUILD**: exercising component rules needs a published/certified/installed component and the
+run-token broker path, none of which are black-box reachable on the bedrock local-dev stack (no components
+published; app-host 403 on `/bridge/install`; the broker `/v1/*` endpoints need a run token). A few are
+reachable with a supplied publisher/dev bearer (**NEEDS-CREDENTIALS**). The [[PIPELINE-PROOF-FINDINGS]] run
+established the live responses behind D1–D6.
+
+| Rule | Case (type) | Classification | Expected observable |
+| --- | --- | --- | --- |
+| CP1 | installed component writing an undeclared schema via the broker → deny (abuse) | NEEDS-BUILD | run token = declaration; write outside declared scopes rejected |
+| CP2 | `component.builder` installs+runs in own tenant with NO certificate/store (pos) | NEEDS-BUILD | private lane: build/install/run/schedule succeed in-tenant without a store listing (CP2 PLANNED — not built; D1) |
+| CP2 | a principal WITHOUT `component.builder`/`component.operator` runs a component (abuse) | NEEDS-BUILD | deny — authority is the recorded role, not a `tenant_env` token claim (A28) |
+| CP3 | run token exceeds manifest ∩ runner authority (abuse) | NEEDS-BUILD | effective caps = declaration ∩ grant; no widening |
+| CP4 | schedule fires after its owner's authority is revoked (abuse) | NEEDS-BUILD | scheduler re-checks before each run and SUSPENDS when authority is gone (PLANNED; A28) |
+| CP5 | component makes egress to an undeclared host / exceeds quota (abuse) | NEEDS-BUILD | blocked — egress only to declared hosts; quota enforced (quotas PLANNED, CP11) |
+| CP5 | component reads a platform credential from its environment (abuse) | NEEDS-BUILD | none present; secrets only by name via the runtime manager |
+| CP6 | component reaches the filestore/datastore directly, not via the broker (abuse) | NEEDS-BUILD | only broker `/v1/read|write|query|files` under the run token (files via broker PLANNED; A72) |
+| CP7 | runtime manager rejects source whose digest ≠ the certificate (abuse) | NEEDS-BUILD | run refused on digest mismatch; the component never fetches its own source (D-R13; fixed by KERNEL-MEDIATED-FILES) |
+| CP8 | cross-tenant install of an UN-certified component (abuse) | TESTABLE NOW | install resolves only from the store + verifies the cert → `install` 404/"no valid certificate" (**live: 404 "not found in the store" ✓**, finding D5/E) |
+| CP8 | certify on-behalf: publisher of record = the developer's tenant (pos) | NEEDS-CREDENTIALS | certify accepts the recorded on-behalf publisher (F17) — **today 422 `steward-is-publisher`** (finding D2) → EXPECTED FAIL once asserted |
+| CP9 | install another tenant's component without recording the admin's consent (abuse) | NEEDS-BUILD | install blocked until informed consent to the declared access is recorded (PLANNED) |
+| CP10 | an unverified/development tenant publishes to the marketplace (abuse) | NEEDS-CREDENTIALS | refuse 403 — **live: network `store_publish` 403 "development-tenant components cannot be published" ✓** (finding D5) |
+| CP11 | platform quota/egress policy keyed by verification status (pos) | NEEDS-BUILD | no status-keyed quota/egress policy exists (PLANNED) |
+| CP12 | run produces a durable receipt; build/install/publish/consent audited (pos) | NEEDS-BUILD | durable run receipts TODO (scheduler ring is in-memory); decision records exist for publish/governance |
+| CP13 | install a solution bundle → all members pinned at their versions (pos) | NEEDS-CREDENTIALS | members resolve at the bundle's pinned versions (ADR-0075/0076) |
+| CP14 | contribute with `component.publisher` but no Network contribute grant (abuse) | NEEDS-BUILD | inbound Network contribute grant is a distinct recorded gate (PLANNED; outbound role live) |
+| CP15 | certify a component with an UNGOVERNED schema → withhold with reasons (abuse) | NEEDS-CREDENTIALS | 422 conformance withheld, reasons listed — **live: 422 `governed-vocabulary` ✓** (finding D3); also certify 500 on malformed `files` input → should be 422 (D4) |
+| CP15 | listing security-scan / declared-access-vs-policy / licence-terms checks (pos) | NEEDS-BUILD | not built (security scan PLANNED; access-policy gate PLANNED; licence/terms PLANNED) |
+| CP16 | re-publish same `(id, version)` with changed bytes → reject (abuse) | NEEDS-CREDENTIALS | 409 immutable+monotone (network `STORE.version_error`) |
+| CP16 | upgrade to a version asking MORE access without re-consent (abuse) | NEEDS-BUILD | re-consent required; no silent upgrade (PLANNED) |
+| CP17 | suspend a listing → reason recorded, installers notified, installed copy survives (pos) | NEEDS-BUILD | revoke/deprecate record a reason (live); installer notification PLANNED; installed run token persists |
+| CP18 | a priced listing records terms/commitment/settlement; money on rails (pos) | NEEDS-BUILD | contract terms modelled; settlement model + payment rail PLANNED |
+
 ## Internal runner (step 3)
 The reference services are not published at the edge, so external mode cannot reach them. An **internal
 runner** executes the same suite (`AOS_MODE=internal`) inside a container on the local-dev docker network
