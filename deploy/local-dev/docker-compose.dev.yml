@@ -1,7 +1,7 @@
 # AirawatOS — LOCAL-DEV stack, built FROM SOURCE (committed hashes), separate from deploy/local/.
-#   kernel      = manishsv/airawatos-kernel:dev-021fa22     (kernel feat/admin-issuer-scope)
+#   kernel      = manishsv/airawatos-kernel:dev-hard1     (kernel feat/admin-issuer-scope)
 #   network     = manishsv/airawatos-network:dev-a70    (network feat/trust-plane-phase1; mint-on-demand TRUST_READ_TOKEN)
-#   reference   = manishsv/airawatos-reference:dev-pwguard  (platform-spec feat/network-console-multinetwork)
+#   reference   = manishsv/airawatos-reference:dev-hard1  (platform-spec feat/network-console-multinetwork)
 #     (components feat/network-console-multinetwork @ 0250c71 delivered from the working tree at install)
 # NO data-mount here (that is kernel/platform-spec feat/data-mount — a later slice).
 #
@@ -21,7 +21,7 @@ x-devenv: &devenv
   AIRAWAT_ALLOW_PASSWORDLESS: "1"     # reference IdP passwordless dev auth (gated: prod-guard blocks under production)
 
 x-ref: &ref                          # one source-built reference image; many services (per-service command)
-  image: manishsv/airawatos-reference:dev-pwguard
+  image: manishsv/airawatos-reference:dev-hard1
   restart: unless-stopped
   entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]     # production guard (effective-settings check)
   volumes: [ ./prod-guard.sh:/local-dev/prod-guard.sh:ro ]
@@ -66,7 +66,7 @@ services:
 
   # ── platform core ─────────────────────────────────────────────────────────────────────────────────
   kernel:
-    image: manishsv/airawatos-kernel:dev-021fa22
+    image: manishsv/airawatos-kernel:dev-hard1
     container_name: airawat-ld-kernel
     entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]
     command: ["uvicorn","api.app:app","--host","0.0.0.0","--port","8080"]   # entrypoint override clears image CMD → set it

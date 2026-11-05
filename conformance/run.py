@@ -534,8 +534,10 @@ def run_internal_cases():
         record("CLIENT","C5/B6","identity /users directory disclosure (abuse)","expected-fail","SKIP_BUILD","identity /users unreachable (%s)"%b[:40])
     else:
         disclosed = st == 200 and ("username" in b or '"users"' in b or b.strip().startswith("["))
-        xfail("CLIENT","C5/B6","identity /users directory disclosure (abuse)", disclosed,
-              "GET identity/users -> %s discloses=%s" % (st, disclosed))
+        # ADR-0124 B6 — the directory now requires the internal provisioner token; an anonymous GET must be
+        # refused (not disclosed). Promoted from expected-fail to a real assertion.
+        expect("CLIENT","C5/B6","identity /users directory requires an authorised caller (abuse)", not disclosed,
+               "anon GET identity/users -> %s discloses=%s (want refused)" % (st, disclosed))
     # kernel reachable directly internally (parity with external anon read)
     st, _, _ = _req("POST", T["kernel"]+"/v1/registry/resolve", {"filter": {"schema": "network.network"}})
     xfail("REGISTRY","R6/F8","anonymous kernel read denied (internal) [debt A1]", st == 200,
