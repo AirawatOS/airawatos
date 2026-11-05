@@ -1,0 +1,260 @@
+<title>Inside the Funding Agency — the Mirror Thread</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --bg:#eef1ef; --surface:#ffffff; --surface2:#f5f7f5; --ink:#14211c; --dim:#5c6d66; --line:#d5ddd8;
+    --money:#b07d16; --money-fill:#f6edd6; --infra:#2563c9; --infra-fill:#dde8fa; --welf:#0d7f82; --welf-fill:#dcefef;
+    --gate:#c2410c; --subj:#7a5cc0;
+    --ok:#1c8b52; --ok-fill:#dcf0e4; --part:#b8860b; --part-fill:#f6ecd2; --gap:#c23b3b; --gap-fill:#f8dede;
+    --shadow:0 1px 2px rgba(20,33,28,.06),0 8px 30px rgba(20,33,28,.05);
+  }
+  @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+    --bg:#0a1310; --surface:#10201a; --surface2:#0d1b16; --ink:#eafef4; --dim:#8fb6a4; --line:#23372d;
+    --money:#e8c24b; --money-fill:#241d0d; --infra:#6fa2f0; --infra-fill:#0e1c33; --welf:#2fd0c8; --welf-fill:#0b2320;
+    --gate:#f0954a; --subj:#b9a3f0;
+    --ok:#3ecb7f; --ok-fill:#0e2b1c; --part:#e8c24b; --part-fill:#241d0d; --gap:#f0736f; --gap-fill:#311616;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 34px rgba(0,0,0,.35);
+  }}
+  :root[data-theme="dark"]{
+    --bg:#0a1310; --surface:#10201a; --surface2:#0d1b16; --ink:#eafef4; --dim:#8fb6a4; --line:#23372d;
+    --money:#e8c24b; --money-fill:#241d0d; --infra:#6fa2f0; --infra-fill:#0e1c33; --welf:#2fd0c8; --welf-fill:#0b2320;
+    --gate:#f0954a; --subj:#b9a3f0;
+    --ok:#3ecb7f; --ok-fill:#0e2b1c; --part:#e8c24b; --part-fill:#241d0d; --gap:#f0736f; --gap-fill:#311616;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 34px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1040px;margin:0 auto;padding:44px 22px 80px}
+  .serif{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif}
+  .mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+  header .eyebrow{font:600 11.5px ui-monospace,monospace;letter-spacing:.24em;text-transform:uppercase;color:var(--money)}
+  header h1{margin:.32em 0 .1em;font-size:clamp(27px,5vw,40px);font-weight:600;line-height:1.1;letter-spacing:-.01em;text-wrap:balance}
+  header p.lede{font-size:17px;color:var(--dim);max-width:66ch;margin:.4em 0 0}
+  .rule{height:1px;background:var(--line);border:0;margin:34px 0}
+  h2{font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:0 0 8px}
+  .h2sub{color:var(--dim);font-size:14px;margin:0 0 18px;max-width:70ch}
+  .section{margin-top:48px}
+  figure{margin:0}
+  .figbox{background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:14px;overflow-x:auto}
+  .figbox svg{display:block;width:100%;min-width:720px;height:auto}
+  figcaption{color:var(--dim);font-size:13px;margin-top:11px;text-align:center;text-wrap:balance}
+  .stat{display:inline-flex;align-items:center;gap:5px;font:600 11px ui-monospace,monospace;padding:2px 8px;border-radius:999px;white-space:nowrap}
+  .stat.ok{background:var(--ok-fill);color:var(--ok)} .stat.part{background:var(--part-fill);color:var(--part)} .stat.gap{background:var(--gap-fill);color:var(--gap)}
+  .chain{display:flex;gap:0;overflow-x:auto;padding-bottom:6px}
+  .stage{flex:0 0 210px;min-width:210px;background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:14px;box-shadow:var(--shadow);position:relative;margin-right:26px}
+  .stage:last-child{margin-right:0}
+  .stage::after{content:"→";position:absolute;right:-21px;top:50%;transform:translateY(-50%);color:var(--dim);font-size:20px;font-weight:700}
+  .stage:last-child::after{content:""}
+  .stage .cap{font:700 10.5px ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase}
+  .stage.welf .cap{color:var(--welf)} .stage.money .cap{color:var(--money)} .stage.infra .cap{color:var(--infra)}
+  .stage h3{margin:2px 0 8px;font-size:16px;font-weight:650}
+  .stage .noun{font:600 12px ui-monospace,monospace;color:var(--ink);background:var(--surface2);border:1px solid var(--line);border-radius:6px;padding:2px 7px;display:inline-block;margin:0 3px 4px 0}
+  .stage .ex{margin-top:9px;font-size:12px;color:var(--ink);border-top:1px dashed var(--line);padding-top:8px}
+  .stage .st{margin-top:9px}
+  .lnk{text-align:center;font-size:12px;color:var(--gate);margin:14px 0 0;font-weight:600}
+  .threads{display:flex;gap:16px;flex-wrap:wrap;margin:16px 0 0;font-size:13px}
+  .threads .t{display:flex;align-items:center;gap:7px} .threads b{font-weight:600;color:var(--ink)}
+  .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .tblwrap{overflow-x:auto;border-radius:12px;box-shadow:var(--shadow)}
+  table{width:100%;border-collapse:collapse;font-size:13px;min-width:760px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);border-right:1px solid var(--line);vertical-align:top}
+  th:last-child,td:last-child{border-right:0}
+  thead th{background:var(--surface2);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);font-weight:700}
+  thead th.a{color:var(--money)} thead th.b{color:var(--money)} thead th.c{color:var(--infra)} thead th.d{color:var(--welf)}
+  tbody tr{background:var(--surface)}
+  td .mono{font-size:11.5px;color:var(--ink)} td small{display:block;color:var(--dim);font-size:11px;margin-top:2px}
+  th.rowh{background:var(--surface2);width:96px}
+  td .dim5{font:700 11px ui-monospace,monospace;color:var(--dim);letter-spacing:.05em}
+  .hooks{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
+  @media(max-width:640px){.hooks{grid-template-columns:1fr}}
+  .hook{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;box-shadow:var(--shadow);display:flex;gap:12px;align-items:flex-start}
+  .hook .n{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font:700 13px ui-monospace,monospace;flex:none}
+  .hook.in .n{border:1.5px solid var(--welf);color:var(--welf)} .hook.out .n{border:1.5px solid var(--money);color:var(--money)}
+  .hook h4{margin:0 0 2px;font-size:14px;font-weight:640}
+  .hook .arw{font:700 10px ui-monospace,monospace}
+  .hook.in .arw{color:var(--welf)} .hook.out .arw{color:var(--money)}
+  .hook p{margin:3px 0 0;font-size:12.5px;color:var(--dim)} .hook .mono{color:var(--ink);font-size:12px}
+  .sym{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:6px 4px;box-shadow:var(--shadow)}
+  .symrow{display:grid;grid-template-columns:1fr 40px 1fr;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+  .symrow:last-child{border-bottom:0}
+  .symrow .side{font-size:13.5px} .symrow .side .who{font:700 10.5px ui-monospace,monospace;letter-spacing:.06em}
+  .symrow .side.impl{text-align:right} .symrow .side.impl .who{color:var(--welf)} .symrow .side.fund .who{color:var(--money)}
+  .symrow .mid{text-align:center;color:var(--gate);font-size:18px}
+  .symrow .obj{font:600 12px ui-monospace,monospace;color:var(--ink)}
+  .gaps{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--gap);border-radius:12px;padding:16px 18px;box-shadow:var(--shadow)}
+  .gaps ol{margin:8px 0 0;padding-left:20px} .gaps li{margin:7px 0;font-size:14px} .gaps .mono{font-size:12.5px}
+  footer{margin-top:52px;color:var(--dim);font-size:12.5px;text-align:center}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Airawat · Funding agency internal systems</div>
+  <h1 class="serif">Inside the Funding Agency — the Mirror Thread</h1>
+  <p class="lede">The funder runs the same chain inverted and at <b>portfolio</b> scale: from an <b>envelope</b>, through <b>awards</b> and <b>gated disbursements</b>, to an <b>outcome measured across every implementer it funds</b>. Its "output" is money released against verified progress; its "outcome" is aggregate need reduction. The two threads meet at exactly two shared objects.</p>
+</header>
+
+<hr class="rule">
+
+<!-- PART 1: funder modules + inverted hooks -->
+<div class="section">
+  <h2>1 · The funding agency's modules — the same edge, inverted</h2>
+  <p class="h2sub">The funder receives need, proposals, and reports (in); it sends programs, awards, and tranches (out) — the exact inverse of the implementer. Its internal modules are the same tenant-generic ERP stack, configured for the funding role.</p>
+  <figure>
+  <div class="figbox">
+  <svg viewBox="0 0 940 470" role="img" aria-label="Funding agency internal modules — Program Office, Appraisal and Sanction, Treasury Ledger, Monitoring and M&E, Need Intelligence, Org/HR — over a governed registry, with the six ladder exchanges inverted: need, proposal and report flow in; program, award and tranche flow out.">
+    <rect x="196" y="30" width="720" height="410" rx="16" fill="none" stroke="var(--money)" stroke-width="1.8"/>
+    <text x="556" y="20" text-anchor="middle" font-size="13" font-weight="700" fill="var(--money)">MoHUA / HUDD — Funding Agency (tenant)</text>
+
+    <rect x="224" y="56" width="300" height="80" rx="12" fill="var(--welf-fill)" stroke="var(--welf)" stroke-width="1.4"/>
+    <text x="374" y="86" text-anchor="middle" font-size="14" font-weight="700" fill="var(--ink)">Need Intelligence</text>
+    <text x="374" y="106" text-anchor="middle" font-size="11" fill="var(--dim)">aggregated need from cities → sizes the envelope</text>
+    <text x="374" y="123" text-anchor="middle" font-size="10.5" font-family="ui-monospace,monospace" fill="var(--welf)">WHY · target</text>
+
+    <rect x="588" y="56" width="300" height="80" rx="12" fill="var(--money-fill)" stroke="var(--money)" stroke-width="1.4"/>
+    <text x="738" y="86" text-anchor="middle" font-size="14" font-weight="700" fill="var(--ink)">Program Office</text>
+    <text x="738" y="106" text-anchor="middle" font-size="11" fill="var(--dim)">envelope · eligibility · co-funding · terms</text>
+    <text x="738" y="123" text-anchor="middle" font-size="10.5" font-family="ui-monospace,monospace" fill="var(--money)">WHAT · the offer</text>
+
+    <rect x="224" y="164" width="300" height="80" rx="12" fill="var(--surface2)" stroke="var(--line)" stroke-width="1.4"/>
+    <text x="374" y="194" text-anchor="middle" font-size="14" font-weight="700" fill="var(--ink)">Appraisal · Sanction</text>
+    <text x="374" y="214" text-anchor="middle" font-size="11" fill="var(--dim)">CSMC / SLSC — proposal → award decision</text>
+    <text x="374" y="231" text-anchor="middle" font-size="10.5" font-family="ui-monospace,monospace" fill="var(--dim)">WHO sanctions · WHEN</text>
+
+    <rect x="588" y="164" width="300" height="80" rx="12" fill="var(--money-fill)" stroke="var(--money)" stroke-width="1.4"/>
+    <text x="738" y="194" text-anchor="middle" font-size="14" font-weight="700" fill="var(--ink)">Treasury Ledger</text>
+    <text x="738" y="214" text-anchor="middle" font-size="11" fill="var(--dim)">envelope · commitment (award) · release (tranche)</text>
+    <text x="738" y="231" text-anchor="middle" font-size="10.5" font-family="ui-monospace,monospace" fill="var(--money)">HOW MUCH · outlay</text>
+
+    <rect x="224" y="272" width="300" height="66" rx="12" fill="var(--welf-fill)" stroke="var(--welf)" stroke-width="1.4"/>
+    <text x="374" y="300" text-anchor="middle" font-size="14" font-weight="700" fill="var(--ink)">Monitoring · M&amp;E</text>
+    <text x="374" y="320" text-anchor="middle" font-size="11" fill="var(--dim)">progress subscriptions → portfolio Plan-vs-Actual</text>
+
+    <rect x="588" y="272" width="300" height="66" rx="12" fill="var(--surface2)" stroke="var(--line)" stroke-width="1.4"/>
+    <text x="738" y="300" text-anchor="middle" font-size="14" font-weight="700" fill="var(--ink)">Org · HR</text>
+    <text x="738" y="320" text-anchor="middle" font-size="11" fill="var(--dim)">Mission Director · appraisal committee (WHO)</text>
+
+    <rect x="224" y="360" width="664" height="60" rx="12" fill="var(--money-fill)" stroke="var(--money)" stroke-width="1.4" opacity=".9"/>
+    <text x="556" y="386" text-anchor="middle" font-size="13" font-weight="700" fill="var(--ink)">Governed Registry — the shared substrate</text>
+    <text x="556" y="405" text-anchor="middle" font-size="11" fill="var(--dim)">every commitment &amp; release attributed: WHO · WHAT · WHEN · WHERE (which project) · HOW (program terms) · WHY (against which need)</text>
+
+    <defs>
+      <marker id="a-w" markerWidth="10" markerHeight="10" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="var(--welf)"/></marker>
+      <marker id="a-m" markerWidth="10" markerHeight="10" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="var(--money)"/></marker>
+    </defs>
+    <line x1="120" y1="96"  x2="222" y2="96"  stroke="var(--welf)"  stroke-width="2" marker-end="url(#a-w)"/>
+    <line x1="222" y1="204" x2="120" y2="204" stroke="var(--money)" stroke-width="2" marker-end="url(#a-m)"/>
+    <text x="30" y="80" font-size="11" font-weight="700" fill="var(--welf)">information ↓</text>
+    <text x="30" y="94" font-size="9.5" fill="var(--dim)">in from cities</text>
+    <text x="30" y="196" font-size="11" font-weight="700" fill="var(--money)">money ↑</text>
+    <text x="30" y="210" font-size="9.5" fill="var(--dim)">out to cities</text>
+  </svg>
+  </div>
+  <figcaption>Same six exchanges, mirrored: need · proposal · report arrive; program · award · tranche depart. Money leaves the funder's ledger only after verified information arrives at M&amp;E.</figcaption>
+  </figure>
+
+  <div class="hooks">
+    <div class="hook in"><div class="n">1</div><div><h4>Need <span class="arw">↓ in</span></h4><p>Arrives at Need Intelligence → sizes the envelope. <span class="mono">welfare.gap</span> rollup</p></div></div>
+    <div class="hook out"><div class="n">2</div><div><h4>Program <span class="arw">↑ out</span></h4><p>Program Office publishes to the directory. <span class="mono">funding.program</span></p></div></div>
+    <div class="hook in"><div class="n">3</div><div><h4>Proposal <span class="arw">↓ in</span></h4><p>Lands in the Appraisal / Sanction queue. <span class="mono">project.proposal</span></p></div></div>
+    <div class="hook out"><div class="n">4</div><div><h4>Award <span class="arw">↑ out</span></h4><p>Sanction decision → award; posts a commitment on the ledger. <span class="mono">funding.award</span></p></div></div>
+    <div class="hook in"><div class="n">5</div><div><h4>Report <span class="arw">↓ in</span></h4><p>Milestone VC arrives over the subscription → M&amp;E verifies. <span class="mono">project.milestone</span></p></div></div>
+    <div class="hook out"><div class="n">6</div><div><h4>Tranche <span class="arw">↑ out</span></h4><p>Gated release; posts a transaction. <span class="mono">finance.transaction</span></p></div></div>
+  </div>
+</div>
+
+<hr class="rule">
+
+<!-- PART 2: the funder's portfolio thread -->
+<div class="section">
+  <h2>2 · The funder's thread — envelope → disbursement → portfolio outcome</h2>
+  <p class="h2sub">Same chain, but the funder's "output" is <em>money released against verified progress</em> and its "outcome" is <em>aggregate need reduction across its whole portfolio</em>. It consumes the implementer's milestone VC as its release gate.</p>
+  <div class="threads">
+    <span class="t"><span class="dot" style="background:var(--welf)"></span><b>Need / Impact</b> — at portfolio scale</span>
+    <span class="t"><span class="dot" style="background:var(--money)"></span><b>Outlay</b> — treasury ledger</span>
+    <span class="t"><span class="dot" style="background:var(--infra)"></span><b>Verified delivery</b> — consumed via subscription</span>
+    <span style="margin-left:auto"><span class="stat ok">✓ live</span> <span class="stat part">◐ reused, unwired</span> <span class="stat gap">✗ to build</span></span>
+  </div>
+
+  <div class="chain" style="margin-top:18px">
+    <div class="stage welf">
+      <div class="cap">① Need intel · why</div><h3>Aggregate need</h3>
+      <span class="noun">welfare.gap rollup</span><span class="noun">stat.estimate</span>
+      <div class="ex">"N below the crowding floor across M cities" → sizes the envelope</div>
+      <div class="st"><span class="stat part">◐ aggregator lane exists</span></div>
+    </div>
+    <div class="stage money">
+      <div class="cap">② Envelope · allocate</div><h3>Program</h3>
+      <span class="noun">funding.program</span>
+      <div class="ex">Scheme envelope · eligibility · <b>60:40 co-funding</b> · reporting terms</div>
+      <div class="st"><span class="stat gap">✗ to build</span></div>
+    </div>
+    <div class="stage money">
+      <div class="cap">③ Commit · award</div><h3>Commitment</h3>
+      <span class="noun">funding.award</span><span class="noun">finance.budget (encumbrance)</span>
+      <div class="ex">MoHUA commits <b>₹108cr (60%)</b> — a signed, ring-fenced share</div>
+      <div class="st"><span class="stat gap">✗ award noun</span></div>
+    </div>
+    <div class="stage money">
+      <div class="cap">④ Disburse · outlay</div><h3>Release</h3>
+      <span class="noun">finance.transaction</span>
+      <div class="ex">Tranche-1 released — <b>gated</b> on the verified milestone</div>
+      <div class="st"><span class="stat part">◐ ledger reused</span></div>
+    </div>
+    <div class="stage infra">
+      <div class="cap">⑤ Verify · consumed</div><h3>Proof of delivery</h3>
+      <span class="noun">milestone VC (implementer's)</span>
+      <div class="ex">247 units certified → the gate on ④ opens. One report, this funder's copy</div>
+      <div class="st"><span class="stat gap">✗ subscription</span></div>
+    </div>
+    <div class="stage welf">
+      <div class="cap">⑥ Portfolio · impact</div><h3>Did the scheme work?</h3>
+      <span class="noun">Σ implementer outcomes</span><span class="noun">welfare objective</span>
+      <div class="ex"><b>N people</b> crossed the floor across the funded portfolio — value-for-money</div>
+      <div class="st"><span class="stat gap">✗ rollup + attribution</span></div>
+    </div>
+  </div>
+  <p class="lnk">↳ the funder's two joints: <b>commitment→disbursement</b> (encumbrance → gated release) and <b>disbursement→portfolio-outcome</b> (did released money buy aggregate need reduction — allocative value-for-money)</p>
+</div>
+
+<!-- PART 3: where the two threads meet -->
+<div class="section">
+  <h2>3 · Where the two threads meet — two shared objects</h2>
+  <p class="h2sub">The implementer thread and the funder thread are not parallel copies — they are <em>joined</em> at exactly two governed objects. This is the whole point of the federation: one object, read by both sides, each in its own role.</p>
+  <div class="sym">
+    <div class="symrow">
+      <div class="side impl"><div class="who">IMPLEMENTER · output ④</div>builds &amp; certifies delivery</div>
+      <div class="mid">→ <span class="obj" style="display:block;font-size:11px">milestone VC</span> →</div>
+      <div class="side fund"><div class="who">FUNDER · gate ⑤</div>release precondition met</div>
+    </div>
+    <div class="symrow">
+      <div class="side fund"><div class="who">FUNDER · award ④</div>commits its share</div>
+      <div class="mid">→ <span class="obj" style="display:block;font-size:11px">funding.award</span> →</div>
+      <div class="side impl"><div class="who">IMPLEMENTER · input ②</div>revenue in its budget</div>
+    </div>
+    <div class="symrow">
+      <div class="side impl"><div class="who">IMPLEMENTER · outcome ⑤</div>local gap closes</div>
+      <div class="mid">↑ <span class="obj" style="display:block;font-size:11px">welfare.gap</span> ↑</div>
+      <div class="side fund"><div class="who">FUNDER · impact ⑥</div>rolls into portfolio total</div>
+    </div>
+  </div>
+  <p style="font-size:13px;color:var(--dim);margin:12px 2px 0">The <b>milestone VC</b> is the implementer's proof and the funder's gate — the literal hinge of <em>information-gates-money</em>. The <b>award</b> is the funder's output and the implementer's input. The <b>welfare.gap</b> is authored once by the implementer and consumed twice — as its own outcome and as one term in the funder's portfolio impact.</p>
+</div>
+
+<!-- PART 4: gaps -->
+<div class="section">
+  <h2>4 · The funder side is essentially unbuilt — but rides reused rails</h2>
+  <div class="gaps">
+    <p style="margin:0;font-size:14.5px">Unlike the implementer (need half live), the funder side is <b>ADR-0072 — not yet built</b>. But its internal modules are the same ERP stack already running; only the funding-specific objects and the cross-tenant grants are new:</p>
+    <ol>
+      <li><b>Provision the funder tenant(s)</b> — MoHUA (national) / HUDD (state) on the jurisdiction ladder. <span class="stat gap">✗</span></li>
+      <li><b>Govern the funding nouns</b> — <span class="mono">funding.program</span> (with co-funding structure) + <span class="mono">funding.award</span> (signed, partial, stacking). <span class="stat gap">✗</span></li>
+      <li><b>Encumbrance accounting</b> — an award posts a <em>commitment</em> against the envelope; a tranche posts a <em>release</em> — both in the reused <span class="mono">finance</span> ledger. <span class="stat part">◐ ledger exists</span></li>
+      <li><b>Progress subscription</b> — the funder's governed read-grant on a co-funded project's receipts (aggregator lane, already built, in reverse). <span class="stat part">◐ lane exists</span></li>
+      <li><b>Portfolio outcome rollup</b> — aggregate the implementers' <span class="mono">welfare.gap</span> deltas across the funded portfolio → the scheme's value-for-money (needs the same <span class="mono">prov.derivation</span> attribution as the implementer side). <span class="stat gap">✗</span></li>
+    </ol>
+    <p style="margin:14px 0 0;font-size:13.5px;color:var(--dim)">The symmetry is the leverage: build the two shared objects (<span class="mono">funding.award</span> + the milestone-VC subscription) once, and both sides light up together.</p>
+  </div>
+</div>
+
+<footer>Airawat · funding-agency internal systems &amp; the mirror thread · ADR-0072 (federated / multi-funder). The pair: implementer (KMC) + funder (MoHUA/HUDD) threads, joined at the milestone VC and the award. Next (b): build the output noun + the two joints on KMC.</footer>
+</div>

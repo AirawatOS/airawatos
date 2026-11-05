@@ -1,0 +1,185 @@
+<title>AirawatOS — Runtime Architecture (Kernel · Runtimes · Components)</title>
+<style>
+:root{
+  --bg:#f4f6fb; --panel:#ffffff; --panel2:#f8fafd; --ink:#18202f; --dim:#5a6478; --line:#e2e7f0;
+  --core:#e8a317; --coret:#2a1c02;
+  --h-trust:#6d4fe0; --h-rt:#0d938f; --h-cmp:#2f6bff; --h-evt:#d24a92; --h-cmd:#b3760f;
+  --band-trust:rgba(109,79,224,.12); --band-rt:rgba(13,147,143,.11); --band-cmp:rgba(47,107,255,.09);
+  --edge:rgba(24,32,47,.14);
+}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+  --bg:#0a0e18; --panel:#111827; --panel2:#0e1420; --ink:#e8edf6; --dim:#94a1b9; --line:#1d2536;
+  --core:#f0b429; --coret:#1a1206;
+  --h-trust:#b7a6ff; --h-rt:#2dd4bf; --h-cmp:#7aa2ff; --h-evt:#f472b6; --h-cmd:#f0b429;
+  --band-trust:rgba(183,166,255,.15); --band-rt:rgba(45,212,191,.14); --band-cmp:rgba(122,162,255,.12);
+  --edge:rgba(232,237,246,.16);
+}}
+:root[data-theme="dark"]{
+  --bg:#0a0e18; --panel:#111827; --panel2:#0e1420; --ink:#e8edf6; --dim:#94a1b9; --line:#1d2536;
+  --core:#f0b429; --coret:#1a1206;
+  --h-trust:#b7a6ff; --h-rt:#2dd4bf; --h-cmp:#7aa2ff; --h-evt:#f472b6; --h-cmd:#f0b429;
+  --band-trust:rgba(183,166,255,.15); --band-rt:rgba(45,212,191,.14); --band-cmp:rgba(122,162,255,.12);
+  --edge:rgba(232,237,246,.16);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:1060px;margin:0 auto;padding:44px 22px 72px}
+.eyebrow{font:600 12px/1 ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--h-cmp)}
+h1{font-size:30px;line-height:1.15;margin:12px 0 6px;letter-spacing:-.02em;text-wrap:balance;font-weight:700}
+.lede{color:var(--dim);font-size:16px;max-width:64ch;margin:0}
+.stage{background:radial-gradient(120% 120% at 50% 42%, var(--panel) 0%, var(--panel2) 100%);
+  border:1px solid var(--line);border-radius:20px;margin:30px 0 10px;padding:8px}
+svg.rings{display:block;width:100%;max-width:760px;height:auto;margin:0 auto}
+.ring-edge{fill:none;stroke:var(--edge);stroke-width:1}
+.band-cmp{fill:none;stroke:var(--band-cmp);stroke-width:140}
+.band-rt{fill:none;stroke:var(--band-rt);stroke-width:140}
+.band-trust{fill:none;stroke:var(--band-trust);stroke-width:54}
+.div{stroke:var(--bg);stroke-width:3}
+.core{fill:var(--core)}
+.core-t{fill:var(--coret)} .core-title{font:800 20px/1 system-ui;letter-spacing:.02em}
+.core-sub{font:600 10.5px/1 ui-monospace,Menlo,monospace;opacity:.82}
+text{fill:var(--ink)}
+.seg-main{font-weight:700;fill:var(--ink)}
+.seg-sub{fill:var(--dim);font-family:ui-monospace,Menlo,monospace}
+.t-trust .seg-main{fill:var(--h-trust)} .t-rt .seg-main{fill:var(--h-rt)} .t-cmp .seg-main{fill:var(--h-cmp)}
+.cmd-arrow{stroke:var(--h-cmd);stroke-width:2.4;stroke-dasharray:none;opacity:.9}
+.evt-arrow{stroke:var(--h-evt);stroke-width:2.4;stroke-dasharray:7 5;opacity:.95}
+.flow-cap{font:700 12px/1.3 ui-monospace,Menlo,monospace}
+.legend{display:flex;flex-wrap:wrap;gap:8px 20px;justify-content:center;margin:6px 0 4px;padding:12px}
+.lg{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--dim)}
+.dot{width:12px;height:12px;border-radius:3px;flex:none}
+.line{width:20px;height:0;border-top:2px solid;flex:none}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:26px 0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.card h3{margin:0 0 6px;font-size:14px;display:flex;align-items:center;gap:8px}
+.card p{margin:0;color:var(--dim);font-size:13.5px}
+.pip{width:9px;height:9px;border-radius:50%;flex:none}
+h2{font-size:19px;margin:38px 0 6px;letter-spacing:-.01em}
+.sub{color:var(--dim);margin:0 0 16px;font-size:14px}
+.tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:14px}
+.tbl th,.tbl td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{font:600 11px/1 ui-monospace,Menlo,monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);background:var(--panel2)}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{font-weight:700;white-space:nowrap}
+.mono{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--h-cmp)}
+.lanes{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0}
+.lane{border:1px solid var(--line);border-radius:14px;padding:16px 18px;background:var(--panel)}
+.lane h3{margin:0 0 8px;font-size:14px;display:flex;align-items:center;gap:8px}
+.lane code{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--ink);background:var(--panel2);padding:1px 5px;border-radius:4px}
+.lane ol{margin:8px 0 0;padding-left:18px;color:var(--dim);font-size:13px}
+.lane li{margin:3px 0}
+.note{margin-top:30px;padding:14px 18px;border-left:3px solid var(--h-trust);background:var(--panel2);border-radius:0 10px 10px 0;font-size:13.5px;color:var(--dim)}
+.note b{color:var(--ink)}
+@media(max-width:640px){ .lanes{grid-template-columns:1fr} h1{font-size:25px} }
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">AirawatOS · runtime architecture</div>
+  <h1>A civic operating system, in rings</h1>
+  <p class="lede">The <b>kernel</b> sits at the centre and owns the truth. Around it, <b>runtimes</b> execute and mediate. On the outer ring, <b>components</b> — the certified building blocks — never touch the kernel directly; they reach it only through a runtime, always carrying <em>who</em> (user token) and <em>what</em> (component identity), so every action is authorised and recorded.</p>
+
+  <div class="stage">
+    <svg class="rings" viewBox="0 0 940 940" role="img" aria-label="Concentric architecture: kernel at centre, then a trust ring (Network and Identity), then runtimes, then components on the outer ring. A command arrow points inward; an event arrow points outward.">
+      <defs>
+  <marker id="cmd" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" style="fill:var(--h-cmd)"/></marker>
+  <marker id="evt" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" style="fill:var(--h-evt)"/></marker>
+</defs>
+      <circle cx="470" cy="470" r="382" class="band-cmp"/>
+<circle cx="470" cy="470" r="230" class="band-rt"/>
+<circle cx="470" cy="470" r="123" class="band-trust"/>
+<circle cx="470" cy="470" r="312" class="ring-edge"/>
+<circle cx="470" cy="470" r="452" class="ring-edge"/>
+<circle cx="470" cy="470" r="160" class="ring-edge"/>
+<circle cx="470" cy="470" r="300" class="ring-edge"/>
+<circle cx="470" cy="470" r="96" class="ring-edge"/>
+<circle cx="470" cy="470" r="150" class="ring-edge"/>
+<line x1="550.0" y1="331.4" x2="696.0" y2="78.6" class="div"/>
+<line x1="630.0" y1="470.0" x2="922.0" y2="470.0" class="div"/>
+<line x1="550.0" y1="608.6" x2="696.0" y2="861.4" class="div"/>
+<line x1="390.0" y1="608.6" x2="244.0" y2="861.4" class="div"/>
+<line x1="310.0" y1="470.0" x2="18.0" y2="470.0" class="div"/>
+<line x1="390.0" y1="331.4" x2="244.0" y2="78.6" class="div"/>
+<line x1="566.0" y1="470.0" x2="620.0" y2="470.0" class="div"/>
+<line x1="374.0" y1="470.0" x2="320.0" y2="470.0" class="div"/>
+<circle cx="470" cy="470" r="96" class="core"/>
+<text x="470" y="444" text-anchor="middle" class="core-t core-title">KERNEL</text>
+<text x="470" y="466" text-anchor="middle" class="core-t core-sub">registry · attributed</text>
+<text x="470" y="481" text-anchor="middle" class="core-t core-sub">append-only fact log</text>
+<text x="470" y="496" text-anchor="middle" class="core-t core-sub">authz gate · grant-check</text>
+<text x="470" y="511" text-anchor="middle" class="core-t core-sub">event outbox · LLM</text>
+<text x="470.0" y="339.0" class="t-trust" text-anchor="middle"><tspan x="470.0" dy="0" style="font-size:13px" class="seg-main">AirawatNetwork</tspan><tspan x="470.0" dy="16" style="font-size:11px" class="seg-sub">govern · certify · grants · vocab</tspan></text>
+<text x="470.0" y="585.0" class="t-trust" text-anchor="middle"><tspan x="470.0" dy="0" style="font-size:13px" class="seg-main">Identity</tspan><tspan x="470.0" dy="16" style="font-size:11px" class="seg-sub">realms · login · user token</tspan></text>
+<text x="470.0" y="232.0" class="t-rt" text-anchor="middle"><tspan x="470.0" dy="0" style="font-size:13px" class="seg-main">app-host</tspan><tspan x="470.0" dy="16" style="font-size:11px" class="seg-sub">serves apps · /bridge/*</tspan></text>
+<text x="669.2" y="347.0" class="t-rt" text-anchor="middle"><tspan x="669.2" dy="0" style="font-size:13px" class="seg-main">scheduler</tspan><tspan x="669.2" dy="16" style="font-size:11px" class="seg-sub">runs on schedule · run-token</tspan></text>
+<text x="669.2" y="577.0" class="t-rt" text-anchor="middle"><tspan x="669.2" dy="0" style="font-size:13px" class="seg-main">runtime-manager</tspan><tspan x="669.2" dy="16" style="font-size:11px" class="seg-sub">per-profile containers</tspan></text>
+<text x="470.0" y="692.0" class="t-rt" text-anchor="middle"><tspan x="470.0" dy="0" style="font-size:13px" class="seg-main">broker · clean-room</tspan><tspan x="470.0" dy="16" style="font-size:11px" class="seg-sub">sandboxed driver I/O seam</tspan></text>
+<text x="270.8" y="577.0" class="t-rt" text-anchor="middle"><tspan x="270.8" dy="0" style="font-size:13px" class="seg-main">event-relay + automation</tspan><tspan x="270.8" dy="16" style="font-size:11px" class="seg-sub">outbox → subscriptions</tspan></text>
+<text x="270.8" y="347.0" class="t-rt" text-anchor="middle"><tspan x="270.8" dy="0" style="font-size:13px" class="seg-main">model-gateway</tspan><tspan x="270.8" dy="16" style="font-size:11px" class="seg-sub">LLM completions</tspan></text>
+<text x="470.0" y="80.0" class="t-cmp" text-anchor="middle"><tspan x="470.0" dy="0" style="font-size:13px" class="seg-main">app</tspan><tspan x="470.0" dy="16" style="font-size:11px" class="seg-sub">UI, sandboxed</tspan></text>
+<text x="800.8" y="271.0" class="t-cmp" text-anchor="middle"><tspan x="800.8" dy="0" style="font-size:13px" class="seg-main">engine</tspan><tspan x="800.8" dy="16" style="font-size:11px" class="seg-sub">server logic</tspan></text>
+<text x="800.8" y="653.0" class="t-cmp" text-anchor="middle"><tspan x="800.8" dy="0" style="font-size:13px" class="seg-main">driver</tspan><tspan x="800.8" dy="16" style="font-size:11px" class="seg-sub">ingest · egress</tspan></text>
+<text x="470.0" y="844.0" class="t-cmp" text-anchor="middle"><tspan x="470.0" dy="0" style="font-size:13px" class="seg-main">model</tspan><tspan x="470.0" dy="16" style="font-size:11px" class="seg-sub">ML inference</tspan></text>
+<text x="139.2" y="653.0" class="t-cmp" text-anchor="middle"><tspan x="139.2" dy="0" style="font-size:13px" class="seg-main">skill · agent</tspan><tspan x="139.2" dy="16" style="font-size:11px" class="seg-sub">AI actor</tspan></text>
+<text x="139.2" y="271.0" class="t-cmp" text-anchor="middle"><tspan x="139.2" dy="0" style="font-size:13px" class="seg-main">solution</tspan><tspan x="139.2" dy="16" style="font-size:11px" class="seg-sub">pinned graph</tspan></text>
+<line x1="18.0" y1="470.0" x2="370.0" y2="470.0" class="cmd-arrow" marker-end="url(#cmd)"/>
+<line x1="570.0" y1="470.0" x2="922.0" y2="470.0" class="evt-arrow" marker-end="url(#evt)"/>
+      
+<text x="20" y="452" class="flow-cap" style="fill:var(--h-cmd)">COMMAND ▸</text>
+<text x="20" y="470" class="seg-sub" style="font-size:10.5px">call a verb · token+obo</text>
+<text x="20" y="484" class="seg-sub" style="font-size:10.5px">grant-checked · reply</text>
+<text x="920" y="452" class="flow-cap" text-anchor="end" style="fill:var(--h-evt)">◂ EVENT</text>
+<text x="920" y="470" class="seg-sub" style="font-size:10.5px" text-anchor="end">write → outbox → relay</text>
+<text x="920" y="484" class="seg-sub" style="font-size:10.5px" text-anchor="end">→ your subscription</text>
+
+    </svg>
+  </div>
+
+  <div class="legend">
+    <span class="lg"><span class="dot" style="background:var(--core)"></span>Kernel — the trusted core</span>
+    <span class="lg"><span class="dot" style="background:var(--h-trust)"></span>Trust ring — authenticate &amp; govern</span>
+    <span class="lg"><span class="dot" style="background:var(--h-rt)"></span>Runtimes — execute &amp; mediate</span>
+    <span class="lg"><span class="dot" style="background:var(--h-cmp)"></span>Components — certified building blocks</span>
+    <span class="lg"><span class="line" style="border-color:var(--h-cmd)"></span>Command (sync)</span>
+    <span class="lg"><span class="line" style="border-color:var(--h-evt);border-top-style:dashed"></span>Event (async)</span>
+  </div>
+
+  <div class="grid">
+    <div class="card"><h3><span class="pip" style="background:var(--core)"></span>Kernel — centre</h3>
+      <p>One append-only, attributed, bitemporal fact log. It is the <em>only</em> writer of truth: every write carries a verifiable agent and is grant-checked, so the audit trail <em>is</em> the registry. Also emits an event per write.</p></div>
+    <div class="card"><h3><span class="pip" style="background:var(--h-trust)"></span>Trust ring</h3>
+      <p><b>Identity</b> issues the user token; <b>AirawatNetwork</b> certifies components, publishes the governed vocabulary (schemas · interfaces · roles), and signs the grants the kernel verifies. Together: who you are + what you may do.</p></div>
+    <div class="card"><h3><span class="pip" style="background:var(--h-rt)"></span>Runtimes</h3>
+      <p>The processes that host and execute components and broker their I/O to the kernel — the app-host BFF, the scheduler, sandboxed driver clean-room, per-profile containers, the async event relay, and the model gateway.</p></div>
+    <div class="card"><h3><span class="pip" style="background:var(--h-cmp)"></span>Components</h3>
+      <p>The certified building blocks (ADR-0022): apps, engines, drivers, models, skills/agents — and <em>solutions</em>, which are pinned graphs of the others. Each attaches to a runtime; none reach the kernel on its own.</p></div>
+  </div>
+
+  <h2>How each kind of component reaches the kernel</h2>
+  <p class="sub">Position on a ring shows the <em>layer</em> a thing lives in (dependency points inward). The exact host mapping is below.</p>
+  <div class="scroll"><table class="tbl">
+    <tr><th>Component</th><th>Runtime it attaches to</th><th>What it does · how it calls the kernel</th></tr>
+    <tr><td>app</td><td>app-host</td><td>Sandboxed UI in an iframe, no token of its own. Calls <span class="mono">/bridge/&lt;verb&gt;</span>; the host attaches the user token + component id and proxies (or dispatches an engine).</td></tr>
+    <tr><td>engine</td><td>app-host · scheduler</td><td>Server logic (the “domain service”). Host loads its <span class="mono">run.py</span> and calls <span class="mono">HANDLERS[verb](ctx)</span>; the ctx does registry I/O attributed <span class="mono">component:// obo user://</span>.</td></tr>
+    <tr><td>driver</td><td>scheduler · broker · runtime-manager</td><td>Ingests external data / does declared egress inside the Docker clean-room; the broker is its only I/O seam. Writes are grant-checked at the kernel.</td></tr>
+    <tr><td>model</td><td>runtime-manager · model-gateway</td><td>ML inference in a profile container; reasoning components reach the LLM via the model gateway (<span class="mono">ctx.ai_complete</span>).</td></tr>
+    <tr><td>skill · agent</td><td>app-host</td><td>The personal agent orchestrates verbs on the user’s behalf (plan → delegate → confirm), each hop attributed and grant-checked like any other call.</td></tr>
+    <tr><td>solution</td><td>— (a graph)</td><td>Not a runtime target: a pinned, versioned graph of the above, installed as one unit; install signs the grants each member needs.</td></tr>
+  </table></div>
+
+  <h2>Two lanes, one governance</h2>
+  <div class="lanes">
+    <div class="lane"><h3><span class="pip" style="background:var(--h-cmd)"></span>Command — synchronous</h3>
+      <p style="margin:0;color:var(--dim);font-size:13px">A user is waiting for an answer.</p>
+      <ol><li>App posts <code>/bridge/&lt;verb&gt;</code></li><li>Runtime adds token + component id</li><li>Runtime runs the engine / proxies to kernel</li><li>Kernel grant-checks the write → replies</li></ol></div>
+    <div class="lane"><h3><span class="pip" style="background:var(--h-evt)"></span>Event — asynchronous</h3>
+      <p style="margin:0;color:var(--dim);font-size:13px">“When X happens, do Y.”</p>
+      <ol><li>Any write emits a <code>platform.event</code> (durable outbox)</li><li>event-relay delivers at-least-once</li><li>automation matches a <code>platform.subscription</code></li><li>It invokes the subscriber’s verb</li></ol></div>
+  </div>
+
+  <div class="note"><b>On the roadmap (ADR-0088/0089):</b> today an engine’s logic is hand-written code. The next step makes a domain service a <b>declaration</b> — a governed <span class="mono">rule</span> set (decide), a workflow (orchestrate), a service spec, or custom code — all uniform members of a solution graph, dispatched through this same ring. Pub/sub becomes a declared <span class="mono">emits/subscribes</span> capability, visible as event edges in Solution Studio.</div>
+</div>

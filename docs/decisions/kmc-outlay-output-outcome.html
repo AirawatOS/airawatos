@@ -1,0 +1,286 @@
+<title>KMC Internal Systems — Outlay → Output → Outcome</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --bg:#eef1ef; --surface:#ffffff; --surface2:#f5f7f5; --ink:#14211c; --dim:#5c6d66; --line:#d5ddd8;
+    --money:#b07d16; --money-fill:#f6edd6; --infra:#2563c9; --infra-fill:#dde8fa; --welf:#0d7f82; --welf-fill:#dcefef;
+    --gate:#c2410c; --subj:#7a5cc0;
+    --ok:#1c8b52; --ok-fill:#dcf0e4; --part:#b8860b; --part-fill:#f6ecd2; --gap:#c23b3b; --gap-fill:#f8dede;
+    --shadow:0 1px 2px rgba(20,33,28,.06),0 8px 30px rgba(20,33,28,.05);
+  }
+  @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+    --bg:#0a1310; --surface:#10201a; --surface2:#0d1b16; --ink:#eafef4; --dim:#8fb6a4; --line:#23372d;
+    --money:#e8c24b; --money-fill:#241d0d; --infra:#6fa2f0; --infra-fill:#0e1c33; --welf:#2fd0c8; --welf-fill:#0b2320;
+    --gate:#f0954a; --subj:#b9a3f0;
+    --ok:#3ecb7f; --ok-fill:#0e2b1c; --part:#e8c24b; --part-fill:#241d0d; --gap:#f0736f; --gap-fill:#311616;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 34px rgba(0,0,0,.35);
+  }}
+  :root[data-theme="dark"]{
+    --bg:#0a1310; --surface:#10201a; --surface2:#0d1b16; --ink:#eafef4; --dim:#8fb6a4; --line:#23372d;
+    --money:#e8c24b; --money-fill:#241d0d; --infra:#6fa2f0; --infra-fill:#0e1c33; --welf:#2fd0c8; --welf-fill:#0b2320;
+    --gate:#f0954a; --subj:#b9a3f0;
+    --ok:#3ecb7f; --ok-fill:#0e2b1c; --part:#e8c24b; --part-fill:#241d0d; --gap:#f0736f; --gap-fill:#311616;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 34px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1040px;margin:0 auto;padding:44px 22px 80px}
+  .serif{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif}
+  .mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+  header .eyebrow{font:600 11.5px ui-monospace,monospace;letter-spacing:.24em;text-transform:uppercase;color:var(--welf)}
+  header h1{margin:.32em 0 .1em;font-size:clamp(27px,5vw,40px);font-weight:600;line-height:1.1;letter-spacing:-.01em;text-wrap:balance}
+  header p.lede{font-size:17px;color:var(--dim);max-width:66ch;margin:.4em 0 0}
+  .rule{height:1px;background:var(--line);border:0;margin:34px 0}
+  h2{font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:0 0 8px}
+  .h2sub{color:var(--dim);font-size:14px;margin:0 0 18px;max-width:70ch}
+  .section{margin-top:48px}
+  figure{margin:0}
+  .figbox{background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:14px;overflow-x:auto}
+  .figbox svg{display:block;width:100%;min-width:720px;height:auto}
+  figcaption{color:var(--dim);font-size:13px;margin-top:11px;text-align:center;text-wrap:balance}
+  /* legend badges */
+  .stat{display:inline-flex;align-items:center;gap:5px;font:600 11px ui-monospace,monospace;padding:2px 8px;border-radius:999px;white-space:nowrap}
+  .stat.ok{background:var(--ok-fill);color:var(--ok)} .stat.part{background:var(--part-fill);color:var(--part)} .stat.gap{background:var(--gap-fill);color:var(--gap)}
+  /* chain */
+  .chain{display:flex;gap:0;overflow-x:auto;padding-bottom:6px}
+  .stage{flex:0 0 210px;min-width:210px;background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:14px;box-shadow:var(--shadow);position:relative;margin-right:26px}
+  .stage:last-child{margin-right:0}
+  .stage::after{content:"→";position:absolute;right:-21px;top:50%;transform:translateY(-50%);color:var(--dim);font-size:20px;font-weight:700}
+  .stage:last-child::after{content:""}
+  .stage .cap{font:700 10.5px ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase}
+  .stage.welf .cap{color:var(--welf)} .stage.money .cap{color:var(--money)} .stage.infra .cap{color:var(--infra)}
+  .stage h3{margin:2px 0 8px;font-size:16px;font-weight:650}
+  .stage .noun{font:600 12px ui-monospace,monospace;color:var(--ink);background:var(--surface2);border:1px solid var(--line);border-radius:6px;padding:2px 7px;display:inline-block;margin:0 3px 4px 0}
+  .stage p{margin:8px 0 0;font-size:12.5px;color:var(--dim)}
+  .stage .ex{margin-top:9px;font-size:12px;color:var(--ink);border-top:1px dashed var(--line);padding-top:8px}
+  .stage .st{margin-top:9px}
+  .lnk{text-align:center;font-size:12px;color:var(--gate);margin:14px 0 0;font-weight:600}
+  /* threads legend */
+  .threads{display:flex;gap:16px;flex-wrap:wrap;margin:16px 0 0;font-size:13px}
+  .threads .t{display:flex;align-items:center;gap:7px} .threads b{font-weight:600;color:var(--ink)}
+  .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+  /* table */
+  .tblwrap{overflow-x:auto;border-radius:12px;box-shadow:var(--shadow)}
+  table{width:100%;border-collapse:collapse;font-size:13px;min-width:760px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);border-right:1px solid var(--line);vertical-align:top}
+  th:last-child,td:last-child{border-right:0}
+  thead th{background:var(--surface2);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);font-weight:700}
+  thead th.need{color:var(--welf)} thead th.outlay{color:var(--money)} thead th.output{color:var(--infra)} thead th.outcome{color:var(--welf)}
+  tbody tr{background:var(--surface)}
+  td .dim5{font:700 11px ui-monospace,monospace;color:var(--dim);letter-spacing:.05em}
+  th.rowh{background:var(--surface2);width:96px}
+  td .mono{font-size:11.5px;color:var(--ink)}
+  td small{display:block;color:var(--dim);font-size:11px;margin-top:2px}
+  /* module map hooks list */
+  .hooks{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
+  @media(max-width:640px){.hooks{grid-template-columns:1fr}}
+  .hook{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;box-shadow:var(--shadow);display:flex;gap:12px;align-items:flex-start}
+  .hook .n{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font:700 13px ui-monospace,monospace;flex:none}
+  .hook.up .n{border:1.5px solid var(--welf);color:var(--welf)} .hook.down .n{border:1.5px solid var(--money);color:var(--money)}
+  .hook h4{margin:0 0 2px;font-size:14px;font-weight:640}
+  .hook .arw{font:700 10px ui-monospace,monospace}
+  .hook.up .arw{color:var(--welf)} .hook.down .arw{color:var(--money)}
+  .hook p{margin:3px 0 0;font-size:12.5px;color:var(--dim)}
+  .hook .mono{color:var(--ink);font-size:12px}
+  .gaps{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--gap);border-radius:12px;padding:16px 18px;box-shadow:var(--shadow)}
+  .gaps ol{margin:8px 0 0;padding-left:20px} .gaps li{margin:7px 0;font-size:14px}
+  .gaps .mono{font-size:12.5px}
+  footer{margin-top:52px;color:var(--dim);font-size:12.5px;text-align:center}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Airawat · KMC internal systems</div>
+  <h1 class="serif">The Outlay → Output → Outcome Thread</h1>
+  <p class="lede">Inside the implementing agency, one unbroken chain must connect <b>money spent</b> to <b>things delivered</b> to <b>lives changed</b> — each link carrying <em>who · what · when · where · why · how</em>. This is what turns a funder's grant into accountable results, and what lets the same welfare measure that raised the need report the outcome. Grounded on the live KMC crowding project.</p>
+</header>
+
+<hr class="rule">
+
+<!-- ===================== PART 1: internal modules + edge hooks ===================== -->
+<div class="section">
+  <h2>1 · KMC's internal modules, and where the ladder edge plugs in</h2>
+  <p class="h2sub">Every subsystem below already exists and is tenant-generic. The funder↔implementer edge doesn't add a module — its six exchanges hook onto the modules KMC already runs.</p>
+  <figure>
+  <div class="figbox">
+  <svg viewBox="0 0 940 470" role="img" aria-label="KMC internal modules — Welfare Spine, Project Layer, Finance Ledger, Inbox/Case, Org/HR, over a governed Registry base — with the six ladder-edge exchanges hooking onto them.">
+    <rect x="196" y="30" width="720" height="410" rx="16" fill="none" stroke="var(--welf)" stroke-width="1.8"/>
+    <text x="556" y="20" text-anchor="middle" font-size="13" font-weight="700" fill="var(--welf)">KMC — Implementing Agency (tenant)</text>
+
+    <!-- modules -->
+    <rect x="224" y="56" width="300" height="80" rx="12" fill="var(--welf-fill)" stroke="var(--welf)" stroke-width="1.4"/>
+    <text x="374" y="86" text-anchor="middle" font-size="14" font-weight="700" fill="var(--ink)">Welfare Spine</text>
+    <text x="374" y="106" text-anchor="middle" font-size="11" fill="var(--dim)">need · gap · priority · recommendation</text>
+    <text x="374" y="123" text-anchor="middle" font-size="10.5" font-family="ui-monospace,monospace" fill="var(--welf)">WHY / NEED</text>
+
+    <rect x="588" y="56" width="300" height="80" rx="12" fill="var(--surface2)" stroke="var(--line)" stroke-width="1.4"/>
+    <text x="738" y="86" text-anchor="middle" font-size="14" font-weight="700" fill="var(--ink)">Project Layer</text>
+    <text x="738" y="106" text-anchor="middle" font-size="11" fill="var(--dim)">proposal · project · milestone · receipt</text>
+    <text x="738" y="123" text-anchor="middle" font-size="10.5" font-family="ui-monospace,monospace" fill="var(--infra)">WHAT / OUTPUT</text>
+
+    <rect x="224" y="164" width="300" height="80" rx="12" fill="var(--surface2)" stroke="var(--line)" stroke-width="1.4"/>
+    <text x="374" y="194" text-anchor="middle" font-size="14" font-weight="700" fill="var(--ink)">Inbox · Case · Workflow</text>
+    <text x="374" y="214" text-anchor="middle" font-size="11" fill="var(--dim)">appraisal · sanction · release approvals</text>
+    <text x="374" y="231" text-anchor="middle" font-size="10.5" font-family="ui-monospace,monospace" fill="var(--dim)">WHO decides · WHEN</text>
+
+    <rect x="588" y="164" width="300" height="80" rx="12" fill="var(--money-fill)" stroke="var(--money)" stroke-width="1.4"/>
+    <text x="738" y="194" text-anchor="middle" font-size="14" font-weight="700" fill="var(--ink)">Finance Ledger</text>
+    <text x="738" y="214" text-anchor="middle" font-size="11" fill="var(--dim)">budget · transaction · account (double-entry)</text>
+    <text x="738" y="231" text-anchor="middle" font-size="10.5" font-family="ui-monospace,monospace" fill="var(--money)">HOW MUCH / OUTLAY</text>
+
+    <rect x="224" y="272" width="300" height="66" rx="12" fill="var(--surface2)" stroke="var(--line)" stroke-width="1.4"/>
+    <text x="374" y="300" text-anchor="middle" font-size="14" font-weight="700" fill="var(--ink)">Org · HR</text>
+    <text x="374" y="320" text-anchor="middle" font-size="11" fill="var(--dim)">employees · roles — the JE, the Commissioner (WHO)</text>
+
+    <rect x="588" y="272" width="300" height="66" rx="12" fill="var(--surface2)" stroke="var(--line)" stroke-width="1.4"/>
+    <text x="738" y="300" text-anchor="middle" font-size="14" font-weight="700" fill="var(--ink)">Field Capture</text>
+    <text x="738" y="320" text-anchor="middle" font-size="11" fill="var(--dim)">collector · inspector — real WHERE / WHEN</text>
+
+    <!-- registry base -->
+    <rect x="224" y="360" width="664" height="60" rx="12" fill="var(--welf-fill)" stroke="var(--welf)" stroke-width="1.4" opacity=".9"/>
+    <text x="556" y="386" text-anchor="middle" font-size="13" font-weight="700" fill="var(--ink)">Governed Registry — the shared substrate</text>
+    <text x="556" y="405" text-anchor="middle" font-size="11" fill="var(--dim)">every fact is attributed: WHO wrote it (component obo user) · WHAT · WHEN (observed_at) · WHERE (space/h3) · HOW (prov.method) · WHY (links)</text>
+
+    <!-- edge hooks (numbered stubs on the left boundary) -->
+    <g font-family="ui-monospace,monospace">
+      <line x1="120" y1="96"  x2="222" y2="96"  stroke="var(--welf)"  stroke-width="2" marker-end="url(#a-w)"/>
+      <line x1="222" y1="204" x2="120" y2="204" stroke="var(--money)" stroke-width="2" marker-end="url(#a-m)"/>
+    </g>
+    <defs>
+      <marker id="a-w" markerWidth="10" markerHeight="10" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="var(--welf)"/></marker>
+      <marker id="a-m" markerWidth="10" markerHeight="10" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="var(--money)"/></marker>
+    </defs>
+    <text x="30" y="80" font-size="11" font-weight="700" fill="var(--welf)">information ↑</text>
+    <text x="30" y="94" font-size="9.5" fill="var(--dim)">out to funders</text>
+    <text x="30" y="196" font-size="11" font-weight="700" fill="var(--money)">money ↓</text>
+    <text x="30" y="210" font-size="9.5" fill="var(--dim)">in from funders</text>
+  </svg>
+  </div>
+  <figcaption>The edge's six exchanges hook onto existing modules — no new plumbing, just governed objects crossing the tenant boundary.</figcaption>
+  </figure>
+
+  <div class="hooks">
+    <div class="hook up"><div class="n">1</div><div><h4>Need <span class="arw">↑ out</span></h4><p>Welfare Spine emits an aggregate → funder subscription. <span class="mono">welfare.gap</span> rollup</p></div></div>
+    <div class="hook down"><div class="n">2</div><div><h4>Program <span class="arw">↓ in</span></h4><p>Lands in Inbox as a matched candidate. <span class="mono">funding.program</span></p></div></div>
+    <div class="hook up"><div class="n">3</div><div><h4>Proposal <span class="arw">↑ out</span></h4><p>Project Layer submits it upward. <span class="mono">project.proposal</span></p></div></div>
+    <div class="hook down"><div class="n">4</div><div><h4>Award <span class="arw">↓ in</span></h4><p>Lands in Finance as committed revenue + flips proposal→project. <span class="mono">funding.award → finance.budget</span></p></div></div>
+    <div class="hook up"><div class="n">5</div><div><h4>Report <span class="arw">↑ out</span></h4><p>Project Layer publishes milestone VC + Plan-vs-Actual to subscribers. <span class="mono">project.milestone</span></p></div></div>
+    <div class="hook down"><div class="n">6</div><div><h4>Tranche <span class="arw">↓ in</span></h4><p>Lands in Finance as a gated receipt. <span class="mono">finance.transaction</span></p></div></div>
+  </div>
+</div>
+
+<hr class="rule">
+
+<!-- ===================== PART 2: the golden thread ===================== -->
+<div class="section">
+  <h2>2 · The golden thread — six links, three ledgers</h2>
+  <p class="h2sub">The chain runs left to right. Colour marks which ledger dominates each link: <b>need/quality-of-life</b> (welfare), <b>outlay</b> (money), <b>infra/service/benefit</b> (delivery). The story is the colour sequence: a welfare need pulls in money, money becomes delivery, delivery must fold back into the welfare measure that raised the need.</p>
+  <div class="threads">
+    <span class="t"><span class="dot" style="background:var(--welf)"></span><b>Need / Quality of life</b> — welfare spine</span>
+    <span class="t"><span class="dot" style="background:var(--money)"></span><b>Outlay</b> — finance ledger</span>
+    <span class="t"><span class="dot" style="background:var(--infra)"></span><b>Infra / Service / Benefit</b> — delivery</span>
+    <span style="margin-left:auto"><span class="stat ok">✓ live</span> <span class="stat part">◐ governed, empty</span> <span class="stat gap">✗ to build</span></span>
+  </div>
+
+  <div class="chain" style="margin-top:18px">
+    <div class="stage welf">
+      <div class="cap">① Need · why</div><h3>Need</h3>
+      <span class="noun">welfare.gap</span><span class="noun">welfare.priority</span><span class="noun">governance.recommendation</span>
+      <div class="ex">18 worst-off cells · <b>98,710 people</b> above the crowding floor</div>
+      <div class="st"><span class="stat ok">✓ live on KMC</span></div>
+    </div>
+    <div class="stage money">
+      <div class="cap">② Input · outlay</div><h3>Money in</h3>
+      <span class="noun">funding.award</span><span class="noun">finance.budget</span>
+      <div class="ex">Ask ₹180cr → <b>budget committed</b> (award = the funder edge)</div>
+      <div class="st"><span class="stat part">◐ budget ✓ · award ✗</span></div>
+    </div>
+    <div class="stage money">
+      <div class="cap">③ Activity · process</div><h3>Do the work</h3>
+      <span class="noun">project.project</span><span class="noun">finance.transaction</span>
+      <div class="ex">In-situ vertical redevelopment · spend booked per activity</div>
+      <div class="st"><span class="stat part">◐ project ✓ · spend empty</span></div>
+    </div>
+    <div class="stage infra">
+      <div class="cap">④ Output · what delivered</div><h3>Delivery</h3>
+      <span class="noun">project.output</span><span class="noun">geo.building</span><span class="noun">infra.service_connection</span>
+      <div class="ex">e.g. <b>247 dwelling units</b> built in cell X · milestone VC certifies it</div>
+      <div class="st"><span class="stat gap">✗ output noun to build</span></div>
+    </div>
+    <div class="stage welf">
+      <div class="cap">⑤ Outcome · benefit</div><h3>Did need move?</h3>
+      <span class="noun">welfare.service_level ↑</span><span class="noun">welfare.gap ↓ (re-run)</span>
+      <div class="ex">Crowding in cell X: <b>677 → 210 p/ha</b> — the need measure, re-measured</div>
+      <div class="st"><span class="stat part">◐ re-runnable · not wired</span></div>
+    </div>
+    <div class="stage welf">
+      <div class="cap">⑥ Impact · quality of life</div><h3>Objective</h3>
+      <span class="noun">welfare objective</span><span class="noun">welfare.deprivation</span>
+      <div class="ex"><b>N more people</b> above the dignity floor, prioritarian-weighted</div>
+      <div class="st"><span class="stat part">◐ measured · not attributed</span></div>
+    </div>
+  </div>
+  <p class="lnk">↳ the two joints that make it a <em>thread</em>, not two disconnected halves: <b>outlay→output</b> (cost per delivered unit) and <b>output→outcome</b> (this delivery caused that gap to close)</p>
+</div>
+
+<!-- ===================== PART 3: the 5W1H matrix ===================== -->
+<div class="section">
+  <h2>3 · Who · what · when · where · why · how — across the pivotal four links</h2>
+  <p class="h2sub">Each dimension is carried by a real field on a governed fact, so the chain is auditable end to end. This is the provenance the funder actually buys.</p>
+  <div class="tblwrap"><table>
+    <thead><tr>
+      <th class="rowh"></th>
+      <th class="need">① Need</th><th class="outlay">② Outlay</th><th class="output">④ Output</th><th class="outcome">⑤ Outcome</th>
+    </tr></thead>
+    <tbody>
+      <tr><th class="rowh"><span class="dim5">WHO</span></th>
+        <td><span class="mono">civic.household</span><small>subject; engine obo (ADR-0052)</small></td>
+        <td><span class="mono">decision.authority</span><small>Commissioner admits; funder on the award</small></td>
+        <td><span class="mono">org.employee</span><small>JE / contractor; attributed write</small></td>
+        <td><span class="mono">stat.estimate</span><small>re-measure engine obo</small></td></tr>
+      <tr><th class="rowh"><span class="dim5">WHAT</span></th>
+        <td><span class="mono">gap.value</span><small>shortfall vs floor</small></td>
+        <td><span class="mono">budget · award ₹</span><small>committed / released</small></td>
+        <td><span class="mono">building · connection</span><small>units delivered</small></td>
+        <td><span class="mono">service_level ↑ / gap ↓</span><small>units of benefit</small></td></tr>
+      <tr><th class="rowh"><span class="dim5">WHEN</span></th>
+        <td><span class="mono">observed_at</span></td>
+        <td><span class="mono">decided_at</span></td>
+        <td><span class="mono">completion / milestone date</span></td>
+        <td><span class="mono">re-observed_at</span></td></tr>
+      <tr><th class="rowh"><span class="dim5">WHERE</span></th>
+        <td><span class="mono">space · h3 cell / ward</span></td>
+        <td><span class="mono">proposal.site</span></td>
+        <td><span class="mono">space · built unit lat/lon</span></td>
+        <td><span class="mono">same h3 cell</span><small>outcome measured where output landed</small></td></tr>
+      <tr><th class="rowh"><span class="dim5">WHY</span></th>
+        <td><span class="mono">below welfare.floor</span></td>
+        <td><span class="mono">answers[] → recommendation</span></td>
+        <td><span class="mono">proposal.results_contract</span><small>promised outputs</small></td>
+        <td><span class="mono">prov.derivation</span><small>Δgap attributed to output ✗</small></td></tr>
+      <tr><th class="rowh"><span class="dim5">HOW</span></th>
+        <td><span class="mono">prov.method</span><small>GHSL / VIIRS</small></td>
+        <td><span class="mono">program terms</span></td>
+        <td><span class="mono">intervention.lever</span><small>vertical redevelopment</small></td>
+        <td><span class="mono">prov.method</span><small>re-survey / field capture</small></td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<!-- ===================== PART 4: the gaps ===================== -->
+<div class="section">
+  <h2>4 · What must be built to close the thread</h2>
+  <div class="gaps">
+    <p style="margin:0;font-size:14.5px">The need half is live; the money is committed but unspent; the <b>delivery→benefit half is the gap</b>. Four artifacts complete the loop:</p>
+    <ol>
+      <li><b>An output noun</b> — <span class="mono">project.output</span>: a delivered unit (a built dwelling, a laid connection) bound to its project, its milestone, its cost (<span class="mono">finance.transaction</span>), and its <span class="mono">space</span>. This is the missing pivot between money and benefit. <span class="stat gap">✗</span></li>
+      <li><b>The outlay→output joint</b> — post <span class="mono">finance.transaction</span>s against outputs so <em>cost-per-unit</em> is a fact, not a spreadsheet. (Ledger governed, currently empty.) <span class="stat part">◐</span></li>
+      <li><b>The output→outcome joint</b> — <span class="mono">prov.derivation</span> (ADR-0041 lineage): the record that says <em>this output caused that welfare.gap to close</em>. Without it, outcome is correlation, not attribution. <span class="stat gap">✗</span></li>
+      <li><b>Outcome re-measurement wiring</b> — on milestone completion, re-run the welfare gap engine over the project's cells and record the delta as the outcome against the results contract (Plan-vs-Actual at the <em>outcome</em> level, not just budget). <span class="stat part">◐</span></li>
+    </ol>
+    <p style="margin:14px 0 0;font-size:13.5px;color:var(--dim)">With these, a funder reading the progress subscription sees the whole thread: ₹ released → units built here → crowding fell there → N people crossed the floor — every link a signed, located, dated, attributed fact.</p>
+  </div>
+</div>
+
+<footer>Airawat · KMC internal systems &amp; the outlay→output→outcome thread · grounded on the live crowding project (18 cells · 98,710 people · ₹180cr). Next: build the output noun + the two joints, then mirror the funder side.</footer>
+</div>

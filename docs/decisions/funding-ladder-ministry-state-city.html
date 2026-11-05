@@ -1,0 +1,211 @@
+<title>Instantiating the Ladder — Ministry · State · City</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --bg:#eef1ef; --surface:#ffffff; --surface2:#f5f7f5; --ink:#14211c; --dim:#5c6d66; --line:#d5ddd8;
+    --funder:#b07d16; --funder-fill:#f6edd6; --impl:#0d7f82; --impl-fill:#dcefef; --gate:#c2410c; --subj:#7a5cc0; --subj-fill:#ece7f7;
+    --shadow:0 1px 2px rgba(20,33,28,.06),0 8px 30px rgba(20,33,28,.05);
+  }
+  @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+    --bg:#0a1310; --surface:#10201a; --surface2:#0d1b16; --ink:#eafef4; --dim:#8fb6a4; --line:#23372d;
+    --funder:#e8c24b; --funder-fill:#241d0d; --impl:#2fd0c8; --impl-fill:#0b2320; --gate:#f0954a; --subj:#b9a3f0; --subj-fill:#1a1430;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 34px rgba(0,0,0,.35);
+  }}
+  :root[data-theme="dark"]{
+    --bg:#0a1310; --surface:#10201a; --surface2:#0d1b16; --ink:#eafef4; --dim:#8fb6a4; --line:#23372d;
+    --funder:#e8c24b; --funder-fill:#241d0d; --impl:#2fd0c8; --impl-fill:#0b2320; --gate:#f0954a; --subj:#b9a3f0; --subj-fill:#1a1430;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 34px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1000px;margin:0 auto;padding:44px 22px 80px}
+  .serif{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif}
+  .mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+  header .eyebrow{font:600 11.5px ui-monospace,monospace;letter-spacing:.24em;text-transform:uppercase;color:var(--impl)}
+  header h1{margin:.32em 0 .1em;font-size:clamp(27px,5vw,40px);font-weight:600;line-height:1.1;letter-spacing:-.01em;text-wrap:balance}
+  header p.lede{font-size:17px;color:var(--dim);max-width:66ch;margin:.4em 0 0}
+  .rule{height:1px;background:var(--line);border:0;margin:34px 0}
+  figure{margin:0}
+  .figbox{background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:14px;overflow-x:auto}
+  .figbox svg{display:block;width:100%;min-width:720px;height:auto}
+  figcaption{color:var(--dim);font-size:13.5px;margin-top:12px;text-align:center;text-wrap:balance}
+  .keys{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;margin:14px 0 0;font-size:12.5px;color:var(--dim)}
+  .keys b{color:var(--ink);font-weight:600}
+  .swatch{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:middle;margin-right:6px}
+  .swatch.dash{background:repeating-linear-gradient(90deg,var(--funder) 0 4px,transparent 4px 7px)}
+  h2{font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:0 0 16px}
+  .section{margin-top:46px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;overflow:hidden;border-radius:12px;box-shadow:var(--shadow)}
+  th,td{text-align:left;padding:11px 13px;border-bottom:1px solid var(--line);vertical-align:top}
+  thead th{background:var(--surface2);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);font-weight:700}
+  tbody tr{background:var(--surface)} tbody tr:last-child td{border-bottom:0}
+  td .role{font-weight:650}
+  td .rf{color:var(--funder)} td .ri{color:var(--impl)} td .rs{color:var(--subj)}
+  .tblwrap{overflow-x:auto}
+  table .mono{font-size:12px;color:var(--ink)}
+  /* stack */
+  .stackbox{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:18px 20px;box-shadow:var(--shadow)}
+  .stackbox .ask{font-size:14.5px;margin:0 0 4px} .stackbox .ask b{font-size:17px}
+  .stackbar{display:flex;height:46px;border-radius:10px;overflow:hidden;border:1px solid var(--line);margin:12px 0 6px}
+  .seg{display:flex;flex-direction:column;justify-content:center;padding:0 12px;color:#fff;font-size:12.5px;font-weight:600;white-space:nowrap}
+  .seg small{opacity:.85;font-weight:500}
+  .seg.mohua{background:linear-gradient(180deg,#c99320,#a9760f);flex:0 0 60%}
+  .seg.hudd{background:linear-gradient(180deg,#0f9498,#0b7276);flex:0 0 40%}
+  .stacknote{font-size:12.5px;color:var(--dim);margin:8px 0 0}
+  .stacknote .ill{color:var(--gate);font-weight:600}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:6px}
+  @media(max-width:640px){.cols{grid-template-columns:1fr}}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:15px 17px;box-shadow:var(--shadow)}
+  .card h4{margin:0 0 6px;font-size:13.5px;font-weight:650;display:flex;gap:8px;align-items:center}
+  .card h4 .b{font:700 11px ui-monospace,monospace;background:var(--surface2);border:1px solid var(--line);border-radius:6px;padding:1px 7px;color:var(--dim)}
+  .card p{margin:0;font-size:13.5px;color:var(--ink)}
+  .card .mono{font-size:12.5px}
+  .pre{background:var(--surface2);border:1px solid var(--line);border-left:3px solid var(--gate);border-radius:12px;padding:13px 17px;font-size:14px;margin-top:16px}
+  footer{margin-top:50px;color:var(--dim);font-size:12.5px;text-align:center}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Airawat · ADR-0072 · instantiation</div>
+  <h1 class="serif">Instantiating the Ladder — Ministry · State · City</h1>
+  <p class="lede">The same <b>funder ↔ implementer</b> edge, chained across three sovereign tenants. Nothing new is invented at each rung: <b>information climbs</b> (need · proposal · report), <b>money descends</b> (program · award · tranche), and the intermediary in the middle is simply <em>both</em> roles at once.</p>
+</header>
+
+<hr class="rule">
+
+<figure>
+  <div class="figbox">
+  <svg viewBox="0 0 940 720" role="img" aria-label="Three-tier funding ladder: MoHUA (national) and an external bank at top, HUDD state department in the middle as intermediary, KMC city and its water board at the bottom, and the beneficiary below. Information flows up the left in teal; money flows down the right in gold; an external bank co-funds the city project directly; a milestone gate sits on the money path into the city.">
+    <defs>
+      <marker id="af" markerWidth="11" markerHeight="11" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 Z" fill="var(--funder)"/></marker>
+      <marker id="ai" markerWidth="11" markerHeight="11" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 Z" fill="var(--impl)"/></marker>
+      <marker id="as" markerWidth="11" markerHeight="11" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 Z" fill="var(--subj)"/></marker>
+    </defs>
+
+    <!-- tier tags -->
+    <text x="24" y="112" font-size="11" font-weight="700" fill="var(--dim)" font-family="ui-monospace,monospace">NATIONAL</text>
+    <text x="24" y="296" font-size="11" font-weight="700" fill="var(--dim)" font-family="ui-monospace,monospace">STATE</text>
+    <text x="24" y="486" font-size="11" font-weight="700" fill="var(--dim)" font-family="ui-monospace,monospace">CITY</text>
+    <text x="24" y="668" font-size="11" font-weight="700" fill="var(--dim)" font-family="ui-monospace,monospace">CITIZEN</text>
+
+    <!-- ===== NODES ===== -->
+    <!-- MoHUA -->
+    <rect x="300" y="72" width="250" height="76" rx="13" fill="var(--funder-fill)" stroke="var(--funder)" stroke-width="1.8"/>
+    <text x="425" y="102" text-anchor="middle" font-size="15" font-weight="700" fill="var(--ink)">MoHUA</text>
+    <text x="425" y="121" text-anchor="middle" font-size="11.5" fill="var(--dim)">national ministry · runs PMAY-U</text>
+    <text x="425" y="138" text-anchor="middle" font-size="11" font-weight="700" fill="var(--funder)">FUNDER</text>
+    <!-- Bank -->
+    <rect x="640" y="72" width="230" height="76" rx="13" fill="var(--funder-fill)" stroke="var(--funder)" stroke-width="1.6" stroke-dasharray="6 4"/>
+    <text x="755" y="102" text-anchor="middle" font-size="14.5" font-weight="700" fill="var(--ink)">Multilateral / Bank</text>
+    <text x="755" y="121" text-anchor="middle" font-size="11.5" fill="var(--dim)">external · results-based tranche</text>
+    <text x="755" y="138" text-anchor="middle" font-size="11" font-weight="700" fill="var(--funder)">CO-FUNDER</text>
+
+    <!-- HUDD (intermediary) -->
+    <rect x="310" y="256" width="290" height="82" rx="13" fill="var(--surface)" stroke="var(--impl)" stroke-width="1.8"/>
+    <rect x="310" y="256" width="290" height="9" rx="4" fill="var(--funder)"/>
+    <text x="455" y="290" text-anchor="middle" font-size="15" font-weight="700" fill="var(--ink)">HUDD · State Dept</text>
+    <text x="455" y="309" text-anchor="middle" font-size="11.5" fill="var(--dim)">rolls up need · appraises · co-funds</text>
+    <text x="455" y="327" text-anchor="middle" font-size="11" font-weight="700"><tspan fill="var(--impl)">IMPLEMENTER ↑</tspan><tspan fill="var(--dim)">  ·  </tspan><tspan fill="var(--funder)">FUNDER ↓</tspan></text>
+
+    <!-- KMC -->
+    <rect x="250" y="448" width="250" height="82" rx="13" fill="var(--impl-fill)" stroke="var(--impl)" stroke-width="1.8"/>
+    <text x="375" y="480" text-anchor="middle" font-size="15" font-weight="700" fill="var(--ink)">KMC · City ULB</text>
+    <text x="375" y="499" text-anchor="middle" font-size="11.5" fill="var(--dim)">diagnoses · proposes · executes</text>
+    <text x="375" y="517" text-anchor="middle" font-size="11" font-weight="700" fill="var(--impl)">IMPLEMENTER</text>
+    <!-- Water Board -->
+    <rect x="560" y="448" width="230" height="82" rx="13" fill="var(--impl-fill)" stroke="var(--impl)" stroke-width="1.4" stroke-dasharray="5 4"/>
+    <text x="675" y="480" text-anchor="middle" font-size="14" font-weight="700" fill="var(--ink)">Jal Sansthan</text>
+    <text x="675" y="499" text-anchor="middle" font-size="11.5" fill="var(--dim)">water utility · same dyad</text>
+    <text x="675" y="517" text-anchor="middle" font-size="11" font-weight="700" fill="var(--impl)">IMPLEMENTER</text>
+
+    <!-- Beneficiary -->
+    <rect x="315" y="636" width="240" height="60" rx="13" fill="var(--subj-fill)" stroke="var(--subj)" stroke-width="1.6"/>
+    <text x="435" y="663" text-anchor="middle" font-size="14" font-weight="700" fill="var(--ink)">Household / Citizen</text>
+    <text x="435" y="681" text-anchor="middle" font-size="11" font-weight="700" fill="var(--subj)">BENEFICIARY · need origin + outcome</text>
+
+    <!-- ===== INFORMATION (teal, up, left offset) ===== -->
+    <!-- KMC -> HUDD -->
+    <line x1="360" y1="448" x2="410" y2="338" stroke="var(--impl)" stroke-width="2" marker-end="url(#ai)"/>
+    <!-- HUDD -> MoHUA -->
+    <line x1="420" y1="256" x2="400" y2="148" stroke="var(--impl)" stroke-width="2" marker-end="url(#ai)"/>
+    <text x="250" y="205" font-size="12" font-weight="650" fill="var(--impl)">information ↑</text>
+    <text x="250" y="221" font-size="10.5" fill="var(--dim)">need · proposal · report</text>
+    <text x="250" y="235" font-size="10.5" fill="var(--dim)">(exch. 1 · 3 · 5)</text>
+
+    <!-- ===== MONEY (gold, down, right offset) ===== -->
+    <!-- MoHUA -> HUDD -->
+    <line x1="470" y1="148" x2="490" y2="256" stroke="var(--funder)" stroke-width="2" marker-end="url(#af)"/>
+    <!-- HUDD -> KMC -->
+    <line x1="470" y1="338" x2="415" y2="448" stroke="var(--funder)" stroke-width="2" marker-end="url(#af)"/>
+    <text x="548" y="205" font-size="12" font-weight="650" fill="var(--funder)">money ↓</text>
+    <text x="548" y="221" font-size="10.5" fill="var(--dim)">program · award · tranche</text>
+    <text x="548" y="235" font-size="10.5" fill="var(--dim)">(exch. 2 · 4 · 6)</text>
+
+    <!-- HUDD <-> Water board (light) -->
+    <line x1="560" y1="330" x2="640" y2="452" stroke="var(--funder)" stroke-width="1.4" opacity=".55" marker-end="url(#af)"/>
+    <line x1="655" y1="448" x2="575" y2="336" stroke="var(--impl)" stroke-width="1.4" opacity=".55" marker-end="url(#ai)"/>
+
+    <!-- Bank co-funds the city project directly (gold dashed) -->
+    <path d="M690,148 C650,300 520,360 430,446" fill="none" stroke="var(--funder)" stroke-width="1.8" stroke-dasharray="7 5" marker-end="url(#af)"/>
+    <text x="612" y="330" font-size="10.5" font-weight="650" fill="var(--funder)" transform="rotate(58 612 330)">co-fund tranche →</text>
+
+    <!-- gate on money path into city -->
+    <rect x="330" y="392" width="150" height="24" rx="12" fill="var(--surface)" stroke="var(--gate)" stroke-width="1.5"/>
+    <text x="405" y="408" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--gate)">🔒 release ⇐ milestone</text>
+
+    <!-- KMC -> beneficiary -->
+    <line x1="390" y1="530" x2="420" y2="636" stroke="var(--subj)" stroke-width="2" marker-end="url(#as)"/>
+    <text x="452" y="590" font-size="10.5" font-weight="650" fill="var(--subj)">outcome · subsidy</text>
+  </svg>
+  </div>
+  <div class="keys">
+    <span><span class="swatch" style="background:var(--impl)"></span><b>Information</b> climbs (need · proposal · report)</span>
+    <span><span class="swatch" style="background:var(--funder)"></span><b>Money</b> descends (program · award · tranche)</span>
+    <span><span class="swatch dash"></span><b>External funder</b> — attaches at the project</span>
+    <span><span class="swatch" style="background:var(--gate)"></span><b>Milestone gate</b></span>
+  </div>
+  <figcaption>Two rungs of the one dyad. The state (HUDD) is the intermediary — implementer to the ministry above, funder to the city below. The bank co-funds the city project directly. One project at the bottom; every funder above subscribes to its single report.</figcaption>
+</figure>
+
+<div class="section">
+  <h2>Who plays which role</h2>
+  <div class="tblwrap"><table>
+    <thead><tr><th>Tenant</th><th>Real body</th><th>Role on the ladder</th><th>What it writes</th></tr></thead>
+    <tbody>
+      <tr><td><b>MoHUA</b></td><td>Union Ministry of Housing &amp; Urban Affairs</td><td><span class="role rf">Funder</span> (apex)</td><td><span class="mono">funding.program</span>, <span class="mono">funding.award</span> (60% share), tranche release</td></tr>
+      <tr><td><b>HUDD</b></td><td>State Housing &amp; Urban Dev. Dept (UP)</td><td><span class="role"><span class="ri">Implementer ↑</span> + <span class="rf">Funder ↓</span></span> — intermediary</td><td>state <b>need rollup</b>; appraises + forwards proposals; <span class="mono">funding.award</span> (40% share), tranche release</td></tr>
+      <tr><td><b>KMC</b></td><td>Kanpur Municipal Corporation (ULB)</td><td><span class="role ri">Implementer</span></td><td>need aggregate, <span class="mono">project.proposal</span>, project + receipts + milestone VC, ULB own-share</td></tr>
+      <tr><td><b>Jal Sansthan</b></td><td>Kanpur city water utility (parastatal)</td><td><span class="role ri">Implementer</span> (water capability)</td><td>same as KMC, for water / sewerage projects — a parallel dyad to HUDD</td></tr>
+      <tr><td><b>Bank</b></td><td>World Bank / ADB / HUDCO</td><td><span class="role rf">Co-funder</span> (external, direct-to-project)</td><td><span class="mono">funding.award</span> (tranche), progress subscription, results-based release</td></tr>
+      <tr><td><b>Household</b></td><td>Citizen / beneficiary</td><td><span class="role rs">Subject</span></td><td>origin of the need signal (grievance / field report); receives outcome + subsidy</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="section">
+  <h2>The funding stack — worked on live KMC data</h2>
+  <div class="stackbox">
+    <p class="ask">Proposal <span class="mono">residential-crowding-relief</span> — relieve 18 worst-off cells (98,710 people) via in-situ vertical redevelopment. Ask <b>₹180 cr</b>.</p>
+    <div class="stackbar">
+      <div class="seg mohua">MoHUA · 60%<small>₹108 cr · PMAY-U central share</small></div>
+      <div class="seg hudd">HUDD · 40%<small>₹72 cr · state share</small></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);font-family:ui-monospace,monospace"><span>₹0</span><span>Σ awards ≥ ask ✓ → proposal flips to project</span><span>₹180 cr</span></div>
+    <p class="stacknote">Two signed <span class="mono">funding.award</span>s, one from each tenant, stack toward the ask. A bank RBF tranche or a ULB own-share would simply add more segments. <span class="ill">Illustrative 60:40 split</span> — the real ratio and per-unit central assistance come from the program's governed terms, not hard-coded.</p>
+  </div>
+</div>
+
+<div class="section">
+  <h2>What appears “for free” when you chain the dyad</h2>
+  <div class="cols">
+    <div class="card"><h4><span class="b">↑</span> Need aggregation</h4><p>City need rolls into a state total, the state total into a national one — exchange&nbsp;1 chained. Each rung aggregates; raw data never leaves its tenant. The ministry sizes envelopes against live ground truth.</p></div>
+    <div class="card"><h4><span class="b">↓</span> Program cascade</h4><p>A ministry program flows down; the state may staple on a top-up before passing it to cities — exchange&nbsp;2 chained. Eligibility and reporting terms travel with the money.</p></div>
+    <div class="card"><h4><span class="b">⑤</span> One report → all funders</h4><p>The city executes and reports <em>once</em>. MoHUA, HUDD, and the bank each hold a progress subscription on that single project — same tamper-evident numbers, no parallel portals.</p></div>
+    <div class="card"><h4><span class="b">⑥</span> Co-release on one milestone</h4><p>A verified milestone VC unlocks every funder's next tranche at once — MoHUA its 60%, HUDD its 40%, the bank its RBF slice — each posting in its own ledger. Information moves once; money follows, N-ways.</p></div>
+  </div>
+  <div class="pre"><b>Disbursement stays human-admitted.</b> The platform supplies the verified precondition (the milestone VC on the subscription); a person at each funder admits the release. The payment rail itself (PFMS / treasury) is an external boundary — this models the <em>decision and the evidence</em>, not the money movement.</div>
+</div>
+
+<footer>Airawat · ladder instantiation of the funder ↔ implementer dyad · ADR-0072 (federated / multi-funder). Next: each agency's internal systems — finance, project, inbox — and how the edge plugs into them.</footer>
+</div>

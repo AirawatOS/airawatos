@@ -1,0 +1,533 @@
+<title>Solution Studio v-next — designed through Justice</title>
+<style>
+  :root{
+    --paper:#f7f4ee; --card:#fffdf9; --ink:#1c1a17; --dim:#6b655c; --faint:#938c80;
+    --line:#e6ded1; --line-strong:#d6ccbb;
+    --accent:#7c2438; --accent-ink:#7c2438; --accent-soft:#f2e2e4;
+    --brass:#9a7b2e; --brass-soft:#f3ecd8;
+    --ok:#2f7d52; --ok-soft:#e2f0e6; --warn:#a9781a; --warn-soft:#f6ecd4; --bad:#a83a3a; --bad-soft:#f4e0df;
+    --mono-bg:#f1ece2; --mono-ink:#4a4034;
+    --shadow:0 1px 2px rgba(28,26,23,.05), 0 8px 24px -12px rgba(28,26,23,.18);
+    --serif:"Iowan Old Style","Charter",Georgia,"Times New Roman",serif;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --maxw:760px;
+  }
+  :root:not([data-theme="light"]){ }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#15130f; --card:#1e1b16; --ink:#ece7dd; --dim:#a49b8c; --faint:#7c7365;
+      --line:#2c2820; --line-strong:#3a352b;
+      --accent:#e0929f; --accent-ink:#e6a2ae; --accent-soft:#3a2228;
+      --brass:#d8b45c; --brass-soft:#332b18;
+      --ok:#6fc292; --ok-soft:#1c3327; --warn:#dcae55; --warn-soft:#332b16; --bad:#e08a8a; --bad-soft:#3a2020;
+      --mono-bg:#26221b; --mono-ink:#c9bfae;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#15130f; --card:#1e1b16; --ink:#ece7dd; --dim:#a49b8c; --faint:#7c7365;
+    --line:#2c2820; --line-strong:#3a352b;
+    --accent:#e0929f; --accent-ink:#e6a2ae; --accent-soft:#3a2228;
+    --brass:#d8b45c; --brass-soft:#332b18;
+    --ok:#6fc292; --ok-soft:#1c3327; --warn:#dcae55; --warn-soft:#332b16; --bad:#e08a8a; --bad-soft:#3a2020;
+    --mono-bg:#26221b; --mono-ink:#c9bfae;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.6);
+  }
+
+  *{box-sizing:border-box}
+  html{ -webkit-text-size-adjust:100%; }
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:var(--sans); font-size:17px; line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{ max-width:var(--maxw); margin:0 auto; padding:0 22px; }
+  .bleed{ max-width:1080px; margin:0 auto; padding:0 22px; }
+
+  h1,h2,h3{ font-family:var(--serif); font-weight:600; line-height:1.12; text-wrap:balance; letter-spacing:-.01em; }
+  h2{ font-size:clamp(26px,4.4vw,38px); margin:0 0 .35em; }
+  h3{ font-size:20px; margin:0 0 .3em; letter-spacing:0; }
+  p{ margin:0 0 1.05em; }
+  a{ color:var(--accent-ink); }
+  strong{ font-weight:650; }
+  .mono{ font-family:var(--mono); font-size:.86em; background:var(--mono-bg); color:var(--mono-ink);
+    padding:.08em .4em; border-radius:5px; white-space:nowrap; }
+  .eyebrow{ font-family:var(--sans); font-size:12px; font-weight:700; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--accent-ink); margin:0 0 14px; }
+  .dim{ color:var(--dim); }
+
+  /* hero */
+  header.hero{ border-bottom:1px solid var(--line); background:
+      radial-gradient(120% 90% at 88% -10%, var(--accent-soft) 0%, transparent 46%); }
+  .hero .wrap{ padding-top:74px; padding-bottom:52px; }
+  .kicker{ display:inline-flex; align-items:center; gap:9px; font-size:12.5px; font-weight:700; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--accent-ink); margin-bottom:20px; }
+  .kicker .seal{ width:22px; height:22px; border-radius:50%; border:1.5px solid var(--accent);
+    display:inline-flex; align-items:center; justify-content:center; font-size:12px; }
+  h1{ font-size:clamp(38px,7vw,66px); margin:0 0 .28em; }
+  .lede{ font-size:clamp(19px,2.4vw,23px); color:var(--dim); max-width:38ch; }
+  .lede b{ color:var(--ink); font-weight:600; }
+  .herometa{ margin-top:30px; display:flex; flex-wrap:wrap; gap:10px 22px; font-size:13.5px; color:var(--faint); }
+  .herometa span::before{ content:"— "; color:var(--line-strong); }
+
+  section{ padding:56px 0; border-bottom:1px solid var(--line); }
+  section.tight{ padding:44px 0; }
+  .lead-note{ font-size:14px; color:var(--dim); border-left:2px solid var(--accent); padding-left:14px; margin:0 0 30px; }
+
+  /* thesis strip */
+  .thesis{ display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line);
+    border:1px solid var(--line); border-radius:14px; overflow:hidden; margin-top:8px; }
+  .thesis > div{ background:var(--card); padding:20px 20px 22px; }
+  .thesis .n{ font-family:var(--mono); font-size:12px; color:var(--accent-ink); }
+  .thesis h3{ font-size:16.5px; margin:.5em 0 .2em; }
+  .thesis p{ font-size:14px; color:var(--dim); margin:0; }
+  @media(max-width:720px){ .thesis{ grid-template-columns:1fr; } }
+
+  /* worked-example banner */
+  .example{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:22px 24px; box-shadow:var(--shadow); }
+  .example .row{ display:flex; flex-wrap:wrap; gap:14px 26px; margin-top:12px; }
+  .stat{ }
+  .stat b{ font-family:var(--serif); font-size:30px; font-weight:600; color:var(--accent-ink); display:block; line-height:1; }
+  .stat small{ font-size:12.5px; color:var(--dim); letter-spacing:.02em; }
+
+  /* moments (author lens) */
+  .moment{ display:grid; grid-template-columns:64px 1fr; gap:20px; margin:0 0 8px; }
+  .moment + .moment{ margin-top:38px; }
+  .m-num{ font-family:var(--serif); font-size:40px; color:var(--accent-ink); line-height:1; opacity:.9; }
+  .m-num small{ display:block; font-family:var(--sans); font-size:10.5px; font-weight:700; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--faint); margin-top:6px; }
+  .moment h3{ margin-top:2px; }
+  @media(max-width:600px){ .moment{ grid-template-columns:1fr; gap:6px; } .m-num{ font-size:30px; } .m-num small{ display:inline; margin-left:10px; } }
+
+  /* chat / screen mock */
+  .screen{ background:var(--card); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow);
+    margin:16px 0 4px; overflow:hidden; }
+  .screen .bar{ display:flex; align-items:center; gap:7px; padding:9px 14px; border-bottom:1px solid var(--line);
+    font-size:12px; color:var(--faint); font-family:var(--mono); }
+  .screen .bar i{ width:9px; height:9px; border-radius:50%; background:var(--line-strong); display:inline-block; }
+  .screen .body{ padding:16px 18px; }
+  .bubble{ font-size:15px; line-height:1.6; }
+  .bubble.you{ color:var(--dim); }
+  .bubble.you::before{ content:"you  "; font-family:var(--mono); font-size:11px; color:var(--faint); }
+  .bubble.ex{ margin-top:12px; padding:14px 16px; background:var(--accent-soft); border-radius:10px; }
+  .bubble.ex::before{ content:"Solution Expert"; display:block; font-family:var(--sans); font-size:11px; font-weight:700;
+    letter-spacing:.08em; text-transform:uppercase; color:var(--accent-ink); margin-bottom:8px; }
+  .cite{ font-family:var(--mono); font-size:11px; color:var(--faint); }
+
+  ul.rows{ list-style:none; margin:10px 0 0; padding:0; }
+  ul.rows li{ display:flex; align-items:baseline; gap:10px; padding:7px 0; border-top:1px solid var(--line);
+    font-size:14px; }
+  ul.rows li:first-child{ border-top:none; }
+  .tag{ font-family:var(--sans); font-size:10.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+    padding:2px 8px; border-radius:20px; white-space:nowrap; flex:none; }
+  .tag.reuse{ background:var(--ok-soft); color:var(--ok); }
+  .tag.new{ background:var(--warn-soft); color:var(--warn); }
+  .tag.gap{ background:var(--bad-soft); color:var(--bad); }
+  .tag.route{ background:var(--brass-soft); color:var(--brass); }
+  li .what{ flex:1; }
+  li .schema{ font-family:var(--mono); font-size:12px; color:var(--dim); }
+
+  .principle{ margin-top:16px; padding:14px 16px 14px 18px; border-left:3px solid var(--brass);
+    background:var(--brass-soft); border-radius:0 10px 10px 0; font-size:14.5px; }
+  .principle b{ color:var(--ink); }
+
+  /* form mock */
+  .form{ display:grid; gap:12px; }
+  .field label{ display:block; font-size:12px; font-weight:600; color:var(--dim); margin-bottom:4px; }
+  .field .inp{ border:1px solid var(--line-strong); border-radius:8px; padding:9px 11px; font-size:14px; color:var(--faint);
+    background:var(--paper); }
+  .field .inp.req::after{ content:" *"; color:var(--accent-ink); }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media(max-width:520px){ .grid2{ grid-template-columns:1fr; } }
+
+  figure{ margin:26px 0 6px; }
+  figure svg{ width:100%; height:auto; display:block; }
+  figcaption{ font-size:13px; color:var(--dim); margin-top:12px; text-align:center; }
+  .figwrap{ overflow-x:auto; }
+
+  /* spec cards */
+  .spec{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:10px; }
+  @media(max-width:640px){ .spec{ grid-template-columns:1fr; } }
+  .spec .c{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .spec .c h3{ font-family:var(--sans); font-size:14.5px; font-weight:700; letter-spacing:0; }
+  .spec .c p{ font-size:13.5px; color:var(--dim); margin:0; }
+  .spec .c .by{ font-family:var(--mono); font-size:11px; color:var(--accent-ink); display:block; margin-top:9px; }
+
+  ol.slices{ counter-reset:s; list-style:none; margin:14px 0 0; padding:0; }
+  ol.slices li{ position:relative; padding:12px 0 12px 46px; border-top:1px solid var(--line); font-size:14.5px; }
+  ol.slices li::before{ counter-increment:s; content:counter(s); position:absolute; left:0; top:12px;
+    width:30px; height:30px; border-radius:50%; border:1.5px solid var(--accent); color:var(--accent-ink);
+    font-family:var(--mono); font-size:13px; display:flex; align-items:center; justify-content:center; }
+  ol.slices li b{ font-weight:650; }
+
+  footer{ padding:40px 0 64px; }
+  footer .wrap{ color:var(--faint); font-size:13px; }
+  .hr-note{ font-size:13px; color:var(--faint); font-style:italic; }
+</style>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="kicker"><span class="seal">§</span> Solution Studio · v-next design</div>
+    <h1>You don't fill a form.<br>You tell the court's story.</h1>
+    <p class="lede">The next Solution Studio treats a solution as what it actually is — <b>a graph of component-configurations</b> — and lets a domain expert author it by <b>narrating their process and reviewing forms</b>, never a schema. This is that design, walked end-to-end through a real build: <b>Court&nbsp;1</b> case management.</p>
+    <div class="herometa">
+      <span>ADR-0076 · process-first authoring</span>
+      <span>one graph, three lenses</span>
+      <span>reuse-first</span>
+    </div>
+  </div>
+</header>
+
+<section class="tight">
+  <div class="wrap">
+    <p class="eyebrow">The thesis in three lines</p>
+    <div class="thesis">
+      <div><div class="n">what it is</div><h3>A set of component-configs</h3><p>A solution reduces to <span class="mono">(component, config-in-scope)</span> tuples plus their wiring. Install fans them out. That's the whole substrate.</p></div>
+      <div><div class="n">how you think</div><h3>An 8-layer anatomy</h3><p>Domain · data · insight · rules · decisions · agents · platform services · surfaces. A lens for completeness — <em>internal</em>, never the author's screen.</p></div>
+      <div><div class="n">how you author</div><h3>A process, told aloud</h3><p>Narrate who does what to what. The Expert drafts the forms &amp; flow you review; the graph is written underneath, reuse-first.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">The worked example</p>
+    <h2>Court 1: from filing to judgment</h2>
+    <p>Every screen below is the Studio building one concrete solution — a district court's case lifecycle: <strong>file → scrutinise → register → hear → dispose</strong>. It's a <strong>user-initiated</strong> solution: a person (an advocate) starts it by filing. That single fact decides the whole authoring experience.</p>
+    <div class="example">
+      <div class="dim" style="font-size:13px;font-family:var(--mono)">ds:court-1 · solution/justice-case-management</div>
+      <div class="row">
+        <div class="stat"><b>11</b><small>governed schemas</small></div>
+        <div class="stat"><b>6</b><small>court roles</small></div>
+        <div class="stat"><b>90%</b><small>already existed — reused</small></div>
+        <div class="stat"><b>1+3</b><small>real gaps: a schema&nbsp;+&nbsp;3&nbsp;roles</small></div>
+      </div>
+      <p class="dim" style="margin:14px 0 0;font-size:13.5px">The reuse number is the point. Most of a good solution is <em>already built</em>. v-next Studio's core job is to <strong>find that</strong> — and reduce authoring to the genuine gaps.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">The domain author's lens · conversational</p>
+    <h2>Six moments, no schema in sight</h2>
+    <p class="lead-note">This is what a court registrar — not a developer — sees. They never touch a JSON schema, a component id, or the word "closure." They talk, review forms, and confirm.</p>
+
+    <!-- Moment 1 -->
+    <div class="moment">
+      <div class="m-num">1<small>Entry</small></div>
+      <div>
+        <h3>What starts this — a person, or data?</h3>
+        <p>The first and only structural question. It picks the shape of everything downstream, because a solution's front is always a <em>data source</em> — and a data source is either <strong>a person filling a form</strong> or <strong>a signal arriving</strong>.</p>
+        <div class="screen">
+          <div class="bar"><i></i><i></i><i></i> new solution</div>
+          <div class="body">
+            <div class="bubble ex">Does a <b>person</b> start this by entering something, or does <b>data</b> (a sensor, a feed) start it?</div>
+            <div class="bubble you" style="margin-top:12px">A person. An advocate files a case.</div>
+          </div>
+        </div>
+        <div class="principle"><b>Two entry types, one spine.</b> Court = user-initiated → the author will review a <b>form</b>. (An air-quality solution would be observation-initiated → they'd review a <b>data source + map</b>.) After the entry point, both converge on the identical <span class="mono">rules → workflow → decision</span> spine.</div>
+      </div>
+    </div>
+
+    <!-- Moment 2 -->
+    <div class="moment">
+      <div class="m-num">2<small>Seed</small></div>
+      <div>
+        <h3>Tell me the process — or hand me the document</h3>
+        <p>The registrar has a spreadsheet the court already wrote: entities, roles, states, and an action table (<em>actor → action → object → state change</em>). That table <em>is</em> the process story. They upload it instead of re-keying it.</p>
+        <div class="screen">
+          <div class="bar"><i></i><i></i><i></i> intake</div>
+          <div class="body">
+            <div class="bubble you">▸ uploaded <span class="mono">Justice.xlsx</span> — 43 entities, 34 verbs, 7 state machines</div>
+            <div class="bubble ex">Read it. The action sheet reads as your process: <em>an advocate files → a scrutiny officer checks → returns for defects, or the registrar registers and a number is assigned → a bench clerk lists a hearing → the judge hears and disposes.</em> Confirm and I'll build against it.</div>
+          </div>
+        </div>
+        <div class="principle"><b>Documents are raw material, not a separate path.</b> Upload or narration both seed the <em>same</em> review. Everything the Expert proposes carries a citation back to a cell, a state, an action — the author is always reviewing a grounded proposal, never a black box.</div>
+      </div>
+    </div>
+
+    <!-- Moment 3 -->
+    <div class="moment">
+      <div class="m-num">3<small>Reuse</small></div>
+      <div>
+        <h3>Almost all of this already exists</h3>
+        <p>Before proposing anything new, the Expert searches the marketplace for every noun in the story. For Court&nbsp;1 it finds a <strong>signed <span class="mono">justice</span> pack</strong> — ten schemas, three roles, an interface — and reuses them. Only the true gaps are proposed as new.</p>
+        <div class="screen">
+          <div class="bar"><i></i><i></i><i></i> proposed graph · reuse-first</div>
+          <div class="body">
+            <ul class="rows">
+              <li><span class="tag reuse">reuse</span><span class="what">Court · Case · Filing · Scrutiny · Party · Evidence · Process · Disposal</span><span class="schema">justice.*@0.2.0</span></li>
+              <li><span class="tag new">new schema</span><span class="what">the scheduled <b>Hearing</b> — the "second root"</span><span class="schema">justice.hearing@0.1.0</span></li>
+              <li><span class="tag new">new roles</span><span class="what">Judge · Bench Clerk · Scrutiny Officer</span><span class="schema">justice.judge · .bench-clerk · .scrutiny-officer</span></li>
+              <li><span class="tag reuse">reuse</span><span class="what">the case spine, tasks, inbox — the generic workflow primitives</span><span class="schema">platform.case · .task · .inbox_item</span></li>
+            </ul>
+            <p class="cite" style="margin:12px 0 0">every row cites its source — “Hearing” ⟶ Sheet1 row 23 + Sheet5 states 15–20</p>
+          </div>
+        </div>
+        <div class="principle"><b>Reuse is the safeguard.</b> "Reuse <span class="mono">justice.case</span>" is high-confidence and safe; "generate a new component" is where extraction goes wrong. So generation is the <em>exception</em>, quarantined behind an explicit gap — and nothing enters the graph without a citation and a confidence score.</div>
+      </div>
+    </div>
+
+    <!-- Moment 4 -->
+    <div class="moment">
+      <div class="m-num">4<small>Review</small></div>
+      <div>
+        <h3>Review the form and the flow — that's it</h3>
+        <p>The author confirms the solution by looking at the two things they understand: the <strong>form</strong> a person fills, and the <strong>flow</strong> the case moves through. The schemas, the workflow declaration, the decision spine are generated behind these.</p>
+        <div class="screen">
+          <div class="bar"><i></i><i></i><i></i> form · File a case</div>
+          <div class="body">
+            <div class="form">
+              <div class="field"><label class="req">Filing type</label><div class="inp req">complaint ▾ &nbsp;<span class="dim">(plaint · petition · appeal · application · caveat)</span></div></div>
+              <div class="grid2">
+                <div class="field"><label class="req">Complainant</label><div class="inp req">&nbsp;</div></div>
+                <div class="field"><label class="req">Respondent / Accused</label><div class="inp req">&nbsp;</div></div>
+              </div>
+              <div class="field"><label class="req">Relief sought</label><div class="inp req">&nbsp;</div></div>
+              <div class="field"><label>Documents</label><div class="inp">＋ attach plaint, vakalatnama…</div></div>
+            </div>
+          </div>
+        </div>
+        <p class="hr-note" style="margin-top:14px">Then the flow, as role-lanes — the picture the author actually argues with:</p>
+      </div>
+    </div>
+
+    <div class="bleed figwrap">
+      <figure>
+        <svg viewBox="0 0 1000 300" role="img" aria-label="The Court 1 case flow across five role lanes: an advocate files, a scrutiny officer scrutinises with a return-for-correction loop, a registrar registers and a case number is assigned, a bench clerk schedules a hearing which the judge holds, and the judge disposes. Each state is backed by a governed schema; all but the hearing are reused.">
+          <defs>
+            <marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"></path>
+            </marker>
+            <marker id="arb" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--warn)"></path>
+            </marker>
+          </defs>
+          <!-- lane labels -->
+          <g font-family="var(--sans)" font-size="11" font-weight="700" fill="var(--faint)" letter-spacing=".04em">
+            <text x="14" y="34" text-anchor="start">ADVOCATE</text>
+            <text x="212" y="34" text-anchor="middle">SCRUTINY OFFICER</text>
+            <text x="410" y="34" text-anchor="middle">REGISTRAR</text>
+            <text x="620" y="34" text-anchor="middle">BENCH CLERK · JUDGE</text>
+            <text x="900" y="34" text-anchor="middle">JUDGE</text>
+          </g>
+          <!-- nodes -->
+          <g font-family="var(--sans)">
+            <!-- Filed -->
+            <g transform="translate(20,60)">
+              <rect width="150" height="70" rx="11" fill="var(--card)" stroke="var(--line-strong)"></rect>
+              <text x="16" y="30" font-size="15" font-weight="650" fill="var(--ink)">Filed</text>
+              <text x="16" y="52" font-size="11" font-family="var(--mono)" fill="var(--dim)">justice.filing</text>
+              <circle cx="134" cy="16" r="8" fill="var(--ok-soft)"></circle><text x="134" y="20" font-size="10" fill="var(--ok)" text-anchor="middle">✓</text>
+            </g>
+            <!-- Scrutiny -->
+            <g transform="translate(200,60)">
+              <rect width="150" height="70" rx="11" fill="var(--card)" stroke="var(--line-strong)"></rect>
+              <text x="16" y="30" font-size="15" font-weight="650" fill="var(--ink)">In scrutiny</text>
+              <text x="16" y="52" font-size="11" font-family="var(--mono)" fill="var(--dim)">scrutiny_result</text>
+              <circle cx="134" cy="16" r="8" fill="var(--ok-soft)"></circle><text x="134" y="20" font-size="10" fill="var(--ok)" text-anchor="middle">✓</text>
+            </g>
+            <!-- Registered -->
+            <g transform="translate(400,60)">
+              <rect width="150" height="70" rx="11" fill="var(--card)" stroke="var(--line-strong)"></rect>
+              <text x="16" y="28" font-size="15" font-weight="650" fill="var(--ink)">Registered</text>
+              <text x="16" y="46" font-size="10.5" fill="var(--accent-ink)">№ CC/101/2026</text>
+              <text x="16" y="61" font-size="11" font-family="var(--mono)" fill="var(--dim)">justice.case</text>
+              <circle cx="134" cy="16" r="8" fill="var(--ok-soft)"></circle><text x="134" y="20" font-size="10" fill="var(--ok)" text-anchor="middle">✓</text>
+            </g>
+            <!-- Hearing -->
+            <g transform="translate(600,60)">
+              <rect width="150" height="70" rx="11" fill="var(--card)" stroke="var(--accent)" stroke-width="1.5"></rect>
+              <text x="16" y="30" font-size="15" font-weight="650" fill="var(--ink)">Hearing</text>
+              <text x="16" y="52" font-size="11" font-family="var(--mono)" fill="var(--dim)">justice.hearing</text>
+              <rect x="96" y="8" width="46" height="17" rx="8.5" fill="var(--warn-soft)"></rect>
+              <text x="119" y="20" font-size="9.5" font-weight="700" fill="var(--warn)" text-anchor="middle">NEW</text>
+            </g>
+            <!-- Disposed -->
+            <g transform="translate(830,60)">
+              <rect width="150" height="70" rx="11" fill="var(--card)" stroke="var(--line-strong)"></rect>
+              <text x="16" y="30" font-size="15" font-weight="650" fill="var(--ink)">Disposed</text>
+              <text x="16" y="52" font-size="11" font-family="var(--mono)" fill="var(--dim)">justice.disposal</text>
+              <circle cx="164" cy="16" r="8" fill="var(--ok-soft)"></circle><text x="164" y="20" font-size="10" fill="var(--ok)" text-anchor="middle">✓</text>
+            </g>
+          </g>
+          <!-- forward arrows -->
+          <g stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#ar)">
+            <line x1="170" y1="95" x2="198" y2="95"></line>
+            <line x1="350" y1="95" x2="398" y2="95"></line>
+            <line x1="550" y1="95" x2="598" y2="95"></line>
+            <line x1="750" y1="95" x2="828" y2="95"></line>
+          </g>
+          <!-- return-for-correction loop -->
+          <path d="M275,130 C275,180 95,180 95,132" fill="none" stroke="var(--warn)" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#arb)"></path>
+          <text x="185" y="176" font-size="11" font-family="var(--sans)" fill="var(--warn)" text-anchor="middle" font-style="italic">returned for correction ↺</text>
+          <!-- caption anchor -->
+          <text x="500" y="250" font-size="12.5" font-family="var(--sans)" fill="var(--faint)" text-anchor="middle">Green ✓ = reused governed schema · Oxblood outline = the one new schema the author's story required</text>
+        </svg>
+        <figcaption>The whole solution the author confirms — five states, five role lanes, one return loop. Ten of eleven data types were already governed; only <span class="mono">justice.hearing</span> is new.</figcaption>
+      </figure>
+    </div>
+
+    <!-- Moment 5 -->
+    <div class="wrap">
+    <div class="moment" style="margin-top:44px">
+      <div class="m-num">5<small>Handoff</small></div>
+      <div>
+        <h3>What the author can't do gets routed, not dumped</h3>
+        <p>A domain author can define the process, the forms, the rules, the decisions — everything they own. They structurally <em>cannot</em> govern a new schema (steward authority), write code (a developer), or hold a secret (the operator). v-next doesn't dead-end there; it turns each gap into a <strong>routed ticket</strong> that lives on the node.</p>
+        <div class="screen">
+          <div class="bar"><i></i><i></i><i></i> handoffs · Court 1</div>
+          <div class="body">
+            <ul class="rows">
+              <li><span class="tag route">→ steward</span><span class="what">govern <b>justice.hearing</b> + 3 roles</span><span class="schema">approved ✓</span></li>
+              <li><span class="tag route">→ builder</span><span class="what">wire the <b>Court app</b> into Inbox &amp; Visualize; the case-lifecycle workflow</span><span class="schema">platform.workflow</span></li>
+              <li><span class="tag reuse">nothing</span><span class="what">no new engine/driver — all logic reuses existing components</span><span class="schema">component-dev: —</span></li>
+              <li><span class="tag reuse">nothing</span><span class="what">no external key or secret</span><span class="schema">operator: —</span></li>
+            </ul>
+          </div>
+        </div>
+        <div class="principle"><b>90% reuse changes the endgame.</b> Because the marketplace already held the model, Court&nbsp;1 needs <em>zero</em> new code and <em>zero</em> operator setup — only a steward approval and a builder wiring pass. The author gets a near-complete solution from their spreadsheet in one sitting.</div>
+      </div>
+    </div>
+
+    <!-- Moment 6 -->
+    <div class="moment">
+      <div class="m-num">6<small>Ship</small></div>
+      <div>
+        <h3>Green rail → install → clickable</h3>
+        <p>As handoffs return, their tickets flip green on the author's canvas. When the last clears, the <strong>self-contained-closure</strong> check passes — the solution declares a producer for everything it reads — and publish is a non-event. Install fans the graph into the <span class="mono">court-1</span> tenant, and the registrar logs in to a working court.</p>
+        <div class="screen">
+          <div class="bar"><i></i><i></i><i></i> validation rail</div>
+          <div class="body">
+            <ul class="rows">
+              <li><span class="tag reuse">pass</span><span class="what">closure — every read has a producer</span></li>
+              <li><span class="tag reuse">pass</span><span class="what">conformance — sample case validates against schemas</span></li>
+              <li><span class="tag reuse">pass</span><span class="what">dry-run — file→scrutiny→register→hear→dispose (case CC/101/2026)</span></li>
+            </ul>
+            <p class="cite" style="margin:12px 0 0">install → ds:court-1 · advocate / scrutiny-officer / registrar / bench-clerk / judge provisioned</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="bleed">
+    <p class="eyebrow">The architecture</p>
+    <h2>One graph, three lenses</h2>
+    <div class="wrap" style="padding:0"><p>The domain author's conversation, the builder's canvas, and the developer's code editor are not three tools. They are three <strong>lenses on one solution graph</strong> — the same <span class="mono">(component, config)</span> tuples, rendered for who's looking. v-next builds the shared graph first; every door reads and writes it.</p></div>
+    <div class="figwrap">
+      <figure>
+        <svg viewBox="0 0 1000 340" role="img" aria-label="One solution graph at the center — a set of component-configurations — viewed through three lenses: the domain author sees a conversation with forms and a flow; the builder sees a canvas of nodes with a live validation rail; the component developer sees code for one node. All three read and write the same underlying graph.">
+          <!-- center graph -->
+          <g transform="translate(390,120)">
+            <rect width="220" height="110" rx="14" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"></rect>
+            <text x="110" y="34" text-anchor="middle" font-family="var(--serif)" font-size="17" font-weight="600" fill="var(--accent-ink)">The solution graph</text>
+            <text x="110" y="58" text-anchor="middle" font-family="var(--mono)" font-size="11.5" fill="var(--dim)">(component, config)</text>
+            <text x="110" y="76" text-anchor="middle" font-family="var(--mono)" font-size="11.5" fill="var(--dim)">tuples + wiring</text>
+            <text x="110" y="96" text-anchor="middle" font-family="var(--sans)" font-size="11" fill="var(--faint)">the one source of truth</text>
+          </g>
+          <!-- three lenses -->
+          <g font-family="var(--sans)">
+            <!-- author -->
+            <g transform="translate(30,40)">
+              <rect width="250" height="90" rx="12" fill="var(--card)" stroke="var(--line-strong)"></rect>
+              <text x="18" y="28" font-size="14" font-weight="700" fill="var(--ink)">Domain author</text>
+              <text x="18" y="48" font-size="12" fill="var(--dim)">conversation · forms · flow</text>
+              <text x="18" y="68" font-size="11" font-style="italic" fill="var(--faint)">the court registrar</text>
+            </g>
+            <!-- builder -->
+            <g transform="translate(30,210)">
+              <rect width="250" height="90" rx="12" fill="var(--card)" stroke="var(--line-strong)"></rect>
+              <text x="18" y="28" font-size="14" font-weight="700" fill="var(--ink)">Builder</text>
+              <text x="18" y="48" font-size="12" fill="var(--dim)">canvas · wiring · validation rail</text>
+              <text x="18" y="68" font-size="11" font-style="italic" fill="var(--faint)">the integrator</text>
+            </g>
+            <!-- component dev -->
+            <g transform="translate(720,125)">
+              <rect width="250" height="90" rx="12" fill="var(--card)" stroke="var(--line-strong)"></rect>
+              <text x="18" y="28" font-size="14" font-weight="700" fill="var(--ink)">Component developer</text>
+              <text x="18" y="48" font-size="12" fill="var(--dim)">code · test · certify one node</text>
+              <text x="18" y="68" font-size="11" font-family="var(--mono)" fill="var(--faint)">justice.hearing</text>
+            </g>
+          </g>
+          <!-- connectors (double-headed: read+write) -->
+          <g stroke="var(--brass)" stroke-width="1.8" fill="none" marker-start="url(#ar2)" marker-end="url(#ar2)" opacity=".85">
+            <defs>
+              <marker id="ar2" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="var(--brass)"></path>
+              </marker>
+            </defs>
+            <path d="M280,92 C340,110 360,140 388,158"></path>
+            <path d="M280,250 C340,232 360,205 388,190"></path>
+            <path d="M612,172 C660,172 680,170 718,170"></path>
+          </g>
+          <text x="500" y="322" text-anchor="middle" font-family="var(--sans)" font-size="12.5" fill="var(--faint)">Different door, same graph. v-next optimizes the author's door first — the others read the shared model it produces.</text>
+        </svg>
+        <figcaption>The build order follows from this picture: ship the shared graph model and the author's conversational lens first; the builder canvas and code panel are later lenses onto the same declaration.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Underneath · the internal lens</p>
+    <h2>The anatomy Court 1 fills</h2>
+    <p>The author never saw these eight layers — but the Studio tracked them, and this is how a builder or steward reads the solution's completeness. Justice fills them like this:</p>
+    <ul class="rows">
+      <li><span class="tag reuse">1 · domain</span><span class="what">Case, Hearing, Filing, Court, Party, Evidence, Process, Disposal + 6 roles + verbs</span></li>
+      <li><span class="tag reuse">2 · data</span><span class="what">user-entered forms (this is a user-initiated solution — no drivers)</span></li>
+      <li><span class="tag gap">3 · insight</span><span class="what">none — pure casework, no derived measures <span class="dim">(a court-load dashboard could add one later)</span></span></li>
+      <li><span class="tag new">4 · rules</span><span class="what">scrutiny checklist · limitation period · fee-due — extracted from the guideline</span></li>
+      <li><span class="tag new">5 · decisions</span><span class="what">scrutiny accept/return · bail grant/reject · disposal — the judge decides, never the system</span></li>
+      <li><span class="tag gap">6 · agents</span><span class="what">optional — a cause-list assistant, a next-date suggester</span></li>
+      <li><span class="tag new">7 · platform</span><span class="what">workflow = case lifecycle · notifications = hearing reminders · payment = court fee <span class="dim">(deferred)</span></span></li>
+      <li><span class="tag new">8 · surfaces</span><span class="what">contributes into Inbox (tasks), Visualize (cause list), Files (orders) — no new app shell</span></li>
+    </ul>
+    <div class="principle"><b>The anatomy is a lens, not the author's UI.</b> It tells a builder what a complete solution needs and lets the Studio show gaps ("layer 4: no rules yet") — while the domain author only ever sees forms, flows, and maps.</div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">The spec</p>
+    <h2>What v-next Studio must build</h2>
+    <p>Each capability below is one Justice proved we need — not a wish-list item.</p>
+    <div class="spec">
+      <div class="c"><h3>Entry-type router</h3><p>Open with "person or data?" and branch the authoring surface. Court → form; air → source+map.</p><span class="by">proved by · moment 1</span></div>
+      <div class="c"><h3>Document → process extractor</h3><p>Ingest an SOP / spreadsheet, extract the actor→action→object story, cite every claim back to the source.</p><span class="by">proved by · Justice.xlsx</span></div>
+      <div class="c"><h3>Reuse-first marketplace search</h3><p>For every noun, find the governed schema/role/component before proposing new. Show the reuse ratio.</p><span class="by">proved by · the 90%</span></div>
+      <div class="c"><h3>Form &amp; flow review surfaces</h3><p>Render the form a person fills and the role-laned flow — the author's only screens. No schema editor.</p><span class="by">proved by · moment 4</span></div>
+      <div class="c"><h3>Handoff tickets + reconvergence</h3><p>Route gaps to steward / builder / component-dev / operator; flip them green on the same canvas as they return.</p><span class="by">proved by · moment 5</span></div>
+      <div class="c"><h3>Live validation rail</h3><p>Closure, conformance, and a real-data dry-run always visible — so publish is a non-event.</p><span class="by">proved by · moment 6</span></div>
+      <div class="c"><h3>Shared graph + three-lens renderer</h3><p>One solution declaration; author / builder / dev are views over it, never separate state.</p><span class="by">proved by · the architecture</span></div>
+      <div class="c"><h3>Anatomy completeness view</h3><p>The 8 layers as an internal readout for builders &amp; stewards — gaps visible, author shielded.</p><span class="by">proved by · the anatomy</span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Build order</p>
+    <h2>Five slices, author-first</h2>
+    <ol class="slices">
+      <li><b>Shared graph model.</b> One solution declaration (ADR-0045 fields + <span class="mono">platform</span> block + <span class="mono">contributions</span> + closure) that both doors bind to. The foundation — built before either lens.</li>
+      <li><b>Document intake + reuse-first extraction.</b> Ingest → cited process story → marketplace reuse search per noun → proposed graph. This is where the 90% moment lives.</li>
+      <li><b>Conversational confirm/edit.</b> The domain author's lens: entry-type, form &amp; flow review, plain-language edits, "why is this here?" citations.</li>
+      <li><b>Handoff tickets.</b> Routable per-node objects (steward / builder / component-dev / operator) with live green/red reconvergence — the load-bearing new primitive.</li>
+      <li><b>Builder canvas &amp; code panel.</b> The other two lenses onto the same graph, with the live validation rail.</li>
+    </ol>
+    <p class="hr-note" style="margin-top:20px">Slices 1–4 give a non-coder a complete experience — and simultaneously build the shared model and ticket rail that the builder and developer lenses plug into. Court 1 is the acceptance test: a registrar turns a spreadsheet into a running court without seeing a schema.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Solution Studio v-next · designed through Court 1 case management · grounded in ADR-0076 (solution anatomy &amp; process-first authoring), ADR-0075 (contributions &amp; closure), ADR-0044 (Solution Architect). The Justice model, roles, and lifecycle referenced here are governed and were proven end-to-end before this design was written.
+  </div>
+</footer>
