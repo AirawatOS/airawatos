@@ -117,16 +117,21 @@ Any member/Network **classification is descriptive** — it never confers or wit
 ### N9 — Capabilities
 The **capability catalog** is maintained by **`capability.steward`**; **grants** are issued by
 **`grant.steward`**. Grammar: **`service.provide` / `service.call`**, with **no wildcards**, each **pinned to
-a capability version**. A **grant is inactive while its holder is not an active member**. **Data
-capabilities** are **pending the grant-model ADR**.
+a capability version**. A **grant is inactive while its holder is not an active member**. **Data capabilities
+are CapabilityGrants too** (ADR-0127): a grant to **read/write records of a schema**, scoped as needed, uses
+the SAME catalog, issuance and rules as a service capability. Access to a **specific person's** data
+**additionally** requires that person's **consent** (the two-key rule, FOUNDATIONS §3); non-personal data
+needs the grant only. `access_grant` is the Kernel's **derived** enforcement artefact (grant + consent), not a
+separately-issued permission.
 - **Status: PARTIAL.** The capability catalog + grant issue/revoke are live and were proven end-to-end this
   session (trust-writer: define capability, issue, revoke). But: the **catalog was missing on the live
   network record** and had to be seeded out-of-band — see **localdev catalog/bootstrap finding** below (so
   `capability.steward`-only authoring isn't enforced at creation, N2); **no-wildcards** and **version-pinned
   grants** are **(to confirm)** (cf. B12 client-asserted `service:"*"`); **grant-inactive-while-not-active-
-  member** is **(to confirm)**; and the **data-capability** model is blocked on the **grant-model ADR**
-  (two grant representations coexist — `role_grant`/`role_assignment` vs. the shadow-only CapabilityGrant,
-  A18).
+  member** is **(to confirm)**; and the **data-capability** model is now **decided by ADR-0127** (data =
+  CapabilityGrant + consent-for-personal; `access_grant` becomes a derived artefact) but **not yet cut over**
+  — two grant representations still coexist in shadow (`role_grant`/`role_assignment` + `access_grant` vs. the
+  CapabilityGrant model, A18), migrating via shadow comparison.
 - **Refs:** A18 (two grant models; CapabilityGrant shadow-only), B12 (unbound/wildcard scope); **localdev
   catalog/bootstrap finding** (§Findings); service.provide/call grammar. Wildcard ban + version-pin +
   inactive-on-non-membership **(to confirm)**.

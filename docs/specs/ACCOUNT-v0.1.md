@@ -67,10 +67,15 @@ confirmation**, and is **revocable**.
 
 ### A6 — Wallet is separate and replaceable
 The **wallet is a separate component** from the account and is **replaceable** (swapping the wallet does not
-change the account or its identity binding).
+change the account or its identity binding). The wallet also **signs self-asserted claims** the holder makes
+about themselves: the holder's **wallet key signs the claim**, binding it to them; a **policy decides whether
+to accept it for the named fact and labels the fact self-asserted** (POLICY **PL2**) — the signature proves
+*who asserted*, not that the claim is *verified*. Verified evidence (a credential) later **upgrades** the fact.
 - **Status: PARTIAL.** The Document Wallet is a separate app with native Ed25519 (ADR-0049, LIVE). **Wallet
-  replaceability** (account survives a wallet swap; keys re-bindable) is **(to confirm)**.
-- **Refs:** ADR-0049 (Document Wallet & VCs); W1–W4 below. Replaceability **(to confirm)**.
+  replaceability** (account survives a wallet swap; keys re-bindable) is **(to confirm)**; **wallet-signed
+  self-asserted claims** into policy evaluation are **PLANNED** (depends on POLICY PL2).
+- **Refs:** ADR-0049 (Document Wallet & VCs); W1–W4 below; POLICY PL2 (self-asserted facts), W3/W4.
+  Replaceability + self-asserted signing **(to confirm / PLANNED)**.
 
 ### A7 — Consents
 Consents are **granted by the account holder** (never an admin — F13), **wallet-signed where possible**.

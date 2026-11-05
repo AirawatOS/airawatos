@@ -104,6 +104,14 @@ role claims, the caller's tenant, membership, or a data classification); **audit
 three primitives share this one function — a RoleAssignment, a CapabilityGrant, and a Consent are just three
 shapes of "a live grant that covers this action".
 
+**The two-key rule (personal data).** Authority over **services and data is one model** (ADR-0127): a
+**CapabilityGrant** covers the action (read/write records of a schema, or call/provide a service), scoped as
+needed. For a **specific person's personal data**, the grant is **not enough on its own** — access requires
+**two keys**: the holder's **CapabilityGrant** AND **that person's Consent**. **Non-personal** data needs the
+grant only. The Kernel does not treat `access_grant` as a separately-issued permission; it **derives** the
+access decision from (grant + consent) at enforcement time. This keeps F13 (only the subject consents) and F8
+(default-deny) intact for every personal read or write.
+
 ---
 
 ## 4. Debt-register → principle map (B1–B18)

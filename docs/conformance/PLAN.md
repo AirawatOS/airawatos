@@ -68,6 +68,8 @@ Suite exit: non-zero only on a **FAIL** (a TESTABLE-NOW case that did not behave
 | F15 | foreign-issuer token with a tenant/role claim → rejected/stripped (abuse) | TESTABLE NOW | reject (401) — **live: 401 ✓** |
 | F16 | missing required config stops startup; no prod-pointing default (pos) | NEEDS-BUILD | startup-time, not black-box |
 | F17 | agent acts only via recorded delegation; cannot self-widen (abuse) | NEEDS-BUILD | no delegation primitive exists (F17 NOT BUILT) |
+| §3 two-key | read a specific person's data with a CapabilityGrant but NO consent → deny (abuse) | NEEDS-BUILD | personal data needs grant AND consent (ADR-0127); access_grant derived, not issued — not built |
+| §3 two-key | read non-personal data with the grant only → allow; access_grant is derived (pos) | NEEDS-BUILD | non-personal needs grant only; derived access_grant matches shadow (ADR-0127 migration) |
 
 ## REGISTRY (R1–R16)
 
@@ -230,6 +232,43 @@ established the live responses behind D1–D6.
 | CP16 | upgrade to a version asking MORE access without re-consent (abuse) | NEEDS-BUILD | re-consent required; no silent upgrade (PLANNED) |
 | CP17 | suspend a listing → reason recorded, installers notified, installed copy survives (pos) | NEEDS-BUILD | revoke/deprecate record a reason (live); installer notification PLANNED; installed run token persists |
 | CP18 | a priced listing records terms/commitment/settlement; money on rails (pos) | NEEDS-BUILD | contract terms modelled; settlement model + payment rail PLANNED |
+
+## OFFERINGS (O1–O12) — see [[OFFERINGS-v0.1]]
+
+All **NEEDS-BUILD**: Benefit/Information offering kinds, eligibility-as-policy, funding envelopes, settlement
+and the contest flow are not built; Services (O5) exist but exercising them end-to-end needs a provider + call
+grant (NEEDS-CREDENTIALS).
+
+| Rule | Case (type) | Classification | Expected observable |
+| --- | --- | --- | --- |
+| O1 | publish an offering without the matching `*.provide` grant (abuse) | NEEDS-BUILD | refuse — provide grant required (N9/N10); Benefit/Information kinds not built |
+| O2 | a terms change re-prices an existing commitment (abuse) | NEEDS-BUILD | commitment keeps its terms version; lifecycle draft/suspended/withdrawn not built |
+| O3 | offering terms carry payer/funder, timing, refunds, data-use, licence (pos) | NEEDS-BUILD | terms fields beyond price/SLA not built |
+| O4 | eligibility decided without a policy/decision record (abuse) | NEEDS-BUILD | eligibility = POLICY + decision record (D1/D8) — not built |
+| O5 | call a Service without a `service.call` grant (abuse) | NEEDS-CREDENTIALS | refuse; ADR-0067 path exists but needs a provider + grant |
+| O6 | a benefit sanction exceeds the funding envelope (abuse) | NEEDS-BUILD | draw-down cannot exceed envelope; envelope + D12 sanction + rail not built |
+| O7 | information access without consent / beyond the time limit (abuse) | NEEDS-BUILD | scoped, time-limited, consent-gated read not built as an offering |
+| O8 | settlement mismatched to the rail reference → exception (abuse) | NEEDS-BUILD | settlement/rail-match/exception records not built |
+| O9 | offering visible beyond its N12 audience (abuse) | NEEDS-BUILD | visibility per N12; per-kind not built |
+| O10 | offering stays usable after the provider's grant/membership lapses (abuse) | NEEDS-BUILD | auto-suspend on lapse not built (N9 to-confirm) |
+| O11 | personal data used under a purpose-mismatched consent (abuse) | NEEDS-BUILD | purpose-matching not built; embed consent unbound (B12) |
+| O12 | contest an outcome / claim a refund (pos) | NEEDS-BUILD | D11 contest flow + refund settlement not built |
+
+## POLICY (PL1–PL8) — see [[POLICY-v0.1]]
+
+The rule engine (ADR-0088) is the live nucleus (PL1/PL3/PL4/PL6 partial); fact-provenance, self-assertion,
+minimum disclosure, the function catalog and the publish-time test gate are **NEEDS-BUILD**.
+
+| Rule | Case (type) | Classification | Expected observable |
+| --- | --- | --- | --- |
+| PL1 | a policy carries executable code, not a typed tree (abuse) | NEEDS-BUILD | reject — typed rule tree only; single cross-use tree schema not built |
+| PL2 | a self-asserted fact accepted where the policy did not allow it / unsigned (abuse) | NEEDS-BUILD | accept only where allowed, wallet-signed, labelled self-asserted — not built |
+| PL3 | same policy version + facts → same result; replay from a decision record (pos) | NEEDS-CREDENTIALS | deterministic (D3); full replay to policy version + facts (to confirm) |
+| PL4 | evaluation returns per-clause results + evidence + plain-language reasons (pos) | NEEDS-BUILD | per-clause evidence + D8 subject reasons not built (engine trace only) |
+| PL5 | a policy pulls more personal facts than the clauses need (abuse) | NEEDS-BUILD | minimum disclosure (W4) not enforced at evaluation |
+| PL6 | the same language expresses eligibility, consent, automation, limits, grant conditions (pos) | NEEDS-BUILD | shared evaluator exists; full reuse across all five not built |
+| PL7 | a clause calls a function outside the governed catalog (abuse) | NEEDS-BUILD | governed function catalog not built |
+| PL8 | publish a policy whose own tests fail (abuse) | NEEDS-BUILD | publish-time test gate not built |
 
 ## Internal runner (step 3)
 The reference services are not published at the edge, so external mode cannot reach them. An **internal
