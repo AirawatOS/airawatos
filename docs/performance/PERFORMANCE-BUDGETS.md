@@ -195,3 +195,32 @@ one Docker engine, one Postgres, `PG_POOL_MAX=24`). What transfers to production
 (a seq-scan routing bug that only appears with data) and the pool-saturation tail. Re-run on a
 production-shaped deployment (horizontal read tier per ADR-0105, tuned pool, real network) before any number
 here is treated as an SLO.
+
+---
+
+## Run — 2026-11-06 (after the index-review + KDF fixes; local-dev, seeded ~1M, INDICATIVE)
+
+Follow-up slice applied the findings above (kernel@67848ab, platform-spec@2d48721):
+
+| Operation | p50 (ms) | p95 (ms) | budget p95 | result | change |
+|---|---:|---:|---:|---|---|
+| **read by ID** (resolve `filter:{id}`) | 3.6 | **7.1** | 25 | **PASS** | was 2065ms FAIL — now routed to the indexed `id` column (N=300) |
+| login (password → token) | 53.5 | 55.4 | 400 | PASS | KDF raised 200k→**600k** PBKDF2-SHA256; was ~20ms. Budget unchanged (still ample headroom) |
+| query (schema-filtered) | 3.8 | 4.7 | 150 | PASS | unchanged |
+| point-in-time (history) | 1.1 | 1.8 | 80 | PASS | unchanged |
+
+**Fixes landed:**
+1. **Resolve-by-id seq scan (the headline FAIL) is fixed.** The resolve endpoint now routes a `filter:{id}` to
+   the indexed `id` column (`resolve_as_of(id_=…)`), and a new `rv_live_id_pat` (text_pattern_ops partial)
+   index serves schemaless tenant-prefix scans (`id LIKE 'ds:<tenant>:%'`, EXPLAIN cost 148103 → 8.5). Index
+   review at 1M rows confirmed every query shape (by-id, by-schema, by-owner/tenant, history, point-in-time,
+   schema+tenant) is now index-served. (A broader builder-level `id`-remap was reverted after it regressed
+   NETWORK N3, where `object.id` ≠ the registry id — the endpoint-level routing is the correct, narrow fix.)
+2. **Login KDF raised to the OWASP floor.** PBKDF2-SHA256 @ 600k (Argon2id-ready), transparent rehash on next
+   successful login; failed-login counters are now durable + shared (Postgres). See
+   [[IDENTITY-KDF-REPORT]] (recommendations now implemented) — the earlier login "suspiciously fast" security
+   finding is resolved.
+
+**Concurrency:** read_by_id no longer collapses under load (it tracked the other read ops after the fix); the
+remaining tail growth at 50/100 clients is `PG_POOL_MAX=24` saturation, as the one-node budget anticipates.
+Numbers stay laptop-indicative.

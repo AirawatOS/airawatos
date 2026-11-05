@@ -121,6 +121,17 @@ to shadow.
   very large table, schedule it over seq ranges or during a quiet window, and alert on any non-zero exit. See
   `../performance/PERFORMANCE-BUDGETS.md` for the budget (≤ 800 ms / 10k) and the measured number.
 
+  **PLANNED — publish the audit-chain head externally (tamper-evidence an operator cannot rewrite).** Content
+  hashes detect a row altered in place, but an operator with DB access could in principle recompute and rewrite
+  both the row and its hash. To close that gap, periodically publish the audit *head* — the current max `seq`
+  plus a digest over the ordered `content_hash` values up to it (and, once a signing key is provisioned, a
+  signature over that digest) — to a location the operator **cannot alter after the fact**: a write-once/
+  append-only store (e.g. object storage with object-lock/WORM, or an external notary/transparency log). A
+  later verification re-derives the digest from the registry and checks it against the externally pinned head,
+  so any retroactive rewrite is detectable even against a fully-privileged local operator. Not yet built;
+  tracked here as the next hardening step for the audit chain. (Design note: the head digest is cheap — it
+  reuses the same per-row `content_hash` the verifier already computes.)
+
 ---
 
 ## 5. Standing rules (always)

@@ -1,3 +1,11 @@
+> **Update 2026-11-06 — recommendations 1 & 3 IMPLEMENTED** (platform-spec@2d48721). The KDF work factor was
+> raised to **PBKDF2-SHA256 @ 600,000 iters** (the Argon2id path is wired and auto-selects if argon2-cffi is
+> added to the image) with **transparent rehash on next successful login** (old 200k hashes keep verifying,
+> then upgrade); and the **failed-login counters are now durable + shared** (Postgres table, keyed per
+> account + source-ip, with an in-memory fail-open fallback). Login p95 rose ~20ms → ~55ms, still far under
+> the 400ms budget. Recommendation 2 (prefer Argon2id) is code-ready pending the dependency; recommendation 4
+> (keep the #282 weak-password floor) stands. The body below is the original review, kept for the record.
+
 # Identity password hashing — read-only review (Consolidation phase 4)
 
 **Date:** 2026-11-05 · **Scope:** the reference IdP's password KDF, the stored hash format, whether login
