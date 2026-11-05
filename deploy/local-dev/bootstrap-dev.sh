@@ -294,27 +294,30 @@ def _req(url, data=None, headers=None, method="GET"):
     try: return urllib.request.urlopen(r, timeout=10).read()
     except urllib.error.HTTPError as e: return e
 for USER in ("platauth", "platnone"):
-    VPATH=f"secret/data/{INST}-network/test-users/{USER}"
+    # #282 — ONE Vault convention for every provisioned credential: path secret/data/<tenant>/<principal>/password,
+    # field `password` (same shape ensure_install uses for the service principals). No bespoke test-users/value path.
+    VPATH=f"secret/data/{INST}-network/{USER}/password"
     b=_req(f"{VADDR}/v1/{VPATH}", headers={"X-Vault-Token":VTOK})
-    pw = None if isinstance(b, urllib.error.HTTPError) else (((json.loads(b) or {}).get("data") or {}).get("data") or {}).get("value")
+    pw = None if isinstance(b, urllib.error.HTTPError) else (((json.loads(b) or {}).get("data") or {}).get("data") or {}).get("password")
     if pw:
         print(f"[phase9] {USER}: password already in Vault at {VPATH} — reusing (idempotent, no write)")
     else:
         pw = secrets.token_urlsafe(18)
-        w=_req(f"{VADDR}/v1/{VPATH}", data={"data":{"value":pw}},
+        w=_req(f"{VADDR}/v1/{VPATH}", data={"data":{"password":pw}},
                headers={"X-Vault-Token":VTOK,"Content-Type":"application/json"}, method="POST")
         print(f"[phase9] {USER}: stored password in Vault at {VPATH}" if not isinstance(w, urllib.error.HTTPError)
               else f"[phase9] {USER}: VAULT WRITE FAILED {w.code}")
     # ensure the identity user (role [] — NO recorded role; platform.authority comes later via CR) + set pw
+    # only_if_unset (#282): never reset an existing login password on re-run.
     _req(f"{IDN}/users", data={"username":USER,"tenant":TENANT,"roles":[]},
          headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
-    s=_req(f"{IDN}/set-password", data={"username":USER,"tenant":TENANT,"password":pw,"must_reset":False},
+    s=_req(f"{IDN}/set-password", data={"username":USER,"tenant":TENANT,"password":pw,"must_reset":False,"only_if_unset":True},
            headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
     print(f"[phase9] created test user (username only): {USER}   tenant={TENANT}   recorded_role=(none)",
           "OK" if not isinstance(s, urllib.error.HTTPError) else f"set-pw {s.code}")
 print("[phase9] ADR-0122 test users ready: platauth, platnone — passwords in Vault at "
-      f"secret/data/{INST}-network/test-users/<name>; platform.authority is granted to platauth SEPARATELY "
-      "via a ChangeRequest approved by a different holder (ADR-0122 step 2b), never here.")
+      f"secret/data/{INST}-network/<name>/password (field `password`); platform.authority is granted to "
+      "platauth SEPARATELY via a ChangeRequest approved by a different holder (ADR-0122 step 2b), never here.")
 PY
 
 echo "✓ bootstrap-dev complete."

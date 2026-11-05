@@ -74,6 +74,35 @@ treat as cleared.
 > reference: the EC2 disk-full incident recipe (root disk 100% → Postgres unhealthy; EBS grow + log rotation)
 > is in memory `ec2-disk-full-incident` — ensure log rotation + disk headroom are in place for this deploy.
 
+## 8. No account on a default / committed-literal password (#282 — deploy-blocking)
+**✅ EC2 audit clean (2026-11-05) / ⛔ blocker if it ever regresses.** The reference IdP (`identity.py`,
+`assert_no_default_passwords`) **refuses to boot under `AIRAWAT_ENV=production`** if any account's password
+matches a known default/committed literal (`localdev-admin-pw`, `admin`, `password`, …). Hash-based — the
+check verifies each stored pbkdf2 hash against the weak-password list and **never reads or logs a password**.
+- **Deploy-blocking prerequisite:** **every** account with a password must hold a real (non-default) one
+  **before** the production guard ships. Verify with the read-only audit below; it must report **0** accounts.
+- **EC2 audit result (read-only, 2026-11-05):** `76` accounts carry a password; **`0`** match any known
+  default/literal → **0 would block boot**. (The current EC2 IdP image predates the guard, so this is the
+  pre-condition for shipping the guarded image, already satisfied for the default-password dimension.)
+- Re-run the audit against the live passwords file before deploy (read-only; account keys only, no secrets):
+  ```sh
+  ssh airos 'docker exec -i airawat-identity python3 -' <<'PY'
+  import json, hashlib, hmac
+  WEAK=("localdev-admin-pw","admin","admin123","password","passw0rd","changeme","operator","test","test123","123456","secret","letmein")
+  P=json.load(open("/data/identity/identity-passwords.json"))
+  def ck(rec,pw):
+      try:
+          a,i,s,h=rec.split("$"); return hmac.compare_digest(hashlib.pbkdf2_hmac("sha256",pw.encode(),bytes.fromhex(s),int(i)).hex(),h)
+      except Exception: return False
+  bad=[k for k,r in P.items() if any(ck(r,w) for w in WEAK)]
+  print("accounts:",len(P),"| on a default/literal (BLOCK boot):",len(bad)); [print(" -",k) for k in sorted(bad)]
+  PY
+  ```
+- [ ] Audit returns 0 offenders immediately before shipping the guarded reference image + `AIRAWAT_ENV=production`.
+- [ ] **Related (enforce dimension, not the default-password guard):** confirm no human/service account that must
+  log in under `IDENTITY_PASSWORD_REQUIRED=enforce` is still passwordless — above all the **human steward**
+  (`platform.steward`) and the operator `admin` accounts. Give each a real password (Vault-backed) first.
+
 ---
 
 ## Quick status summary
@@ -86,6 +115,7 @@ treat as cleared.
 | 5 | trust-reader + Vault | ⚠️ provision principal + password in prod Vault |
 | 6 | canary order | ✅ documented; follow in order |
 | 7 | open incident items | ❓ five items need owner context before sign-off |
+| 8 | no default/literal account passwords (#282) | ✅ EC2 audit 0/76 offenders; re-run before shipping the guard |
 
 ## ADR-0122 — platform.authority cutover (`PLATFORM_AUTHORITY_MODE`)
 - **Unset default = `shadow`.** With the env unset, the network computes the recorded-role result alongside
