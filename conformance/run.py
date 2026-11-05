@@ -538,8 +538,23 @@ def run_internal_cases():
             return
         # 2xx / 400 / 500 / 501 => the handler RAN without a service token => no auth gate => violation present.
         xfail(spec, rule, name, True, "%s -> %s: handler ran WITHOUT a service token (no auth gate)" % (url, st))
-    # F10 / debt B5 — unauthenticated privileged reference endpoints
-    tokenless_accepted("FOUNDATIONS","F10/B5","filestore serves without a service token (abuse)","GET",  T["filestore"]+"/")
+    # ADR-0124 item 1 (service 2/5) — filestore ingress. The gate is live; a WRONG-AUDIENCE token is refused
+    # even in shadow (assertable now). The ANONYMOUS-refused case only holds once FILESTORE_REQUIRE_TOKEN flips
+    # on (shadow until every reader — app-host/kernel/launcher — is wired; debt A72), so it is recorded as an
+    # expected-fail until the flip, mirroring how scheduler B5 was handled pre-flip.
+    _fs_wrong = _login_token("scheduler","localdev-operator","secret/data/localdev-operator/scheduler/password","svc:automation")
+    if _fs_wrong:
+        _stfw, _bfw, _ = _req("POST", T["filestore"]+"/files", body=None, token=_fs_wrong)
+        expect("FOUNDATIONS","F10/B5","filestore refuses a wrong-audience token (abuse)", _stfw == 403,
+               "svc:automation token -> %s (expect 403 wrong audience)" % _stfw)
+    else:
+        record("FOUNDATIONS","F10/B5","filestore refuses a wrong-audience token (abuse)","needs-creds","SKIP_CREDS","no svc:automation token")
+    _stfa, _bfa, _ = _req("POST", T["filestore"]+"/files", body=None)
+    if _stfa == 0:
+        record("FOUNDATIONS","F10/B5","filestore refuses an anonymous call (abuse)","expected-fail","SKIP_BUILD","filestore unreachable")
+    else:
+        xfail("FOUNDATIONS","F10/B5","filestore refuses an anonymous call (abuse)", _stfa not in (401,403),
+              "anon /files -> %s (FILESTORE_REQUIRE_TOKEN shadow until all readers wired — debt A72)" % _stfa)
     tokenless_accepted("FOUNDATIONS","F10/B5","notify /notify accepts without a service token (abuse)","POST", T["notify"]+"/notify", {})
     # ADR-0124 item 1 — scheduler /run,/reload now REQUIRE a svc:scheduler token from an allow-listed caller.
     # Promoted from the tokenless-abuse probe to a real assertion: anonymous AND wrong-audience are refused.

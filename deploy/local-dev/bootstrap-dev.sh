@@ -328,7 +328,7 @@ echo "── Phase 10 · app-host scheduler-caller principal (ADR-0124 item 1) �
 XNET env II="airawat-ld-identity-internal" TENANT="${INSTANCE}-operator" python3 - <<'PY'
 import os, json, secrets, urllib.request, urllib.error
 IDN="http://identity:8093"; VADDR=os.environ.get("VAULT_ADDR","http://vault:8200"); VTOK=os.environ["VAULT_TOKEN"]
-II=os.environ["II"]; TENANT=os.environ["TENANT"]; USER="app-host"; AUDS=["svc:scheduler"]
+II=os.environ["II"]; TENANT=os.environ["TENANT"]; USER="app-host"; AUDS=["svc:scheduler","svc:filestore"]
 def _req(url, data=None, headers=None, method="GET"):
     r=urllib.request.Request(url, data=(json.dumps(data).encode() if data is not None else None),
                              headers=headers or {}, method=method)
