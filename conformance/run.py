@@ -209,6 +209,17 @@ CRED_NO_BRIDGE = [
     ("REGISTRY","R7","written record carries provenance [debt A2 shadow]","no black-box registry-write bridge"),
     ("NETWORK","N1","slug/tenant not accepted as net authority [debt B11/B2]","needs a governance call asserting slug==tenant; no bridge mapped"),
     ("NETWORK","N9","wildcard/unversioned capability grant rejected [debt B12]","capability-grant bridge refuses the tenant admin; shape not drivable black-box"),
+    # R17 — field-level data protection (ADR-0126). All PLANNED/NEEDS-BUILD: no encrypt/decrypt path exists yet
+    # (Vault transit signs only; records are plaintext JSONB). Registered so the suite tracks the obligation.
+    ("REGISTRY","R17","personal field (x-sensitivity:personal) is NOT stored in the versioned record; value lives in the R14 erasable store","needs encrypt-on-write + erasable-store split; not built (ADR-0126)"),
+    ("REGISTRY","R17","sensitive field stored inline as per-tenant (rec-<tenant>) transit ciphertext, never plaintext","needs inline transit encrypt-on-write; not built (ADR-0126)"),
+    ("REGISTRY","R17","erasure of a personal field deletes the value (R14) + records an audited erasure; derived per-person key is NOT erasure","needs erasable store + erasure event; not built (ADR-0126/R14)"),
+    ("REGISTRY","R17","R9 idempotency over a protected field compares a keyed HMAC of plaintext — never a plain hash, never ciphertext","needs HMAC idempotency on the write path; not built (ADR-0126)"),
+    ("REGISTRY","R17","unauthorised read of a protected field returns a redacted placeholder — never ciphertext, never plaintext","needs decrypt-authz + redaction on the read path; not built (ADR-0126)"),
+    ("REGISTRY","R17","Kernel→Vault uses its own service identity scoped to transit encrypt/decrypt/hmac on rec-*/idx-* (never root); fails closed if Vault down","needs Kernel Vault policy + fail-closed path; not built (ADR-0124/0126)"),
+    ("REGISTRY","R17","every key use is audited in the Kernel chain AND Vault audit device, without plaintext/ciphertext","needs transit audit wiring; not built (ADR-0126/R12)"),
+    ("ACCOUNT","A3","identity-binding uniqueness via a keyed blind index (HMAC), not a plaintext column","needs blind-index on write + uniqueness check; not built (ADR-0126)"),
+    ("DECISION","D10","every decryption of personal data produces a full decision record (actor/subject/purpose/basis)","needs personal-read decision-record emission; not built (ADR-0126/0125)"),
 ]
 def case_F2_no_grant(outsider_cookie):
     """A valid NON-admin session must be denied a governance write — authority from a grant, not auth."""

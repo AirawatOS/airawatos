@@ -194,6 +194,60 @@ Archiving is a first-class, governed operation — not an out-of-band ops action
 - **Refs:** registry→filestore archival tiering (task #201, PLANNED); registry physical layout split (task
   #202); R10, R14, R15, R12.
 
+### R17 — Data protection (encryption of sensitive + personal fields)
+A schema may mark a field's sensitivity; the Kernel protects marked fields at the write/read boundary so
+plaintext never lands in the versioned record or in logs. Two classes, two mechanisms:
+
+- **`x-sensitivity: personal`** — the field value is **not** stored in the versioned record. The versioned
+  record holds a **reference + content hash only** and the value lives in the **R14 erasable store**,
+  encrypted there with a per-tenant transit key. **Erasure is real deletion** of the value from the erasable
+  store (R14), recorded as an audited erasure event. Crypto-shredding is the R14 backups/replicas path only,
+  **never** the primary deletion.
+- **`x-sensitivity: sensitive`** (non-personal — e.g. a secret, a bearer-ish token, commercially-confidential
+  data) — stored **inline** in the versioned record as a ciphertext envelope encrypted with a **per-tenant
+  transit key** (`rec-<tenant>`). Inline ciphertext is append-only like any version; it is **not** erasable by
+  deleting it (the versioned lineage is immutable), so `sensitive` MUST NOT be used for personal data.
+- **Erasure requires the personal store.** A **derived per-person key does NOT provide erasure** — destroying
+  a derived key does not delete the value and leaves ciphertext in an append-only version. Per-person
+  separation (via a derived key / HMAC context) is a defence-in-depth and uniqueness aid only; **erasability
+  comes solely from the R14 erasable store**, where the value can actually be deleted. Personal data therefore
+  always uses the erasable store, never inline encryption.
+
+Supporting rules:
+- **Idempotency (R9) over protected fields** — content-identity is compared via a **keyed HMAC of the
+  plaintext** under a per-tenant key (`idx-<tenant>`), **never** a plain hash of plaintext (which is
+  dictionary-attackable for low-entropy PII) and **never** the ciphertext (transit ciphertext is
+  non-deterministic, so equal plaintext yields unequal bytes — comparing ciphertext would break R9). The
+  write path decrypts/HMACs to decide "byte-identical version?" without emitting a new version.
+- **Searchable protected fields (blind index)** — exact-match lookup on an encrypted field uses a **keyed
+  blind index**: store `HMAC(idx-<tenant>, normalise(plaintext))` alongside the envelope and query by that
+  digest. This supports e.g. **identity-binding uniqueness (ACCOUNT A3)** — "this national-id / handle is
+  already bound" — without a plaintext column. Blind indexes allow equality only (no range/prefix/substring).
+- **Decrypt authorization.** Reading a `sensitive` field requires a recorded role covering the purpose.
+  Reading a **`personal`** field requires **the subject's consent (ADR-0125) OR a recorded role whose grant
+  covers that purpose**, and **every decryption of personal data produces a full decision record (DECISION
+  D10)** — actor, subject, purpose, legal/role or consent basis, fields, outcome. An unauthorised read returns
+  a **redacted placeholder**, never the ciphertext and never the plaintext.
+- **Kernel→Vault identity.** The Kernel calls Vault with **its own service identity** (ADR-0124), under a
+  policy limited to `transit/encrypt`, `transit/decrypt` and `transit/hmac` on `rec-*` / `idx-*` keys — it
+  **never** uses the root token, and **fails closed** (reject the write/read) if Vault is unreachable.
+- **Key-use audit.** Every encrypt/decrypt/hmac is audited in **both** the Kernel audit chain (R12) and
+  Vault's own audit device, recording `{op, kid, key_version, field_path, record_id, actor, decision}` and
+  **never** the plaintext or ciphertext.
+- **Filestore blobs — next slice (PLANNED).** Encrypting filestore blobs (per-blob `transit/datakey` + an
+  AES-GCM envelope) is noted as a following slice, not part of R17's first cut.
+- **At-rest baseline (orthogonal).** Independently of field-level protection, EBS volumes, snapshots and
+  database backups MUST be encrypted with a **customer-managed KMS key**. **Status: pending the console check**
+  — the instance role cannot read `ec2:DescribeVolumes`; see `deploy/ENCRYPTION-STATUS.md` §5.
+
+- **Status: PLANNED (not yet implemented).** Nothing in R17 is built: no schema `x-sensitivity`/`x-encrypt`
+  honouring, no encrypt-on-write/decrypt-on-read in the Kernel, no blind index, no HMAC idempotency, no
+  Kernel Vault service-policy for `rec-*`/`idx-*`. Vault `transit` today signs only (no encrypt/decrypt);
+  records persist as plaintext JSONB; Postgres has no pgcrypto. See `deploy/ENCRYPTION-STATUS.md`.
+- **Refs:** ADR-0126 (this rule's design); R14 (erasable store — personal), R9 (idempotency), R12 (audit),
+  ADR-0124 (Kernel service identity), ADR-0125 (consent), DECISION D10 (decision record), ACCOUNT A3
+  (identity-binding uniqueness → blind index); DPDP (Open item). New surface — no debt item exists yet.
+
 ---
 
 ## Summary of status
@@ -216,9 +270,10 @@ Archiving is a first-class, governed operation — not an out-of-band ops action
 | R14 | Personal data erasable store | PLANNED | ADR-0125; B12; DPDP (below) |
 | R15 | Public = schema designation via CR | VIOLATED/PARTIAL | B8; ADR-0056/0103 |
 | R16 | Archiving in the protocol | PLANNED | tasks #201, #202 |
+| R17 | Data protection (field encryption) | PLANNED | ADR-0126; R14; DPDP (below) |
 
 **Tally:** 4 IN PLACE (R1, R3, R4, R10), **6 PARTIAL** (R2, R5, R7, R8, R11, R12), 3 VIOLATED (R6, R13,
-R15), 2 PLANNED (R14, R16), 1 TO CONFIRM (R9). R5 and R15 carry a secondary VIOLATED.
+R15), **3 PLANNED (R14, R16, R17)**, 1 TO CONFIRM (R9). R5 and R15 carry a secondary VIOLATED.
 
 ---
 
