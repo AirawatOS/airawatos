@@ -112,6 +112,23 @@ grant only. The Kernel does not treat `access_grant` as a separately-issued perm
 access decision from (grant + consent) at enforcement time. This keeps F13 (only the subject consents) and F8
 (default-deny) intact for every personal read or write.
 
+**F8 scope — one deliberate, alerted exception (protective counters).** F8's fail-closed rule governs
+**authorization**: deciding whether an actor may do a thing. Authorization never falls back — no grant, or an
+unavailable grant/consent reader, means **deny**. A small, named class of controls is **not** an authorization
+gate: a **protective rate/attempt counter** (today, the brute-force login-lockout counter, ADR-0121) only adds
+*friction* to an action the credentials otherwise authorize. For these, if the durable counter store is
+unavailable, **availability wins over strictness** — a Postgres outage must not lock every legitimate user out
+of login — so the counter **may fail open** (skip the lock, record in memory) rather than deny. This is
+permitted **only** when the fallback is (1) **deliberate** — enumerated here, not an accident of a bare
+`except`; (2) **alerted** — an alert-level event on the transition and periodically until recovery; and (3)
+**observable** — the live mode is exposed on the service's health endpoint (identity `/healthz`
+`lockout_store`: `durable` | `memory(degraded)` | `memory`). The thing the counter *protects* —
+authentication, and every authorization decision after it — **still fails closed**: a wrong password is still
+rejected, an unauthenticated or ungranted call is still denied. The carve-out covers the *protective counter's
+durability*, never the gate it fronts. Any new fail-open behaviour must be added to this list with the same
+three conditions, or it is a straight F8 violation. (Implementation + proof:
+`../security/IDENTITY-DB-LEAST-PRIVILEGE.md`, `../performance/IDENTITY-KDF-REPORT.md`.)
+
 ---
 
 ## 4. Debt-register → principle map (B1–B18)
