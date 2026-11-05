@@ -33,3 +33,25 @@ Across `deploy/local-dev/bootstrap-dev.sh` (phases 1–11), `network/ensure_inst
 Vault paths, DB roles), and volumes. Its install-relevant settings (password-enforce mode, DB roles, ingress
 gates) are CORE config consumed by the running services; the dev/prod difference is `AIRAWAT_ENV`, the
 password-enforcement mode, and whether the dev-only extras (#14–#16) run.
+
+## Step 2 — Postgres role each service connects as (before step 4)
+
+One database `kernel` on a single Postgres 16 cluster; shared tables in schema `public`. Only three services
+open a DB connection at all — every other service (app-host, automation, scheduler, filestore, notify,
+event-relay, secrets, model-gateway, workflow, decision) reaches data **through** the kernel/network HTTP APIs
+and has **no** DB credential.
+
+| Service | Connects as | Superuser? | Tables it owns/uses | Can reach other services' tables? |
+|---|---|---|---|---|
+| **kernel** | `kernel` (compose sets no `DB_USER` → pg_store default `kernel`) | **YES** | `registry_version`, `kernel_admin_audit`, `registry_schema_meta` | **YES** — superuser; reads/writes/drops `kv` + `identity_login_fails` too |
+| **network** | `kernel` (explicit `DB_USER=kernel`) | **YES** | `kv` (durable KV: tenants, networks, directory, grants) | **YES** — superuser over the whole DB |
+| **identity** | `identity_lockout` (password from Vault) | no | `identity_login_fails` (SELECT/INSERT/DELETE) | **NO** — `permission denied` on every other table (proven, prior slice) |
+| installer / bootstrap | `kernel` (superuser) | YES | DDL across all tables | — (should be a dedicated `migrator`, not a service identity) |
+
+Role attributes today: `kernel` = `Superuser, Create role, Create DB, Replication, Bypass RLS`; all five public
+tables are owned by `kernel`. `identity_lockout` = non-super, login, no table rights beyond its one grant.
+
+**Finding:** kernel and network both run as the **cluster superuser** and can read/write each other's and
+identity's tables — a compromise or bug in either has the whole database. Only identity is confined. Step 4
+introduces non-superuser `kernel_app` / `network_app` owning only their own tables, keeps `identity_lockout`,
+and adds an installer-only `migrator` role, with cross-service reads proven denied.
