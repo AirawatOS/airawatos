@@ -20,6 +20,12 @@ Definitions: [Glossary](specs/GLOSSARY.md). Normative rules: [Specifications](sp
 | tamper-proof log | **audit chain** (hash-chained, signed) | REGISTRY R12 |
 | your agency's space | **tenant** | PLATFORM |
 | shared space for agencies | **Network** (e.g. Urban Network) | NETWORK |
+| the agency that starts a shared space | **governing tenant / Network host** | NETWORK N2, ADR-0128 |
+| register as a member / member ID | **participant registration / participant ID** (role, keys, conformance status) | PARTICIPANT PP1, FEDERATION |
+| pass the checks for your role | **per-role conformance before activation** | PARTICIPANT PP11 |
+| three ways to join | **member modes**: hosted tenant · own AirawatOS installation · own system + SDK | ADR-0128 |
+| set up Airawat (with connection built in) | **participant node** (an installation joining remote Networks) | PLATFORM, FEDERATION |
+| connection kit | **Participant SDK** | PARTICIPANT PP12 |
 | account address (`meera@metro`) | **account handle** | ACCOUNT A2 |
 | document locker | **wallet** | ACCOUNT A6, W1–W4 |
 | tools and models | **components**: drivers, connectors, engines, apps | COMPONENT |
@@ -98,7 +104,36 @@ noting who it acts for → Kernel verifies, stores the signed version, appends t
 
 ---
 
-## 4. Components
+## 4. Federation: hosting and joining Networks
+
+Every AirawatOS installation is both a **Network host** and a **participant node** (ADR-0128):
+
+```text
+     INSTALLATION A (e.g. state)                    INSTALLATION B (e.g. a city)
+ +-----------------------------------+          +-----------------------------------+
+ | tenant: Urban Dept                |          | tenant: City Corp                 |
+ |   governs METRO URBAN NETWORK  ---+-- hosts  |   governs CITY SERVICES NETWORK --+-- hosts
+ |   (registry, directory, grants)   |          |                                   |
+ | tenant: Water Board -> member     |          | tenant: Ward Office -> member of  |
+ |   of Metro (mode 1, hosted)       |          |   Metro from B (mode 2)           |
+ +-----------------------------------+          +-----------------------------------+
+                 ^
+                 |  mode 3: own system + Participant SDK (e.g. a transport company)
+```
+
+- **Hosting:** any tenant holding `network.creator` creates a Network and becomes its governing tenant; the
+  Network's registry, directory and grant decisions live on that installation. An installation hosts zero
+  or more Networks.
+- **Joining:** register in the hosting Network's registry (participant ID, roles, public keys), then pass the
+  conformance suite for each role before activation. A Network never creates tenants, logins or participant
+  systems.
+- **Cross-installation trust:** requests are signed with registered participant keys; each installation's
+  home issuer is trusted only for its own participants (FEDERATION; F15). The directory of Networks / root
+  of trust is deferred (FEDERATION FED8).
+
+---
+
+## 5. Components
 
 - **Kinds:** drivers (ingest from sensors/systems), connectors (outside services), engines (analysis),
   apps (presentation), skills.
@@ -112,7 +147,7 @@ noting who it acts for → Kernel verifies, stores the signed version, appends t
 
 ---
 
-## 5. Keys and secrets
+## 6. Keys and secrets
 
 | Key / secret | Purpose | Where |
 |---|---|---|
@@ -128,7 +163,7 @@ Target for "secret zero": Vault unlocked by the server's cloud identity, never a
 
 ---
 
-## 6. Where to go next
+## 7. Where to go next
 
 - Rules: [Specifications index](specs/README.md)
 - Gaps between rules and code: `docs/consolidation/DEBT-REGISTER.md`

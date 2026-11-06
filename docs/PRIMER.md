@@ -2,7 +2,7 @@
 
 **A shared, trusted space where public agencies work together — and residents are served as one.**
 
-*Draft v0.3 · November 2026 · For officials, partners, policymakers and anyone new to Airawat.
+*Draft v0.4 · November 2026 · For officials, partners, policymakers and anyone new to Airawat.
 Engineers: see [Airawat for engineers](AIRAWAT-FOR-ENGINEERS.md).*
 
 ---
@@ -33,16 +33,20 @@ Today, agencies coordinate by phone calls and spreadsheets, and residents carry 
         decisions made without the full picture       little record of who decided what
 ```
 
-Airawat is a shared, trusted space that fixes this — without asking any agency to give up control of its
-own data.
+Airawat creates **shared, trusted spaces** where agencies can work together — without any agency giving up
+its own systems or control of its own data.
 
 ---
 
-## The four questions everyone asks
+## The five questions everyone asks
 
 ### 1. How can agencies share data without losing control of it?
 
 Each agency **keeps its own data**. Nothing is pooled into someone else's system.
+
+Agencies come together in a **shared space** for their region — an **Urban Network** — with its own charter
+and its own authorised officers, like a joint committee. **Any agency can start one** (for example, the
+state urban department), and others can join.
 
 When one agency wants to use another's data, there must be a **data-sharing permission** on file — like a
 sanction order. It says exactly who may see what, and it can be withdrawn at any time.
@@ -70,10 +74,48 @@ file.
           (the look is noted)         (the refusal is noted)
 ```
 
-Agencies join a **shared space** for their region — an **Urban Network** — with its own charter and its own
-authorised officers, like a joint committee. No single agency owns it.
+### 2. How does an agency join — especially one that already has its own systems?
 
-### 2. How can residents get services from many agencies without repeating themselves?
+Joining a shared space works like **putting an organisation on the web**:
+
+```text
+   PUTTING YOUR ORGANISATION ON THE WEB        JOINING A SHARED SPACE ON AIRAWAT
+
+   1  register a domain name           ->      register as a member -> get a MEMBER ID
+                                               (the shared space records who you are,
+                                                your role, and your digital signature)
+   2  set up a web server              ->      set up Airawat - or use the connection kit
+   3  connect your systems to it       ->      connect your existing systems
+   4  follow web standards             ->      pass the shared space's checks for your role
+                                               (tested before you go live)
+   5  people trust your site           ->      other members trust you, because your
+                                               membership and signature are on record
+```
+
+There are **three ways to join**, depending on what an agency already has:
+
+```text
+                        THE SHARED SPACE (e.g. Metro Urban Network)
+                        member list · roles · signatures · checks passed
+                         ^                    ^                     ^
+                         | joins              | joins               | joins
+   +---------------------+-----+   +----------+----------+   +------+-------------------+
+   | 1  USE A HOSTED SPACE     |   | 2  RUN YOUR OWN     |   | 3  KEEP YOUR SYSTEM     |
+   | a small municipality gets |   |    AIRAWAT          |   |    + CONNECTION KIT     |
+   | space on the state's      |   | a large agency runs |   | a bank or transport     |
+   | Airawat, ready to use     |   | its own copy,       |   | company plugs its       |
+   |                           |   | connection built in |   | existing system in      |
+   +---------------------------+   +---------------------+   +-------------------------+
+
+   whichever way: register, connect, pass the checks for your role -> live
+```
+
+**Joining never means handing over your systems.** The shared space records that you are a member and what
+you may do; your systems stay yours, wherever they run. And one agency can **start several shared spaces**
+and **belong to many** — a health department might be in the Urban Network and a state health network at
+the same time.
+
+### 3. How can residents get services from many agencies without repeating themselves?
 
 Each resident has **one account**, with an address like a UPI ID — say `meera@metro`. They prove who they
 are **once**. They can use it from the city's app, an agency portal, or even an app they already use, such
@@ -95,7 +137,7 @@ Their certificates and records sit in a **document locker**, like DigiLocker, th
 
 The apps are just doors. The account belongs to the resident, not to any agency or app.
 
-### 3. Who can see my data — and can I say no?
+### 4. Who can see my data — and can I say no?
 
 Your personal data needs **two permissions** before anyone can see it:
 
@@ -113,7 +155,7 @@ personal data can be **truly erased**.
 Data that isn't about anyone personally — drain levels, air quality, bus locations — needs only the
 agency's permission, and some of it is simply public.
 
-### 4. When something goes wrong, how do we know who decided what?
+### 5. When something goes wrong, how do we know who decided what?
 
 Every important decision leaves **reasons on file**, like a file noting: who decided, on what basis, using
 which information, at what moment.
@@ -130,23 +172,30 @@ quietly rewritten.
 ## A monsoon in the Metro region
 
 ```text
-   1 AGENCIES JOIN          2 THEY AGREE WHAT TO SHARE      3 DATA COMES IN
-   Water Board, both        Disaster Authority may see      drain sensors, pump status,
-   municipalities,          drains + pumps in the whole     rainfall forecasts -
-   Transport, Health,       region; Transport may see       each agency's own data
-   Disaster Authority       flood alerts; air quality       stays its own
-                            is public
+   1 THE SHARED SPACE IS STARTED       2 AGENCIES JOIN - EACH IN ITS OWN WAY
+   the state urban department          Water Board, Health, Disaster Authority: hosted
+   starts the Metro Urban Network      on the state's Airawat
+   and appoints its officers           Neighbouring Municipality: from its own Airawat
+                                       Bus company: its own system + connection kit
+                                       -> all pass the checks for their roles
                                      |
                                      v
-   4 THE PICTURE COMES TOGETHER                 5 PEOPLE DECIDE, AGENCIES ACT
+   3 THEY AGREE WHAT TO SHARE          4 DATA COMES IN
+   Disaster Authority may see          drain sensors, pump status, rainfall forecasts -
+   drains + pumps in the whole         each agency's own data stays its own
+   region; Transport may see
+   flood alerts; air quality is public
+                                     |
+                                     v
+   5 THE PICTURE COMES TOGETHER                 6 PEOPLE DECIDE, AGENCIES ACT
    a flood-risk model combines rain,            the duty officer issues the alert;
    both cities' drains and pump status          Water Board moves pumps,
-   -> ward-by-ward risk for the WHOLE region    Transport diverts buses,
+   -> ward-by-ward risk for the WHOLE region    buses are diverted,
    -> it recommends; it does not decide         crews clear drains,
                                                 residents get the alert on any app
                                      |
                                      v
-   6 AFTERWARDS: the register shows exactly what was known, and who decided what, hour by hour
+   7 AFTERWARDS: the register shows exactly what was known, and who decided what, hour by hour
 ```
 
 The same arrangement works in a heatwave: the health department combines temperature, air quality and
@@ -157,14 +206,15 @@ Different hazard, same shared space, same rules.
 
 ## Meera moves to a new city
 
-Meera, a construction worker, moves with her family to the Metro region.
+Meera, a construction worker, moves with her family from another state to the Metro region.
 
 1. **She creates her account** on the city's app and proves who she is through an approved government
    source. Her ID number is never shown to the agencies.
 2. **She applies for what she needs** — a water connection, school places for her children, a clinic, a bus
    pass — from one app, across four agencies.
-3. **Her history can follow her.** With her permission, her children's school records and her clinic
-   history come from her old city. Each transfer needs both permissions: the agency's, and hers.
+3. **Her history can follow her — even from another system.** Her old city runs its own Airawat. With her
+   permission, her children's school records and her clinic history are sent across. Each transfer needs both
+   permissions: the agency's, and hers.
 4. **She isn't shut out for lacking paperwork.** Where she has no document — say, for her income — she can
    declare it herself. The declaration is signed and marked as self-declared, so everyone knows what it
    rests on.
@@ -177,13 +227,15 @@ Meera, a construction worker, moves with her family to the Metro region.
 
 ## The same idea, other uses
 
-The Urban Network is one use. The same arrangement works wherever independent organisations need to trust
-each other:
+The Urban Network is one shared space. The same arrangement works wherever independent organisations need to
+trust each other — and any organisation can start one:
 
 - **Livelihoods:** a delivery rider's training, certificates and work history travel with him from one
   employer to the next; a labour department funds training and can see where every rupee went.
 - **Health:** clinics and labs share records, with the patient's permission.
 - **Environment:** monitoring agencies across states share air and water data for the same airshed or river.
+
+Many shared spaces can exist side by side, and one organisation can belong to several.
 
 ---
 
@@ -210,7 +262,7 @@ AI models can help, under clear rules:
 3. Belonging to an agency or a group doesn't, by itself, give you any power.
 4. Your personal data needs the agency's permission **and** yours.
 5. If anything needed to make a decision is missing, the answer is no.
-6. Software programs need permission too — being "inside" proves nothing.
+6. Joining a shared space never means handing over your systems.
 7. Records are never overwritten; the history is kept and signed.
 8. Your personal data can be truly erased when the law or you require it.
 9. Every important decision has its reasons on file, and can be challenged.
@@ -226,9 +278,10 @@ This describes where Airawat is heading. Honestly, today:
   systems; risk maps and dashboards; shared spaces for agencies with written permissions (on the development
   system); a test suite that checks the system against its own rules.
 - **Partly working:** services across agencies; certificates and document lockers; residents' permissions
-  (designed, not yet applied everywhere).
-- **Designed, not yet built:** resident accounts with their own addresses; records that follow residents
-  between cities; budget tracking for relief and subsidies; erasure of personal data.
+  (designed, not yet applied everywhere); the connection kit for organisations with their own systems.
+- **Designed, not yet built:** members joining a shared space from their own copy of Airawat; resident
+  accounts with their own addresses; records that follow residents between cities; budget tracking for
+  relief and subsidies; erasure of personal data.
 - **The live system** runs an older version; the improved version will be released in careful stages.
 
 ---
