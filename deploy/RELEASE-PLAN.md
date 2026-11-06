@@ -36,6 +36,10 @@ each production image's OCI source-commit label covers the commit below.
 | **DEBT-B22** | admin-gate `/v1/components/install` before any processing — close the unauthenticated run-token mint (FND-8) | kernel `b04b8d9` · conformance `881fb25` | `airawatos-kernel` (local bake tag `dev-hard6`) | FND-8 unauth-install XFAIL→PASS; EC2 read-only check confirmed kernel is not publicly routed |
 | **DEBT-B28** | roleless account-create ⇒ **no** roles (never `platform.tenant-admin` by omission); installer Phase-9 double-POST workaround removed | platform-spec `6d5e319` · root `448e855` | `airawatos-reference` (local bake tag `dev-hard9`) | unit `test_identity_hotfix_b28_b29.py` + live `FND-1/DEBT-B28` PASS; fresh install platauth/platnone roles=(none) |
 | **DEBT-B29** | identity account-write gates fail **closed** on unset/empty `IDENTITY_INTERNAL` (clear error) + `assert_internal_secret_configured` refuses production boot without it; committed literal default removed | platform-spec `6d5e319` · root `448e855` | `airawatos-reference` (`dev-hard9`) | unit test (empty-secret fail-closed + prod boot refusal) + live `FND-9/DEBT-B29` PASS |
+| **DEBT-B33** (CRITICAL) | `POST /v1/participants` (federation trust-directory admission) requires an authenticated admin/steward of the participant's OWN tenant — closes anonymous key-binding → federation-message/credential forgery (NET-12/PTC-1/FED7). **Live + internet-reachable on EC2 today** (`0.3.5` via `/network/v1/participants`) — see §nginx-containment. | network `8fe46b7` · root `12d0a97` | `airawatos-network` (local bake `dev-a75`) | live `PTC-1/FED7/DEBT-B33` PASS (anon → 401); verified live on EC2 image (unauth → 200 before fix) |
+| **DEBT-B34** (CRITICAL) | `POST /v1/grants` + `/v1/grants/revoke` (capability-grant store the kernel/broker enforce) require a recorded admin/steward of the grant's tenant — closes anonymous privilege grant (NET-9). **Live + internet-reachable on EC2 today** (`0.3.5` via `/network/v1/grants`) — see §nginx-containment. | network `fc849e5` · root `12d0a97` | `airawatos-network` (`dev-a75`) | live `NET-9/DEBT-B34` PASS (anon → 401); verified live on EC2 image (unauth well-formed → 200 `{stored}` before fix). Residual: steward-signature verify + grammar/version/no-wildcard (DEBT-B12) |
+| **DEBT-B35** (CRITICAL) | zero-holder `platform.authority` first-holder bootstrap is installer-only (`ctx.is_installer`), never reachable via the governance API (FND-11). **Absent on EC2** (`0.3.5` has no trust plane / `/v1/governance/roles` → 404) — must be fixed **before** a trust-plane image (`0.3.7+`) reaches production. | network `6f13276` · root `4993354` (installer) | `airawatos-network` (`dev-a75`) | unit test `test_bootstrap_installer_only_b35.py` (governance-path self-escalation REFUSED; installer seed allowed) |
+| **DEBT-B36** | `GET /v1/participation` members-only (auth + membership/admin); `POST /v1/service/search` members-only by default (anon sees only `visibility=="public"`) (NET-12/REG-15). Member list is internet-readable on EC2 today (`/network/v1/participation`). | network `b534de7` · root `12d0a97` | `airawatos-network` (`dev-a75`) | live `NET-12/DEBT-B36` PASS (anon participation → 401; anon search leaks 0 members-only). Residual: `/v1/service-offerings` + `/v1/federation/offerings` public reads not yet gated |
 
 **Earlier local-only hardening also awaiting production** (same image rebuilds; each with its commit):
 
@@ -51,6 +55,31 @@ admin-gate `GET /v1/components` + strip `run_token` (DEBT-B15) · `ae8d01f`+`ac3
 
 These are additive to — not a replacement for — the ADR-0124/0122/#282 series that the rest of this plan rolls
 out; they are called out here so the §4 rebuilds and the §8 gate explicitly account for them.
+
+### EC2 interim containment (DEBT-B33/B34) — apply NOW, before the §4 network rebuild
+
+The current EC2 network image (`0.3.5-dev-tenant-ensure`) exposes `POST /network/v1/grants` and
+`POST /network/v1/participants` **unauthenticated and internet-reachable** (the `location /network/` block
+blanket-proxies the whole service). Until `dev-a75`→a pinned prod tag ships, block the two write paths at the
+on-box nginx (`~/airawatos/nginx.conf`, container `airawat-nginx`). Insert **before** `location /network/ {`:
+
+```nginx
+# SECURITY CONTAINMENT (DEBT-B33/B34) — internal app-host→network calls are unaffected (they bypass /network/).
+location = /network/v1/grants         { return 403; }
+location = /network/v1/grants/revoke  { return 403; }
+location = /network/v1/participants {
+    if ($request_method != GET) { return 403; }     # block POST admission; keep GET directory read for pages
+    set $up_network network:8090; rewrite ^/network/(.*)$ /$1 break; proxy_pass http://$up_network;
+    proxy_set_header Host $host; proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+Apply: `cd ~/airawatos && cp nginx.conf nginx.conf.bak.$(date +%s)`, insert, then
+`docker exec airawat-nginx nginx -t && docker exec airawat-nginx nginx -s reload`.
+Verify: anon `POST /network/v1/{grants,participants}` → 403; `GET /network/v1/participants` + `/health` → 200;
+`POST /network/v1/participation/request` → not 403 (public join intact).
+Undo: restore `nginx.conf.bak.<ts>` + reload. (B35 needs no containment on EC2 — the trust-plane governance API
+is absent on `0.3.5`; it must be fixed before a `0.3.7+` image is deployed.)
 
 ---
 
