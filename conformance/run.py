@@ -613,6 +613,11 @@ def report(mode):
     print("\nExecuted cases:")
     for r in notable:
         print("  [%-5s] %-14s %-9s %s — %s" % (r["status"], r["spec"], r["rule"], r["name"], r["detail"]))
+    skipped = [r for r in RESULTS if r["status"] in ("SKIP_CREDS","SKIP_BUILD")]
+    if skipped:
+        print("\nSkipped cases (per-case — a credentialed run should show 0 SKIP_CREDS):")
+        for r in skipped:
+            print("  [%-10s] %-14s %-9s %s — %s" % (r["status"], r["spec"], r["rule"], r["name"], r["detail"]))
     return tot
 
 def main():
