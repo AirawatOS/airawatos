@@ -1,7 +1,7 @@
 # NETWORK-v0.1 — Networks: identity, lifecycle, membership, capabilities, exchange
 
 **Status:** Draft v0.1 · **Date:** 2026-11-03
-**Builds on:** [[FOUNDATIONS-v0.1]] (authority model §3; F1–F16), [[REGISTRY-v0.1]] (R1–R16), and
+**Builds on:** [[FOUNDATIONS-v0.1]] (authority model §3; F1–F17), [[REGISTRY-v0.1]] (R1–R18), and
 [[DECISION-v0.1]] (D1–D12) — assumed, not restated. A Network, its roles, grants, memberships, and status
 are all **governed registry records** (REGISTRY applies), every authorizing act is a **decision**
 (DECISION applies), and all authority is **recorded, issuer-scoped, fail-closed** (FOUNDATIONS §3). This
@@ -76,9 +76,13 @@ Membership is **belonging only** (it confers no capability by itself). Flows: **
 - **Status: PARTIAL.** `network.participation` with `/v1/participation/{request,decide}` provides
   request→approve/reject (ADR-0116, Slice 1 live). Membership-confers-nothing aligns with "authority only
   from grants" (F2). **invite→accept**, **suspend**, and **revoke** membership flows, and enforcement that a
-  member is an **existing tenant**, are **(to confirm)**. Note the ADR-0116 model treats participation as
-  tenant-free (participant ≠ tenant); N5's "existing tenants only" is the Network-of-tenants reading and
-  should be reconciled with ADR-0116 in a later revision.
+  member is an **existing tenant**, are **(to confirm)**.
+- **⚠ OPEN DECISION — N5 "existing tenants only" vs ADR-0116 "participant ≠ tenant".** N5 as written is the
+  *Network-of-tenants* reading (a member is an existing tenant); ADR-0116 makes membership **tenant-free** (a
+  participant is not a tenant). These are contradictory and **not yet reconciled**. The live code follows
+  ADR-0116 (`network.participation`, tenant-free). This must be resolved by an explicit decision — either N5
+  is rewritten to tenant-free membership (aligning with ADR-0116, the likely direction) or ADR-0116 is scoped
+  so N5's tenant-membership still holds for some network class. **Flagged, not decided here.**
 - **Refs:** ADR-0116 (participation request/decide), participant-onboarding; F2. Suspend/revoke/invite +
   existing-tenant check **(to confirm)**.
 

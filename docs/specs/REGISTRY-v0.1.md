@@ -1,7 +1,7 @@
 # REGISTRY-v0.1 — The governed registry: record rules
 
 **Status:** Draft v0.1 · **Date:** 2026-11-03
-**Builds on:** [[FOUNDATIONS-v0.1]] — the authority model (§3) and principles F1–F16 are assumed, not
+**Builds on:** [[FOUNDATIONS-v0.1]] — the authority model (§3) and principles F1–F17 are assumed, not
 restated. This spec governs **the records themselves**: identity, versioning, time, authority on
 read/write, provenance, signatures, resolution, schemas-as-records, audit, domain-blindness, personal-data
 erasure, public designation, and archiving. Where a rule is an application of a FOUNDATIONS principle, it

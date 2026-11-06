@@ -131,7 +131,7 @@ three conditions, or it is a straight F8 violation. (Implementation + proof:
 
 ---
 
-## 4. Debt-register → principle map (B1–B18)
+## 4. Debt-register → principle map (B1–B21)
 
 Every current invariant violation mapped to the principle(s) it breaks (see `DEBT-REGISTER.md` §B for
 file:line evidence):
@@ -156,6 +156,9 @@ file:line evidence):
 | **B16** | open egress proxy / SSRF (secrets `/fetch`, automation `action.url`, app-host `connect-network`) | **F10, F8** |
 | **B17** | client-side-only role gating in apps *(mitigated; verify host re-checks)* | **F2** |
 | **B18** | engines hold write-grant to `governance.decision` ("never decides" now rests on the trigger gate) | **F11, F2** |
+| **B19** | one record carries two divergent ids (`object.id` ≠ the canonical registry id for some kinds; slug/net:id/tenant conflation root) — code that filters/joins on `object #>> '{id}'` means something other than the registry id | **F4** (+ REGISTRY R1) |
+| **B20** | component run-tokens stored at rest in plaintext in the `installed` KV (bearer secret recoverable from a DB dump) — target: store a hash, deliver the clear token once | **F8, F10** |
+| **B21** | identity realms modelled as tenants (a login namespace conflated with an owning organisation; `citizens`/`-participant` exist as `tenant` records only to serve as shared realms) | **F3, F4** |
 
 ---
 

@@ -238,7 +238,7 @@ resolves it:
 | CP17 | marketplace | PARTIAL | events-and-subscriptions |
 | CP18 | marketplace | PLANNED | component-contracts; settlement |
 
-**Tally:** 0 IN PLACE, **11 PARTIAL** (CP1, CP3, CP5, CP6, CP7, CP8, CP10, CP12, CP13, CP14, CP15, CP16, CP17
-— note several carry a PLANNED sub-part), **6 PLANNED** (CP2, CP4, CP9, CP11, CP18). The private lane (CP2) and
+**Tally:** 18 rules — 0 IN PLACE, **13 PARTIAL** (CP1, CP3, CP5, CP6, CP7, CP8, CP10, CP12, CP13, CP14, CP15,
+CP16, CP17 — note several carry a PLANNED sub-part), **5 PLANNED** (CP2, CP4, CP9, CP11, CP18). The private lane (CP2) and
 certified sharing (CP8) are the two rules whose implementation lets the development-tenant machinery
 (`tenant_env` authority, `--sandbox` bypass, dev-token paths, ADR-0106) be retired (debt A28/A50).

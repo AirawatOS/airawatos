@@ -1,8 +1,8 @@
 # DECISION-v0.1 — The decision record: what every authorization and decision must leave behind
 
 **Status:** Draft v0.1 · **Date:** 2026-11-03
-**Builds on:** [[FOUNDATIONS-v0.1]] (authority model §3; principles F1–F16) and [[REGISTRY-v0.1]] (record rules
-R1–R16) — both are assumed, not restated. A **decision record** is a governed registry record (so R1–R16
+**Builds on:** [[FOUNDATIONS-v0.1]] (authority model §3; principles F1–F17) and [[REGISTRY-v0.1]] (record rules
+R1–R18) — both are assumed, not restated. A **decision record** is a governed registry record (so R1–R18
 apply: permanent id, versions-not-edits, bitemporal, provenance, signature, audit, personal-data-by-
 reference, etc.); this spec adds what a decision record must **contain and guarantee** on top of that.
 **Debt references** are to `../consolidation/DEBT-REGISTER.md` (A1–A61, B1–B18). *(to confirm)* = not traced
@@ -166,8 +166,8 @@ owner**. The record **states which**. The person is **told it was automated** an
 | D11 | Contest flow | PARTIAL/PLANNED | ADR-0048; #62; ADR-0122 |
 | D12 | Automated decisions re a person | VIOLATED/PLANNED | **B18**, B3; ADR-0056/0100 |
 
-**Tally:** 1 IN PLACE-leaning (D5, immutability), 4 PARTIAL (D2, D3, D8, D9), 3 VIOLATED (D1, D4, D6; D12
-also violated), 3 PLANNED (D7, D10, D11). D1 and D12 carry a mixed status; the governing gaps are **B3**
+**Tally:** 12 rules — 1 IN PLACE-leaning (D5, immutability), 4 PARTIAL (D2, D3, D8, D9), 4 VIOLATED (D1, D4,
+D6, D12), 3 PLANNED (D7, D10, D11). D1 and D12 carry a mixed status; the governing gaps are **B3**
 (deciding authority not recorded — D4), **A9** (denials not recorded — D6), and **B18** (engines decide —
 D12).
 

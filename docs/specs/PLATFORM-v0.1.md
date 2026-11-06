@@ -1,10 +1,10 @@
 # PLATFORM-v0.1 — Platform lifecycle: install, platform authority, tenants, onboarding, administration
 
 **Status:** Draft v0.1 · **Date:** 2026-11-03
-**Builds on:** [[FOUNDATIONS-v0.1]] (F1–F17), [[REGISTRY-v0.1]] (R1–R16), [[DECISION-v0.1]] (D1–D12),
+**Builds on:** [[FOUNDATIONS-v0.1]] (F1–F17), [[REGISTRY-v0.1]] (R1–R18), [[DECISION-v0.1]] (D1–D12),
 [[NETWORK-v0.1]] (N1–N12), [[ACCOUNT-v0.1]] (A1–A9/W1–W4), [[CLIENT-v0.1]] (C1–C6) — assumed, not restated.
 This spec governs the **platform itself**: what the installer creates, how platform authority is held and
-recovered, how tenants are onboarded and tiered, and how platform administration is exposed. Every object
+recovered, how tenants are onboarded and given a verification status, and how platform administration is exposed. Every object
 here is a governed registry record (REGISTRY), every authorizing act a decision (DECISION), authority only
 from recorded grants (FOUNDATIONS §3).
 **Debt references** → `../consolidation/DEBT-REGISTER.md` (A1–A61, B1–B18). *(to confirm)* = not traced.
@@ -67,11 +67,11 @@ A **recovery key split among named custodians**; **quorum required**; it can **o
 - **Refs:** ADR-0122 (break-glass open item); F11, F12.
 
 ### P6 — What platform authority decides
-Platform authority decides: **tenant policy and tiers**, **allowed external issuers and proofing sources**,
+Platform authority decides: **tenant policy and verification status**, **allowed external issuers and proofing sources**,
 **Network-creation permission**, and **tenant/Network suspension with recorded reasons**. **Security-sensitive
 policy changes go via ChangeRequest.**
 - **Status: PARTIAL / PLANNED.** A governed policy primitive exists (`governance.policy_rule`, rule engine
-  ADR-0088 S1) and ChangeRequest is first-class (ADR-0056). But tiers, the allowed-issuer/proofing registry,
+  ADR-0088 S1) and ChangeRequest is first-class (ADR-0056). But verification status, the allowed-issuer/proofing registry,
   Network-creation permission, and suspension-with-reason (N4) are PLANNED; allowed issuers are configured by
   env today (debt A5–A8), not a platform-authority policy record.
 - **Refs:** ADR-0088 (rule engine), ADR-0056 (CR); N4; A5–A8; DECISION D4/D6.
@@ -131,18 +131,18 @@ Approving an application creates: the **workspace**, a **permanent participant i
 
 ### P11 — Tenant roles
 **`tenant.admin`** (never zero; security-critical changes by a second holder) and **`network.creator`**
-(subject to tier and policy).
+(subject to verification status and policy).
 - **Status: PARTIAL.** Roles are defined (ADR-0122) with SoD + last-holder floor for `tenant.admin`;
-  `network.creator` exists. **Tier/policy gating of `network.creator`** and the per-tenant never-zero /
+  `network.creator` exists. **Verification-status/policy gating of `network.creator`** and the per-tenant never-zero /
   second-holder enforcement are **(to confirm)**.
 - **Refs:** ADR-0122; P9, NETWORK N3; F11.
 
 ### P12 — A tenant's own login system
-A tenant may run **its own login system only if tier and policy permit**; it is **scoped to that tenant**,
+A tenant may run **its own login system only if verification status and policy permit**; it is **scoped to that tenant**,
 carries **identity only** (F1), and its **approval is recorded** (F15).
 - **Status: PARTIAL / VIOLATED.** Pluggable IdP + per-tenant realms exist (ADR-0068, ADR-0117,
   identity-login-realms), and `authn.register_issuer` pins the tenant (F15 PARTIAL). But issuer trust is
-  **service-wide, approvable by membership.steward** today (NETWORK N7 VIOLATED), and **tier/policy gating**
+  **service-wide, approvable by membership.steward** today (NETWORK N7 VIOLATED), and **verification-status/policy gating**
   of running an own IdP is PLANNED.
 - **Refs:** ADR-0068, ADR-0117, identity-login-realms; F15, NETWORK N7; P9.
 
@@ -247,14 +247,14 @@ provider-gateway model never applies to the home issuer.
 | P4 | Platform tenant confers nothing | **VIOLATED** | **B2**, A17 |
 | P5 | platform.authority recorded, never zero, SoD | PARTIAL | ADR-0122; A17 |
 | P5a | Break-glass recovery (custodian quorum) | PLANNED | ADR-0122 (open item) |
-| P6 | Platform authority decides policy/tiers/issuers/suspension | PARTIAL/PLANNED | ADR-0088/0056; N4; A5–A8 |
+| P6 | Platform authority decides policy/verification-status/issuers/suspension | PARTIAL/PLANNED | ADR-0088/0056; N4; A5–A8 |
 | P7 | Onboarding mode recorded policy | PARTIAL/TO CONFIRM | ADR-0116; onboarding-composition |
 | P8 | Applications are records + steward review | PLANNED | ADR-0116; publish-request-review |
 | P8a | Verification methods (gov/company) | PLANNED | B8; ADR-0056 |
 | P9 | Tenant verification status (verified/unverified); unverified only when self-prov on; quotas, no Network/issuer/marketplace | PARTIAL | ADR-0051/0106 (transitional); A28, A50; COMPONENT CP2/CP8/CP10/CP11 |
 | P10 | Approval creates workspace+identity+keys+dir+admin | PARTIAL | network-join-provision; B9 (N6) |
 | P11 | Tenant roles (tenant.admin, network.creator) | PARTIAL | ADR-0122; N3 |
-| P12 | Tenant own login if tier+policy permit | PARTIAL/VIOLATED | ADR-0068/0117; F15; N7 |
+| P12 | Tenant own login if verification-status+policy permit | PARTIAL/VIOLATED | ADR-0068/0117; F15; N7 |
 | P13 | Suspension + closure + erasure | PLANNED | N4; R14; ADR-0125 |
 | P14 | Platform admin: server-side from recorded roles | PARTIAL/VIOLATED | B17, B1, B2/A25 |
 | P15 | Public front door (apply/verify/status only) | PLANNED/TO CONFIRM | public-apps; ADR-0111 |
@@ -266,7 +266,7 @@ provider-gateway model never applies to the home issuer.
 | P21 | Metered per tenant; provider+version per call (models: D3); recorded failover | PARTIAL | DECISION D3; ADR-0046..0050 metering |
 
 **Tally:** 0 IN PLACE, **10 PARTIAL** (P1, P2, P3, P5, P9, P10, P11, P16, P18, P21), 1 VIOLATED (**P4**),
-**8 PLANNED** (P5a, P8, P8a, P13, P15, P17, P19, P20), 3 mixed (P6, P7, P12, P14 carry PARTIAL+PLANNED/
+**8 PLANNED** (P5a, P8, P8a, P13, P15, P17, P19, P20), 4 mixed (P6, P7, P12, P14 carry PARTIAL+PLANNED/
 VIOLATED). The governing gap is **P4/B2/A17** — the platform tenant confers authority instead of a recorded
 `platform.authority` role (the ADR-0122 cutover closes P2/P4/P5). P16–P21 (shared services + providers) are
 almost entirely ahead of the build: gateways exist, but the governed provider catalog (P17), consent-on-egress
