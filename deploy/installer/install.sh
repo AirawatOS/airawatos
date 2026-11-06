@@ -62,12 +62,47 @@ SELF_MEMBERSHIP="${SELF_MEMBERSHIP:-0}"                         # §4: platform-
 # same convention as the service principals. conformance/.creds.json is GENERATED FROM Vault after install
 # (Phase 13, dev-only), so the fixture is derived from the live secrets, never a committed input.
 COMPOSE() { docker compose -p "$P" --project-directory "$LOCALDEV" -f "$F" "$@"; }
-XNET()  { COMPOSE exec -T network "$@"; }
-XAPP()  { COMPOSE exec -T app-host "$@"; }
+# L1-1b: installer-driven commands run with the ROOT token (install-time only); the long-running SERVICE
+# process authenticates with its own AppRole scoped token (prod-guard). `-e VAULT_TOKEN` on exec/run overrides
+# the container's approle env so the install step acts as root, and (for a one-off) prod-guard then skips its
+# AppRole login. VAULT_TOKEN is the installer-shell root discovered from the vault volume (below).
+XNET()  { COMPOSE exec -T -e VAULT_TOKEN="${VAULT_TOKEN:-}" network "$@"; }
+XAPP()  { COMPOSE exec -T -e VAULT_TOKEN="${VAULT_TOKEN:-}" app-host "$@"; }
 # One-off containers on a service image, WITHOUT pulling up its depends_on graph (used before the long-running
 # services exist, so they cannot wait on a not-yet-healthy network/kernel).
-XRUNNET()  { COMPOSE run --rm --no-deps -T network "$@"; }
-XRUNKERN() { COMPOSE run --rm --no-deps -T kernel "$@"; }
+XRUNNET()  { COMPOSE run --rm --no-deps -T -e VAULT_TOKEN="${VAULT_TOKEN:-}" network "$@"; }
+XRUNKERN() { COMPOSE run --rm --no-deps -T -e VAULT_TOKEN="${VAULT_TOKEN:-}" kernel "$@"; }
+
+# L1-1b — provision per-service Vault AppRoles (closes DEBT-B58). Uses ROOT (install-time) via the vault
+# container CLI. Enables approle, writes the least-privilege policies (stdin, no bind-mount), creates one role
+# per service, and writes each service's role-id+secret-id to its own bind-mounted env_file (per-service, so no
+# service can read another's secret-id). Idempotent. Must run BEFORE the keys/roles one-offs (their env_files
+# must exist) and before the all-services bring-up.
+VROOT() { COMPOSE exec -T -e VAULT_TOKEN="$VAULT_TOKEN" vault sh -lc "$1"; }
+_setup_vault_approle() {
+  echo "▶ bring-up: per-service Vault AppRoles + least-privilege policies (L1-1b)"
+  VROOT 'vault auth list -format=json 2>/dev/null | grep -q "approle/" || vault auth enable approle' >/dev/null 2>&1 || true
+  mkdir -p "$LOCALDEV/vault/approle"
+  # policy name : service(s) that use it : role name(s)
+  # (automation/event-relay/scheduler share the svc-scheduler policy but each gets its OWN role → own creds)
+  for pol in svc-kernel svc-network svc-identity svc-secrets svc-model-gateway svc-scheduler svc-app-host; do
+    VROOT "VAULT_TOKEN=$VAULT_TOKEN vault policy write $pol -" < "$LOCALDEV/vault/policies/$pol.hcl" >/dev/null \
+      || { echo "✗ vault policy write $pol failed"; exit 1; }
+  done
+  # role name : policy
+  for pair in kernel:svc-kernel network:svc-network identity:svc-identity secrets:svc-secrets \
+              model-gateway:svc-model-gateway app-host:svc-app-host \
+              automation:svc-scheduler event-relay:svc-scheduler scheduler:svc-scheduler; do
+    role="${pair%%:*}"; pol="${pair##*:}"
+    VROOT "vault write auth/approle/role/$role token_policies=$pol token_ttl=24h token_max_ttl=168h token_num_uses=0 secret_id_num_uses=0 secret_id_ttl=0" >/dev/null \
+      || { echo "✗ vault approle role $role failed"; exit 1; }
+    rid="$(VROOT "vault read -field=role_id auth/approle/role/$role/role-id" | tr -d '\r\n')"
+    sid="$(VROOT "vault write -f -field=secret_id auth/approle/role/$role/secret-id" | tr -d '\r\n')"
+    [ -n "$rid" ] && [ -n "$sid" ] || { echo "✗ vault approle creds for $role empty"; exit 1; }
+    printf 'VAULT_ROLE_ID=%s\nVAULT_SECRET_ID=%s\n' "$rid" "$sid" > "$LOCALDEV/vault/approle/$role.env"
+  done
+  echo "  ✓ 9 AppRoles provisioned; per-service env_files written (secret-ids not printed)"
+}
 
 # ARC-5 (slice-1a): the Kernel door is internal-only — the edge no longer proxies /kernel/. Readiness is checked
 # INSIDE the kernel container, not via the edge. (Network health stays at the edge /network/ — federation door.)
@@ -112,22 +147,22 @@ for i in $(seq 1 45); do
     && COMPOSE exec -T vault sh -lc 'VAULT_ADDR=http://127.0.0.1:8200 vault status >/dev/null 2>&1' && break
   sleep 2
 done
-# A fresh vault volume re-initialises with a NEW root token (persisted in its own data volume at
-# /vault/data/init.json); the compose VAULT_TOKEN (from .env) is stale after a wipe. Discover the live root
-# token and make it the VAULT_TOKEN every subsequent compose command interpolates (one-off `run` containers +
-# the final `up -d`), persisting it to .env. Idempotent on an already-up stack (re-reads the same token).
+# L1-1b: the root token is read from the vault volume (/vault/data/init.json) into the INSTALLER SHELL ONLY and
+# used for install-time provisioning (keys, roles, approle). It is NO LONGER written to .env or injected into any
+# long-running service — services authenticate with their own AppRole scoped token (DEBT-B58 closed). Any stale
+# VAULT_TOKEN line left in .env from an earlier build is REMOVED so the shared root cannot ride a service.
 VT_DISC="$(COMPOSE exec -T vault sh -lc "tr -d '\n ' < /vault/data/init.json 2>/dev/null | sed 's/.*\"root_token\":\"\\([^\"]*\\)\".*/\\1/'" 2>/dev/null | tr -d '\r')"
 if [ -n "$VT_DISC" ]; then
   export VAULT_TOKEN="$VT_DISC"
   if [ -f "$LOCALDEV/.env" ] && grep -q '^VAULT_TOKEN=' "$LOCALDEV/.env"; then
-    sed "s|^VAULT_TOKEN=.*|VAULT_TOKEN=$VT_DISC|" "$LOCALDEV/.env" > "$LOCALDEV/.env.tmp" && mv "$LOCALDEV/.env.tmp" "$LOCALDEV/.env"
-  else
-    printf 'VAULT_TOKEN=%s\n' "$VT_DISC" >> "$LOCALDEV/.env"
+    grep -v '^VAULT_TOKEN=' "$LOCALDEV/.env" > "$LOCALDEV/.env.tmp" && mv "$LOCALDEV/.env.tmp" "$LOCALDEV/.env"
+    echo "  · removed the shared VAULT_TOKEN from .env (root is install-time only now)"
   fi
-  echo "  · VAULT_TOKEN discovered from the vault volume (not printed)"
+  echo "  · root token read from the vault volume for install-time provisioning (not printed)"
 else
-  echo "  ⚠ could not read vault root token from /vault/data/init.json — relying on .env VAULT_TOKEN"
+  echo "✗ could not read the vault root token from /vault/data/init.json — cannot provision AppRoles"; exit 1
 fi
+_setup_vault_approle
 echo "▶ bring-up: signing + audit keys (Vault)"
 XRUNNET env INSTANCE="$INSTANCE" python3 - < "$SCRIPT_DIR/_keys.py" || { echo "✗ bring-up keys failed"; exit 1; }
 echo "▶ bring-up: split roles (create migrator/kernel_app/network_app; grant CREATE to migrator)"
