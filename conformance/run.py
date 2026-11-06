@@ -630,6 +630,42 @@ def run_internal_services_review_cases():
            "docrender.py:22 (link href, no scheme allow-list) + :53-57 (svg fence strips <script> only, leaves onload=/<foreignObject>). "
            "Proposed unit test: md_to_html('[x](javascript:...)') and an svg-onload fence, assert the js scheme + event handler are stripped.")
 
+def run_components_review_cases():
+    """Consolidation phase-5 COMPONENTS + SDKs review (slice 6). The slice's findings split into (a) items
+    already encoded against existing debt — the CLI-6/PTC-12 `/bridge`-as-protocol family (DEBT-A23; the
+    client-SDK aos.js embodiment), embed scope→service:* consent (DEBT-B12), capability self-assertion with the
+    steward-grant gate default-off (DEBT-A4), connector SSRF filter (DEBT-A11/B16) — and (b) six NEW findings
+    (B51-B56). The confined-runtime broker door and the aos SDK runtime are SOUND (broker-only /v1/*, fail-closed
+    token gate, no self-asserted roles). The NEW findings are code-audit facts whose black-box reproduction needs
+    fixtures the seeded healthy local-dev stack does not ship (a planted component, a cert'd component with
+    differing on-disk bytes, a run-token to replay, a component_asset with no network listing), so they are
+    recorded SKIP_BUILD with the proposed test — their rules (CMP-5/6/7, FND-8/9/10) are already VIOLATED in the
+    matrix from other cases, so the matrix reduction is unchanged. See COMPONENTS-SDK-REVIEW.md."""
+    record("COMPONENT","CMP-5/CMP-6/DEBT-B51","default/in-process component runtime inherits full host env (no confinement)",
+           "expected-fail","SKIP_BUILD",
+           "launcher.py:248-261 runs a no-profile component as a host subprocess with dict(os.environ,...). "
+           "Proposed test: install a component that prints os.environ; assert SECRETS_INTERNAL/SECRETS_URL are NOT present (scrubbed env).")
+    record("COMPONENT","CMP-5/CMP-11/DEBT-B52","placed component container has no egress confinement (flat internal net)",
+           "expected-fail","SKIP_BUILD",
+           "launcher.py:310-320,450-455 docker run with no --network none / egress proxy / host allow-list. "
+           "Proposed test: from a placed container, assert a direct POST to filestore:8095/kernel:8080 is refused by network policy (not merely by the service gate).")
+    record("COMPONENT","CMP-3/FND-9/DEBT-B53","run-token has no expiry and no audience (replayable)",
+           "expected-fail","SKIP_BUILD",
+           "kernel app.py:1126-1130 _run_spec is a bare dict lookup (no exp/aud/iss). "
+           "Proposed test: capture a run-token, replay /v1/write after a delay / with a wrong audience expectation; assert refusal.")
+    record("COMPONENT","CMP-7/FND-8/DEBT-B54","on-demand filestore delivery is fail-open + trusts an unsigned listing digest",
+           "expected-fail","SKIP_BUILD",
+           "app_host.py:3771-3775 refuses only `if want and got!=want`; want is a try/except network-store value, never verify_certificate'd (store.py:82 stores no signature). "
+           "Proposed test: seed a platform.component_asset with NO matching network listing, trigger on-demand invoke; assert it REFUSES (currently materialises).")
+    record("COMPONENT","CMP-7/FND-8/DEBT-B55","launch-time digest rebind enforced only on the baked path",
+           "expected-fail","SKIP_BUILD",
+           "host.py:206 gates the artifact_digest recompute behind `if baked and cert`; un-baked (default) bind-mounts without rebinding. "
+           "Proposed test: launch a cert'd component with host.launch(baked=False) and on-disk bytes != certified digest; assert refusal (currently runs).")
+    record("COMPONENT","CMP-7/FND-8/DEBT-B56","unverified-digest certify accepted; host ignores conformance.verified",
+           "expected-fail","SKIP_BUILD",
+           "network/api.py:1327-1328 signs a caller-supplied evidence_digest with conformance.verified=false; host.py:87 checks only status=='valid'. "
+           "Proposed test: POST /v1/certify with only evidence_digest=<arbitrary>, publish, deliver; assert host refuses the conformance.verified=false cert.")
+
 def run_kernel_review_cases():
     """Consolidation phase-5 Kernel review (slice 1): cases for Kernel-relevant rules that were NO TEST in
     STATUS-MATRIX. Black-box/internal where feasible (expected-fail where the review found a violation);
@@ -1001,7 +1037,7 @@ def main():
         # preflight on kernel
         st, _, _ = _req("GET", INTERNAL["kernel"]+"/healthz")
         if st != 200: print("PREFLIGHT: kernel:8080/healthz -> %s" % st)
-        run_internal_cases(); run_kernel_review_cases(); run_identity_review_cases(); run_network_review_cases(); run_apphost_review_cases(); run_internal_services_review_cases()
+        run_internal_cases(); run_kernel_review_cases(); run_identity_review_cases(); run_network_review_cases(); run_apphost_review_cases(); run_internal_services_review_cases(); run_components_review_cases()
     else:
         print("target %s (realm %s); credentials: %s" % (BASE, REALM, "supplied (%d)"%len(CREDS) if CREDS else "none"))
         st, _, _ = http("GET", "/healthz")

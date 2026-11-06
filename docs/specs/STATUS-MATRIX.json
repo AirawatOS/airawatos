@@ -8,7 +8,7 @@
   "provenance": {
     "local-dev": {
       "git_sha": "",
-      "ts": "2026-11-06T17:19:27Z",
+      "ts": "2026-11-06T17:38:28Z",
       "modes": [
         "external",
         "internal"
@@ -347,13 +347,13 @@
         "local-dev": "NO TEST"
       },
       "CMP-5": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "CMP-6": {
         "local-dev": "PLANNED(needs-build)"
       },
       "CMP-7": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "CMP-8": {
         "local-dev": "NO TEST"
@@ -365,7 +365,7 @@
         "local-dev": "NO TEST"
       },
       "CMP-11": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "CMP-12": {
         "local-dev": "NO TEST"

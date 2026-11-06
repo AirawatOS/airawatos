@@ -2,7 +2,7 @@
 
 **Generated** by `conformance/build_matrix.py` from `conformance/results/*.json` (written by `conformance/run.py --matrix`). **Do not hand-edit** — regenerate after a conformance run. This is the conformance-derived single source of truth for per-rule status; the specs reference it (ADR: STATUS-MATRIX-DESIGN.md).
 
-- **local-dev** — measured: modes external+internal, git ``, 2026-11-06T17:19:27Z
+- **local-dev** — measured: modes external+internal, git ``, 2026-11-06T17:38:28Z
 - **production** — *PROJECTED*: no production conformance run yet; not asserted (stand up per docs/operator/FRESH-INSTALL-TEST.md §Step 3, then run the suite with AOS_ENV=production).
 
 **Derived status:** HELD (all cited cases PASS) · PARTIAL (PASS + known-violation XFAIL) · VIOLATED (only XFAIL — tracked as debt) · PLANNED(needs-build) (only SKIP_BUILD, not black-box reachable) · UNVERIFIED(creds) (only SKIP_CREDS — fix the fixture) · REVIEW (XPASS — spec lags code) · REGRESSION (a FAIL — contradicts spec) · NO TEST (no case cites the rule yet).
@@ -149,15 +149,15 @@
 |---|---|---|---|
 | `CMP-1` | NO TEST | projected | — |
 | `CMP-2` | NO TEST | projected | — |
-| `CMP-3` | PLANNED(needs-build) | projected | run token = declaration ∩ authority |
+| `CMP-3` | PLANNED(needs-build) | projected | run token = declaration ∩ authority; run-token has no expiry and no audience (replayable) |
 | `CMP-4` | NO TEST | projected | — |
-| `CMP-5` | NO TEST | projected | — |
-| `CMP-6` | PLANNED(needs-build) | projected | records & files only via the broker under run token + declared scopes |
-| `CMP-7` | NO TEST | projected | — |
+| `CMP-5` | PLANNED(needs-build) | projected | default/in-process component runtime inherits full host env (no confinement); placed component container has no egress confinement (flat internal net) |
+| `CMP-6` | PLANNED(needs-build) | projected | default/in-process component runtime inherits full host env (no confinement); records & files only via the broker under run token + declared scopes |
+| `CMP-7` | PLANNED(needs-build) | projected | launch-time digest rebind enforced only on the baked path; on-demand filestore delivery is fail-open + trusts an unsigned listing digest; unverified-digest cert |
 | `CMP-8` | NO TEST | projected | — |
 | `CMP-9` | NO TEST | projected | — |
 | `CMP-10` | NO TEST | projected | — |
-| `CMP-11` | NO TEST | projected | — |
+| `CMP-11` | PLANNED(needs-build) | projected | placed component container has no egress confinement (flat internal net) |
 | `CMP-12` | NO TEST | projected | — |
 | `CMP-13` | NO TEST | projected | — |
 | `CMP-14` | NO TEST | projected | — |
@@ -230,6 +230,6 @@
 
 | environment | HELD | PARTIAL | VIOLATED | PLANNED(needs-build) | UNVERIFIED(creds) | REVIEW | REGRESSION | NO TEST | projected |
 |---|---|---|---|---|---|---|---|---|---|
-| local-dev | 16 | 4 | 4 | 75 | 0 | 0 | 0 | 60 | 0 |
+| local-dev | 16 | 4 | 4 | 78 | 0 | 0 | 0 | 57 | 0 |
 | production | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 159 |
 
