@@ -207,6 +207,34 @@ as a **public, permanent** decision record (DECISION) — who invoked, which cus
 audit log and never editable. Setup is part of install (production/rehearsal); the shares' delivery is
 out-of-band. Depends on P5 (recorded `platform.authority` role) landing first.
 
+## Who does what — operator vs first platform authority
+
+Two distinct humans, by design (FOUNDATIONS F11 separation of duties; PLATFORM P3 — the operator holds **no**
+governance role):
+
+| | **Operator** (host / infra) | **First platform authority** (governance) |
+|---|---|---|
+| Owns | the host, Docker, Vault, the OS, backups, the perimeter | platform policy: tenants/tiers, allowed issuers, the provider catalog (P6/P17) |
+| Does at install | provisions the host; runs `install.sh --profile production`; holds Vault + unseal custody; passes the host pre-flight | receives the **one-time enrolment credential** (step 5), claims `platform.authority` once, then adds a **second holder** (SoD, P5) |
+| Must NOT | hold any governance role; grant `platform.authority` to themselves | touch the host, Vault internals, or DB roles |
+| Skills needed | Linux/Docker ops, Vault operation (unseal, policies — not dev-root), TLS/perimeter, backup/restore drills | the governance model (tenants, roles, consent, provider approval) — no infra skills required |
+| Credentials | Vault token (scoped, not root), host SSH | a login + the one-time enrolment token; later a wallet/second factor |
+
+**Break-glass custodians** (step 5, P5a) are a third set — named individuals each holding one Shamir share,
+used only under quorum to restore a lost `platform.authority`; every use is a public permanent record.
+
+## Target state (where the installer is heading)
+
+- **Signed, prebuilt images** pinned by digest (not source builds); the installer verifies image signatures
+  before standing anything up (supply-chain: COMPONENT CP-series).
+- **One command**: `install.sh --profile production` runs Phase 0 → base-OS → … → done, idempotently, with
+  the host pre-flight gating it; no manual phase-by-phase steps.
+- **Prompts, not flags**, for the few human decisions (instance name, the first-authority credential delivery
+  channel, custodian emails) — everything else generated into Vault.
+- **Clean handover**: install ends by printing the operator checklist (backup drill scheduled, perimeter
+  verified, Vault unseal custody recorded) and the first-authority enrolment instructions, then the operator
+  steps back from governance entirely.
+
 ## Step 7 — extended standing rule
 
 Every code slice ends with: local-dev rebuild + live check of the specific fix + conformance both modes **and
