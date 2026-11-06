@@ -166,3 +166,69 @@ ARC-4 micro-segmentation. The flow-map test (`conformance/flow_map_test.py`) is 
 missing is the **separation that makes the doors unbypassable** — a flat network (ARC-1/ARC-5), a Kernel door and
 stores that are not yet internal-only (ARC-5/ARC-3), shadow-default gates (ARC-6), and a shared Vault token
 (ARC-7). Closing those is the substance of [FIX-PLAN.md](../consolidation/FIX-PLAN.md) layer 1.
+
+---
+
+## f. Request flow: login → app → Kernel (CURRENT vs TARGET)
+
+The authenticated request path a person actually drives, and where each check sits. (Grounded in `identity.py`,
+`app_host.py`/`hostcore.py`, `tokens.py`, the Kernel P0 gate.) This is the first-party desktop path; the embed
+/participant SDK differs — the citizen's bearer JWT lives in the browser there (DEBT-B31/CLI-3).
+
+### CURRENT — each gap marked by its DEBT id
+
+```
+ browser                         App Host (D2)                      Identity (D4)        Kernel (D7)
+   │  POST /realms/<r>/login ──────▶│ forward creds ──────────────────▶│                    │
+   │  (creds, no token)             │                                  │ password?+lockout  │
+   │                                │                                  │ mint EdDSA JWT     │
+   │                                │◀──────── access_token ───────────│ {sub,tenant,ROLES, │
+   │                                │ tokens.verify(sig+exp)           │  iss,aud,exp}      │
+   │                                │   └─ NO expected_aud  ◀───────────────── [DEBT-B59] user token not audience-bound
+   │                                │ account-hold lookup  ◀──────────────────────────────── [DEBT-B47] fails OPEN on registry error
+   │                                │ _SESSIONS[sid]={token,claims}  ◀───────────────────────[DEBT-B10] in-memory → restart = global logout (FND-5)
+   │◀── Set-Cookie airawat_sid ─────│   (opaque; JWT stays server-side)◀──────────────────── [DEBT-B45] cookie no Secure; no CSRF/Origin
+   │                                │                                  │                    │
+   │  POST /bridge/<verb>  ─────────▶│ _ensure_session (exp+30, fail-closed)                  │
+   │  (cookie only, app_id in body) │ route gate: _effective_roles(claims) & ADMIN_ROLES     │
+   │                                │   └─ authority read from TOKEN ROLES ◀───────────────── [DEBT-B1] not a recorded grant (FND-1/2)
+   │                                │ forward user's OWN token ───────────────────────────────▶│ tokens.verify(sig+exp), NO aud  [DEBT-B59]
+   │                                │   └─ Kernel sees the USER, not "App Host for user" ◀───── [DEBT-B60] on-behalf-of not recorded (FND-17)
+   │                                │                                  │           P0 registry authz gate (recorded grants, own-tenant) ✓
+```
+
+### TARGET
+
+```
+ browser                         App Host (D2)                      Identity (D4)        Kernel (D7)
+   │  login ───────────────────────▶│ forward creds ──────────────────▶│ password + lockout │
+   │                                │◀── user token (aud: app-host) ───│ identity-only       │
+   │                                │ verify(sig+exp, expected_aud=app-host)  ◀────────────── audience-bound (B59 closed)
+   │                                │ account-hold: fail-CLOSED on error ◀─────────────────── (B47 closed)
+   │                                │ session in a DURABLE store (survives restart, shardable)◀ (B10/FND-5 closed)
+   │◀── Set-Cookie (Secure, HttpOnly, SameSite) + CSRF token ───────────◀──────────────────── (B45 closed)
+   │  POST /bridge/<verb> + CSRF ───▶│ ONE decision fn over RECORDED state (grant/role/consent),
+   │                                │   writes a decision record  ◀──────────────────────────  (B1 closed → FND-2/FND-12)
+   │                                │ mint on-behalf-of token: App Host SERVICE identity acting FOR the user,
+   │                                │   audience-bound to svc:kernel ─────────────────────────▶│ verify(aud=svc:kernel)
+   │                                │                                                          │ records BOTH principals
+   │                                │                                                          │   (actor=app-host, represented=user)  (B60 closed → FND-17)
+   │                                │                                                          │ P0 registry authz over recorded grants ✓
+```
+
+### Gaps → owning FIX-PLAN layer
+
+| Gap (DEBT) | What | Owning layer ([FIX-PLAN](../consolidation/FIX-PLAN.md)) |
+|---|---|---|
+| **B1** | route/registry authority read from token `roles`, not a recorded grant | Cross-cutting **T1**; lands in Layer 2 (Kernel), 5 (App Host), 6 (services) |
+| **B45** | session cookie no `Secure`; no CSRF/Origin check | **Layer 5** (App Host) |
+| **B47** | account-hold check fails open on registry error | **Layer 5** (App Host) |
+| **B10** | app-host `_SESSIONS` in-memory → restart = global logout (FND-5) | **Layer 5** (App Host) — thread **T5** |
+| **B59** | user token not audience-bound; verifiers don't check `aud` on the user path | **Layer 3** (Identity mints audience/exchange) + **Layer 5** (App Host verify) |
+| **B60** | user→App Host→Kernel on-behalf-of not recorded; Kernel can't tell the service from the user | **Layer 2** (Kernel records both principals) + **Layer 5** (App Host mints on-behalf-of) — relates to FND-17 |
+
+Two ids are **new** (opened with this mapping): **DEBT-B59** (no audience on the user-token path) and **DEBT-B60**
+(unrecorded on-behalf-of). The rest were already registered (B1, B45, B47, B10). The **TARGET** is one fail-closed
+decision function over recorded state that writes a decision record, plus an **audience-bound on-behalf-of call**
+where the App Host authenticates to the Kernel as its own service identity acting for the user — which is what
+Layer-1 slice-1b's per-service Vault identities begin to make possible (each service gets its own credential).
