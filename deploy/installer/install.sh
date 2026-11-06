@@ -13,7 +13,8 @@
 #      platform.authority is not yet representable (governance.role_assignment@0.1.0 has no platform scope/role);
 #      see PLAN.md "platform.authority is not yet representable" (next slice, design required).
 set -euo pipefail
-cd "$(dirname "$0")"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"                     # absolute, captured before any cd
+cd "$SCRIPT_DIR"
 
 # AirawatOS installer (docs/operator/INSTALLER.md). All CORE steps run in every profile; DEV-ONLY extras
 # (platform test users, synthetic perf data) run only in dev (test users also in rehearsal, for the
@@ -42,13 +43,16 @@ esac
 echo "▶ AirawatOS installer — profile=$PROFILE (test_users=$RUN_TEST_USERS perf_seed=$RUN_PERF_SEED)"
 
 P=airawatos-localdev
-F=docker-compose.dev.yml
+# The compose project lives in deploy/local-dev/; this installer lives in deploy/installer/. Resolve the
+# local-dev dir relative to this script so `docker compose` finds the project regardless of CWD.
+LOCALDEV="$(cd "$SCRIPT_DIR/../local-dev" && pwd)"
+F="$LOCALDEV/docker-compose.dev.yml"
 INSTANCE="${INSTANCE:-localdev}"
 OPERATOR_PASSWORD="${OPERATOR_PASSWORD:-}"                      # #282: NO committed literal. Empty ⇒ ensure_install
                                                                # GENERATES the admin password into Vault (reused
                                                                # idempotently); bootstrap reads it back after Phase 1.
 SELF_MEMBERSHIP="${SELF_MEMBERSHIP:-0}"                         # §4: platform-tenant self-membership is OPT-IN
-COMPOSE() { docker compose -p "$P" --project-directory . -f "$F" "$@"; }
+COMPOSE() { docker compose -p "$P" --project-directory "$LOCALDEV" -f "$F" "$@"; }
 XNET()  { COMPOSE exec -T network "$@"; }
 XAPP()  { COMPOSE exec -T app-host "$@"; }
 
