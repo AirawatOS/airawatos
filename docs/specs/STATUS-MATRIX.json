@@ -7,8 +7,8 @@
   ],
   "provenance": {
     "local-dev": {
-      "git_sha": "ddde851",
-      "ts": "2026-11-06T13:43:35Z",
+      "git_sha": "9502399",
+      "ts": "2026-11-06T14:31:20Z",
       "modes": [
         "external",
         "internal"
@@ -51,7 +51,7 @@
         "local-dev": "HELD"
       },
       "FND-12": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "FND-13": {
         "local-dev": "NO TEST"
@@ -74,13 +74,13 @@
         "local-dev": "PLANNED(needs-build)"
       },
       "REG-2": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "REG-3": {
         "local-dev": "PLANNED(needs-build)"
       },
       "REG-4": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "REG-5": {
         "local-dev": "HELD"
@@ -92,16 +92,16 @@
         "local-dev": "PLANNED(needs-build)"
       },
       "REG-8": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "REG-9": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "REG-10": {
         "local-dev": "PLANNED(needs-build)"
       },
       "REG-11": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "REG-12": {
         "local-dev": "PLANNED(needs-build)"
@@ -122,7 +122,7 @@
         "local-dev": "PLANNED(needs-build)"
       },
       "REG-18": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       }
     },
     "DECISION": {
@@ -130,7 +130,7 @@
         "local-dev": "PLANNED(needs-build)"
       },
       "DEC-2": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "DEC-3": {
         "local-dev": "PLANNED(needs-build)"
@@ -139,7 +139,7 @@
         "local-dev": "PLANNED(needs-build)"
       },
       "DEC-5": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "DEC-6": {
         "local-dev": "PLANNED(needs-build)"
@@ -151,7 +151,7 @@
         "local-dev": "PLANNED(needs-build)"
       },
       "DEC-9": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "DEC-10": {
         "local-dev": "PLANNED(needs-build)"
@@ -341,7 +341,7 @@
         "local-dev": "NO TEST"
       },
       "CMP-3": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "CMP-4": {
         "local-dev": "NO TEST"
@@ -350,7 +350,7 @@
         "local-dev": "NO TEST"
       },
       "CMP-6": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "CMP-7": {
         "local-dev": "NO TEST"

@@ -2,7 +2,7 @@
 
 **Generated** by `conformance/build_matrix.py` from `conformance/results/*.json` (written by `conformance/run.py --matrix`). **Do not hand-edit** — regenerate after a conformance run. This is the conformance-derived single source of truth for per-rule status; the specs reference it (ADR: STATUS-MATRIX-DESIGN.md).
 
-- **local-dev** — measured: modes external+internal, git `ddde851`, 2026-11-06T13:43:35Z
+- **local-dev** — measured: modes external+internal, git `9502399`, 2026-11-06T14:31:20Z
 - **production** — *PROJECTED*: no production conformance run yet; not asserted (stand up per docs/operator/FRESH-INSTALL-TEST.md §Step 3, then run the suite with AOS_ENV=production).
 
 **Derived status:** HELD (all cited cases PASS) · PARTIAL (PASS + known-violation XFAIL) · VIOLATED (only XFAIL — tracked as debt) · PLANNED(needs-build) (only SKIP_BUILD, not black-box reachable) · UNVERIFIED(creds) (only SKIP_CREDS — fix the fixture) · REVIEW (XPASS — spec lags code) · REGRESSION (a FAIL — contradicts spec) · NO TEST (no case cites the rule yet).
@@ -18,11 +18,11 @@
 | `FND-5` | PLANNED(needs-build) | projected | durable authority survives restart |
 | `FND-6` | HELD | projected | unknown schema handled opaquely (pos) |
 | `FND-7` | PLANNED(needs-build) | projected | kernel authorizes with Network down |
-| `FND-8` | PARTIAL | projected | anonymous kernel read denied (internal) [debt DEBT-A1]; anonymous read denied (abuse) [debt DEBT-A1]; anonymous write denied (abuse) |
+| `FND-8` | PARTIAL | projected | anonymous kernel read denied (internal) [debt DEBT-A1]; anonymous read denied (abuse) [debt DEBT-A1]; anonymous write denied (abuse); unauthenticated /v1/compon |
 | `FND-9` | PLANNED(needs-build) | projected | runtime-manager /invoke fail-open (abuse); secrets /fetch accepts w/o internal token (abuse); secrets /materialize accepts w/o internal token (abuse) |
 | `FND-10` | PARTIAL | projected | automation /events accepts without a service token (abuse); filestore refuses a wrong-audience token (abuse); filestore refuses an anonymous call (abuse); model |
 | `FND-11` | HELD | projected | component.publisher refused at kernel admin (registry.usage); dev-sandbox refused at kernel admin (registry.usage) |
-| `FND-12` | NO TEST | projected | — |
+| `FND-12` | PLANNED(needs-build) | projected | every authz decision audited (allow+deny); failed-auth logged |
 | `FND-13` | NO TEST | projected | — |
 | `FND-14` | PLANNED(needs-build) | projected | role assignment names its grantor (granted_by) |
 | `FND-15` | HELD | projected | forged role+foreign-iss token rejected (abuse); human (platauth) refused a service audience; scheduler may request its recorded audience (svc:automation); sched |
@@ -34,37 +34,37 @@
 | rule | local-dev | production | cases (provenance) |
 |---|---|---|---|
 | `REG-1` | PLANNED(needs-build) | projected | write then re-read by id — id stable |
-| `REG-2` | NO TEST | projected | — |
+| `REG-2` | PLANNED(needs-build) | projected | schema-governed writes; no ungoverned/ad-hoc shapes |
 | `REG-3` | PLANNED(needs-build) | projected | supersede creates new version; prior addressable |
-| `REG-4` | NO TEST | projected | — |
+| `REG-4` | PLANNED(needs-build) | projected | valid + recorded time |
 | `REG-5` | HELD | projected | forged-token write denied (abuse) |
 | `REG-6` | VIOLATED | projected | anonymous existence-check denied (abuse) [debt DEBT-A1]; anonymous kernel read denied (internal) [debt DEBT-A1]; anonymous read denied (abuse) [debt DEBT-A1] |
 | `REG-7` | PLANNED(needs-build) | projected | written record carries provenance [debt DEBT-A2 shadow] |
-| `REG-8` | NO TEST | projected | — |
-| `REG-9` | NO TEST | projected | — |
+| `REG-8` | PLANNED(needs-build) | projected | Kernel/participant signature on each committed version |
+| `REG-9` | PLANNED(needs-build) | projected | idempotent writes (content-hash dedup) |
 | `REG-10` | PLANNED(needs-build) | projected | deterministic resolution over records (pos) |
-| `REG-11` | NO TEST | projected | — |
+| `REG-11` | PLANNED(needs-build) | projected | schemas are records; owner != adopter |
 | `REG-12` | PLANNED(needs-build) | projected | trust-bearing write audited |
 | `REG-13` | HELD | projected | unknown schema handled opaquely (pos) |
 | `REG-14` | PLANNED(needs-build) | projected | personal data by reference; erasure |
 | `REG-15` | PLANNED(needs-build) | projected | public = schema flag via CR |
 | `REG-16` | PLANNED(needs-build) | projected | archived version resolves identically |
 | `REG-17` | PLANNED(needs-build) | projected | Kernel→Vault uses its own service identity scoped to transit encrypt/decrypt/hmac on rec-*/idx-* (never root); fails closed if Vault down; REG-9 idempotency ove |
-| `REG-18` | NO TEST | projected | — |
+| `REG-18` | PLANNED(needs-build) | projected | files are records (Kernel-mediated bytes) |
 
 ## DECISION
 
 | rule | local-dev | production | cases (provenance) |
 |---|---|---|---|
 | `DEC-1` | PLANNED(needs-build) | projected | protected authz emits a decision record |
-| `DEC-2` | NO TEST | projected | — |
+| `DEC-2` | PLANNED(needs-build) | projected | decision record contents |
 | `DEC-3` | PLANNED(needs-build) | projected | replayable; model output as input |
 | `DEC-4` | PLANNED(needs-build) | projected | decider needs recorded authority [debt DEBT-B3] |
-| `DEC-5` | NO TEST | projected | — |
+| `DEC-5` | PLANNED(needs-build) | projected | decision records never edited |
 | `DEC-6` | PLANNED(needs-build) | projected | denial recorded with reason [debt DEBT-A9] |
 | `DEC-7` | PLANNED(needs-build) | projected | personal data in decision by reference |
 | `DEC-8` | PLANNED(needs-build) | projected | reason codes; subject reads own decisions |
-| `DEC-9` | NO TEST | projected | — |
+| `DEC-9` | PLANNED(needs-build) | projected | decisions linked (correlation/op ids) to CRs + audit |
 | `DEC-10` | PLANNED(needs-build) | projected | every decryption of personal data produces a full decision record (actor/subject/purpose/basis); personal-data read always full record |
 | `DEC-11` | PLANNED(needs-build) | projected | contest flow; reviewer != decider |
 | `DEC-12` | PLANNED(needs-build) | projected | automated decision labelled + human authority [debt DEBT-B18] |
@@ -149,10 +149,10 @@
 |---|---|---|---|
 | `CMP-1` | NO TEST | projected | — |
 | `CMP-2` | NO TEST | projected | — |
-| `CMP-3` | NO TEST | projected | — |
+| `CMP-3` | PLANNED(needs-build) | projected | run token = declaration ∩ authority |
 | `CMP-4` | NO TEST | projected | — |
 | `CMP-5` | NO TEST | projected | — |
-| `CMP-6` | NO TEST | projected | — |
+| `CMP-6` | PLANNED(needs-build) | projected | records & files only via the broker under run token + declared scopes |
 | `CMP-7` | NO TEST | projected | — |
 | `CMP-8` | NO TEST | projected | — |
 | `CMP-9` | NO TEST | projected | — |
@@ -230,6 +230,6 @@
 
 | environment | HELD | PARTIAL | VIOLATED | PLANNED(needs-build) | UNVERIFIED(creds) | REVIEW | REGRESSION | NO TEST | projected |
 |---|---|---|---|---|---|---|---|---|---|
-| local-dev | 13 | 2 | 1 | 38 | 0 | 0 | 0 | 105 | 0 |
+| local-dev | 13 | 2 | 1 | 50 | 0 | 0 | 0 | 93 | 0 |
 | production | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 159 |
 
