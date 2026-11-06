@@ -21,6 +21,39 @@ Do not start §4 on production until Stage 0, 0b, 0c and 1 are green.
 
 ---
 
+## Hotfixes awaiting production (local-dev verified; the §4 image rebuilds MUST include them)
+
+Security fixes landed and verified in **local-dev** since the current EC2 images, each proven by a conformance
+case and/or unit test. They are **not on EC2** (EC2 was touched only by read-only audits). The §4 image
+rollouts rebuild amd64 images from each repo's HEAD, so they carry these commits — but the local `dev-hard*`
+tags they were baked into are local-only and **must not** be shipped (Stage 0b removes `dev-*` images). Confirm
+each production image's OCI source-commit label covers the commit below.
+
+**Headline hotfixes:**
+
+| DEBT | fix | repo · commit | prod image (rebuild from HEAD) | verified in local-dev |
+|---|---|---|---|---|
+| **DEBT-B22** | admin-gate `/v1/components/install` before any processing — close the unauthenticated run-token mint (FND-8) | kernel `b04b8d9` · conformance `881fb25` | `airawatos-kernel` (local bake tag `dev-hard6`) | FND-8 unauth-install XFAIL→PASS; EC2 read-only check confirmed kernel is not publicly routed |
+| **DEBT-B28** | roleless account-create ⇒ **no** roles (never `platform.tenant-admin` by omission); installer Phase-9 double-POST workaround removed | platform-spec `6d5e319` · root `448e855` | `airawatos-reference` (local bake tag `dev-hard9`) | unit `test_identity_hotfix_b28_b29.py` + live `FND-1/DEBT-B28` PASS; fresh install platauth/platnone roles=(none) |
+| **DEBT-B29** | identity account-write gates fail **closed** on unset/empty `IDENTITY_INTERNAL` (clear error) + `assert_internal_secret_configured` refuses production boot without it; committed literal default removed | platform-spec `6d5e319` · root `448e855` | `airawatos-reference` (`dev-hard9`) | unit test (empty-secret fail-closed + prod boot refusal) + live `FND-9/DEBT-B29` PASS |
+
+**Earlier local-only hardening also awaiting production** (same image rebuilds; each with its commit):
+
+*Identity (`platform-spec`):* `8c0b7e5` `/users` POST merges, never clobbers (DEBT-A73) · `830ee7c` PBKDF2-SHA256
+@600k + rehash-on-login · `2d48721` durable+shared brute-force lockout (Postgres, memory fallback) · `1fcf41f`
+lockout DB as least-privilege role, password from Vault · `f72e9bd` alert on lockout-store fallback + mode on
+`/healthz` · `258c6f0` `svc:filestore` ingress gate (shadow) · `ad729f7` component delivery surfaces registry
+write failures (never false success, D1).
+
+*Kernel (`kernel`):* `021fa22` issuer-scope admin authority + drop bare slugs + durable admin audit · `ad6fd0c`
+admin-gate `GET /v1/components` + strip `run_token` (DEBT-B15) · `ae8d01f`+`ac3a24f` 4b least-privilege DB
+(kernel boots as non-superuser `kernel_app`; migrator owns DDL).
+
+These are additive to — not a replacement for — the ADR-0124/0122/#282 series that the rest of this plan rolls
+out; they are called out here so the §4 rebuilds and the §8 gate explicitly account for them.
+
+---
+
 ## 0. Stage 0 — backups + restore drill (before touching anything)
 
 A deploy that flips authentication/authority enforcement must be recoverable to the exact pre-cutover state.
