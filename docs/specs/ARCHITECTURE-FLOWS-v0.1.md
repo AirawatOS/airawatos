@@ -232,3 +232,32 @@ Two ids are **new** (opened with this mapping): **DEBT-B59** (no audience on the
 decision function over recorded state that writes a decision record, plus an **audience-bound on-behalf-of call**
 where the App Host authenticates to the Kernel as its own service identity acting for the user — which is what
 Layer-1 slice-1b's per-service Vault identities begin to make possible (each service gets its own credential).
+
+---
+
+## g. Per-service Vault policies (ARC-7, slice-1b — closes DEBT-B58)
+
+The shared root `VAULT_TOKEN` is removed from every service. Each service authenticates to Vault via its own
+**AppRole** (role-id + secret-id injected per-service; login done in the shared `prod-guard.sh` entrypoint) and
+receives a **short-lived renewable** token scoped to a **least-privilege policy** that grants only the paths its
+doors need. Policy files live in `deploy/local-dev/vault/policies/`; the installer creates them (step 3). The
+root token is used only during install, then kept off every running service (step 4 guard refuses it).
+
+| Service | Vault policy | Paths granted (least privilege) | Widened? |
+|---|---|---|---|
+| kernel | `svc-kernel` | `secret/data/localdev/kernel-app/*` (DB pw) + `transit/*` | **transit** (per brief; active use is REG-17/B23 future) |
+| network | `svc-network` | `network-app` pw + `localdev-network/trust-{reader,writer,plane}/*` + `transit/*` | no (transit = authority key) |
+| identity | `svc-identity` | `identity-lockout` pw + `transit/*` | no (transit = issuer key) |
+| secrets | `svc-secrets` | `secret/data/*` + `secret/metadata/*` (read/write/delete) | **yes** — it IS the KV broker; per-(tenant,component) authz is in `secrets.py`'s own gate |
+| model-gateway | `svc-model-gateway` | `secret/data/*` (read/write) | **yes** — per-tenant provider-key broker |
+| scheduler / automation / event-relay | `svc-scheduler` | `secret/data/localdev-operator/scheduler/*` (one principal pw) | no |
+| app-host | `svc-app-host` | `localdev-operator/*`, `localdev-network/component-publisher/*`, `localdev-developer/*` | modest — scoped to the 3 principal-bearing tenants, not exact principal names |
+| filestore, notify, workflow, decision | *(none)* | — they use no Vault door | n/a |
+
+**Widened policies, recorded (step 7 — "never widen without recording why"):** `svc-secrets` and
+`svc-model-gateway` are broad on the KV data plane because both are *secret brokers* by design (ADR-0124) —
+their fine-grained per-(tenant,component) authorization lives in the service's own request gate, not the Vault
+policy; `svc-kernel` carries `transit/*` per the slice brief ahead of its active transit use; `svc-app-host` is
+scoped to three tenant prefixes rather than exact principal names. Everything else is tight (one or two exact
+paths). Tokens are renewable with a bounded TTL; an auto-renewer (Vault Agent sidecar) is the production
+follow-up for truly short tokens — recorded, not yet built.
