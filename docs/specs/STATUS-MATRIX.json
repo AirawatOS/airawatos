@@ -7,8 +7,8 @@
   ],
   "provenance": {
     "local-dev": {
-      "git_sha": "9502399",
-      "ts": "2026-11-06T14:31:20Z",
+      "git_sha": "819b4ad",
+      "ts": "2026-11-06T14:56:28Z",
       "modes": [
         "external",
         "internal"
@@ -18,13 +18,13 @@
   "matrix": {
     "FOUNDATIONS": {
       "FND-1": {
-        "local-dev": "HELD"
+        "local-dev": "PARTIAL"
       },
       "FND-2": {
         "local-dev": "HELD"
       },
       "FND-3": {
-        "local-dev": "HELD"
+        "local-dev": "PARTIAL"
       },
       "FND-4": {
         "local-dev": "NO TEST"

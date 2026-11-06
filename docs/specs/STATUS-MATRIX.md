@@ -2,7 +2,7 @@
 
 **Generated** by `conformance/build_matrix.py` from `conformance/results/*.json` (written by `conformance/run.py --matrix`). **Do not hand-edit** — regenerate after a conformance run. This is the conformance-derived single source of truth for per-rule status; the specs reference it (ADR: STATUS-MATRIX-DESIGN.md).
 
-- **local-dev** — measured: modes external+internal, git `9502399`, 2026-11-06T14:31:20Z
+- **local-dev** — measured: modes external+internal, git `819b4ad`, 2026-11-06T14:56:28Z
 - **production** — *PROJECTED*: no production conformance run yet; not asserted (stand up per docs/operator/FRESH-INSTALL-TEST.md §Step 3, then run the suite with AOS_ENV=production).
 
 **Derived status:** HELD (all cited cases PASS) · PARTIAL (PASS + known-violation XFAIL) · VIOLATED (only XFAIL — tracked as debt) · PLANNED(needs-build) (only SKIP_BUILD, not black-box reachable) · UNVERIFIED(creds) (only SKIP_CREDS — fix the fixture) · REVIEW (XPASS — spec lags code) · REGRESSION (a FAIL — contradicts spec) · NO TEST (no case cites the rule yet).
@@ -11,9 +11,9 @@
 
 | rule | local-dev | production | cases (provenance) |
 |---|---|---|---|
-| `FND-1` | HELD | projected | authenticated session opens (pos); forged role+foreign-iss token rejected (abuse) |
+| `FND-1` | PARTIAL | projected | authenticated session opens (pos); forged role+foreign-iss token rejected (abuse); home-issued admin role-claim (no recorded grant) refused at kernel admin (abu |
 | `FND-2` | HELD | projected | dev-sandbox refused a cross-tenant write; valid non-admin session denied governance write (abuse) |
-| `FND-3` | HELD | projected | forged role+foreign-iss token rejected (abuse) |
+| `FND-3` | PARTIAL | projected | forged role+foreign-iss token rejected (abuse); home-issued admin role-claim (no recorded grant) refused at kernel admin (abuse) [debt DEBT-B1] |
 | `FND-4` | NO TEST | projected | — |
 | `FND-5` | PLANNED(needs-build) | projected | durable authority survives restart |
 | `FND-6` | HELD | projected | unknown schema handled opaquely (pos) |
@@ -230,6 +230,6 @@
 
 | environment | HELD | PARTIAL | VIOLATED | PLANNED(needs-build) | UNVERIFIED(creds) | REVIEW | REGRESSION | NO TEST | projected |
 |---|---|---|---|---|---|---|---|---|---|
-| local-dev | 13 | 2 | 1 | 50 | 0 | 0 | 0 | 93 | 0 |
+| local-dev | 11 | 4 | 1 | 50 | 0 | 0 | 0 | 93 | 0 |
 | production | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 159 |
 
