@@ -606,9 +606,9 @@ def run_kernel_review_cases():
     # (reaches component lookup, returns 404/4xx) instead of being refused 401/403 up front. Any status other
     # than 401/403 means no admin gate fired before the (ungated) run-token-mint path. Reproduce black-box.
     st, _, _ = _req("POST", K + "/v1/components/install", {"component_id": "ds:localdev:driver/__review_probe__"})
-    xfail("FOUNDATIONS", "FND-8/NEW", "unauthenticated /v1/components/install is admin-gated (abuse)",
-          st not in (401, 403),
-          "unauth install -> %s (want 401/403; any other status = no admin gate before lookup — run-token mint ungated)" % st)
+    expect("FOUNDATIONS", "FND-8", "unauthenticated /v1/components/install is admin-gated (abuse)",
+           st in (401, 403),
+           "unauth install -> %s (want 401/403; admin-gated before any processing — DEBT-B22 hotfix)" % st)
     # The remaining Kernel-relevant NO-TEST rules are not cleanly black-box reachable; record WHY + the proposed
     # internal (pytest) test. kind 'needs-build' → SKIP_BUILD (matrix: PLANNED(needs-build)). See KERNEL-REVIEW.md.
     def nb(spec, rule, name, why): record(spec, rule, name, "needs-build", "SKIP_BUILD", why)
