@@ -93,5 +93,22 @@ if table_exists("network_kv"):
     cur.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON network_kv TO network_app")
 
 present = sum(1 for t in KERNEL_TABLES + ["network_kv"] if table_exists(t))
+
+# identity_lockout — the identity service's durable brute-force lockout store (ADR-0121). Not a 4b kernel
+# split role, but provisioned here so ONE installer step re-syncs EVERY DB-role password from Vault (the
+# restore runbook depends on this: after a volume restore the pg role passwords drift from Vault and every
+# service that authenticates to Postgres must be re-synced). Least-privilege: SELECT/INSERT/DELETE on
+# identity_login_fails only — no registry/audit tables. Idempotent (reuse-or-generate password; guarded DDL).
+il_pw = vault_pw(f"secret/data/{INST}/identity-lockout/password", "il")
+cur.execute("SELECT 1 FROM pg_roles WHERE rolname='identity_lockout'")
+if not cur.fetchone():
+    cur.execute("CREATE ROLE identity_lockout LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE")
+cur.execute("ALTER ROLE identity_lockout WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD %s", (il_pw,))
+cur.execute("CREATE TABLE IF NOT EXISTS identity_login_fails (k TEXT NOT NULL, ts DOUBLE PRECISION NOT NULL)")
+cur.execute("CREATE INDEX IF NOT EXISTS identity_login_fails_k_ts ON identity_login_fails (k, ts)")
+cur.execute("GRANT USAGE ON SCHEMA public TO identity_lockout")
+cur.execute("REVOKE ALL ON ALL TABLES IN SCHEMA public FROM identity_lockout")
+cur.execute("GRANT SELECT, INSERT, DELETE ON identity_login_fails TO identity_lockout")
+
 cur.close(); c.close()
-print(f"[split-roles] migrator/kernel_app/network_app ready (split tables present: {present}/5)")
+print(f"[split-roles] migrator/kernel_app/network_app + identity_lockout ready (split tables present: {present}/5)")
