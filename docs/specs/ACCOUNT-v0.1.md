@@ -1,5 +1,7 @@
 # ACCOUNT-v0.1 — Person accounts, consent, and the wallet
 
+> **Per-rule status is generated, not hand-written** — see **[STATUS-MATRIX.md](STATUS-MATRIX.md)**, the conformance-derived rule × environment matrix (`conformance/run.py --matrix` → `conformance/build_matrix.py`; design: [STATUS-MATRIX-DESIGN.md](STATUS-MATRIX-DESIGN.md)). The inline **Status:** lines below are kept for prose and rationale and may lag; the matrix is authoritative for covered rules (uncovered rules show **NO TEST** there, not an implied status).
+
 **Status:** Draft v0.1 · **Date:** 2026-11-03
 **Builds on:** [[FOUNDATIONS-v0.1]] (FND-1–FND-17; esp. **FND-13** consent, **FND-17** acting-on-behalf), [[REGISTRY-v0.1]]
 (esp. **REG-14** personal data by reference), [[DECISION-v0.1]] (**DEC-7** personal data, **DEC-8** subject access,

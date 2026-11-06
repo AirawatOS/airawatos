@@ -1,0 +1,521 @@
+{
+  "envs": [
+    "local-dev"
+  ],
+  "projected": [
+    "production"
+  ],
+  "provenance": {
+    "local-dev": {
+      "git_sha": "ddde851",
+      "ts": "2026-11-06T13:43:35Z",
+      "modes": [
+        "external",
+        "internal"
+      ]
+    }
+  },
+  "matrix": {
+    "FOUNDATIONS": {
+      "FND-1": {
+        "local-dev": "HELD"
+      },
+      "FND-2": {
+        "local-dev": "HELD"
+      },
+      "FND-3": {
+        "local-dev": "HELD"
+      },
+      "FND-4": {
+        "local-dev": "NO TEST"
+      },
+      "FND-5": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "FND-6": {
+        "local-dev": "HELD"
+      },
+      "FND-7": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "FND-8": {
+        "local-dev": "PARTIAL"
+      },
+      "FND-9": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "FND-10": {
+        "local-dev": "PARTIAL"
+      },
+      "FND-11": {
+        "local-dev": "HELD"
+      },
+      "FND-12": {
+        "local-dev": "NO TEST"
+      },
+      "FND-13": {
+        "local-dev": "NO TEST"
+      },
+      "FND-14": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "FND-15": {
+        "local-dev": "HELD"
+      },
+      "FND-16": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "FND-17": {
+        "local-dev": "PLANNED(needs-build)"
+      }
+    },
+    "REGISTRY": {
+      "REG-1": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "REG-2": {
+        "local-dev": "NO TEST"
+      },
+      "REG-3": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "REG-4": {
+        "local-dev": "NO TEST"
+      },
+      "REG-5": {
+        "local-dev": "HELD"
+      },
+      "REG-6": {
+        "local-dev": "VIOLATED"
+      },
+      "REG-7": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "REG-8": {
+        "local-dev": "NO TEST"
+      },
+      "REG-9": {
+        "local-dev": "NO TEST"
+      },
+      "REG-10": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "REG-11": {
+        "local-dev": "NO TEST"
+      },
+      "REG-12": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "REG-13": {
+        "local-dev": "HELD"
+      },
+      "REG-14": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "REG-15": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "REG-16": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "REG-17": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "REG-18": {
+        "local-dev": "NO TEST"
+      }
+    },
+    "DECISION": {
+      "DEC-1": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "DEC-2": {
+        "local-dev": "NO TEST"
+      },
+      "DEC-3": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "DEC-4": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "DEC-5": {
+        "local-dev": "NO TEST"
+      },
+      "DEC-6": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "DEC-7": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "DEC-8": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "DEC-9": {
+        "local-dev": "NO TEST"
+      },
+      "DEC-10": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "DEC-11": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "DEC-12": {
+        "local-dev": "PLANNED(needs-build)"
+      }
+    },
+    "NETWORK": {
+      "NET-1": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "NET-2": {
+        "local-dev": "NO TEST"
+      },
+      "NET-3": {
+        "local-dev": "HELD"
+      },
+      "NET-4": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "NET-5": {
+        "local-dev": "NO TEST"
+      },
+      "NET-6": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "NET-7": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "NET-8": {
+        "local-dev": "NO TEST"
+      },
+      "NET-9": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "NET-10": {
+        "local-dev": "NO TEST"
+      },
+      "NET-11": {
+        "local-dev": "NO TEST"
+      },
+      "NET-12": {
+        "local-dev": "NO TEST"
+      }
+    },
+    "ACCOUNT": {
+      "ACC-1": {
+        "local-dev": "NO TEST"
+      },
+      "ACC-2": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "ACC-3": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "ACC-4": {
+        "local-dev": "NO TEST"
+      },
+      "ACC-5": {
+        "local-dev": "NO TEST"
+      },
+      "ACC-6": {
+        "local-dev": "NO TEST"
+      },
+      "ACC-7": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "ACC-8": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "ACC-9": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "ACC-W1": {
+        "local-dev": "NO TEST"
+      },
+      "ACC-W2": {
+        "local-dev": "NO TEST"
+      },
+      "ACC-W3": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "ACC-W4": {
+        "local-dev": "PLANNED(needs-build)"
+      }
+    },
+    "CLIENT": {
+      "CLI-1": {
+        "local-dev": "HELD"
+      },
+      "CLI-2": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "CLI-3": {
+        "local-dev": "NO TEST"
+      },
+      "CLI-4": {
+        "local-dev": "NO TEST"
+      },
+      "CLI-5": {
+        "local-dev": "HELD"
+      },
+      "CLI-6": {
+        "local-dev": "PLANNED(needs-build)"
+      }
+    },
+    "PLATFORM": {
+      "PLT-1": {
+        "local-dev": "NO TEST"
+      },
+      "PLT-2": {
+        "local-dev": "NO TEST"
+      },
+      "PLT-3": {
+        "local-dev": "NO TEST"
+      },
+      "PLT-4": {
+        "local-dev": "HELD"
+      },
+      "PLT-5": {
+        "local-dev": "HELD"
+      },
+      "PLT-6": {
+        "local-dev": "NO TEST"
+      },
+      "PLT-7": {
+        "local-dev": "NO TEST"
+      },
+      "PLT-8": {
+        "local-dev": "NO TEST"
+      },
+      "PLT-9": {
+        "local-dev": "NO TEST"
+      },
+      "PLT-10": {
+        "local-dev": "NO TEST"
+      },
+      "PLT-11": {
+        "local-dev": "NO TEST"
+      },
+      "PLT-12": {
+        "local-dev": "NO TEST"
+      },
+      "PLT-13": {
+        "local-dev": "NO TEST"
+      },
+      "PLT-14": {
+        "local-dev": "NO TEST"
+      },
+      "PLT-15": {
+        "local-dev": "NO TEST"
+      },
+      "PLT-16": {
+        "local-dev": "NO TEST"
+      },
+      "PLT-17": {
+        "local-dev": "NO TEST"
+      },
+      "PLT-18": {
+        "local-dev": "NO TEST"
+      },
+      "PLT-19": {
+        "local-dev": "NO TEST"
+      },
+      "PLT-20": {
+        "local-dev": "NO TEST"
+      },
+      "PLT-21": {
+        "local-dev": "NO TEST"
+      },
+      "PLT-5a": {
+        "local-dev": "NO TEST"
+      },
+      "PLT-8a": {
+        "local-dev": "NO TEST"
+      }
+    },
+    "COMPONENT": {
+      "CMP-1": {
+        "local-dev": "NO TEST"
+      },
+      "CMP-2": {
+        "local-dev": "NO TEST"
+      },
+      "CMP-3": {
+        "local-dev": "NO TEST"
+      },
+      "CMP-4": {
+        "local-dev": "NO TEST"
+      },
+      "CMP-5": {
+        "local-dev": "NO TEST"
+      },
+      "CMP-6": {
+        "local-dev": "NO TEST"
+      },
+      "CMP-7": {
+        "local-dev": "NO TEST"
+      },
+      "CMP-8": {
+        "local-dev": "NO TEST"
+      },
+      "CMP-9": {
+        "local-dev": "NO TEST"
+      },
+      "CMP-10": {
+        "local-dev": "NO TEST"
+      },
+      "CMP-11": {
+        "local-dev": "NO TEST"
+      },
+      "CMP-12": {
+        "local-dev": "NO TEST"
+      },
+      "CMP-13": {
+        "local-dev": "NO TEST"
+      },
+      "CMP-14": {
+        "local-dev": "NO TEST"
+      },
+      "CMP-15": {
+        "local-dev": "NO TEST"
+      },
+      "CMP-16": {
+        "local-dev": "NO TEST"
+      },
+      "CMP-17": {
+        "local-dev": "NO TEST"
+      },
+      "CMP-18": {
+        "local-dev": "NO TEST"
+      }
+    },
+    "OFFERINGS": {
+      "OFF-1": {
+        "local-dev": "NO TEST"
+      },
+      "OFF-2": {
+        "local-dev": "NO TEST"
+      },
+      "OFF-3": {
+        "local-dev": "NO TEST"
+      },
+      "OFF-4": {
+        "local-dev": "NO TEST"
+      },
+      "OFF-5": {
+        "local-dev": "NO TEST"
+      },
+      "OFF-6": {
+        "local-dev": "NO TEST"
+      },
+      "OFF-7": {
+        "local-dev": "NO TEST"
+      },
+      "OFF-8": {
+        "local-dev": "NO TEST"
+      },
+      "OFF-9": {
+        "local-dev": "NO TEST"
+      },
+      "OFF-10": {
+        "local-dev": "NO TEST"
+      },
+      "OFF-11": {
+        "local-dev": "NO TEST"
+      },
+      "OFF-12": {
+        "local-dev": "NO TEST"
+      }
+    },
+    "POLICY": {
+      "POL-1": {
+        "local-dev": "NO TEST"
+      },
+      "POL-2": {
+        "local-dev": "NO TEST"
+      },
+      "POL-3": {
+        "local-dev": "NO TEST"
+      },
+      "POL-4": {
+        "local-dev": "NO TEST"
+      },
+      "POL-5": {
+        "local-dev": "NO TEST"
+      },
+      "POL-6": {
+        "local-dev": "NO TEST"
+      },
+      "POL-7": {
+        "local-dev": "NO TEST"
+      },
+      "POL-8": {
+        "local-dev": "NO TEST"
+      }
+    },
+    "PARTICIPANT": {
+      "PTC-1": {
+        "local-dev": "NO TEST"
+      },
+      "PTC-2": {
+        "local-dev": "NO TEST"
+      },
+      "PTC-3": {
+        "local-dev": "NO TEST"
+      },
+      "PTC-4": {
+        "local-dev": "NO TEST"
+      },
+      "PTC-5": {
+        "local-dev": "NO TEST"
+      },
+      "PTC-6": {
+        "local-dev": "NO TEST"
+      },
+      "PTC-7": {
+        "local-dev": "NO TEST"
+      },
+      "PTC-8": {
+        "local-dev": "NO TEST"
+      },
+      "PTC-9": {
+        "local-dev": "NO TEST"
+      },
+      "PTC-10": {
+        "local-dev": "NO TEST"
+      },
+      "PTC-11": {
+        "local-dev": "NO TEST"
+      },
+      "PTC-12": {
+        "local-dev": "NO TEST"
+      }
+    },
+    "FEDERATION": {
+      "FED1": {
+        "local-dev": "NO TEST"
+      },
+      "FED2": {
+        "local-dev": "NO TEST"
+      },
+      "FED3": {
+        "local-dev": "NO TEST"
+      },
+      "FED4": {
+        "local-dev": "NO TEST"
+      },
+      "FED5": {
+        "local-dev": "NO TEST"
+      },
+      "FED6": {
+        "local-dev": "NO TEST"
+      },
+      "FED7": {
+        "local-dev": "NO TEST"
+      },
+      "FED8": {
+        "local-dev": "NO TEST"
+      }
+    }
+  }
+}

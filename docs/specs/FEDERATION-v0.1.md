@@ -1,5 +1,7 @@
 # AirawatOS Federation v0.1 (scope draft)
 
+> **Per-rule status is generated, not hand-written** — see **[STATUS-MATRIX.md](STATUS-MATRIX.md)**, the conformance-derived rule × environment matrix (`conformance/run.py --matrix` → `conformance/build_matrix.py`; design: [STATUS-MATRIX-DESIGN.md](STATUS-MATRIX-DESIGN.md)). The inline **Status:** lines below are kept for prose and rationale and may lag; the matrix is authoritative for covered rules (uncovered rules show **NO TEST** there, not an implied status).
+
 **Status:** Scope draft, 2026-11-06. The cross-installation model. Builds on [[FOUNDATIONS-v0.1]] (FND-2, FND-4,
 FND-15), [[NETWORK-v0.1]] (NET-1–NET-12), [[PARTICIPANT-v0.1]] (PTC-1–PTC-12), [[PLATFORM-v0.1]] (every installation is a
 host + a node). Decided by [[ADR-0128]] (Networks are federated); relates to ADR-0116/0117/0119/0123.

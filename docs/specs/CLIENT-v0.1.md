@@ -1,5 +1,7 @@
 # CLIENT-v0.1 — Client apps, tokens, and the public protocol
 
+> **Per-rule status is generated, not hand-written** — see **[STATUS-MATRIX.md](STATUS-MATRIX.md)**, the conformance-derived rule × environment matrix (`conformance/run.py --matrix` → `conformance/build_matrix.py`; design: [STATUS-MATRIX-DESIGN.md](STATUS-MATRIX-DESIGN.md)). The inline **Status:** lines below are kept for prose and rationale and may lag; the matrix is authoritative for covered rules (uncovered rules show **NO TEST** there, not an implied status).
+
 **Status:** Draft v0.1 · **Date:** 2026-11-03
 **Builds on:** [[FOUNDATIONS-v0.1]] (FND-1 tokens-carry-identity-only, FND-9 audience-bound tokens, FND-10
 least-privilege, FND-13 consent), [[REGISTRY-v0.1]], [[DECISION-v0.1]] (DEC-1 decision records), [[ACCOUNT-v0.1]]

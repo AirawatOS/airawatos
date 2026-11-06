@@ -1,5 +1,7 @@
 # OFFERINGS-v0.1 — Services, Benefits, Information: terms, eligibility, fulfilment, settlement
 
+> **Per-rule status is generated, not hand-written** — see **[STATUS-MATRIX.md](STATUS-MATRIX.md)**, the conformance-derived rule × environment matrix (`conformance/run.py --matrix` → `conformance/build_matrix.py`; design: [STATUS-MATRIX-DESIGN.md](STATUS-MATRIX-DESIGN.md)). The inline **Status:** lines below are kept for prose and rationale and may lag; the matrix is authoritative for covered rules (uncovered rules show **NO TEST** there, not an implied status).
+
 **Status:** Draft v0.1 · **Date:** 2026-11-05
 **Builds on:** [[FOUNDATIONS-v0.1]] (authority, consent FND-13, delegation FND-17), [[REGISTRY-v0.1]] (records,
 provenance, erasure), [[DECISION-v0.1]] (decision records DEC-1–DEC-12), [[NETWORK-v0.1]] (capabilities NET-9, Service

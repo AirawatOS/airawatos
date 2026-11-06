@@ -1,5 +1,7 @@
 # AirawatOS v0.1 specs — index
 
+> **Per-rule status is generated, not hand-written** — see **[STATUS-MATRIX.md](STATUS-MATRIX.md)**, the conformance-derived rule × environment matrix (`conformance/run.py --matrix` → `conformance/build_matrix.py`; design: [STATUS-MATRIX-DESIGN.md](STATUS-MATRIX-DESIGN.md)). The inline **Status:** lines below are kept for prose and rationale and may lag; the matrix is authoritative for covered rules (uncovered rules show **NO TEST** there, not an implied status).
+
 *New here? Start with [../PRIMER.md](../PRIMER.md); engineers continue with [../AIRAWAT-FOR-ENGINEERS.md](../AIRAWAT-FOR-ENGINEERS.md) and [GLOSSARY.md](GLOSSARY.md).*
 
 The twelve **v0.1 specifications** that define AirawatOS: what the platform guarantees, stated as numbered

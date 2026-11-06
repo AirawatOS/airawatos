@@ -1,5 +1,7 @@
 # AirawatOS Foundations v0.1
 
+> **Per-rule status is generated, not hand-written** — see **[STATUS-MATRIX.md](STATUS-MATRIX.md)**, the conformance-derived rule × environment matrix (`conformance/run.py --matrix` → `conformance/build_matrix.py`; design: [STATUS-MATRIX-DESIGN.md](STATUS-MATRIX-DESIGN.md)). The inline **Status:** lines below are kept for prose and rationale and may lag; the matrix is authoritative for covered rules (uncovered rules show **NO TEST** there, not an implied status).
+
 **Status:** Draft-for-adoption, 2026-11-03. The invariants the platform is being consolidated onto.
 Companion: `docs/consolidation/CURRENT-STATE.md` + `docs/consolidation/DEBT-REGISTER.md` (the `A#`/`B#`
 IDs referenced below come from the debt register). Governed by ADR-0118/0119 (Trust Network Platform) and

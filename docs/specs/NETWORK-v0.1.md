@@ -1,5 +1,7 @@
 # NETWORK-v0.1 — Networks: identity, lifecycle, membership, capabilities, exchange
 
+> **Per-rule status is generated, not hand-written** — see **[STATUS-MATRIX.md](STATUS-MATRIX.md)**, the conformance-derived rule × environment matrix (`conformance/run.py --matrix` → `conformance/build_matrix.py`; design: [STATUS-MATRIX-DESIGN.md](STATUS-MATRIX-DESIGN.md)). The inline **Status:** lines below are kept for prose and rationale and may lag; the matrix is authoritative for covered rules (uncovered rules show **NO TEST** there, not an implied status).
+
 **Status:** Draft v0.1 · **Date:** 2026-11-03
 **Builds on:** [[FOUNDATIONS-v0.1]] (authority model §3; FND-1–FND-17), [[REGISTRY-v0.1]] (REG-1–REG-18), and
 [[DECISION-v0.1]] (DEC-1–DEC-12) — assumed, not restated. A Network, its roles, grants, memberships, and status

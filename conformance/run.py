@@ -597,6 +597,33 @@ def run_internal_cases():
           "kernel:8080 anon read -> %s (rule 401; live-violation 200)" % st)
 
 # ============================ runner ============================
+import re as _re
+_SPEC_RULE_RE = _re.compile(r"\b(?:FND|REG|DEC|NET|CLI|PLT|CMP|OFF|POL|PTC)-\d+[a-z]?\b|\bACC-W?\d+\b|\bFED\d+\b")
+def _rules_of(rule_field):
+    """Spec-rule IDs a case cites (from its slash-tagged rule label); excludes DEBT-*/FIND-*/ADR-* refs."""
+    return sorted(set(_SPEC_RULE_RE.findall(rule_field or "")))
+
+def emit_matrix(mode):
+    """`--matrix`: write conformance/results/<env>-<mode>.json — one record per case with its spec rules,
+    for build_matrix.py to reduce into docs/specs/STATUS-MATRIX.md. No human report."""
+    import subprocess
+    env = os.environ.get("AOS_ENV", "local-dev")
+    try:
+        sha = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL).decode().strip()
+    except Exception:
+        sha = os.environ.get("GIT_SHA", "")
+    out = {
+        "env": env, "mode": mode, "base": (INTERNAL["kernel"] if mode == "internal" else BASE),
+        "git_sha": sha, "ts": __import__("time").strftime("%Y-%m-%dT%H:%M:%SZ", __import__("time").gmtime()),
+        "cases": [{"case": r["name"], "spec": r["spec"], "rule": r["rule"],
+                   "rules": _rules_of(r["rule"]), "mode": mode, "result": r["status"]} for r in RESULTS],
+    }
+    d = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
+    os.makedirs(d, exist_ok=True)
+    p = os.path.join(d, "%s-%s.json" % (env, mode))
+    with open(p, "w") as f: json.dump(out, f, indent=2)
+    print("[matrix] wrote %s (%d cases, env=%s mode=%s sha=%s)" % (p, len(out["cases"]), env, mode, sha))
+
 def report(mode):
     specs = ["FOUNDATIONS","REGISTRY","DECISION","NETWORK","ACCOUNT","CLIENT","PLATFORM"]
     kinds = ["PASS","XFAIL","XPASS","FAIL","SKIP_CREDS","SKIP_BUILD"]
@@ -636,6 +663,9 @@ def main():
         st, _, _ = http("GET", "/healthz")
         if st != 200: print("PREFLIGHT FAIL: %s/healthz -> %s" % (BASE, st)); sys.exit(2)
         run_no_cred_cases(); run_cred_cases(); run_needs_build()
+    if "--matrix" in sys.argv or os.environ.get("AOS_MATRIX"):
+        emit_matrix(MODE)
+        sys.exit(1 if any(r["status"] == "FAIL" for r in RESULTS) else 0)
     tot = report(MODE)
     if tot["XPASS"]:
         print("\n>>> %d XPASS (violation looks FIXED — update spec/debt):" % tot["XPASS"])

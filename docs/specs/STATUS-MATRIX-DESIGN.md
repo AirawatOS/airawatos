@@ -1,8 +1,12 @@
-# Design — conformance-generated status matrix (DESIGN ONLY, NOT BUILT)
+# Design — conformance-generated status matrix (BUILT)
 
-**Status:** Design only. Nothing here is implemented. It describes how a **rule × environment → status** matrix
-would be *generated from conformance results* so the per-rule status in the specs stops being hand-written
-(and stops drifting, as the Step-1 sweep found it had: COMPONENT 11→13, DECISION 3→4 VIOLATED, README FND row).
+**Status:** BUILT (2026-11-06). Implemented as `conformance/run.py --matrix` (per-case rule tags → JSON) +
+`conformance/build_matrix.py` (reducer) → generated **[STATUS-MATRIX.md](STATUS-MATRIX.md)** (+ `.json`). The
+12 specs + README now carry a banner pointing at the matrix as the conformance-derived source of truth; their
+inline **Status:** lines are kept for prose/rationale. This document is the design/rationale for that build.
+It describes how a **rule × environment → status** matrix is *generated from conformance results* so the
+per-rule status stops being hand-written (and stops drifting, as the Step-1 sweep found it had: COMPONENT
+11→13, DECISION 3→4 VIOLATED, README FND row).
 
 ## Problem
 
