@@ -5,7 +5,7 @@ Tests externally observable behaviour only (HTTP status, returned records). No s
 inspected. Full rule -> cases -> classification map: Airawat/docs/conformance/PLAN.md.
 
 Modes (env AOS_MODE):
-  external (default) — via the edge nginx at AOS_BASE (default http://127.0.0.1:8080): /kernel/*, /network/*,
+  external (default) — via the edge nginx at AOS_BASE (default http://127.0.0.1:8080): /network/* (federation),
                        /* (app-host). This is what an outside caller can reach.
   internal          — directly against in-cluster service addresses (identity:8093, filestore:8095,
                        scheduler:8103, model-gateway:8104, secrets:8102, notify:8094, automation:8098,
@@ -82,38 +82,19 @@ def xfail(spec, rule, name, reproduced, detail):
 
 # ============================ EXTERNAL: no-credential cases ============================
 def run_no_cred_cases():
-    st, _, _ = http("POST", "/kernel/v1/registry/resolve", {"filter": {"schema": "network.network"}}, token=forged_jwt())
-    expect("FOUNDATIONS", "FND-1/FND-3/FND-15", "forged role+foreign-iss token rejected (abuse)",
-           st in (401, 403), "kernel resolve w/ forged bearer -> %s" % st)
-
-    st, _, _ = http("POST", "/kernel/v1/registry/objects",
-                    {"id": "conf:probe:1", "object": {"schema": "viz.layer", "id": "conf:probe:1"}})
-    expect("FOUNDATIONS", "FND-8", "anonymous write denied (abuse)", st in (401, 403), "anon kernel write -> %s" % st)
+    # ARC-5 (FIX-PLAN L1 slice-1a) — the edge exposes ONLY the App Host front door + the federation door. The
+    # Kernel door is internal-only: every /kernel/* is refused at the edge (was proxied to kernel:8080; removed).
+    # So an external client cannot reach the Kernel at all. The Kernel's OWN authz (forged-token/anon-write/
+    # anon-read/unknown-schema) is now exercised in INTERNAL mode against kernel:8080 (run_internal_cases),
+    # where the Kernel is actually reachable — not via a door that must not exist.
+    for p in ("/kernel/v1/registry/resolve", "/kernel/v1/registry/objects", "/kernel/v1/registry/exists"):
+        st, _, _ = http("POST", p, {"filter": {"schema": "network.network"}})
+        expect("FOUNDATIONS", "ARC-5/FND-8", "edge does not expose the Kernel door: %s (abuse)" % p,
+               st in (403, 404) or st == 0, "edge %s -> %s (want 404/403/unreachable, never 2xx)" % (p, st))
 
     st, _, _ = http("POST", "/network/v1/governance/roles", {})
     expect("NETWORK", "NET-3", "anonymous governance role-write denied (abuse)", st in (401, 403),
            "anon network governance -> %s" % st)
-
-    st, _, _ = http("POST", "/kernel/v1/registry/resolve", {"filter": {"schema": "network.network"}})
-    xfail("REGISTRY", "REG-6/FND-8", "anonymous read denied (abuse) [debt DEBT-A1]", st == 200,
-          "anon kernel read -> %s (rule 401; live-violation 200)" % st)
-
-    st, _, _ = http("POST", "/kernel/v1/registry/exists", {"id": "network.network"})
-    if st in (0, 404):
-        record("REGISTRY", "REG-6", "anonymous existence-check denied (abuse)", "expected-fail", "SKIP_BUILD",
-               "/kernel/v1/registry/exists not reachable (%s)" % st)
-    else:
-        xfail("REGISTRY", "REG-6", "anonymous existence-check denied (abuse) [debt DEBT-A1]", st == 200,
-              "anon exists -> %s (rule 401; live-violation 200)" % st)
-
-    st, _, _ = http("POST", "/kernel/v1/registry/objects",
-                    {"id": "conf:probe:2", "object": {"schema": "viz.layer", "id": "conf:probe:2"}}, token=forged_jwt())
-    expect("REGISTRY", "REG-5", "forged-token write denied (abuse)", st in (401, 403), "forged kernel write -> %s" % st)
-
-    st, body, _ = http("POST", "/kernel/v1/registry/resolve",
-                       {"filter": {"schema": "zzz.conformance_unknown_%d" % int(time.time())}})
-    expect("FOUNDATIONS", "FND-6/REG-13", "unknown schema handled opaquely (pos)",
-           st == 200 and '"results"' in body, "resolve unknown schema -> %s" % st)
 
     st, _, _ = http("POST", "/login", {"realm": REALM, "username": "admin", "password": "admin"})
     expect("ACCOUNT", "DEBT-A4", "handle/username is not a credential (abuse)", st in (401, 403),
@@ -150,9 +131,12 @@ def login_session(user):
     return (sc.split(";")[0] if sc else None), "ok"
 
 def case_B15(cookie):
-    st0, b0, _ = http("GET", "/kernel/v1/components")
+    # ARC-5: the Kernel door is internal-only, so an external caller lists components through the App Host door
+    # (/bridge/components), not /kernel/v1/components. The leak-check (no run_token in the listing) still applies.
+    st0, b0, _ = http("GET", "/bridge/components", cookie=cookie)
     n = 0
-    try: n = len(json.loads(b0).get("installed", []))
+    try:
+        j0 = json.loads(b0); n = len(j0.get("components", j0.get("installed", [])))
     except Exception: pass
     note = "already %d installed" % n
     if n == 0:
@@ -176,13 +160,13 @@ def case_B15(cookie):
             record("REGISTRY", "DEBT-B15", "components list does not leak run_token (abuse) [debt DEBT-B15]",
                    "expected-fail", "SKIP_BUILD", "install failed (%s): %s" % (ist, ib[:100]))
             return
-    st, body, _ = http("GET", "/kernel/v1/components")
+    st, body, _ = http("GET", "/bridge/components", cookie=cookie)
     if "run_token" in body:
         xfail("REGISTRY", "DEBT-B15", "components list does not leak run_token (abuse) [debt DEBT-B15]", True,
-              "anon GET /components (populated) CONTAINS run_token — leak reproduced; %s" % note)
+              "GET /bridge/components (populated) CONTAINS run_token — leak reproduced; %s" % note)
     else:
         expect("REGISTRY", "DEBT-B15", "components list does not leak run_token (abuse) [debt DEBT-B15]", True,
-               "anon GET /components (populated: %s) has no run_token" % note)
+               "GET /bridge/components (populated: %s) has no run_token" % note)
 
 def case_R10(cookie):
     schema = os.environ.get("AOS_TEST_SCHEMA", "network.network")
@@ -607,6 +591,30 @@ def run_internal_cases():
     st, _, _ = _req("POST", T["kernel"]+"/v1/registry/resolve", {"filter": {"schema": "network.network"}})
     xfail("REGISTRY","REG-6/FND-8","anonymous kernel read denied (internal) [debt DEBT-A1]", st == 200,
           "kernel:8080 anon read -> %s (rule 401; live-violation 200)" % st)
+    # Kernel authz properties, migrated here from the external suite when ARC-5 (slice-1a) removed the /kernel/
+    # edge route — the Kernel is reachable only internally now, so these probe kernel:8080 directly.
+    st, _, _ = _req("POST", T["kernel"]+"/v1/registry/resolve", {"filter": {"schema": "network.network"}}, token=forged_jwt())
+    expect("FOUNDATIONS","FND-1/FND-3/FND-15","forged role+foreign-iss token rejected (internal, abuse)",
+           st in (401, 403), "kernel:8080 resolve w/ forged bearer -> %s" % st)
+    st, _, _ = _req("POST", T["kernel"]+"/v1/registry/objects",
+                    {"id": "conf:probe:1", "object": {"schema": "viz.layer", "id": "conf:probe:1"}})
+    expect("FOUNDATIONS","FND-8","anonymous kernel write denied (internal, abuse)", st in (401, 403),
+           "kernel:8080 anon write -> %s (want 401/403)" % st)
+    st, _, _ = _req("POST", T["kernel"]+"/v1/registry/objects",
+                    {"id": "conf:probe:2", "object": {"schema": "viz.layer", "id": "conf:probe:2"}}, token=forged_jwt())
+    expect("REGISTRY","REG-5","forged-token write denied (internal, abuse)", st in (401, 403),
+           "kernel:8080 forged write -> %s" % st)
+    st, bq, _ = _req("POST", T["kernel"]+"/v1/registry/exists", {"id": "network.network"})
+    if st in (0, 404):
+        record("REGISTRY","REG-6","anonymous existence-check denied (internal, abuse)","expected-fail","SKIP_BUILD",
+               "kernel:8080 /v1/registry/exists not reachable (%s)" % st)
+    else:
+        xfail("REGISTRY","REG-6","anonymous existence-check denied (internal, abuse) [debt DEBT-A1]", st == 200,
+              "kernel:8080 anon exists -> %s (rule 401; live-violation 200)" % st)
+    st, bq, _ = _req("POST", T["kernel"]+"/v1/registry/resolve",
+                     {"filter": {"schema": "zzz.conformance_unknown_%d" % int(time.time())}})
+    expect("FOUNDATIONS","FND-6/REG-13","unknown schema handled opaquely (internal, pos)",
+           st == 200 and '"results"' in bq, "kernel:8080 resolve unknown schema -> %s" % st)
 
 def run_internal_services_review_cases():
     """Consolidation phase-5 INTERNAL SERVICES + GATEWAYS review (slice 5). The slice's substantive risks all

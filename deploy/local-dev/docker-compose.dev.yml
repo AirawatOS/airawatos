@@ -315,7 +315,7 @@ services:
     container_name: airawat-ld-nginx
     ports: [ "127.0.0.1:8080:80" ]
     volumes: [ ./nginx.conf:/etc/nginx/conf.d/default.conf:ro ]
-    depends_on: [ app-host, network, kernel ]
+    depends_on: [ app-host, network ]   # ARC-5: edge proxies only the App Host front door + federation door (no kernel)
     restart: unless-stopped
 
 volumes:
