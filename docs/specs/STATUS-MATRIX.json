@@ -8,7 +8,7 @@
   "provenance": {
     "local-dev": {
       "git_sha": "",
-      "ts": "2026-11-06T15:26:52Z",
+      "ts": "2026-11-06T15:47:45Z",
       "modes": [
         "external",
         "internal"
@@ -27,7 +27,7 @@
         "local-dev": "PARTIAL"
       },
       "FND-4": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "FND-5": {
         "local-dev": "PLANNED(needs-build)"
@@ -168,7 +168,7 @@
         "local-dev": "PLANNED(needs-build)"
       },
       "NET-2": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "NET-3": {
         "local-dev": "HELD"
@@ -177,7 +177,7 @@
         "local-dev": "PLANNED(needs-build)"
       },
       "NET-5": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "NET-6": {
         "local-dev": "PLANNED(needs-build)"
@@ -186,19 +186,19 @@
         "local-dev": "PLANNED(needs-build)"
       },
       "NET-8": {
-        "local-dev": "NO TEST"
-      },
-      "NET-9": {
         "local-dev": "PLANNED(needs-build)"
       },
+      "NET-9": {
+        "local-dev": "VIOLATED"
+      },
       "NET-10": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "NET-11": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "NET-12": {
-        "local-dev": "NO TEST"
+        "local-dev": "VIOLATED"
       }
     },
     "ACCOUNT": {
@@ -455,66 +455,66 @@
     },
     "PARTICIPANT": {
       "PTC-1": {
-        "local-dev": "NO TEST"
+        "local-dev": "VIOLATED"
       },
       "PTC-2": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "PTC-3": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "PTC-4": {
         "local-dev": "NO TEST"
       },
       "PTC-5": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "PTC-6": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "PTC-7": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "PTC-8": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "PTC-9": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "PTC-10": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "PTC-11": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "PTC-12": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       }
     },
     "FEDERATION": {
       "FED1": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "FED2": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "FED3": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "FED4": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "FED5": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "FED6": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "FED7": {
-        "local-dev": "NO TEST"
+        "local-dev": "VIOLATED"
       },
       "FED8": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       }
     }
   }

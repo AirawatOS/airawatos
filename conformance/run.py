@@ -737,6 +737,108 @@ def run_identity_review_cases():
     nb("PLATFORM","PLT-3","operator holds no governance role (+ login-namespace != tenant, DEBT-B21)",
        "label note: PLT-3 is 'operator holds no governance role', not realm modelling. The login-namespace-as-tenant concern is DEBT-B21 (realms are tenant records; realm==tenant id — identity.py:620-628). Both are modelling/architecture, not a black-box runtime case. Internal test (B21): a person authenticates once and belongs to >1 org without a tenant-per-realm (blocked today).")
 
+
+def run_network_review_cases():
+    """Consolidation phase-5 NETWORK+TRUST review (slice 3): tests for the NETWORK / PARTICIPANT / FEDERATION
+    rules and the TRUST-plane FOUNDATIONS rules the network service enforces. Internal mode (network reachable).
+    LIVE XFAIL where the review found a black-box-reproducible violation (verified against the running service);
+    SKIP_BUILD (reason + proposed internal/architectural test) for rules not black-box reachable on a seeded,
+    healthy stack. See docs/reviews/NETWORK-REVIEW.md."""
+    N = INTERNAL["network"]
+    def _st(method, path, body=None):
+        try:
+            s, _, _ = _req(method, N + path, body); return s
+        except Exception as e:
+            return None
+
+    # ── VERIFIED VIOLATIONS (reproduced live → XFAIL). Each probe only writes while the gate is MISSING;
+    #    once the gate lands the probe gets 401/403 and the case flips to XPASS (spec/debt then updated). ──
+    # NET-9 / DEBT-B34 (CRITICAL) — the capability-grant store accepts unauthenticated writes.
+    g = {"id": "ds:localdev:governance.access_grant/conf-unauth-probe", "steward": "ds:localdev:steward",
+         "signature": "ZmFrZQ==", "reads": ["ds:localdev:probe.schema"], "writes": [],
+         "object": {"kind": "governance.access_grant"}}
+    s = _st("POST", "/v1/grants", g)
+    xfail("NETWORK", "NET-9/DEBT-B34", "capability-grant store POST /v1/grants requires a grant.steward (fail closed)",
+          s not in (401, 403), "unauth POST /v1/grants -> %s (rule: 401/403 + grant.steward; today stores ungated — api.py:2360)" % s)
+    # PTC-1 / FED7 / DEBT-B33 (CRITICAL) — the federation trust directory admits key bindings with no auth.
+    s = _st("POST", "/v1/participants", {"participant_id": "ds:confprobe:steward", "public_key": "AAAABBBBCCCC"})
+    xfail("PARTICIPANT", "PTC-1/FED7/DEBT-B33", "trust-directory admission POST /v1/participants requires authority (fail closed)",
+          s not in (401, 403), "unauth POST /v1/participants -> %s (rule: authority-gated; today binds authority-signed keys ungated — api.py:332)" % s)
+    # NET-12 / DEBT-B36 — network member list + service directory are public-by-default.
+    s = _st("GET", "/v1/participation?network=ds:localdev:network/self")
+    xfail("NETWORK", "NET-12/DEBT-B36", "member list GET /v1/participation is members-only (not public)",
+          s not in (401, 403), "anon GET /v1/participation -> %s (rule: members-only; today public — api.py:952)" % s)
+    s = _st("POST", "/v1/service/search", {})
+    xfail("NETWORK", "NET-12/DEBT-B36", "service directory POST /v1/service/search is members-only (REG-15)",
+          s not in (401, 403), "anon POST /v1/service/search -> %s (rule: members-only per REG-15; today public — api.py:3000)" % s)
+
+    # ── NO-TEST / not black-box reachable on a seeded healthy stack → SKIP_BUILD with reason + proposed test ──
+    def nb(spec, rule, name, why): record(spec, rule, name, "needs-build", "SKIP_BUILD", why)
+    # TRUST-plane FOUNDATIONS
+    nb("FOUNDATIONS","FND-2/DEBT-B39","Trust audit chain is verified/reconciled at runtime",
+       "VIOLATED (structural-only): platform.audit_event chain built with prev_hash/entry_hash/keyed-HMAC (trust/audit.py:76-111) but NO code reads a chain back to verify linkage and no op_id reconciler exists. Not black-box reachable. Internal test: tamper/supersede one audit row -> a verifier flags the broken prev_hash (verifier not built).")
+    nb("FOUNDATIONS","FND-3","authority only from a recorded grant, never tenant name (TRUST plane)",
+       "HELD in role mode (trust/roles.py:62-66 ignores token roles; authorize.py:82-117 candidate-grant lookup); VIOLATED in the shipped default where is_platform_authority = claims.tenant==authority_tenant (trust_wiring.py:67,79-83, PLATFORM_AUTHORITY_MODE=shadow default). local-dev runs enforce; EC2 default stays shadow. Covered by DEBT-B2. Internal test (shadow): a tenant-only token with no recorded grant manages all networks.")
+    nb("FOUNDATIONS","FND-4","tenant != network (authority keyed on net:id, not tenant/slug)",
+       "VIOLATED in the legacy default: NETWORK_ADMIN_AUTHZ=legacy makes admin authority = (tenant==network string) (trust_admin_authz.py:66-68) and cross_network_write conflates slug/net:id/tenant (trust_wiring.py:204). HELD in role mode (resolve slug->net:id, authorize on net:id, :224-235). local-dev=role, EC2=legacy. Covered by DEBT-B11/B2. Internal test (legacy): tenant.admin for tenant X writes the network whose slug==X with no role on it.")
+    nb("FOUNDATIONS","FND-11/DEBT-B35","platform.authority first-holder bootstrap checks caller authority",
+       "VIOLATED (CRITICAL): GovernanceService.assign_role floor-role branch returns ok on zero governance-provenanced holders with NO installer/caller-authority check (trust/governance.py:110-137). Not reproducible on a seeded stack (local-dev already has a governed holder). Internal test: with 0 governed platform.authority holders, POST /v1/governance/roles {role:platform.authority,principal:self} from an arbitrary authenticated token -> must refuse (today 200).")
+    nb("FOUNDATIONS","FND-11/DEBT-B38","SoD for floor roles enforces approver != proposer",
+       "VIOLATED: SoD checks approver != grantee but not approver != proposer(ctx.actor) (trust/platform_authority.py:119; governance.py:122-128) — a live holder can propose a grant and self-approve as proposer. Internal test: two-holder setup; holder A proposes a grant to C and approves it as the sole approver -> must refuse.")
+    nb("FOUNDATIONS","FND-14","role assignments carry grantor + governance provenance",
+       "PARTIAL: governance path records granted_by+op_id+role.assign audit (trust/governed_store.py:283-300); but TRUST_ENFORCE_STEWARD_PROVENANCE=0 by default (EC2) still honours un-provenanced steward seeds (trust/roles.py:31,46-52). local-dev enforces. Covered by DEBT-A70. Internal test (provenance off): a role_assignment with no granted_by/op_id is honoured live.")
+    # NETWORK plane
+    nb("NETWORK","NET-2/DEBT-A78","a Network is a governed lifecycle object (creator role, DRAFT, governing tenant, empty-catalog gate)",
+       "ABSENT (honest PLANNED): network_register stores only a directory profile with no status/creator/governing-tenant (api.py:961-997); members are accepted immediately (api.py:837). Not drivable (no DRAFT concept). Proposed test lands with the lifecycle object.")
+    nb("NETWORK","NET-5/DEBT-A78","membership supports invite->accept and suspend",
+       "PARTIAL: request->approve/reject/revoke + federated handshake present (api.py:813-893); invite->accept and a suspend state absent (status enum seed_base.py:195). Black-box round-trip needs admin creds. Proposed: drive /v1/participation/{request,decide} then assert an invite/suspend transition exists.")
+    nb("NETWORK","NET-7/DEBT-B37","issuer trust is network.admin-only and scoped to (member-tenant, net:id)",
+       "VIOLATED: participation_decide writes service-wide TRUSTED_ISS/register_issuer under op=membership (admits membership.steward, not network.admin-only) and with no net:id scope (api.py:880-891; trust_admin_authz.py:59). Needs creds to drive a federated approve. Internal test: approve a federated participation as membership.steward -> trust_established (should refuse); issuer then honoured across a different Network.")
+    nb("NETWORK","NET-8","classifications are descriptive only (never gate exchange)",
+       "TO-CONFIRM: no Network-level classification gates exchange directly, but classification-driven branches exist (eKYC auto-admit when participant_type.identity==citizen api.py:936-947; kind==developer dev surface authority.py:102-103). Architectural. Internal test: a classification flip alone changes an authorization outcome.")
+    nb("NETWORK","NET-10/DEBT-A79","publishing a Service requires a recorded service.provide grant",
+       "PARTIAL: service publish gated on a tenant-admin token role, not a recorded provide grant (api.py:2672); provide-grant only shadow-logged (api.py:1055). Needs creds. Internal test: a tenant-admin with no service.provide grant publishes an offering -> should refuse.")
+    nb("NETWORK","NET-11/DEBT-A80","exchange runs through the one decision function and leaves a decision record",
+       "PARTIAL: service_route records a transaction ledger but checks no call/provide grant, no consent, emits no governance.decision (api.py:3045-3055). Architectural. Internal test: a routed exchange produces a replayable governance.decision referencing the grant+consent.")
+    # PARTICIPANT
+    nb("PARTICIPANT","PTC-2","Network-boundary auth is identity-only (FND-15)",
+       "HELD at the Network boundary: federated issuers pinned to one tenant + all roles stripped (authn.py:162-167). Covered live by the FND-15 abuse case (forged role+foreign-iss rejected). Residual DEBT-B1 is a kernel gate, not network.")
+    nb("PARTICIPANT","PTC-3/DEBT-A79","Service registration carries iface/endpoint/version/data-use + a provide grant",
+       "PARTIAL: iface/endpoint/version captured (api.py:1060-1063); gate is membership, service.provide only shadow-compared; data-use absent. Needs creds. Internal test: an approved member with no provide grant registers a Service -> should refuse.")
+    nb("PARTICIPANT","PTC-5/DEBT-A80","inbound request carries a verified decision/consent reference; never widen",
+       "PARTIAL: never-widen enforced as offering-scoping + fail-closed (api.py:2500-2545) but NO decision-ref/consent-ref is required or checked on any fulfil path. Internal test: a fulfil call with no decision_ref -> should refuse.")
+    nb("PARTICIPANT","PTC-6","signed responses + fulfilment evidence joined to a decision",
+       "PARTIAL: signed hub responses + grant-checked signed data-read receipt (hub.py:32-51; api.py:3549-3578); evidence not durably joined to a decision (in-memory). Black-box: granted read -> signed receipt; ungranted -> 403 (drivable with creds).")
+    nb("PARTICIPANT","PTC-7","credential issuance requires a typed issue grant; signed; revocation published",
+       "PARTIAL: signed with steward key, governed-type enforced, revocation published+checked (api.py:2820-2884,2932-2934); gate is member-of-issuing-tenant (any role), no per-type issue grant (_require_issuer api.py:2797-2808). Internal test: a member with no credential.issue:<type> grant issues that type -> should refuse.")
+    nb("PARTICIPANT","PTC-8/DEBT-A81","presentation verification binds holder-proof/recipient/purpose/nonce (ACC-W3)",
+       "PARTIAL/VIOLATED: verify checks issuer-sig + revocation + expiry only (api.py:2918-2940); no holder-proof/recipient/purpose/nonce binding -> a VC is replayable by a non-holder. Black-box: /v1/credentials/verify of a VC presented by a non-holder returns signature_valid with no audience check.")
+    nb("PARTICIPANT","PTC-9","events: granted types only; interest != authority; idempotency",
+       "ABSENT (honest PLANNED): no event publish/subscribe in the service (only a hub broadcast log). Proposed test lands with the event spine (ADR-0120).")
+    nb("PARTICIPANT","PTC-10","settlement references",
+       "ABSENT (honest PLANNED): no settlement model found. Proposed test lands with the settlement slice.")
+    nb("PARTICIPANT","PTC-11","per-role conformance before activation",
+       "ABSENT (honest PLANNED): conformance.run is component-only; participation/decide approves with no conformance/health gate (api.py:862-916; conformance.py:128-190). Internal test: approve a participant -> a per-role suite runs first.")
+    nb("PARTICIPANT","PTC-12","one public versioned participant protocol; never /bridge",
+       "ARCHITECTURAL: no /bridge/* in the network service (grep clean); the never-/bridge violation is first-party->app-host, outside this service; no single versioned participant protocol published yet. Covered elsewhere.")
+    # FEDERATION
+    nb("FEDERATION","FED1","one governing tenant hosts a Network",
+       "PARTIAL: networks bootstrapped + directory profile (ensure_install.py:177; api.py:961-996); host-tenant-vs-operator framing not modelled. Architectural/PLANNED.")
+    nb("FEDERATION","FED2","creation needs network.creator; never creates tenants",
+       "PARTIAL/PLANNED: creation via bootstrap + /v1/networks (network-admin gated); no network.creator capability implemented. Internal test: a principal without network.creator creates a Network -> should refuse.")
+    nb("FEDERATION","FED3","join = registration in host registry (id, roles, keys, conformance)",
+       "PARTIAL: mode-1 request carries jwks + decide does a trust handshake (api.py:850-893); cross-install registration PLANNED; conformance field not gated. Black-box: /v1/participation/{request,decide} round-trip (with creds).")
+    nb("FEDERATION","FED4","per-role conformance before activation",
+       "ABSENT (honest PLANNED): no per-role suite/gate (see PTC-11).")
+    nb("FEDERATION","FED5","cross-install requests signed by registered keys",
+       "PARTIAL: the signed-relay primitive verifies envelopes against the directory (hub.py:18-30; mail relay api.py:3616-3661); the generalised cross-install Network request is PLANNED. Black-box: a tampered relay envelope -> verify_message false.")
+    nb("FEDERATION","FED6/DEBT-B37","home issuer trusted only for its own participants, per-Network",
+       "PARTIAL: FND-15 tenant-pin + role-strip real (authn.py:162-167), but trust is install-wide per-tenant, not per-Network — an issuer approved in Network X is honoured for that tenant across every Network on the install. Internal test: an issuer registered by joining Network X verifies tokens for a call scoped to Network Y.")
+    nb("FEDERATION","FED7/DEBT-B40","host directory authoritative; resolve uses an exact steward match (no substring collisions)",
+       "VIOLATED (two parts): admission is unauthenticated (covered by the PTC-1/FED7 XFAIL above) and /v1/resolve matches ds: refs by substring `steward in p` (api.py:3106) so steward='iit' matches 'ds:iitb:steward'. Needs two prefix-colliding participants to show the mis-resolve black-box. Internal test: register ds:iitb:steward then resolve ds:iit:x -> returns the iitb entry (wrong).")
+    nb("FEDERATION","FED8","directory-of-Networks / root of trust",
+       "DEFERRED in the spec (FED8). No test.")
+
 # ============================ runner ============================
 import re as _re
 _SPEC_RULE_RE = _re.compile(r"\b(?:FND|REG|DEC|NET|CLI|PLT|CMP|OFF|POL|PTC)-\d+[a-z]?\b|\bACC-W?\d+\b|\bFED\d+\b")
@@ -798,7 +900,7 @@ def main():
         # preflight on kernel
         st, _, _ = _req("GET", INTERNAL["kernel"]+"/healthz")
         if st != 200: print("PREFLIGHT: kernel:8080/healthz -> %s" % st)
-        run_internal_cases(); run_kernel_review_cases(); run_identity_review_cases()
+        run_internal_cases(); run_kernel_review_cases(); run_identity_review_cases(); run_network_review_cases()
     else:
         print("target %s (realm %s); credentials: %s" % (BASE, REALM, "supplied (%d)"%len(CREDS) if CREDS else "none"))
         st, _, _ = http("GET", "/healthz")

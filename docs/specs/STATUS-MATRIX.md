@@ -2,7 +2,7 @@
 
 **Generated** by `conformance/build_matrix.py` from `conformance/results/*.json` (written by `conformance/run.py --matrix`). **Do not hand-edit** — regenerate after a conformance run. This is the conformance-derived single source of truth for per-rule status; the specs reference it (ADR: STATUS-MATRIX-DESIGN.md).
 
-- **local-dev** — measured: modes external+internal, git ``, 2026-11-06T15:26:52Z
+- **local-dev** — measured: modes external+internal, git ``, 2026-11-06T15:47:45Z
 - **production** — *PROJECTED*: no production conformance run yet; not asserted (stand up per docs/operator/FRESH-INSTALL-TEST.md §Step 3, then run the suite with AOS_ENV=production).
 
 **Derived status:** HELD (all cited cases PASS) · PARTIAL (PASS + known-violation XFAIL) · VIOLATED (only XFAIL — tracked as debt) · PLANNED(needs-build) (only SKIP_BUILD, not black-box reachable) · UNVERIFIED(creds) (only SKIP_CREDS — fix the fixture) · REVIEW (XPASS — spec lags code) · REGRESSION (a FAIL — contradicts spec) · NO TEST (no case cites the rule yet).
@@ -12,19 +12,19 @@
 | rule | local-dev | production | cases (provenance) |
 |---|---|---|---|
 | `FND-1` | PARTIAL | projected | a roleless-created account has NO roles — no authority by omission [DEBT-B28 fixed]; authenticated session opens (pos); forged role+foreign-iss token rejected ( |
-| `FND-2` | HELD | projected | dev-sandbox refused a cross-tenant write; valid non-admin session denied governance write (abuse) |
-| `FND-3` | PARTIAL | projected | forged role+foreign-iss token rejected (abuse); home-issued admin role-claim (no recorded grant) refused at kernel admin (abuse) [debt DEBT-B1] |
-| `FND-4` | NO TEST | projected | — |
+| `FND-2` | HELD | projected | Trust audit chain is verified/reconciled at runtime; dev-sandbox refused a cross-tenant write; valid non-admin session denied governance write (abuse) |
+| `FND-3` | PARTIAL | projected | authority only from a recorded grant, never tenant name (TRUST plane); forged role+foreign-iss token rejected (abuse); home-issued admin role-claim (no recorded |
+| `FND-4` | PLANNED(needs-build) | projected | tenant != network (authority keyed on net:id, not tenant/slug) |
 | `FND-5` | PLANNED(needs-build) | projected | durable authority survives restart |
 | `FND-6` | HELD | projected | unknown schema handled opaquely (pos) |
 | `FND-7` | PLANNED(needs-build) | projected | kernel authorizes with Network down |
 | `FND-8` | PARTIAL | projected | anonymous kernel read denied (internal) [debt DEBT-A1]; anonymous read denied (abuse) [debt DEBT-A1]; anonymous write denied (abuse); unauthenticated /v1/compon |
 | `FND-9` | HELD | projected | account-write gate refuses a wrong internal token (fail closed) [DEBT-B29]; no passwordless full-authority mint (residual; write-gate half fixed by DEBT-B29); r |
 | `FND-10` | PARTIAL | projected | automation /events accepts without a service token (abuse); filestore refuses a wrong-audience token (abuse); filestore refuses an anonymous call (abuse); model |
-| `FND-11` | HELD | projected | component.publisher refused at kernel admin (registry.usage); dev-sandbox refused at kernel admin (registry.usage) |
+| `FND-11` | HELD | projected | SoD for floor roles enforces approver != proposer; component.publisher refused at kernel admin (registry.usage); dev-sandbox refused at kernel admin (registry.u |
 | `FND-12` | PLANNED(needs-build) | projected | every authz decision audited (allow+deny); failed-auth logged |
 | `FND-13` | NO TEST | projected | — |
-| `FND-14` | PLANNED(needs-build) | projected | role assignment names its grantor (granted_by) |
+| `FND-14` | PLANNED(needs-build) | projected | role assignment names its grantor (granted_by); role assignments carry grantor + governance provenance |
 | `FND-15` | HELD | projected | forged role+foreign-iss token rejected (abuse); human (platauth) refused a service audience; scheduler may request its recorded audience (svc:automation); sched |
 | `FND-16` | PLANNED(needs-build) | projected | missing config stops startup; safe defaults (no prod-pointing default; enforce-by-default; fail-loud) |
 | `FND-17` | PLANNED(needs-build) | projected | agent delegation; no self-widen |
@@ -74,17 +74,17 @@
 | rule | local-dev | production | cases (provenance) |
 |---|---|---|---|
 | `NET-1` | PLANNED(needs-build) | projected | slug/tenant not accepted as net authority [debt DEBT-B11/DEBT-B2] |
-| `NET-2` | NO TEST | projected | — |
+| `NET-2` | PLANNED(needs-build) | projected | a Network is a governed lifecycle object (creator role, DRAFT, governing tenant, empty-catalog gate) |
 | `NET-3` | HELD | projected | admin is a plain network.admin (network.admin role, not platform authority) (pos); anonymous governance role-write denied (abuse); component.publisher refused a |
 | `NET-4` | PLANNED(needs-build) | projected | suspended net refuses exchange, allows reads |
-| `NET-5` | NO TEST | projected | — |
+| `NET-5` | PLANNED(needs-build) | projected | membership supports invite->accept and suspend |
 | `NET-6` | PLANNED(needs-build) | projected | join never creates a login [debt DEBT-B9] |
-| `NET-7` | PLANNED(needs-build) | projected | issuer trust admin-only + scoped |
-| `NET-8` | NO TEST | projected | — |
-| `NET-9` | PLANNED(needs-build) | projected | wildcard/unversioned capability grant rejected [debt DEBT-B12] |
-| `NET-10` | NO TEST | projected | — |
-| `NET-11` | NO TEST | projected | — |
-| `NET-12` | NO TEST | projected | — |
+| `NET-7` | PLANNED(needs-build) | projected | issuer trust admin-only + scoped; issuer trust is network.admin-only and scoped to (member-tenant, net:id) |
+| `NET-8` | PLANNED(needs-build) | projected | classifications are descriptive only (never gate exchange) |
+| `NET-9` | VIOLATED | projected | capability-grant store POST /v1/grants requires a grant.steward (fail closed); wildcard/unversioned capability grant rejected [debt DEBT-B12] |
+| `NET-10` | PLANNED(needs-build) | projected | publishing a Service requires a recorded service.provide grant |
+| `NET-11` | PLANNED(needs-build) | projected | exchange runs through the one decision function and leaves a decision record |
+| `NET-12` | VIOLATED | projected | member list GET /v1/participation is members-only (not public); service directory POST /v1/service/search is members-only (REG-15) |
 
 ## ACCOUNT
 
@@ -200,36 +200,36 @@
 
 | rule | local-dev | production | cases (provenance) |
 |---|---|---|---|
-| `PTC-1` | NO TEST | projected | — |
-| `PTC-2` | NO TEST | projected | — |
-| `PTC-3` | NO TEST | projected | — |
+| `PTC-1` | VIOLATED | projected | trust-directory admission POST /v1/participants requires authority (fail closed) |
+| `PTC-2` | PLANNED(needs-build) | projected | Network-boundary auth is identity-only (FND-15) |
+| `PTC-3` | PLANNED(needs-build) | projected | Service registration carries iface/endpoint/version/data-use + a provide grant |
 | `PTC-4` | NO TEST | projected | — |
-| `PTC-5` | NO TEST | projected | — |
-| `PTC-6` | NO TEST | projected | — |
-| `PTC-7` | NO TEST | projected | — |
-| `PTC-8` | NO TEST | projected | — |
-| `PTC-9` | NO TEST | projected | — |
-| `PTC-10` | NO TEST | projected | — |
-| `PTC-11` | NO TEST | projected | — |
-| `PTC-12` | NO TEST | projected | — |
+| `PTC-5` | PLANNED(needs-build) | projected | inbound request carries a verified decision/consent reference; never widen |
+| `PTC-6` | PLANNED(needs-build) | projected | signed responses + fulfilment evidence joined to a decision |
+| `PTC-7` | PLANNED(needs-build) | projected | credential issuance requires a typed issue grant; signed; revocation published |
+| `PTC-8` | PLANNED(needs-build) | projected | presentation verification binds holder-proof/recipient/purpose/nonce (ACC-W3) |
+| `PTC-9` | PLANNED(needs-build) | projected | events: granted types only; interest != authority; idempotency |
+| `PTC-10` | PLANNED(needs-build) | projected | settlement references |
+| `PTC-11` | PLANNED(needs-build) | projected | per-role conformance before activation |
+| `PTC-12` | PLANNED(needs-build) | projected | one public versioned participant protocol; never /bridge |
 
 ## FEDERATION
 
 | rule | local-dev | production | cases (provenance) |
 |---|---|---|---|
-| `FED1` | NO TEST | projected | — |
-| `FED2` | NO TEST | projected | — |
-| `FED3` | NO TEST | projected | — |
-| `FED4` | NO TEST | projected | — |
-| `FED5` | NO TEST | projected | — |
-| `FED6` | NO TEST | projected | — |
-| `FED7` | NO TEST | projected | — |
-| `FED8` | NO TEST | projected | — |
+| `FED1` | PLANNED(needs-build) | projected | one governing tenant hosts a Network |
+| `FED2` | PLANNED(needs-build) | projected | creation needs network.creator; never creates tenants |
+| `FED3` | PLANNED(needs-build) | projected | join = registration in host registry (id, roles, keys, conformance) |
+| `FED4` | PLANNED(needs-build) | projected | per-role conformance before activation |
+| `FED5` | PLANNED(needs-build) | projected | cross-install requests signed by registered keys |
+| `FED6` | PLANNED(needs-build) | projected | home issuer trusted only for its own participants, per-Network |
+| `FED7` | VIOLATED | projected | host directory authoritative; resolve uses an exact steward match (no substring collisions); trust-directory admission POST /v1/participants requires authority  |
+| `FED8` | PLANNED(needs-build) | projected | directory-of-Networks / root of trust |
 
 ## Tally (rules per derived status, per environment)
 
 | environment | HELD | PARTIAL | VIOLATED | PLANNED(needs-build) | UNVERIFIED(creds) | REVIEW | REGRESSION | NO TEST | projected |
 |---|---|---|---|---|---|---|---|---|---|
-| local-dev | 12 | 4 | 4 | 50 | 0 | 0 | 0 | 89 | 0 |
+| local-dev | 12 | 4 | 8 | 72 | 0 | 0 | 0 | 63 | 0 |
 | production | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 159 |
 
