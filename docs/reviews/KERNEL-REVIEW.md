@@ -130,3 +130,44 @@ CMP-3, CMP-6. Verified both modes (internal 15 PASS / 4 XFAIL / 0 FAIL; external
 `STATUS-MATRIX.md` regenerated: the NO-TEST Kernel rows are now PLANNED(needs-build) (recorded) and FND-8 stays
 PARTIAL. The deeper `violated` verdicts above live here in the review (the matrix reports only what the black-box
 suite can measure).
+
+---
+
+## Appendix — EC2 production exposure of `/v1/components/install` (read-only, 2026-11-06)
+
+**Question (slice-1 step 2):** does the production kernel expose `/v1/components/install`, and does any app-host
+bridge reach it without its own check?
+
+**Findings (read-only; no POST to prod, no SSH mutation):**
+- **Not publicly routed.** `deploy/ec2/nginx/nginx.conf` has **no public kernel location** ("OS kernel API: NO
+  public route — internal kernel:8080 only"); public locations are `/network/`, `/kc/`, `/` → app-host. Confirmed
+  live with read-only GETs: `https://airos.airawat.org/healthz` → 200, but `/kernel/v1/components`,
+  `/kernel/healthz`, `/kernel/v1/components/install` all → **404** (they fall through to app-host, which has no
+  such route). The kernel port is internal to the compose network (not published to the host).
+- **The only public install path is app-host `/bridge/install` → `_do_install`, which has its OWN gate**
+  (`platform-spec/reference/routes/marketplace_routes.py:68`): `if not (ADMIN_ROLES & claims.roles)` →
+  `PermissionError` (tenant-admin required; a dev/sandbox Studio-builder is the only exception). app-host
+  authenticates the session before dispatching the bridge.
+- **Net:** the ungated kernel endpoint is **not internet-exposed**. The residual is defense-in-depth only — any
+  service co-resident on the EC2 docker network could call `kernel:8080/v1/components/install` unauthenticated and
+  obtain a run-token (a lateral-movement path that already presupposes an internal compromise). EC2 runs a kernel
+  image **predating** the hotfix, so this intra-network gap persists there until the image is rebuilt + redeployed.
+
+**Containment — NOT warranted as an emergency** (no public exposure), and **not run** (EC2 is out of scope this
+slice). The correct remediation is to bake + redeploy the hotfixed kernel image; the exact sequence (for a later,
+in-scope EC2 slice) is:
+
+```
+# BUILD + PUBLISH the hotfixed image (from the kernel repo @ b04b8d9, branch feat/admin-issuer-scope):
+docker build -f kernel/deploy/Dockerfile -t manishsv/airawatos-kernel:dev-hard6 kernel
+docker push manishsv/airawatos-kernel:dev-hard6
+# On EC2 (pin the new tag in the prod compose, then):
+docker compose -f <ec2-compose.yml> pull kernel && docker compose -f <ec2-compose.yml> up -d kernel
+# UNDO (roll back to the pre-hotfix tag if the install flow regresses):
+#   repin kernel image -> manishsv/airawatos-kernel:dev-hard5 (current prod tag) and `up -d kernel` again.
+```
+
+If a belt-and-suspenders *interim* containment were wanted before the redeploy (it is not necessary given no public
+route), the only meaningful measure is to confirm the kernel port stays unpublished (it already is — internal
+`8080/tcp` only; no host port binding to remove). No nginx `deny` is applicable because no public kernel location
+exists to deny.
