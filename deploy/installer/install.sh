@@ -56,6 +56,48 @@ COMPOSE() { docker compose -p "$P" --project-directory "$LOCALDEV" -f "$F" "$@";
 XNET()  { COMPOSE exec -T network "$@"; }
 XAPP()  { COMPOSE exec -T app-host "$@"; }
 
+# ── Host pre-flight (BEFORE any change) ──────────────────────────────────────────────────────────────
+# Each check prints PASS/WARN/FAIL + a plain-language FIX. In production a FAIL stops the install; in dev it
+# only WARNs (local dev boxes legitimately fail several). "where detectable" is honest: a check that cannot be
+# determined on this host prints a NOTE to verify manually rather than a false pass. Read-only.
+_PF_FAIL=0
+_pf() {  # _pf <severity pass|warn|fail> <label> <fix>
+  local sev="$1" label="$2" fix="${3:-}"
+  case "$sev" in
+    pass) echo "  ✓ $label" ;;
+    note) echo "  • $label (verify manually: $fix)" ;;
+    *)    if [ "$PROFILE" = production ]; then echo "  ✗ FAIL: $label"; echo "       FIX: $fix"; _PF_FAIL=1
+          else echo "  ⚠ WARN: $label"; echo "       FIX: $fix"; fi ;;
+  esac
+}
+echo "▶ pre-flight: host posture (profile=$PROFILE — production stops on FAIL, dev warns)"
+# 1) resources
+_cores=$( (command -v nproc >/dev/null && nproc) || sysctl -n hw.ncpu 2>/dev/null || echo 0 )
+[ "${_cores:-0}" -ge 2 ] && _pf pass "CPU cores: $_cores (>=2)" || _pf fail "only ${_cores} CPU core(s)" "provision a host with >=2 vCPUs"
+_diskavail=$(df -Pk . 2>/dev/null | awk 'NR==2{printf "%d", $4/1048576}')
+[ "${_diskavail:-0}" -ge 10 ] && _pf pass "free disk: ${_diskavail} GB (>=10)" || _pf fail "only ${_diskavail:-?} GB free" "free or add disk (>=10 GB headroom)"
+# 2) disk encryption (where detectable)
+if command -v fdesetup >/dev/null 2>&1; then
+  fdesetup status 2>/dev/null | grep -qi "On" && _pf pass "disk encryption: FileVault On" || _pf fail "FileVault appears Off" "enable FileVault (System Settings → Privacy & Security → FileVault)"
+elif command -v lsblk >/dev/null 2>&1 && lsblk -o TYPE 2>/dev/null | grep -qi crypt; then
+  _pf pass "disk encryption: LUKS volume present"
+else
+  _pf note "disk encryption not detectable on this host" "confirm the data volume is encrypted at rest (LUKS / cloud-provider volume encryption)"
+fi
+# 3) only 80/443 exposed publicly — flag any 0.0.0.0 published container port that is not 80/443
+_bad_ports=$(docker ps --format '{{.Ports}}' 2>/dev/null | tr ',' '\n' | grep -oE '0\.0\.0\.0:[0-9]+' | sed 's/.*://' | sort -un | grep -vE '^(80|443)$' | tr '\n' ' ')
+if [ -n "${_bad_ports// /}" ]; then _pf fail "public (0.0.0.0) ports other than 80/443: $_bad_ports" "bind these to 127.0.0.1 (local) or remove the port publish; expose only 80/443 at the host"
+else _pf pass "no public ports other than 80/443 (local-dev binds 127.0.0.1)"; fi
+# 4) Vault not in dev/root mode
+_vstatus=$(COMPOSE exec -T vault sh -lc 'VAULT_ADDR=http://127.0.0.1:8200 vault status -format=json 2>/dev/null' 2>/dev/null || true)
+_vstorage=$(printf '%s' "$_vstatus" | grep -oE '"storage_type":[^,}]*' | head -1)
+if printf '%s' "$_vstorage" | grep -qi inmem; then _pf fail "Vault is in dev/in-memory mode (storage=inmem)" "run Vault with durable storage, unsealed, and NO root token in VAULT_TOKEN (use a scoped policy token)"
+elif [ -n "$_vstatus" ]; then _pf pass "Vault storage is durable (not in-memory)"
+else _pf note "Vault mode not detectable" "confirm Vault runs in production mode (durable storage, unsealed, non-root scoped token)"; fi
+# 5) dedicated host (advisory — not reliably detectable)
+_pf note "dedicated host" "confirm this host runs ONLY AirawatOS (no co-tenant workloads sharing the kernel/Docker engine)"
+if [ "$_PF_FAIL" = 1 ]; then echo "✗ pre-flight FAILED (production) — fix the items above and re-run."; exit 1; fi
+
 echo "▶ preflight: network + kernel health"
 curl -fsS http://127.0.0.1:8080/network/v1/health >/dev/null || { echo "✗ network not up"; exit 1; }
 curl -fsS http://127.0.0.1:8080/kernel/v1/health  >/dev/null || { echo "✗ kernel not up";  exit 1; }
