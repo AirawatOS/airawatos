@@ -74,3 +74,39 @@ Verified: `--profile bogus` is rejected; the dev-only test-user phase is gated b
 the dev wrapper runs the proven phase bodies unchanged (an idempotent re-run against the long-lived live stack
 surfaces only pre-existing admin-login drift in `seed_base_os`, which the clean fresh-install test — step 5 —
 exercises). Conformance both modes green.
+
+## Step 4 — DB-role rework (SCOPED — its own slice; blockers surfaced)
+
+Target (per the refinement): no service runs as a superuser; a dedicated non-super `kernel_app` / `network_app`
+(DML only, **no DDL** — boot-time DDL moves into a `migrator` role run by the installer); keep `identity_lockout`;
+all passwords in Vault, none in compose; prove each service cannot read another's tables.
+
+**Blockers found while scoping (why this is a separate slice, not a tack-on):**
+1. **`kv` is shared between kernel AND network.** The kernel imports `services.kv` (`kernel/api/app.py:1955,
+   2009`) and writes the same `kv(store,key,value)` table the network owns (`network/kv.py`). So `network_app`
+   cannot *exclusively* own `kv` — either both app roles get DML on a shared `kv` (weaker isolation: each can
+   read the other's KV rows), or `kv` is split into per-service tables (a schema + code change in both
+   services). **A design decision is required before implementation.**
+2. **Boot/lazy DDL is spread across ≥4 code sites**, all of which must be relocated to the migrator and guarded
+   behind a skip-DDL flag so a non-owner app role never attempts DDL:
+   - `kernel/services/registry/pg_store.py` — `_DDL_CORE` (tables) at boot + `_DDL_MAINT`/`CONCURRENTLY`
+     indexes in the maint thread + on-demand `rvx_*` expression indexes at schema-publish.
+   - `kernel/api/adminaudit.py` — `kernel_admin_audit` created **lazily** on first audit write (`_ensure_table`).
+   - `kernel/services/kv.py` and `network/kv.py` — `CREATE TABLE kv` on first connect.
+3. **Two images rebuild** (kernel + network) plus Vault-password DSNs added to `pg_store`, both `kv.py` modules
+   — each reading `DB_PASSWORD_VAULT_PATH` like identity already does.
+
+**Planned shape** (for the dedicated slice): installer `migrator` role owns `registry_version`,
+`kernel_admin_audit`, `registry_schema_meta`, `kv` (+ sequences); runs all the DDL above via a kernel/network
+`migrate` entrypoint; grants DML — registry/audit/meta → `kernel_app`, `kv` → `kernel_app` + `network_app`
+(pending the split decision), `identity_login_fails` → `identity_lockout`. Services boot with
+`REGISTRY_SKIP_DDL=1` / `NETWORK_SKIP_DDL=1` and `DB_USER=kernel_app|network_app` (Vault password). Then prove
+`kernel_app` is denied on `identity_login_fails` and `network_app` denied on `registry_version`, and both
+services boot + conformance both modes. Reversible: revert compose `DB_USER` + the images.
+
+## Step 7 — extended standing rule
+
+Every code slice ends with: local-dev rebuild + live check of the specific fix + conformance both modes **and
+updates this installer (so it still reproduces the stack) and — for a change that alters install/boot state —
+passes the fresh-install test** (wipe volumes → `install.sh --profile dev` → conformance both modes match the
+prior results) — unless told otherwise. Recorded in memory (`code-slice-rebuild-verify-rule`).
