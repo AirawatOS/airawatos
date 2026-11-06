@@ -448,7 +448,11 @@ def _req(url, data=None, headers=None, method="GET"):
                              headers=headers or {}, method=method)
     try: return urllib.request.urlopen(r, timeout=10).read()
     except urllib.error.HTTPError as e: return e
-for USER in ("platauth", "platnone"):
+for USER, _roles in (("platauth", []), ("platnone", []), ("rolesteward", ["platform.tenant-admin"])):
+    # rolesteward (phase-5 FND-1/FND-3 test honesty): a HOME-issued account whose TOKEN carries an admin
+    # role CLAIM (platform.tenant-admin) but which holds NO recorded governance grant — the negative case proving
+    # "identity carries no authority" / "authority only from recorded grants". Conformance expects a kernel
+    # admin endpoint to DENY it; today the kernel honours the claim (DEBT-B1) so that case is XFAIL.
     # #282 — ONE Vault convention for every provisioned credential: path secret/data/<tenant>/<principal>/password,
     # field `password` (same shape ensure_install uses for the service principals). No bespoke test-users/value path.
     VPATH=f"secret/data/{INST}-network/{USER}/password"
@@ -468,7 +472,12 @@ for USER in ("platauth", "platnone"):
          headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
     s=_req(f"{IDN}/set-password", data={"username":USER,"tenant":TENANT,"password":pw,"must_reset":False,"only_if_unset":True},
            headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
-    print(f"[phase9] created test user (username only): {USER}   tenant={TENANT}   recorded_role=(none)",
+    if _roles:
+        # identity's /users CREATE drops the `roles` field (a slice-2 identity finding); a SECOND /users POST
+        # UPDATES (merges) it, which does persist. Needed so rolesteward actually carries platform.tenant-admin.
+        _req(f"{IDN}/users", data={"username":USER,"tenant":TENANT,"roles":_roles},
+             headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
+    print(f"[phase9] created test user (username only): {USER}   tenant={TENANT}   roles={_roles or '(none)'}",
           "OK" if not isinstance(s, urllib.error.HTTPError) else f"set-pw {s.code}")
 print("[phase9] ADR-0122 test users ready: platauth, platnone — passwords in Vault at "
       f"secret/data/{INST}-network/<name>/password (field `password`); platform.authority is granted to "

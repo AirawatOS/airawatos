@@ -609,6 +609,21 @@ def run_kernel_review_cases():
     expect("FOUNDATIONS", "FND-8", "unauthenticated /v1/components/install is admin-gated (abuse)",
            st in (401, 403),
            "unauth install -> %s (want 401/403; admin-gated before any processing — DEBT-B22 hotfix)" % st)
+    # FND-1 / FND-3 (review VIOLATED, matrix HELD) — test honesty: identity carries NO authority. A HOME-issued
+    # token whose ROLE claim is admin (platform.steward) but which holds NO recorded governance grant must be
+    # REFUSED at a kernel admin endpoint (authority only from recorded grants, FND-2). Today the kernel admin
+    # gate honours the token role (DEBT-B1), so the admin call is ALLOWED = violation reproduced → XFAIL.
+    # Principal: rolesteward (installer Phase 9, dev-only — platform.tenant-admin CLAIM, no recorded grant).
+    rs = _login_token("rolesteward", "localdev-network", "secret/data/localdev-network/rolesteward/password")
+    if not rs:
+        record("FOUNDATIONS", "FND-1/FND-3", "home-issued admin role-claim without a recorded grant refused at kernel admin (abuse)",
+               "needs-creds", "SKIP_CREDS", "could not mint a rolesteward token (installer Phase 9 dev-only)")
+    else:
+        st2, _, _ = _req("GET", K + "/v1/components", token=rs)
+        xfail("FOUNDATIONS", "FND-1/FND-3",
+              "home-issued admin role-claim (no recorded grant) refused at kernel admin (abuse) [debt DEBT-B1]",
+              st2 not in (401, 403),
+              "rolesteward (platform.tenant-admin CLAIM, no recorded grant) GET /v1/components -> %s (rule: deny 401/403; DEBT-B1: token role honoured as authority)" % st2)
     # The remaining Kernel-relevant NO-TEST rules are not cleanly black-box reachable; record WHY + the proposed
     # internal (pytest) test. kind 'needs-build' → SKIP_BUILD (matrix: PLANNED(needs-build)). See KERNEL-REVIEW.md.
     def nb(spec, rule, name, why): record(spec, rule, name, "needs-build", "SKIP_BUILD", why)
