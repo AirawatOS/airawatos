@@ -2,7 +2,7 @@
 
 **Generated** by `conformance/build_matrix.py` from `conformance/results/*.json` (written by `conformance/run.py --matrix`). **Do not hand-edit** — regenerate after a conformance run. This is the conformance-derived single source of truth for per-rule status; the specs reference it (ADR: STATUS-MATRIX-DESIGN.md).
 
-- **local-dev** — measured: modes external+internal, git ``, 2026-11-06T17:38:28Z
+- **local-dev** — measured: modes external+flowmap+internal, git ``, 2026-11-06T18:22:04Z
 - **production** — *PROJECTED*: no production conformance run yet; not asserted (stand up per docs/operator/FRESH-INSTALL-TEST.md §Step 3, then run the suite with AOS_ENV=production).
 
 **Derived status:** HELD (all cited cases PASS) · PARTIAL (PASS + known-violation XFAIL) · VIOLATED (only XFAIL — tracked as debt) · PLANNED(needs-build) (only SKIP_BUILD, not black-box reachable) · UNVERIFIED(creds) (only SKIP_CREDS — fix the fixture) · REVIEW (XPASS — spec lags code) · REGRESSION (a FAIL — contradicts spec) · NO TEST (no case cites the rule yet).
@@ -13,10 +13,10 @@
 |---|---|---|---|
 | `FND-1` | PARTIAL | projected | App Host authority comes from a recorded grant, not the token's roles claim; a roleless-created account has NO roles — no authority by omission [DEBT-B28 fixed] |
 | `FND-2` | HELD | projected | Trust audit chain is verified/reconciled at runtime; dev-sandbox refused a cross-tenant write; valid non-admin session denied governance write (abuse) |
-| `FND-3` | PARTIAL | projected | authority only from a recorded grant, never tenant name (TRUST plane); forged role+foreign-iss token rejected (abuse); home-issued admin role-claim (no recorded |
+| `FND-3` | PARTIAL | projected | authority only from a recorded grant, never tenant name (TRUST plane); forged role+foreign-iss token rejected (internal, abuse); home-issued admin role-claim (n |
 | `FND-4` | PLANNED(needs-build) | projected | tenant != network (authority keyed on net:id, not tenant/slug) |
 | `FND-5` | PLANNED(needs-build) | projected | durable authority survives restart; session cookie is Secure + CSRF/Origin-checked on state-changing bridge POSTs |
-| `FND-6` | HELD | projected | unknown schema handled opaquely (pos) |
+| `FND-6` | HELD | projected | unknown schema handled opaquely (internal, pos) |
 | `FND-7` | PLANNED(needs-build) | projected | kernel authorizes with Network down |
 | `FND-8` | PARTIAL | projected | /bridge/component-publish refuses an unverified bearer (not presence-only); account-hold (admin-disable) check fails CLOSED on registry error; anon bridge reads |
 | `FND-9` | HELD | projected | account-write gate refuses a wrong internal token (fail closed) [DEBT-B29]; no passwordless full-authority mint (residual; write-gate half fixed by DEBT-B29); r |
@@ -25,7 +25,7 @@
 | `FND-12` | PLANNED(needs-build) | projected | every authz decision audited (allow+deny); failed-auth logged |
 | `FND-13` | NO TEST | projected | — |
 | `FND-14` | PLANNED(needs-build) | projected | role assignment names its grantor (granted_by); role assignments carry grantor + governance provenance |
-| `FND-15` | HELD | projected | forged role+foreign-iss token rejected (abuse); human (platauth) refused a service audience; scheduler may request its recorded audience (svc:automation); sched |
+| `FND-15` | HELD | projected | forged role+foreign-iss token rejected (internal, abuse); human (platauth) refused a service audience; scheduler may request its recorded audience (svc:automati |
 | `FND-16` | PLANNED(needs-build) | projected | missing config stops startup; safe defaults (no prod-pointing default; enforce-by-default; fail-loud) |
 | `FND-17` | PLANNED(needs-build) | projected | agent delegation; no self-widen |
 
@@ -37,15 +37,15 @@
 | `REG-2` | PLANNED(needs-build) | projected | schema-governed writes; no ungoverned/ad-hoc shapes |
 | `REG-3` | PLANNED(needs-build) | projected | supersede creates new version; prior addressable |
 | `REG-4` | PLANNED(needs-build) | projected | valid + recorded time |
-| `REG-5` | HELD | projected | forged-token write denied (abuse) |
-| `REG-6` | VIOLATED | projected | anonymous existence-check denied (abuse) [debt DEBT-A1]; anonymous kernel read denied (internal) [debt DEBT-A1]; anonymous read denied (abuse) [debt DEBT-A1] |
+| `REG-5` | HELD | projected | forged-token write denied (internal, abuse) |
+| `REG-6` | VIOLATED | projected | anonymous existence-check denied (internal, abuse) [debt DEBT-A1]; anonymous kernel read denied (internal) [debt DEBT-A1] |
 | `REG-7` | PLANNED(needs-build) | projected | written record carries provenance [debt DEBT-A2 shadow] |
 | `REG-8` | PLANNED(needs-build) | projected | Kernel/participant signature on each committed version |
 | `REG-9` | PLANNED(needs-build) | projected | idempotent writes (content-hash dedup) |
 | `REG-10` | PLANNED(needs-build) | projected | deterministic resolution over records (pos) |
 | `REG-11` | PLANNED(needs-build) | projected | schemas are records; owner != adopter |
 | `REG-12` | PLANNED(needs-build) | projected | trust-bearing write audited |
-| `REG-13` | HELD | projected | unknown schema handled opaquely (pos) |
+| `REG-13` | HELD | projected | unknown schema handled opaquely (internal, pos) |
 | `REG-14` | PLANNED(needs-build) | projected | personal data by reference; erasure |
 | `REG-15` | PLANNED(needs-build) | projected | public = schema flag via CR |
 | `REG-16` | PLANNED(needs-build) | projected | archived version resolves identically |
@@ -226,10 +226,22 @@
 | `FED7` | HELD | projected | host directory authoritative; resolve uses an exact steward match (no substring collisions); trust-directory admission POST /v1/participants refuses anonymous ( |
 | `FED8` | PLANNED(needs-build) | projected | directory-of-Networks / root of trust |
 
+## ARCHITECTURE
+
+| rule | local-dev | production | cases (provenance) |
+|---|---|---|---|
+| `ARC-1` | HELD | projected | container network membership matches the declared map; live reachability probes match the membership map; the component net is broker-only (kernel is its only s |
+| `ARC-2` | NO TEST | projected | — |
+| `ARC-3` | HELD | projected | the fact store (postgres) is reachable only by kernel/network/identity |
+| `ARC-4` | PLANNED(needs-build) | projected | per-service micro-segmentation within the svc mesh (declared calls: only) |
+| `ARC-5` | HELD | projected | the edge (nginx) reaches no internal service or data store |
+| `ARC-6` | NO TEST | projected | — |
+| `ARC-7` | HELD | projected | Vault is not reachable by pure-compute services or the edge |
+
 ## Tally (rules per derived status, per environment)
 
 | environment | HELD | PARTIAL | VIOLATED | PLANNED(needs-build) | UNVERIFIED(creds) | REVIEW | REGRESSION | NO TEST | projected |
 |---|---|---|---|---|---|---|---|---|---|
-| local-dev | 16 | 4 | 4 | 78 | 0 | 0 | 0 | 57 | 0 |
-| production | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 159 |
+| local-dev | 20 | 4 | 4 | 79 | 0 | 0 | 0 | 59 | 0 |
+| production | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 166 |
 

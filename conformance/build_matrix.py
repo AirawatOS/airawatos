@@ -33,6 +33,7 @@ INVENTORY = [
     ("POLICY",      "POL", [str(i) for i in range(1, 9)]),
     ("PARTICIPANT", "PTC", [str(i) for i in range(1, 13)]),
     ("FEDERATION",  "FED", [str(i) for i in range(1, 9)]),
+    ("ARCHITECTURE","ARC", [str(i) for i in range(1, 8)]),   # ARC-1..ARC-7 (ARCHITECTURE-FLOWS; flow-map test)
 ]
 def rid(prefix, n):  # FND + "8" -> FND-8 ; FED + "3" -> FED3 (FED carries no hyphen)
     return ("%s%s" if prefix == "FED" else "%s-%s") % (prefix, n)

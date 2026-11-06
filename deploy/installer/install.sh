@@ -144,6 +144,11 @@ for i in $(seq 1 60); do
   sleep 2
 done
 _verify_arc_networks   # FIX-PLAN L1 slice-1a step4 — all services up ⇒ all 5 ARC networks exist; verify the walls
+# step5 — comprehensive ARC flow-map test (membership + forbidden-reachability probes); fails on any off-map path.
+_REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+if [ -f "$_REPO_ROOT/conformance/flow_map_test.py" ]; then
+  AOS_LD_PROJECT="$P" python3 "$_REPO_ROOT/conformance/flow_map_test.py" || { echo "✗ ARC flow-map test FAILED — off-map path"; exit 1; }
+fi
 
 # ── Host pre-flight (BEFORE any change) ──────────────────────────────────────────────────────────────
 # Each check prints PASS/WARN/FAIL + a plain-language FIX. In production a FAIL stops the install; in dev it

@@ -1,9 +1,10 @@
 # ARCHITECTURE-FLOWS — v0.1 (ARC)
 
-> **Status is conformance-measured where a rule has a test** — see [STATUS-MATRIX.md](STATUS-MATRIX.md). ARC rules
-> are not yet wired into `conformance/run.py`/`build_matrix.py` (that is FIX-PLAN layer-1's *flow-map test*); until
-> then the **ARC status table in §d is authoritative for ARC rules**, each row cross-linked to the measured
-> FND/CMP/REG rows that enforce it and the debt that keeps it from HELD.
+> **Status is conformance-measured** — see [STATUS-MATRIX.md](STATUS-MATRIX.md). ARC rules are now wired into the
+> matrix via the **flow-map test** (`conformance/flow_map_test.py`, FIX-PLAN L1 slice-1a): as of that slice
+> **ARC-1, ARC-3, ARC-5, ARC-7 read HELD** (network-boundary layer), **ARC-4 PLANNED(needs-build)** (per-service
+> micro-segmentation), and **ARC-2, ARC-6 NO TEST** (owned by later layers — Kernel/ADR-0123 and the per-door
+> decision function). The §d table below carries the narrative + residual debt per rule.
 
 This spec states the platform's **flow architecture**: the *doors* through which every call must pass, the *rules*
 that govern flow between layers, how each rule is *enforced*, and the *current-state* deviations (each a DEBT
@@ -103,18 +104,21 @@ the **same `kernel` database**, passwords stored at per-service Vault paths. **V
 
 | ARC rule | Status | Deviation (DEBT) | Enforcing measured rows |
 |----------|--------|------------------|-------------------------|
-| **ARC-1** No call bypasses a door | **VIOLATED** | Flat network → any container can dial any service directly; confined components bypass the broker (**B51** in-process inherits host env; **B52** container no egress policy); SDK/apps treat `/bridge/*` as the protocol (A23/CLI-6) | CMP-5, CMP-6 (PLANNED); FND-8 (VIOLATED) |
-| **ARC-2** Kernel never calls upward | **VIOLATED** | Kernel calls the Network for authority key/schemas/grants/tenant-dev (**DEBT-B9**); ADR-0123 open | FND-7 (VIOLATED) |
-| **ARC-3** Only Kernel holds fact-store creds | **PARTIAL** | `network_app` and `identity_lockout` connect to the `kernel` fact DB **directly**, not via the Kernel door — least-privilege roles bound the blast radius but the fact store is reached by 3 services, not 1 (**new: DEBT-B57**) | FND-6 (PARTIAL); per-service DB roles (partial) |
-| **ARC-4** Service reaches only its listed doors | **PARTIAL** | `services.yaml` declares `calls:` but there is no enforcement that a service dials only those; shadow-default gates (**A72/B5**) let an undeclared caller through on a flat net | CMP-1 (PARTIAL); svc_authz (armed scheduler/automation only) |
-| **ARC-5** Internet reaches only edge + D2/D3 | **VIOLATED** | nginx also proxies `/kernel/` → the Kernel door is internet-reachable, and anonymous kernel reads succeed (**DEBT-A1**); the full `/bridge/*` + `/embed/*` surface is internet-facing (slice-4 B41/B42/B46) | REG-6/FND-8 (VIOLATED); A1 |
-| **ARC-6** One fail-closed decision fn, recorded | **PARTIAL** | Kernel P0 gate + Trust-plane hold it; but shadow-default service gates (**A72**), unauthenticated privileged endpoints (**B5**), fail-open delivery (**B54**) and authority-from-token-role (**B1**) break it at several doors; failed-auth largely unlogged (**A9**) | FND-2/8/12/16 (VIOLATED/PARTIAL) |
-| **ARC-7** Store reachable only from layer above | **PARTIAL** | DB-role separation + Kernel-mediated files hold the *shape*, but the **shared `VAULT_TOKEN`** means any service can read any Vault path (no per-service policy) (**new: DEBT-B58**); files REG-18 PLANNED | REG-18 (PLANNED); FND-10 |
+| **ARC-1** No call bypasses a door | **HELD** (network layer) | Per-boundary networks enforced + flow-map-tested (slice-1a); placed components confined to the broker-only net (**B52 closed at the container layer**). Residual at other layers: the in-process default runtime still inherits the host env (**B51**, Layer-7); apps/SDK still treat `/bridge/*` as the protocol (A23/CLI-6, Layer-5/7) | **ARC-1 HELD** (flow-map); CMP-5/CMP-6 |
+| **ARC-2** Kernel never calls upward | **VIOLATED** | Kernel calls the Network for authority key/schemas/grants/tenant-dev (**DEBT-B9**); ADR-0123 open — Layer-2 | FND-7 (VIOLATED); ARC-2 NO TEST |
+| **ARC-3** Only Kernel holds fact-store creds | **HELD** (network layer) | The fact DB is now reachable ONLY by kernel/network/identity (flow-map-tested); no other service can dial postgres. Residual: network/identity still connect **directly** rather than via the Kernel door (**DEBT-B57**, Layer-2) | **ARC-3 HELD** (flow-map); FND-6 |
+| **ARC-4** Service reaches only its listed doors | **PLANNED(needs-build)** | Network boundaries are per-tier; per-service micro-segmentation inside the `aos-svc` mesh (a service dials only its `calls:` doors) is not yet enforced — shadow-default gates (**A72/B5**) remain the service-level control | **ARC-4 PLANNED**; CMP-1; svc_authz |
+| **ARC-5** Internet reaches only edge + D2/D3 | **HELD** | The edge now proxies ONLY the App Host front door + the federation door; `/kernel/*` → 404 (flow-map + external probe). The Kernel door and every internal service/store are off the edge. Residual (Layer-5, not ARC-5): the public `/bridge/*`+`/embed/*` surface still needs rate-limiting/route-separation (B46) | **ARC-5 HELD** (flow-map) |
+| **ARC-6** One fail-closed decision fn, recorded | **PARTIAL** | Kernel P0 gate + Trust-plane hold it; but shadow-default service gates (**A72**), unauthenticated privileged endpoints (**B5**), fail-open delivery (**B54**) and authority-from-token-role (**B1**) break it at several doors — Layers 2/5/6 | FND-2/8/12/16; ARC-6 NO TEST |
+| **ARC-7** Store reachable only from layer above | **HELD** (network layer) | Vault is now reachable only by its declared clients (flow-map-tested); pure-compute services + the edge cannot reach it, and the fact store is not on the secrets net. Residual: those clients share one `VAULT_TOKEN` (no per-service policy — **DEBT-B58**, later Layer-1 slice); files REG-18 PLANNED | **ARC-7 HELD** (flow-map); REG-18 |
 
-**New debt opened by this mapping:** **DEBT-B57** (fact store reached directly by `network_app`/`identity_lockout`,
-not Kernel-only — ARC-3) and **DEBT-B58** (shared Vault token, no per-service Vault policy — ARC-7). Both are
-recorded in [DEBT-REGISTER.md](../consolidation/DEBT-REGISTER.md). The flat-network and shadow-default deviations
-(DEBT-B52, A72, B5) are carried from slices 5–6, not re-opened.
+**Debt opened by the mapping (carried forward):** **DEBT-B57** (fact store reached directly by
+`network_app`/`identity_lockout`, not Kernel-only — ARC-3 residual) and **DEBT-B58** (shared Vault token, no
+per-service Vault policy — ARC-7 residual), both in [DEBT-REGISTER.md](../consolidation/DEBT-REGISTER.md).
+**Closed by slice-1a:** ARC-5 (edge no longer exposes the Kernel), ARC-1/ARC-3/ARC-7 at the **network-boundary
+layer** (flat net replaced by per-tier networks; **B52** closed for the container-placement path). Still open at
+higher layers: B51 (in-process confinement, Layer-7), B9 (ARC-2, Layer-2), the shadow-default gates (A72/B5) and
+ARC-4 micro-segmentation. The flow-map test (`conformance/flow_map_test.py`) is the standing enforcement.
 
 ---
 

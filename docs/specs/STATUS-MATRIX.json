@@ -8,9 +8,10 @@
   "provenance": {
     "local-dev": {
       "git_sha": "",
-      "ts": "2026-11-06T17:38:28Z",
+      "ts": "2026-11-06T18:22:04Z",
       "modes": [
         "external",
+        "flowmap",
         "internal"
       ]
     }
@@ -515,6 +516,29 @@
       },
       "FED8": {
         "local-dev": "PLANNED(needs-build)"
+      }
+    },
+    "ARCHITECTURE": {
+      "ARC-1": {
+        "local-dev": "HELD"
+      },
+      "ARC-2": {
+        "local-dev": "NO TEST"
+      },
+      "ARC-3": {
+        "local-dev": "HELD"
+      },
+      "ARC-4": {
+        "local-dev": "PLANNED(needs-build)"
+      },
+      "ARC-5": {
+        "local-dev": "HELD"
+      },
+      "ARC-6": {
+        "local-dev": "NO TEST"
+      },
+      "ARC-7": {
+        "local-dev": "HELD"
       }
     }
   }
