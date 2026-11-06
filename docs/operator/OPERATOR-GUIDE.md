@@ -94,6 +94,32 @@ to shadow.
 - **Scheduled restore drills.** On a fixed cadence (e.g. monthly), restore the latest backup into the
   rehearsal environment and confirm it comes up. Record the date + result. Backups are only as good as the
   last successful restore.
+- **Restore runbook (after restoring data volumes).** When you restore the Postgres / Vault / filestore /
+  identity volumes from backup, two things drift from the restored state: the **DB-role passwords** in
+  Postgres, and the **Vault token** each already-running container holds. Before using the stack:
+  1. **Re-sync every DB-role password from Vault** via the single idempotent installer step — it converges
+     `migrator` / `kernel_app` / `network_app` **and** `identity_lockout` from Vault (no manual password
+     handling; the secret never leaves the container):
+
+     ```
+     docker compose exec -T network python3 - < deploy/installer/_split_roles.py
+     ```
+  2. **Recreate — don't just `restart` — every service** so it picks up the current Vault token from `.env`:
+     `docker compose up -d`. A bare `docker restart` keeps the container's original environment, so a service
+     can come back holding a **stale Vault token** (symptom: `403 Forbidden` reading its Vault path → the
+     service fails open to an empty DB password → `password authentication failed`). This is distinct from the
+     DB-password drift in (1); a restore needs **both** fixes.
+  3. **Verify each service's health before use** — not just that containers are "up": `/healthz` on
+     kernel / network / identity (identity must report `lockout_store: "durable(postgres)"`, **not**
+     `memory(degraded)`), plus a login, a record resolve, and a blob read. A restore that has not passed these
+     checks does not count (same rule as the restore drill).
+- **Monitor the identity lockout store (PLANNED monitoring item).** Identity exposes two signals when its
+  durable brute-force-lockout store (Postgres `identity_login_fails`, ADR-0121) is unreachable: an **ALERT**
+  log line (`[identity][ALERT] lockout-store ... mode=memory(degraded)`) and `lockout_store: "memory(degraded)"`
+  on `/healthz`. While degraded, lockout counters are per-replica and in-memory (lost on restart, not shared
+  across replicas) — brute-force protection is weakened, silently. Something must **watch both signals and
+  alert** (scrape `/healthz` for `memory(degraded)`; match the ALERT line in the log pipeline). Not yet wired
+  into a monitoring stack — tracked here as a monitoring item.
 - **Key + run-token rotation.** Rotate on a schedule and on personnel change: Vault transit keys (signing
   `airawat-authority`/`airawat-identity`; and the `rec-*`/`idx-*` data keys once R17 ships) via key-version
   bump + rewrap; service-principal passwords in Vault; run-tokens are already short-lived/high-entropy —
