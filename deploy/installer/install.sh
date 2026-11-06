@@ -69,6 +69,38 @@ XAPP()  { COMPOSE exec -T app-host "$@"; }
 XRUNNET()  { COMPOSE run --rm --no-deps -T network "$@"; }
 XRUNKERN() { COMPOSE run --rm --no-deps -T kernel "$@"; }
 
+# ARC-5 (slice-1a): the Kernel door is internal-only — the edge no longer proxies /kernel/. Readiness is checked
+# INSIDE the kernel container, not via the edge. (Network health stays at the edge /network/ — federation door.)
+KHEALTH() { COMPOSE exec -T kernel python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/v1/health',timeout=3).status==200 else 1)" >/dev/null 2>&1; }
+
+# FIX-PLAN L1 slice-1a step 4 — verify the per-boundary ARC networks exist and the critical walls hold. Compose
+# CREATES the networks on `up`; this VERIFIES them and FAILS the install on any off-map membership (an open wall
+# would silently reintroduce the flat-net exposure). Deterministic: docker membership ⇒ reachability.
+_net_members() { docker network inspect "$1" --format '{{range .Containers}}{{.Name}} {{end}}' 2>/dev/null; }
+_verify_arc_networks() {
+  echo "▶ verify: ARC per-boundary networks (edge/svc/data-facts/data-secrets/component)"
+  local ok=1 n
+  for n in aos-edge aos-svc aos-data-facts aos-data-secrets aos-component; do
+    docker network inspect "$n" >/dev/null 2>&1 && echo "  ✓ network $n exists" || { echo "  ✗ network $n MISSING"; ok=0; }
+  done
+  # Wall 1 (ARC-5): the edge carries only nginx + app-host + network — never a data store or internal service.
+  for bad in airawat-ld-postgres airawat-ld-vault airawat-ld-kernel airawat-ld-secrets; do
+    _net_members aos-edge | grep -qw "$bad" && { echo "  ✗ WALL: $bad is on aos-edge (edge must be isolated)"; ok=0; }
+  done
+  # Wall 2 (ARC-3): the fact store net carries ONLY postgres + the 3 DB-role holders (kernel/network/identity).
+  for m in $(_net_members aos-data-facts); do
+    case "$m" in airawat-ld-postgres|airawat-ld-kernel|airawat-ld-network|airawat-ld-identity) ;;
+      *) echo "  ✗ WALL: unexpected member $m on aos-data-facts (facts = kernel/network/identity only)"; ok=0;; esac
+  done
+  # Wall 3 (ARC-7): the fact store is NOT on the secrets net, and nginx reaches neither data store.
+  _net_members aos-data-secrets | grep -qw airawat-ld-postgres && { echo "  ✗ WALL: postgres on aos-data-secrets"; ok=0; }
+  # Wall 4 (ARC-1/B52): the component net carries ONLY the broker (kernel) + transient placed components.
+  for m in $(_net_members aos-component); do
+    case "$m" in airawat-ld-kernel) ;; *) echo "  ✗ WALL: unexpected member $m on aos-component (broker-only)"; ok=0;; esac
+  done
+  if [ "$ok" = 1 ]; then echo "  ✓ ARC network walls verified"; else echo "✗ ARC network verification FAILED — walls above are open"; exit 1; fi
+}
+
 # ── Fresh-install bring-up (idempotent): infra → keys → roles → migrator → services ──────────────────
 # 4b: the app-role services (kernel_app/network_app boot with REGISTRY_SKIP_DDL/KV_SKIP_DDL and are NON-owners)
 # cannot start until their tables + roles exist, so a from-empty install MUST order the bring-up. On an
@@ -108,10 +140,10 @@ XRUNNET env INSTANCE="$INSTANCE" DB_HOST=postgres python3 - < "$SCRIPT_DIR/_spli
 echo "▶ bring-up: all services"
 COMPOSE up -d >/dev/null 2>&1 || COMPOSE up -d
 for i in $(seq 1 60); do
-  curl -fsS http://127.0.0.1:8080/network/v1/health >/dev/null 2>&1 \
-    && curl -fsS http://127.0.0.1:8080/kernel/v1/health >/dev/null 2>&1 && break
+  curl -fsS http://127.0.0.1:8080/network/v1/health >/dev/null 2>&1 && KHEALTH && break
   sleep 2
 done
+_verify_arc_networks   # FIX-PLAN L1 slice-1a step4 — all services up ⇒ all 5 ARC networks exist; verify the walls
 
 # ── Host pre-flight (BEFORE any change) ──────────────────────────────────────────────────────────────
 # Each check prints PASS/WARN/FAIL + a plain-language FIX. In production a FAIL stops the install; in dev it
@@ -157,7 +189,7 @@ if [ "$_PF_FAIL" = 1 ]; then echo "✗ pre-flight FAILED (production) — fix th
 
 echo "▶ preflight: network + kernel health"
 curl -fsS http://127.0.0.1:8080/network/v1/health >/dev/null || { echo "✗ network not up"; exit 1; }
-curl -fsS http://127.0.0.1:8080/kernel/v1/health  >/dev/null || { echo "✗ kernel not up";  exit 1; }
+KHEALTH || { echo "✗ kernel not up";  exit 1; }
 
 echo "── Phase 0 · signing + audit keys in Vault (generate-or-verify BEFORE anything else) ───────────"
 # The platform's trust roots live in Vault and must exist + be valid before any governed write: the identity
@@ -374,7 +406,7 @@ PY
 # catalog (latest version) before Phase 7b's write. A restart is the simplest cache-clear (kernel is stateless).
 echo "▶ refresh kernel schema cache (pick up Phase-2 schema versions before the first governed write)"
 COMPOSE restart kernel >/dev/null 2>&1 || true
-for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/kernel/v1/health >/dev/null 2>&1 && break; sleep 2; done
+for i in $(seq 1 30); do KHEALTH && break; sleep 2; done
 
 echo "── Phase 7b · platform.authority FIRST-HOLDER seed via the governance path (ADR-0122) ───────────"
 # Seed platform.authority ONLY when there are ZERO live holders, through GovernanceService.assign_role (the
