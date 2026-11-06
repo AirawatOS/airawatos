@@ -1,6 +1,6 @@
 # AirawatOS v0.1 specs — index
 
-The eleven **v0.1 specifications** that define AirawatOS: what the platform guarantees, stated as numbered
+The twelve **v0.1 specifications** that define AirawatOS: what the platform guarantees, stated as numbered
 rules with a per-rule **status** (IN PLACE / PARTIAL / VIOLATED / PLANNED / TO CONFIRM) and debt references to
 `../consolidation/DEBT-REGISTER.md`. The specs are the contract; the code is measured against them, and the
 conformance plan (`../conformance/PLAN.md`) turns each rule into a black-box test (TESTABLE NOW / EXPECTED-FAIL
@@ -17,6 +17,7 @@ FOUNDATIONS  — the authority model + principles F1–F17 (everything assumes t
    ├── REGISTRY   — records: identity, time, read/write authority, provenance, erasure, files
    ├── DECISION   — the decision record every authorization leaves behind
    ├── NETWORK    — networks, membership, capabilities (grants), exchange
+   ├── FEDERATION — cross-installation: hosted Networks, participant registration, signed requests (ADR-0128)
    ├── ACCOUNT    — person accounts, consent, wallet
    ├── CLIENT     — client apps, tokens, the public client protocol
    └── PLATFORM   — install, platform authority, tenants, onboarding, shared services/providers
@@ -44,6 +45,7 @@ COMPONENT, POLICY, OFFERINGS and PARTICIPANT sit on top and cite the core.
 | [[COMPONENT-v0.1]] | CP1–CP18 | Components as code + manifest; the **private / sharing / marketplace** lanes: declaration-bounded runs, run-token = declaration ∩ authority, broker-only I/O, certified cross-tenant sharing, listing checks, versioned listings, settlement. | 18 rules — 0 IN PLACE, 13 PARTIAL, 5 PLANNED |
 | [[OFFERINGS-v0.1]] | O1–O12 | **Service / Benefit / Information** offerings: versioned terms, eligibility-as-policy, per-kind fulfilment (service grants; benefit funding-envelope → sanction → rail; information scoped+consented), settlement matched to the rail, contest/refunds. | 0 IN PLACE, 5 PARTIAL, 7 PLANNED (Services most-built) |
 | [[POLICY-v0.1]] | PL1–PL8 | One **governed rule language** for eligibility, consent conditions, automation, spending limits and grant conditions: typed trees (no code), typed facts (+ wallet-signed self-asserted), deterministic, reasons, minimum disclosure, governed function catalog, publish-time tests. | 0 IN PLACE, 4 PARTIAL (rule engine live), 4 PLANNED |
+| [[FEDERATION-v0.1]] | FED1–FED8 | **Networks are federated** (ADR-0128): a Network is hosted by a governing tenant on some installation; members are participants in one of three modes (same-install tenant, other-install tenant, own system via the Participant SDK); cross-installation requests are signed by registered keys, each home issuer trusted only for its own participants; directory-of-Networks / root-of-trust deferred (FED8). | 0 IN PLACE, 2 PARTIAL, 6 PLANNED (model decided; cross-install wiring is the backlog) |
 | [[PARTICIPANT-v0.1]] | PP1–PP12 | How a member proves identity (directory keys, identity-only auth F15) and **interacts**: register Services, serve Network-signed decision-referenced requests (never widening access), issue credentials, verify presentations, emit/consume events, report settlement, and speak one **public versioned protocol** (never `/bridge`). | 0 IN PLACE, 9 PARTIAL, 2 PLANNED, 1 PARTIAL/VIOLATED (PP12) |
 
 ## Cross-cutting threads

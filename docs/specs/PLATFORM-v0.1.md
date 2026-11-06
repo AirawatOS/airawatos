@@ -7,7 +7,16 @@ This spec governs the **platform itself**: what the installer creates, how platf
 recovered, how tenants are onboarded and given a verification status, and how platform administration is exposed. Every object
 here is a governed registry record (REGISTRY), every authorizing act a decision (DECISION), authority only
 from recorded grants (FOUNDATIONS §3).
-**Debt references** → `../consolidation/DEBT-REGISTER.md` (A1–A61, B1–B18). *(to confirm)* = not traced.
+
+**Every installation is both a Network host and a participant node (ADR-0128, FEDERATION-v0.1).** It **hosts**
+the Networks its tenants create (their registry/directory/grants live here) and runs **participant nodes** (its
+tenants, or its own systems, acting in Networks hosted anywhere). Consequences for this spec: **tenant
+onboarding** (below) applies only to **mode-1** members — tenants standing up **on this installation**;
+membership in a Network is a separate participant registration (NETWORK N5/N6), not onboarding. The **installer
+may register an installation's tenants as participants in remote Networks** (hosted on other installations),
+distinct from creating local tenants.
+
+**Debt references** → `../consolidation/DEBT-REGISTER.md` (A1–A74, B1–B21). *(to confirm)* = not traced.
 **Status legend:** IN PLACE · PARTIAL · VIOLATED · PLANNED · TO CONFIRM.
 
 ---

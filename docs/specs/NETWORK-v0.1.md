@@ -30,10 +30,12 @@ only. The Network id namespace is **separate from the tenant namespace** and the
 - **Refs:** B11, B2, A22; ADR-0119. The "never compared" invariant is violated wherever slug/tenant stands
   in for net:id.
 
-### N2 — Creation
-Creating a Network requires **both**: platform policy **allows the governing tenant**, **and** the principal
-holds **`network.creator`** (or **`tenant.admin`**). The creation **records the governing tenant**. The
-**creator becomes `network.admin`**. The Network starts in **DRAFT** with an **empty capability catalog**; a
+### N2 — Creation (federated: creator's tenant becomes the Network host)
+Any tenant holding **`network.creator`** on **any** AirawatOS installation may create a Network and becomes its
+**governing tenant (the Network host)**; the Network's **registry, directory and grant/decision records live on
+the host's installation** (ADR-0128). The creation **records the governing tenant**. The **creator becomes
+`network.admin`**. "Which installation runs the servers" (operator) is independent of "which tenant governs this
+Network" (host). The Network starts in **DRAFT** with an **empty capability catalog**; a
 **draft is invisible and accepts no members**. **draft→active** is a **recorded admin act** requiring **≥1
 admin and a non-empty catalog**.
 - **Status: PARTIAL / PLANNED.** Network creation records a governing tenant and the creator relationship
@@ -70,26 +72,29 @@ platform-imposed suspension requires platform authority**. While **suspended, ex
 - **Refs:** ADR-0119, ADR-0122 (platform.authority), A16 (trust-plane dark-launch), A17; DECISION D4/D6
   (suspend is a decision with a recorded reason). **(to confirm)** against the live status transitions.
 
-### N5 — Membership
-Membership is **belonging only** (it confers no capability by itself). Flows: **invite→accept** or
-**request→approve/reject**; **suspend**; **revoke**. Members are **existing tenants only**.
-- **Status: PARTIAL.** `network.participation` with `/v1/participation/{request,decide}` provides
-  request→approve/reject (ADR-0116, Slice 1 live). Membership-confers-nothing aligns with "authority only
-  from grants" (F2). **invite→accept**, **suspend**, and **revoke** membership flows, and enforcement that a
-  member is an **existing tenant**, are **(to confirm)**.
-- **⚠ OPEN DECISION — N5 "existing tenants only" vs ADR-0116 "participant ≠ tenant".** N5 as written is the
-  *Network-of-tenants* reading (a member is an existing tenant); ADR-0116 makes membership **tenant-free** (a
-  participant is not a tenant). These are contradictory and **not yet reconciled**. The live code follows
-  ADR-0116 (`network.participation`, tenant-free). This must be resolved by an explicit decision — either N5
-  is rewritten to tenant-free membership (aligning with ADR-0116, the likely direction) or ADR-0116 is scoped
-  so N5's tenant-membership still holds for some network class. **Flagged, not decided here.**
-- **Refs:** ADR-0116 (participation request/decide), participant-onboarding; F2. Suspend/revoke/invite +
-  existing-tenant check **(to confirm)**.
+### N5 — Membership (tenant-free; three member modes)
+Membership is **belonging only** (it confers no capability by itself). A member is a **participant**, **not a
+tenant** (ADR-0116): a registered participant ID in this (the hosting) Network's registry. A participant is
+realised in one of **three member modes** (ADR-0128): (1) a **tenant on the host's installation**; (2) a
+**tenant on another AirawatOS installation**; (3) an **own system** via the Participant SDK — the Network
+treats all three uniformly. Flows: **invite→accept** or **request→approve/reject**; **suspend**; **revoke**.
+- **Status: PARTIAL.** `network.participation` with `/v1/participation/{request,decide}` provides tenant-free
+  request→approve/reject (ADR-0116, Slice 1 live) for mode-1. Membership-confers-nothing aligns with "authority
+  only from grants" (F2). **invite→accept**, **suspend**, **revoke**, and cross-installation modes (2)/(3) are
+  **PLANNED** (FEDERATION FED3).
+- **Resolved (was an open decision): tenant-free wins.** The earlier "existing tenants only" (Network-of-tenants)
+  reading is **dropped** — **ADR-0128** makes membership tenant-free and federated, consistent with ADR-0116
+  (participant ≠ tenant). The live code already follows this.
+- **Refs:** **ADR-0128** (federated), ADR-0116 (participation request/decide), FEDERATION FED3/FED4; F2.
 
-### N6 — New organisations join via a tenant application + membership request
-A new organisation joining via a **join page** creates **two** records: a **tenant application** (under the
-**platform onboarding policy**) **and** a **pending membership request** (N5). **Both must be approved
-separately.** A **Network admin never creates a tenant or a login.**
+### N6 — Joining = participant registration in the host's registry (Network creates no tenant/login)
+A member **joins by registering as a participant** in the hosting Network's registry (ADR-0128): a
+**participant ID**, the **role(s)** sought, **public keys**, and **conformance status** — activated for a role
+only after passing that role's conformance suite (PP11 / FEDERATION FED3–FED4). A **mode-1** member (a tenant
+on the host's installation) may *additionally* go through **platform onboarding** (a tenant application under
+platform policy) — but that is the operator/platform's act, separate from the Network membership record. A
+**Network admin never creates a tenant, a login, or a participant system** (ADR-0128): the Network records who
+may participate, it does not stand up the participant.
 - **Status: VIOLATED.** **Join-page finding (below):** the current join path has the **Network → identity**
   provisioning **create a user + password** on participation decide (B9) — i.e. the Network side provisions a
   login, exactly what N6 forbids. There is no separate platform-onboarding **tenant application** gated by

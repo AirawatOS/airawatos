@@ -18,9 +18,13 @@ migrating".
 
 ## Participant rules
 
-### PP1 — Identity in the platform-signed directory
-A participant has a **recorded identity** whose **keys live in the platform-signed directory**; its **service
-accounts** (daemons/gateways acting for it) exist **under that identity**, not as free-standing principals.
+### PP1 — Registration in the hosting Network's directory
+A participant **registers** in the hosting Network's registry (ADR-0128, FEDERATION FED3) with a **participant
+ID**, the **role(s)** sought, its **public keys** (kept in the host's platform-signed directory), and its
+**conformance status**. Its **service accounts** (daemons/gateways acting for it) exist **under that
+participant identity**, not as free-standing principals. Registration works for all three member modes
+(same-installation tenant, other-installation tenant, own system via the Participant SDK) — the Network records
+the participant; it does not create the tenant/login/node.
 - **Status: PARTIAL.** The participant directory + platform-signed entries exist (ADR-0039 federated identity,
   ADR-0084 local-OS participant, ADR-0117 credential/services network); dedicated **service accounts under the
   participant** are partly modelled (ADR-0124 service principals) but not uniformly tied to a participant
@@ -98,9 +102,10 @@ matched to the payment rail (OFFERINGS **O8**).
 - **Status: PLANNED.** No settlement model/rail integration yet (OFFERINGS O8; COMPONENT CP18).
 - **Refs:** OFFERINGS O8; COMPONENT CP18; HRT fund-flow (precedent). PP4.
 
-### PP11 — Health and conformance before activation
-Before a participant's Service is **activated**, it must pass a **health check** and the **Network conformance
-suite** for the interfaces it serves.
+### PP11 — Per-role conformance before activation
+A participant is **activated for a role only after it passes the conformance suite for that role** (provider,
+issuer, funder, consumer channel — ADR-0128, FEDERATION FED4), plus a **health check** for the interfaces it
+serves. Conformance status is recorded on the participant record (PP1) and activation gates on it.
 - **Status: PARTIAL.** A black-box service test suite exists (github.com/AirawatOS/tests) and interface
   conformance (ADR-0090 R3b) can run a suite against a candidate; **conformance-gated activation** (no
   activation until green) is PLANNED.
