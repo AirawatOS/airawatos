@@ -144,6 +144,69 @@ governed registry record (★3)** at the kv layer, because the existing kernel�
 already an HTTP service boundary, not a shared-table read. (Flagged for review in case any out-of-repo or
 future caller is expected to read across — none found in kernel/ or network/.)
 
+## Step 3 — base-install tenants vs PLATFORM P1
+
+P1: the installer creates **exactly one platform tenant** + base schemas/apps + service identities, **no other
+tenants**, and demo tenants only under the dev profile. `ensure_install.py` creates **six** tenant records;
+each is justified below. P1's own status note flags "exactly one platform tenant and nothing else" as
+*to-confirm* — this is that confirmation.
+
+| tenant | kind | reason / ADR | P1 verdict |
+|---|---|---|---|
+| `<inst>-operator` | **the platform tenant** | OS/system tenant — holds `platform.admin` + the scheduler daemon (ADR-0115) | ✓ **the one** platform tenant P1 allows |
+| `<inst>-network` | network **authority** realm | the governance/trust-plane authority that signs certs, tenants, directory (ADR-0119); platform *infrastructure*, not a data/customer tenant | justified — not an additional *platform* tenant |
+| `<inst>` | the install's **data** tenant | the working tenant the operator-first install stands up (ADR-0115); the reason the install exists | justified — primary data tenant (could instead be created via onboarding; kept by ADR-0115 design) |
+| `<inst>-developer` | development + first-party component steward | **TRANSITIONAL** — retires under **COMPONENT CP2** (private lane replaces the dev-tenant steward); flagged, kept for now | justified-transitional (CP2) |
+| `<inst>-participant` | shared **member** realm | one realm for all hosted network members (ADR-0116, *participant ≠ tenant*); never a tenant-each | justified — shared realm, not a data tenant |
+| `citizens` | shared **identity** realm | eKYC citizen-identity realm; individuals self-register/verify once (ADR-0116) | justified — shared identity realm |
+
+**Outcome:** all six have a concrete reason; **none removed or relocated this slice.** P1 holds in spirit —
+`operator` is the single *platform* tenant; the others are the authority realm, the data tenant, and two
+shared realms (participant/citizens), not additional platform tenants. The **developer** tenant is the one
+marked for eventual removal (transitional under CP2) and is flagged here so its retirement is tracked. If P1
+should be read strictly enough to move the **data** tenant creation out of the installer into onboarding, that
+is a follow-up (changes install/boot state → needs the fresh-install test).
+
+## Step 4 — rehearsal profile: test users have no access to personal data
+
+In **rehearsal** the installer restores a production-shaped dataset, so the dev test users must be **powerless
+over it**. Design:
+- `platauth`/`platnone` are created in `<inst>-network` with **role `[]`** (ensure_install/Phase 9 never grant
+  a role). Critically, in rehearsal the installer **must NOT run the ADR-0122 step-2b ChangeRequest** that
+  grants `platauth` `platform.authority` — that grant is a dev convenience; over restored production data it
+  would be authority on real personal data. So rehearsal test users stay **roleless**: no `platform.authority`,
+  no tenant-admin, no governance role.
+- Personal-data access is the **two-key rule** (FOUNDATIONS §3): a CapabilityGrant **and** the subject's
+  Consent. Roleless test users hold neither, so every personal read/write is denied by the normal gate — no
+  special rehearsal carve-out needed. (The restore must also NOT copy production Consents to a test principal.)
+- The test-user passwords live in Vault (never compose); they exist only so the **credentialed conformance
+  cases** can run (anonymous/abuse cases need no creds). They are **not** created in the production profile.
+
+**Net:** rehearsal proves the install + conformance against realistic data **without** any test identity
+holding authority or consent over that data. (Enforcement that the restore never attaches a production grant/
+consent to a test principal is a restore-tool responsibility — flagged for the rehearsal restore slice.)
+
+## Step 5 — DESIGN ONLY: one-time first-authority credential + break-glass custodian (P2, P5a)
+
+Not built this slice; design recorded for the P2/P5a implementation.
+
+**One-time first-platform-authority credential (P2).** At install, instead of seeding `platform.authority`
+onto a named account, the installer mints a **single-use enrolment token** (high-entropy, stored only as a
+hash in the registry; the plaintext delivered to the first admin out-of-band — printed once to the operator's
+console or sealed to their key, never logged). The first admin presents it **once** to a
+`POST /v1/platform/claim-authority` endpoint, which: verifies the hash, records the `platform.authority` role
+(the governance path, first-holder-only), then **marks the token spent** (and expires it after a short TTL
+even if unused). A spent/expired token is refused. Immediately after, the UI **requires a second holder** to
+be added (SoD, P5) before the install is "complete". No long-lived installer credential, no committed secret.
+
+**Break-glass custodian recovery (P5a).** A recovery secret is **split (Shamir k-of-n) among named
+custodians** at install (each custodian receives one share, sealed to their own key; the installer keeps
+none). Recovery requires a **quorum** of shares to reconstruct a one-time authority-restore token whose scope
+is **only** "restore a `platform.authority` holder" (it can do nothing else). Every break-glass use is written
+as a **public, permanent** decision record (DECISION) — who invoked, which custodians, when — visible in the
+audit log and never editable. Setup is part of install (production/rehearsal); the shares' delivery is
+out-of-band. Depends on P5 (recorded `platform.authority` role) landing first.
+
 ## Step 7 — extended standing rule
 
 Every code slice ends with: local-dev rebuild + live check of the specific fix + conformance both modes **and
