@@ -11,7 +11,7 @@ Across `deploy/local-dev/bootstrap-dev.sh` (phases 1–11), `network/ensure_inst
 
 | # | Setup step | Source | Class | Notes |
 |---|---|---|---|---|
-| 1 | **Base-OS install** — 6 tenant records (operator / network / data / developer / participant / citizens) + realm admins + scheduler daemon + `component-publisher` / `dev-sandbox` / `embed-service` service principals (Vault creds) + network directory listing | `ensure_install.py` (bootstrap Phase 1) | **CORE** | ADR-0115/0116/0124. Admin password generated into Vault if not supplied. |
+| 1 | **Base-OS install** — the platform tenant (operator) + system realms (network / participant / citizens) + the transitional developer steward realm + realm admins + scheduler daemon + `component-publisher` / `dev-sandbox` / `embed-service` service principals (Vault creds) + network directory listing. The `<inst>` **data** tenant is **dev-profile only** (`SEED_DATA_TENANT`; not platform infra — see §Step 3) | `ensure_install.py` (bootstrap Phase 1) | **CORE** (data tenant: DEV-ONLY) | ADR-0115/0116/0124. Admin password generated into Vault if not supplied. |
 | 2 | **Base vocabulary** — govern base domains / roles / schemas | `seed_base.py` (Phase 1) | **CORE** | the platform's governed noun/verb/role catalog |
 | 3 | **Base apps** — deliver + shelf the platform apps (admin, settings, file-explorer, console, inbox, personal-assistant, storefront, network-admin, data) + mint listings | `seed_base_os.py` + `mint_base_listings.py` (Phase 1) | **CORE** | first-party *platform* apps, not demos — every install needs them |
 | 4 | **Trust-plane schemas** (governed; dry-run → apply → dry-run) | `seed_trust_schemas` (Phase 2) | **CORE** | schemas + migrations |
@@ -67,6 +67,7 @@ shared `kv` is split into `kernel_kv` / `network_kv`), `identity_lockout` is kep
 | | production | rehearsal | dev |
 |---|---|---|---|
 | CORE steps (#1–#13) | ✓ | ✓ | ✓ |
+| `<inst>` data tenant (`SEED_DATA_TENANT`) — NOT platform infra, see §Step 3 | — | — | ✓ |
 | test users `platauth`/`platnone` (#14) | — | ✓ | ✓ |
 | synthetic perf data (#15, opt-in `INSTALL_PERF_SEED=1`) | — | — | ✓ |
 | expected stack env | `AIRAWAT_ENV=production`, guard on | `=production`, guard on | `=development`, guard off |
@@ -185,26 +186,37 @@ XFAILs are pre-existing debt A1/A72, unchanged). Reversible: revert compose `DB_
 
 ## Step 3 — base-install tenants vs PLATFORM P1
 
-P1: the installer creates **exactly one platform tenant** + base schemas/apps + service identities, **no other
-tenants**, and demo tenants only under the dev profile. `ensure_install.py` creates **six** tenant records;
-each is justified below. P1's own status note flags "exactly one platform tenant and nothing else" as
-*to-confirm* — this is that confirmation.
+P1: the installer creates **exactly one platform tenant** + base schemas/apps + service identities, and **no
+data/customer tenants** outside the dev profile. The install stands up **one platform tenant** plus a set of
+**system realms**. A realm is a **login namespace** (where accounts authenticate), not an authority: a realm
+confers **no grant and no governance power** — authority comes only from a recorded `governance.role_assignment`
+/ `platform.authority` / grant (F2), never from being a realm. The realms:
 
-| tenant | kind | reason / ADR | P1 verdict |
+| realm | kind | purpose | authority it confers |
 |---|---|---|---|
-| `<inst>-operator` | **the platform tenant** | OS/system tenant — holds `platform.admin` + the scheduler daemon (ADR-0115) | ✓ **the one** platform tenant P1 allows |
-| `<inst>-network` | network **authority** realm | the governance/trust-plane authority that signs certs, tenants, directory (ADR-0119); platform *infrastructure*, not a data/customer tenant | justified — not an additional *platform* tenant |
-| `<inst>` | the install's **data** tenant | the working tenant the operator-first install stands up (ADR-0115); the reason the install exists | justified — primary data tenant (could instead be created via onboarding; kept by ADR-0115 design) |
-| `<inst>-developer` | development + first-party component steward | **TRANSITIONAL** — retires under **COMPONENT CP2** (private lane replaces the dev-tenant steward); flagged, kept for now | justified-transitional (CP2) |
-| `<inst>-participant` | shared **member** realm | one realm for all hosted network members (ADR-0116, *participant ≠ tenant*); never a tenant-each | justified — shared realm, not a data tenant |
-| `citizens` | shared **identity** realm | eKYC citizen-identity realm; individuals self-register/verify once (ADR-0116) | justified — shared identity realm |
+| `<inst>-operator` | **the platform tenant** | the one OS/system tenant — holds `platform.admin` + the scheduler daemon (ADR-0115) | **the platform tenant** (its admin holds `platform.admin` by an explicit role_assignment, not by the realm) |
+| `<inst>-network` | network **authority** realm | the login namespace for the governance/trust-plane authority that signs certs, tenants, directory (ADR-0119); platform *infrastructure* | **none from the realm** — the network admin's authority is its recorded `network.admin` assignment (step 6), not the realm itself |
+| `<inst>-participant` | shared **member** realm | one login namespace for **all** hosted network members (ADR-0116, *participant ≠ tenant*); never a tenant-each. No `admin` is provisioned at install; each member's login is minted on membership approval | **none** — a member's reach is its own membership + grants, not the realm |
+| `citizens` | shared **identity** realm | the eKYC citizen-identity login namespace; individuals self-register/verify once, then join networks as individuals (ADR-0116) | **none** — identity only; joining a network is a separate governed act |
 
-**Outcome:** all six have a concrete reason; **none removed or relocated this slice.** P1 holds in spirit —
-`operator` is the single *platform* tenant; the others are the authority realm, the data tenant, and two
-shared realms (participant/citizens), not additional platform tenants. The **developer** tenant is the one
-marked for eventual removal (transitional under CP2) and is flagged here so its retirement is tracked. If P1
-should be read strictly enough to move the **data** tenant creation out of the installer into onboarding, that
-is a follow-up (changes install/boot state → needs the fresh-install test).
+**`<inst>-developer` — TRANSITIONAL (COMPONENT CP2).** The development realm that also stewards this install's
+first-party components (`ds:<inst>-developer:…`). It **retires under COMPONENT CP2** (a private publishing lane
+replaces the dev-tenant steward); kept for now and flagged so its retirement is tracked. Not a standing part of
+the platform-tenant set.
+
+**`<inst>` data tenant — DEV PROFILE ONLY (moved out of CORE this slice).** The `<inst>` data tenant is **not**
+platform infrastructure: an install-time audit found **nothing concrete requires it** — every later installer
+phase (trust-reader, audit HMAC, platform.authority, capability_catalog, scheduler-caller, DB roles) targets
+`-operator` / `-network` / `-developer`, and its only install-time consumer was the base-app *shelf* default
+(cosmetic: giving its admin a populated app shelf). It is a **first data tenant**, so it is created **only under
+the dev profile** (`SEED_DATA_TENANT=1`, set by `install.sh`; `ensure_install.py` gates both the tenant record
+and its admin behind it, and the shelf step drops it from `SHELF_TENANTS` when absent). production / rehearsal
+stand up the platform **without** it; a working tenant is created via **onboarding**, not the installer.
+
+**Outcome:** one platform tenant (`-operator`); three system realms that confer no authority (`-network`,
+`-participant`, `citizens`); one transitional steward realm (`-developer`, CP2); and the `<inst>` data tenant
+relocated to the dev profile. This satisfies P1 strictly — the installer creates exactly one platform tenant
+and no data/customer tenant outside dev. (The from-empty behaviour is validated by the fresh-install test.)
 
 ## Step 4 — rehearsal profile: test users have no access to personal data
 

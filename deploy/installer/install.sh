@@ -36,10 +36,15 @@ case "$PROFILE" in
 esac
 # which optional step-classes run in this profile (see INSTALLER.md)
 case "$PROFILE" in
-  dev)        RUN_TEST_USERS=1; RUN_PERF_SEED="${INSTALL_PERF_SEED:-0}" ;;   # perf seed opt-in (slow); dev only
-  rehearsal)  RUN_TEST_USERS=1; RUN_PERF_SEED=0 ;;                           # conformance creds, no demo data
-  production) RUN_TEST_USERS=0; RUN_PERF_SEED=0 ;;                           # CORE only; no demo data
+  dev)        RUN_TEST_USERS=1; RUN_PERF_SEED="${INSTALL_PERF_SEED:-0}"; SEED_DATA_TENANT=1 ;;   # perf seed opt-in (slow); dev only
+  rehearsal)  RUN_TEST_USERS=1; RUN_PERF_SEED=0; SEED_DATA_TENANT=0 ;;                           # conformance creds, no demo data
+  production) RUN_TEST_USERS=0; RUN_PERF_SEED=0; SEED_DATA_TENANT=0 ;;                           # CORE only; no demo data
 esac
+# PLATFORM P1 — the `<instance>` data tenant is NOT platform infrastructure: nothing at install time requires
+# it (every later phase targets -operator / -network / -developer; its only install-time consumer is the
+# base-app shelf default, cosmetic). It is a *first data tenant*, so it is created ONLY under the dev profile
+# (SEED_DATA_TENANT=1). production/rehearsal stand up the platform without it; a working tenant is created via
+# onboarding, not the installer.
 echo "▶ AirawatOS installer — profile=$PROFILE (test_users=$RUN_TEST_USERS perf_seed=$RUN_PERF_SEED)"
 
 P=airawatos-localdev
@@ -151,7 +156,7 @@ print("  Phase 0 OK — trust roots present + valid.")
 PY
 
 echo "── Phase 1 · base-OS install (instance=$INSTANCE) ─────────────────────────────────────────────"
-XNET env INSTANCE="$INSTANCE" OPERATOR_PASSWORD="$OPERATOR_PASSWORD" python3 /app/ensure_install.py
+XNET env INSTANCE="$INSTANCE" OPERATOR_PASSWORD="$OPERATOR_PASSWORD" SEED_DATA_TENANT="$SEED_DATA_TENANT" python3 /app/ensure_install.py
 # #282 — ensure_install generated the admin password into Vault (no committed literal). Read it back so the
 # remaining phases (seed_base_os, the network-admin login, the kernel steward bootstrap) can authenticate.
 if [ -z "$OPERATOR_PASSWORD" ]; then
@@ -176,7 +181,11 @@ XAPP env INSTANCE="$INSTANCE" OPERATOR_PASSWORD="$OPERATOR_PASSWORD" MODE=delive
 XNET env INSTANCE="$INSTANCE" python3 /app/mint_base_listings.py
 COMPOSE restart app-host >/dev/null
 for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/ >/dev/null 2>&1 && break; sleep 2; done
-XAPP env INSTANCE="$INSTANCE" OPERATOR_PASSWORD="$OPERATOR_PASSWORD" MODE=shelf python3 /app/reference/seed_base_os.py
+# Shelf onto the platform realms; include the `<instance>` data tenant ONLY when it was seeded (dev profile) —
+# otherwise it does not exist and shelving onto it would fail.
+if [ "$SEED_DATA_TENANT" = 1 ]; then SHELF_TENANTS="$INSTANCE,$INSTANCE-developer,$INSTANCE-operator,$INSTANCE-network"
+else SHELF_TENANTS="$INSTANCE-developer,$INSTANCE-operator,$INSTANCE-network"; fi
+XAPP env INSTANCE="$INSTANCE" OPERATOR_PASSWORD="$OPERATOR_PASSWORD" MODE=shelf SHELF_TENANTS="$SHELF_TENANTS" python3 /app/reference/seed_base_os.py
 
 echo "── Phase 2 · Trust-plane schemas (dry-run → apply → dry-run; prod's own tool + behaviour) ──────"
 XNET env NET_FILES_DIR=/data/netfiles python3 -m trust.migration.seed_trust_schemas --dry-run
