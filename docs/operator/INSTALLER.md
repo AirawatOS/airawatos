@@ -55,3 +55,22 @@ tables are owned by `kernel`. `identity_lockout` = non-super, login, no table ri
 identity's tables — a compromise or bug in either has the whole database. Only identity is confined. Step 4
 introduces non-superuser `kernel_app` / `network_app` owning only their own tables, keeps `identity_lockout`,
 and adds an installer-only `migrator` role, with cross-service reads proven denied.
+
+## Step 3 — the unified installer
+
+`deploy/local-dev/install.sh` runs every CORE step (phases 1–13 above), idempotently, with
+`--profile production | rehearsal | dev`. `deploy/local-dev/bootstrap-dev.sh` is now a thin wrapper =
+`install.sh --profile dev`. Profiles differ only in which optional step-classes run; the surrounding stack env
+(`AIRAWAT_ENV`, the production guard, password-enforcement) is set by the compose per profile.
+
+| | production | rehearsal | dev |
+|---|---|---|---|
+| CORE steps (#1–#13) | ✓ | ✓ | ✓ |
+| test users `platauth`/`platnone` (#14) | — | ✓ | ✓ |
+| synthetic perf data (#15, opt-in `INSTALL_PERF_SEED=1`) | — | — | ✓ |
+| expected stack env | `AIRAWAT_ENV=production`, guard on | `=production`, guard on | `=development`, guard off |
+
+Verified: `--profile bogus` is rejected; the dev-only test-user phase is gated by profile; `bash -n` clean;
+the dev wrapper runs the proven phase bodies unchanged (an idempotent re-run against the long-lived live stack
+surfaces only pre-existing admin-login drift in `seed_base_os`, which the clean fresh-install test — step 5 —
+exercises). Conformance both modes green.
