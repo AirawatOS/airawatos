@@ -261,6 +261,31 @@ Prod Vault must be **unsealed without a human-held root token in compose**:
 
 ---
 
+## 2d. Pre-migration trust audit (read-only; run immediately before §3/§4)
+
+Before migrating any production data, re-enumerate the two federation-trust stores and confirm nothing was
+injected while the ungated endpoints were reachable. Read-only; makes no change.
+
+```bash
+# participant directory (id / kind / jurisdiction) — expect only known tenants
+curl -s https://airos.airawat.org/network/v1/participants | python3 -m json.tool | less
+# capability-grant store — expect every grant to carry grantor + approved_by + issued_at (gated /v1/grants/issue)
+curl -s -X POST -H 'content-type: application/json' -d '{}' https://airos.airawat.org/network/v1/grants/resolve \
+  | python3 -c 'import sys,json; gs=json.load(sys.stdin).get("grants",[]); \
+    print("grants:",len(gs),"| no-author:",sum(1 for g in gs if not (g.get("grantor") or g.get("approved_by"))))'
+```
+Gate: **0** grants without a `grantor`/`approved_by`; every participant id is a known `ds:<tenant>:steward`
+/`operator/*`/`participant/developer`. If anything is unexplained, stop and investigate before migrating.
+
+**Result 2026-11-06 (clean):** 261 grants, **0** without an author (all via the gated `/v1/grants/issue`
+steward path); 31 participants, all known tenants. One benign off-pattern id — `ds:pune:participant`, a
+duplicate of `ds:pune:steward` sharing the same key (double-registration during a Pune onboarding, not an
+injection). Cross-checked against the network access log (since 2026-11-02, 1.3M lines): **0 successful (2xx)
+POST** to `/v1/participants` or `/v1/grants` — no unauthenticated write ever landed. Re-run and re-confirm
+immediately before the real migration.
+
+---
+
 ## 3. Schema migrations
 
 1. **`governance.role_assignment@0.2.0`** (ADR-0122 — adds `scope`). Govern it, then **reload the kernel** so
