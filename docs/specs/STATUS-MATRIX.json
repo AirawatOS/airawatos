@@ -7,8 +7,8 @@
   ],
   "provenance": {
     "local-dev": {
-      "git_sha": "9d72caf",
-      "ts": "2026-11-06T15:04:59Z",
+      "git_sha": "",
+      "ts": "2026-11-06T15:26:52Z",
       "modes": [
         "external",
         "internal"
@@ -42,7 +42,7 @@
         "local-dev": "PARTIAL"
       },
       "FND-9": {
-        "local-dev": "PLANNED(needs-build)"
+        "local-dev": "HELD"
       },
       "FND-10": {
         "local-dev": "PARTIAL"

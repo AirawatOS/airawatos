@@ -466,17 +466,14 @@ for USER, _roles in (("platauth", []), ("platnone", []), ("rolesteward", ["platf
                headers={"X-Vault-Token":VTOK,"Content-Type":"application/json"}, method="POST")
         print(f"[phase9] {USER}: stored password in Vault at {VPATH}" if not isinstance(w, urllib.error.HTTPError)
               else f"[phase9] {USER}: VAULT WRITE FAILED {w.code}")
-    # ensure the identity user (role [] — NO recorded role; platform.authority comes later via CR) + set pw
-    # only_if_unset (#282): never reset an existing login password on re-run.
-    _req(f"{IDN}/users", data={"username":USER,"tenant":TENANT,"roles":[]},
+    # ensure the identity user in ONE create carrying its EXPLICIT roles ([] for platauth/platnone; the admin
+    # claim for rolesteward) + set pw only_if_unset (#282 — never reset an existing login password on re-run).
+    # DEBT-B28/A73: a single CREATE persists the explicit roles list (and an empty/omitted list is NOT defaulted
+    # to platform.tenant-admin), so the old double-POST workaround for rolesteward is gone.
+    _req(f"{IDN}/users", data={"username":USER,"tenant":TENANT,"roles":_roles},
          headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
     s=_req(f"{IDN}/set-password", data={"username":USER,"tenant":TENANT,"password":pw,"must_reset":False,"only_if_unset":True},
            headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
-    if _roles:
-        # identity's /users CREATE drops the `roles` field (a slice-2 identity finding); a SECOND /users POST
-        # UPDATES (merges) it, which does persist. Needed so rolesteward actually carries platform.tenant-admin.
-        _req(f"{IDN}/users", data={"username":USER,"tenant":TENANT,"roles":_roles},
-             headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
     print(f"[phase9] created test user (username only): {USER}   tenant={TENANT}   roles={_roles or '(none)'}",
           "OK" if not isinstance(s, urllib.error.HTTPError) else f"set-pw {s.code}")
 print("[phase9] ADR-0122 test users ready: platauth, platnone — passwords in Vault at "

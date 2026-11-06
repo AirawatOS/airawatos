@@ -691,11 +691,43 @@ def run_identity_review_cases():
         xfail("CLIENT","CLI-3","token app-addressed + carries a consent reference [debt DEBT-B31]",
               (aud in ("airawatos", None)) or (not has_consent),
               "admin token aud=%r consent_ref=%s (rule: app-addressed + consent ref; today platform-aud, no consent)" % (aud, has_consent))
+
+    # ── DEBT-B28 (FND-1) — authority is NEVER granted by omission (HOTFIX; expected PASS) ───────────
+    # Provision a BRAND-NEW account on the LIVE IdP with NO roles, set a password, log in, and inspect the
+    # token: its roles claim must be EMPTY. Before the hotfix a roleless create defaulted to
+    # platform.tenant-admin (full authority). See identity._apply_create_roles + test_identity_hotfix_b28_b29.py.
+    itok = os.environ.get("IDENTITY_INTERNAL", "")
+    if not itok:
+        record("FOUNDATIONS","FND-1/DEBT-B28","roleless-created account carries no authority","needs-creds","SKIP_CREDS","IDENTITY_INTERNAL not in env")
+    else:
+        ih = {"X-Internal-Token": itok}; pu, pt, ppw = "b28probe", "localdev-network", "B28-Probe-Pw-9x!q2"
+        st_c, _, _ = _req("POST", INTERNAL["identity"]+"/users", {"username": pu, "tenant": pt}, headers=ih)   # NO roles field
+        _req("POST", INTERNAL["identity"]+"/set-password", {"username": pu, "tenant": pt, "password": ppw}, headers=ih)
+        st_l, b_l, _ = _req("POST", INTERNAL["identity"]+"/login", {"username": pu, "tenant": pt, "password": ppw})
+        tok = ""
+        try: tok = json.loads(b_l).get("access_token", "") if st_l == 200 else ""
+        except Exception: tok = ""
+        if st_c != 200 or not tok:
+            record("FOUNDATIONS","FND-1/DEBT-B28","roleless-created account carries no authority","needs-creds","SKIP_CREDS","provision=%s login=%s"%(st_c, st_l))
+        else:
+            rr = _jwt_claims(tok).get("roles")
+            expect("FOUNDATIONS","FND-1/DEBT-B28","a roleless-created account has NO roles — no authority by omission [DEBT-B28 fixed]",
+                   rr == [], "b28probe token roles=%r (rule: omitted roles ⇒ [], never platform.tenant-admin)" % (rr,))
+
+    # ── DEBT-B29 (FND-9) — account-write gate is live-enforced (fails closed; expected PASS) ────────
+    # A POST /users with a WRONG internal token must be refused on the running config. The empty/unset
+    # IDENTITY_INTERNAL fail-closed branch and the production boot refusal are proven by the unit test
+    # (test_identity_hotfix_b28_b29.py) — not reachable black-box on a correctly-configured server.
+    st_bad, _, _ = _req("POST", INTERNAL["identity"]+"/users", {"username":"b29probe","tenant":"localdev-network"},
+                        headers={"X-Internal-Token": "definitely-the-wrong-token"})
+    expect("FOUNDATIONS","FND-9/DEBT-B29","account-write gate refuses a wrong internal token (fail closed) [DEBT-B29]",
+           st_bad in (401, 403), "POST /users wrong-token -> %s (rule: refuse; want 401/403)" % st_bad)
+
     def nb(spec, rule, name, why): record(spec, rule, name, "needs-build", "SKIP_BUILD", why)
-    nb("FOUNDATIONS","FND-9","internal write gates fail-closed; no passwordless full-authority mint",
-       "VIOLATED per review: POST /users,/set-password,/prefs use `if INTERNAL and hdr!=INTERNAL` → fail OPEN when IDENTITY_INTERNAL is empty (identity.py:691,724,744; the GET directory gate was fixed fail-closed :657); passwordless principals still mint under _PW_MODE=shadow (identity.py:816-823). Masked by a committed literal default, not black-box reproducible on the running config. Internal test: unset IDENTITY_INTERNAL -> POST /users must 401/403; a no-password principal login under shadow must refuse.")
+    nb("FOUNDATIONS","FND-9","no passwordless full-authority mint (residual; write-gate half fixed by DEBT-B29)",
+       "write-gate half FIXED (DEBT-B29): POST /users,/set-password,/prefs now fail CLOSED via _internal_write_denied (unset/empty IDENTITY_INTERNAL refuses; wrong token refused — live PASS case above) and production refuses to boot without IDENTITY_INTERNAL (assert_internal_secret_configured) — all covered by platform-spec/reference/test_identity_hotfix_b28_b29.py. RESIDUAL (DEBT-B14/A26): passwordless principals (steward/scheduler) still mint under _PW_MODE=shadow; not reproducible on this local-dev config (IDENTITY_PASSWORD_REQUIRED=enforce → passwordless login refused). Internal test: a no-password principal login under shadow must refuse.")
     nb("FOUNDATIONS","FND-16","safe defaults (no prod-pointing default; enforce-by-default; fail-loud)",
-       "VIOLATED per review: ISS/AUD/HOME_ISS default ds:airawat:identity/airawatos (identity.py:31,33; authn.py:74); _PW_MODE default shadow (:499); roleless-create defaults platform.tenant-admin (:710-711); no fail-loud on missing config. A config-default audit, not a runtime black-box case. Internal test: assert startup refuses when issuer/audience/internal-token are unset.")
+       "PARTIAL per review: roleless-create default FIXED (DEBT-B28 — no longer platform.tenant-admin) and IDENTITY_INTERNAL now has no committed default + a prod boot guard (DEBT-B29). RESIDUAL: ISS/AUD/HOME_ISS default ds:airawat:identity/airawatos (identity.py:31,33; authn.py:74); _PW_MODE default shadow (:499); no fail-loud on missing issuer/audience. A config-default audit, not a runtime black-box case. Internal test: assert startup refuses when issuer/audience are unset.")
     nb("ACCOUNT","ACC-4","login + recovery; per-account-type recovery",
        "PARTIAL per review: login mechanics strong (Argon2id/PBKDF2, lockout, must-reset) but NO self-service recovery flow and no per-account-type recovery policy (DEBT-A77). Internal test: a rate-limited + audited recovery-initiate endpoint exists (not built).")
     nb("ACCOUNT","ACC-5","provider connections (consent + confirmation; revocable)",

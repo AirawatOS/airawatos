@@ -2,7 +2,7 @@
 
 **Generated** by `conformance/build_matrix.py` from `conformance/results/*.json` (written by `conformance/run.py --matrix`). **Do not hand-edit** — regenerate after a conformance run. This is the conformance-derived single source of truth for per-rule status; the specs reference it (ADR: STATUS-MATRIX-DESIGN.md).
 
-- **local-dev** — measured: modes external+internal, git `9d72caf`, 2026-11-06T15:04:59Z
+- **local-dev** — measured: modes external+internal, git ``, 2026-11-06T15:26:52Z
 - **production** — *PROJECTED*: no production conformance run yet; not asserted (stand up per docs/operator/FRESH-INSTALL-TEST.md §Step 3, then run the suite with AOS_ENV=production).
 
 **Derived status:** HELD (all cited cases PASS) · PARTIAL (PASS + known-violation XFAIL) · VIOLATED (only XFAIL — tracked as debt) · PLANNED(needs-build) (only SKIP_BUILD, not black-box reachable) · UNVERIFIED(creds) (only SKIP_CREDS — fix the fixture) · REVIEW (XPASS — spec lags code) · REGRESSION (a FAIL — contradicts spec) · NO TEST (no case cites the rule yet).
@@ -11,7 +11,7 @@
 
 | rule | local-dev | production | cases (provenance) |
 |---|---|---|---|
-| `FND-1` | PARTIAL | projected | authenticated session opens (pos); forged role+foreign-iss token rejected (abuse); home-issued admin role-claim (no recorded grant) refused at kernel admin (abu |
+| `FND-1` | PARTIAL | projected | a roleless-created account has NO roles — no authority by omission [DEBT-B28 fixed]; authenticated session opens (pos); forged role+foreign-iss token rejected ( |
 | `FND-2` | HELD | projected | dev-sandbox refused a cross-tenant write; valid non-admin session denied governance write (abuse) |
 | `FND-3` | PARTIAL | projected | forged role+foreign-iss token rejected (abuse); home-issued admin role-claim (no recorded grant) refused at kernel admin (abuse) [debt DEBT-B1] |
 | `FND-4` | NO TEST | projected | — |
@@ -19,7 +19,7 @@
 | `FND-6` | HELD | projected | unknown schema handled opaquely (pos) |
 | `FND-7` | PLANNED(needs-build) | projected | kernel authorizes with Network down |
 | `FND-8` | PARTIAL | projected | anonymous kernel read denied (internal) [debt DEBT-A1]; anonymous read denied (abuse) [debt DEBT-A1]; anonymous write denied (abuse); unauthenticated /v1/compon |
-| `FND-9` | PLANNED(needs-build) | projected | internal write gates fail-closed; no passwordless full-authority mint; runtime-manager /invoke fail-open (abuse); secrets /fetch accepts w/o internal token (abu |
+| `FND-9` | HELD | projected | account-write gate refuses a wrong internal token (fail closed) [DEBT-B29]; no passwordless full-authority mint (residual; write-gate half fixed by DEBT-B29); r |
 | `FND-10` | PARTIAL | projected | automation /events accepts without a service token (abuse); filestore refuses a wrong-audience token (abuse); filestore refuses an anonymous call (abuse); model |
 | `FND-11` | HELD | projected | component.publisher refused at kernel admin (registry.usage); dev-sandbox refused at kernel admin (registry.usage) |
 | `FND-12` | PLANNED(needs-build) | projected | every authz decision audited (allow+deny); failed-auth logged |
@@ -230,6 +230,6 @@
 
 | environment | HELD | PARTIAL | VIOLATED | PLANNED(needs-build) | UNVERIFIED(creds) | REVIEW | REGRESSION | NO TEST | projected |
 |---|---|---|---|---|---|---|---|---|---|
-| local-dev | 11 | 4 | 4 | 51 | 0 | 0 | 0 | 89 | 0 |
+| local-dev | 12 | 4 | 4 | 50 | 0 | 0 | 0 | 89 | 0 |
 | production | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 159 |
 

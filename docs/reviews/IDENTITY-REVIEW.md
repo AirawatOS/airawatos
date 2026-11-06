@@ -13,6 +13,17 @@ code changed. Evidence is `file:line`.
 > SKIP_BUILD with a reason. **PLT-3 label note:** in the shipped spec PLT-3 is "the operator holds no governance
 > role" (not realm modelling) — not an Identity surface; the login-namespace-as-tenant concern is **DEBT-B21**.
 
+> **Slice-5 hotfix update (2026-11-06).** Two of the violations below are now FIXED in local-dev (awaiting
+> production — see `deploy/RELEASE-PLAN.md`): **DEBT-B28** (roleless-create default) — role-defaulting moved to
+> `identity._apply_create_roles`; an omitted `roles` yields `[]`, never `platform.tenant-admin` (FND-1 is now
+> PARTIAL: the roleless default is gone; roles-in-JWT/DEBT-B1 remains). **DEBT-B29** (write-gate fail-open) — all
+> three write gates route through `identity._internal_write_denied` (fail CLOSED on unset/empty
+> `IDENTITY_INTERNAL`), the committed literal default at `:38` is removed, and `assert_internal_secret_configured`
+> refuses production boot without the secret (FND-9 is now HELD on the enforce config; the passwordless-mint
+> residual DEBT-B14/A26 stays). Both are covered by `platform-spec/reference/test_identity_hotfix_b28_b29.py`
+> (unit) and live conformance cases `FND-1/DEBT-B28` + `FND-9/DEBT-B29` (both PASS). The per-rule table below is
+> the point-in-time audit as found; the STATUS-MATRIX reflects the post-hotfix measured state.
+
 ---
 
 ## Summary (one page)
