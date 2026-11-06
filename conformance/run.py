@@ -83,59 +83,59 @@ def xfail(spec, rule, name, reproduced, detail):
 # ============================ EXTERNAL: no-credential cases ============================
 def run_no_cred_cases():
     st, _, _ = http("POST", "/kernel/v1/registry/resolve", {"filter": {"schema": "network.network"}}, token=forged_jwt())
-    expect("FOUNDATIONS", "F1/F3/F15", "forged role+foreign-iss token rejected (abuse)",
+    expect("FOUNDATIONS", "FND-1/FND-3/FND-15", "forged role+foreign-iss token rejected (abuse)",
            st in (401, 403), "kernel resolve w/ forged bearer -> %s" % st)
 
     st, _, _ = http("POST", "/kernel/v1/registry/objects",
                     {"id": "conf:probe:1", "object": {"schema": "viz.layer", "id": "conf:probe:1"}})
-    expect("FOUNDATIONS", "F8", "anonymous write denied (abuse)", st in (401, 403), "anon kernel write -> %s" % st)
+    expect("FOUNDATIONS", "FND-8", "anonymous write denied (abuse)", st in (401, 403), "anon kernel write -> %s" % st)
 
     st, _, _ = http("POST", "/network/v1/governance/roles", {})
-    expect("NETWORK", "N3", "anonymous governance role-write denied (abuse)", st in (401, 403),
+    expect("NETWORK", "NET-3", "anonymous governance role-write denied (abuse)", st in (401, 403),
            "anon network governance -> %s" % st)
 
     st, _, _ = http("POST", "/kernel/v1/registry/resolve", {"filter": {"schema": "network.network"}})
-    xfail("REGISTRY", "R6/F8", "anonymous read denied (abuse) [debt A1]", st == 200,
+    xfail("REGISTRY", "REG-6/FND-8", "anonymous read denied (abuse) [debt DEBT-A1]", st == 200,
           "anon kernel read -> %s (rule 401; live-violation 200)" % st)
 
     st, _, _ = http("POST", "/kernel/v1/registry/exists", {"id": "network.network"})
     if st in (0, 404):
-        record("REGISTRY", "R6", "anonymous existence-check denied (abuse)", "expected-fail", "SKIP_BUILD",
+        record("REGISTRY", "REG-6", "anonymous existence-check denied (abuse)", "expected-fail", "SKIP_BUILD",
                "/kernel/v1/registry/exists not reachable (%s)" % st)
     else:
-        xfail("REGISTRY", "R6", "anonymous existence-check denied (abuse) [debt A1]", st == 200,
+        xfail("REGISTRY", "REG-6", "anonymous existence-check denied (abuse) [debt DEBT-A1]", st == 200,
               "anon exists -> %s (rule 401; live-violation 200)" % st)
 
     st, _, _ = http("POST", "/kernel/v1/registry/objects",
                     {"id": "conf:probe:2", "object": {"schema": "viz.layer", "id": "conf:probe:2"}}, token=forged_jwt())
-    expect("REGISTRY", "R5", "forged-token write denied (abuse)", st in (401, 403), "forged kernel write -> %s" % st)
+    expect("REGISTRY", "REG-5", "forged-token write denied (abuse)", st in (401, 403), "forged kernel write -> %s" % st)
 
     st, body, _ = http("POST", "/kernel/v1/registry/resolve",
                        {"filter": {"schema": "zzz.conformance_unknown_%d" % int(time.time())}})
-    expect("FOUNDATIONS", "F6/R13", "unknown schema handled opaquely (pos)",
+    expect("FOUNDATIONS", "FND-6/REG-13", "unknown schema handled opaquely (pos)",
            st == 200 and '"results"' in body, "resolve unknown schema -> %s" % st)
 
     st, _, _ = http("POST", "/login", {"realm": REALM, "username": "admin", "password": "admin"})
-    expect("ACCOUNT", "A4", "handle/username is not a credential (abuse)", st in (401, 403),
+    expect("ACCOUNT", "DEBT-A4", "handle/username is not a credential (abuse)", st in (401, 403),
            "login admin/pw=admin -> %s" % st)
 
-    # C1 — an unregistered client is rejected at /embed/authorize (no cred needed).
+    # CLI-1 — an unregistered client is rejected at /embed/authorize (no cred needed).
     st, _, _ = http("GET", "/embed/authorize?client_id=__conformance_unregistered__&scope=profile"
                            "&redirect_uri=https://x.test/cb&code_challenge=x&code_challenge_method=S256")
     if st in (0, 404):
-        record("CLIENT", "C1", "unregistered client rejected (abuse) [debt A47]", "testable", "SKIP_BUILD",
+        record("CLIENT", "CLI-1", "unregistered client rejected (abuse) [debt DEBT-A47]", "testable", "SKIP_BUILD",
                "/embed/authorize not reachable (%s)" % st)
     else:
-        expect("CLIENT", "C1", "unregistered client rejected (abuse) [debt A47]", st not in (200, 302),
+        expect("CLIENT", "CLI-1", "unregistered client rejected (abuse) [debt DEBT-A47]", st not in (200, 302),
                "unregistered client_id -> %s (want reject, not 200/302)" % st)
 
     st, _, _ = http("GET", "/embed/authorize?client_id=demo-embed&scope=service:invoke"
                            "&redirect_uri=https://example.test/cb&code_challenge=x&code_challenge_method=S256")
     if st in (200, 302):
-        xfail("CLIENT", "C2", "scope bound to registered client, not query (abuse) [debt B12]", True,
+        xfail("CLIENT", "CLI-2", "scope bound to registered client, not query (abuse) [debt DEBT-B12]", True,
               "/embed/authorize over-broad scope -> %s (honors query scope)" % st)
     else:
-        record("CLIENT", "C2", "scope bound to registered client, not query (abuse) [debt B12]",
+        record("CLIENT", "CLI-2", "scope bound to registered client, not query (abuse) [debt DEBT-B12]",
                "expected-fail", "SKIP_BUILD",
                "/embed/authorize -> %s; cannot isolate scope-binding black-box (needs client+redirect+PKCE)" % st)
 
@@ -165,7 +165,7 @@ def case_B15(cookie):
             except Exception:
                 comps = []
             if not cid:
-                record("REGISTRY", "B15", "components list does not leak run_token (abuse) [debt B15]",
+                record("REGISTRY", "DEBT-B15", "components list does not leak run_token (abuse) [debt DEBT-B15]",
                        "expected-fail", "SKIP_BUILD",
                        "local-dev component catalogue empty (/bridge/components total=0) — nothing to install; "
                        "set AOS_TEST_COMPONENT=<published cid> to exercise the populated leak-check")
@@ -173,81 +173,81 @@ def case_B15(cookie):
         ist, ib, _ = http("POST", "/bridge/install", {"component_id": cid}, cookie=cookie)
         note = "install %s -> %s" % (cid, ist)
         if ist not in (200, 201):
-            record("REGISTRY", "B15", "components list does not leak run_token (abuse) [debt B15]",
+            record("REGISTRY", "DEBT-B15", "components list does not leak run_token (abuse) [debt DEBT-B15]",
                    "expected-fail", "SKIP_BUILD", "install failed (%s): %s" % (ist, ib[:100]))
             return
     st, body, _ = http("GET", "/kernel/v1/components")
     if "run_token" in body:
-        xfail("REGISTRY", "B15", "components list does not leak run_token (abuse) [debt B15]", True,
+        xfail("REGISTRY", "DEBT-B15", "components list does not leak run_token (abuse) [debt DEBT-B15]", True,
               "anon GET /components (populated) CONTAINS run_token — leak reproduced; %s" % note)
     else:
-        expect("REGISTRY", "B15", "components list does not leak run_token (abuse) [debt B15]", True,
+        expect("REGISTRY", "DEBT-B15", "components list does not leak run_token (abuse) [debt DEBT-B15]", True,
                "anon GET /components (populated: %s) has no run_token" % note)
 
 def case_R10(cookie):
     schema = os.environ.get("AOS_TEST_SCHEMA", "network.network")
     s1, b1, _ = http("POST", "/bridge/registry-resolve", {"filter": {"schema": schema}}, cookie=cookie)
     if s1 in (0, 404):
-        record("REGISTRY", "R10", "deterministic resolution over records (pos)", "needs-creds", "SKIP_BUILD",
+        record("REGISTRY", "REG-10", "deterministic resolution over records (pos)", "needs-creds", "SKIP_BUILD",
                "/bridge/registry-resolve not reachable (%s)" % s1); return
     n = 0
     try: n = len(json.loads(b1).get("results", []))
     except Exception: pass
     if n == 0:
-        record("REGISTRY", "R10", "deterministic resolution over records (pos)", "needs-creds", "SKIP_CREDS",
+        record("REGISTRY", "REG-10", "deterministic resolution over records (pos)", "needs-creds", "SKIP_CREDS",
                "no visible records for %s (determinism would be trivial-on-empty)" % schema); return
     s2, b2, _ = http("POST", "/bridge/registry-resolve", {"filter": {"schema": schema}}, cookie=cookie)
-    expect("REGISTRY", "R10", "deterministic resolution over %d records (pos)" % n, s1 == s2 and b1 == b2,
+    expect("REGISTRY", "REG-10", "deterministic resolution over %d records (pos)" % n, s1 == s2 and b1 == b2,
            "two resolves of %s -> %s/%s identical=%s" % (schema, s1, s2, b1 == b2))
 
 # Remaining needs-cred rules with no black-box write/read bridge mapped in the first suite.
 # /bridge/resolve returns 500 for these schemas and there is no registry-write bridge, and /bridge/roles
 # refuses even the tenant admin ("requires a tenant admin") — so these are honestly SKIP_BUILD, not SKIP_CREDS.
 CRED_NO_BRIDGE = [
-    ("FOUNDATIONS","F14","role assignment names its grantor (granted_by)","no grantor-returning read bridge (/bridge/roles refuses tenant admin)"),
-    ("REGISTRY","R1","write then re-read by id — id stable","no black-box registry-write bridge"),
-    ("REGISTRY","R3","supersede creates new version; prior addressable","no black-box registry-write bridge"),
-    ("REGISTRY","R7","written record carries provenance [debt A2 shadow]","no black-box registry-write bridge"),
-    ("NETWORK","N1","slug/tenant not accepted as net authority [debt B11/B2]","needs a governance call asserting slug==tenant; no bridge mapped"),
-    ("NETWORK","N9","wildcard/unversioned capability grant rejected [debt B12]","capability-grant bridge refuses the tenant admin; shape not drivable black-box"),
-    # R17 — field-level data protection (ADR-0126). All PLANNED/NEEDS-BUILD: no encrypt/decrypt path exists yet
+    ("FOUNDATIONS","FND-14","role assignment names its grantor (granted_by)","no grantor-returning read bridge (/bridge/roles refuses tenant admin)"),
+    ("REGISTRY","REG-1","write then re-read by id — id stable","no black-box registry-write bridge"),
+    ("REGISTRY","REG-3","supersede creates new version; prior addressable","no black-box registry-write bridge"),
+    ("REGISTRY","REG-7","written record carries provenance [debt DEBT-A2 shadow]","no black-box registry-write bridge"),
+    ("NETWORK","NET-1","slug/tenant not accepted as net authority [debt DEBT-B11/DEBT-B2]","needs a governance call asserting slug==tenant; no bridge mapped"),
+    ("NETWORK","NET-9","wildcard/unversioned capability grant rejected [debt DEBT-B12]","capability-grant bridge refuses the tenant admin; shape not drivable black-box"),
+    # REG-17 — field-level data protection (ADR-0126). All PLANNED/NEEDS-BUILD: no encrypt/decrypt path exists yet
     # (Vault transit signs only; records are plaintext JSONB). Registered so the suite tracks the obligation.
-    ("REGISTRY","R17","personal field (x-sensitivity:personal) is NOT stored in the versioned record; value lives in the R14 erasable store","needs encrypt-on-write + erasable-store split; not built (ADR-0126)"),
-    ("REGISTRY","R17","sensitive field stored inline as per-tenant (rec-<tenant>) transit ciphertext, never plaintext","needs inline transit encrypt-on-write; not built (ADR-0126)"),
-    ("REGISTRY","R17","erasure of a personal field deletes the value (R14) + records an audited erasure; derived per-person key is NOT erasure","needs erasable store + erasure event; not built (ADR-0126/R14)"),
-    ("REGISTRY","R17","R9 idempotency over a protected field compares a keyed HMAC of plaintext — never a plain hash, never ciphertext","needs HMAC idempotency on the write path; not built (ADR-0126)"),
-    ("REGISTRY","R17","unauthorised read of a protected field returns a redacted placeholder — never ciphertext, never plaintext","needs decrypt-authz + redaction on the read path; not built (ADR-0126)"),
-    ("REGISTRY","R17","Kernel→Vault uses its own service identity scoped to transit encrypt/decrypt/hmac on rec-*/idx-* (never root); fails closed if Vault down","needs Kernel Vault policy + fail-closed path; not built (ADR-0124/0126)"),
-    ("REGISTRY","R17","every key use is audited in the Kernel chain AND Vault audit device, without plaintext/ciphertext","needs transit audit wiring; not built (ADR-0126/R12)"),
-    ("ACCOUNT","A3","identity-binding uniqueness via a keyed blind index (HMAC), not a plaintext column","needs blind-index on write + uniqueness check; not built (ADR-0126)"),
-    ("DECISION","D10","every decryption of personal data produces a full decision record (actor/subject/purpose/basis)","needs personal-read decision-record emission; not built (ADR-0126/0125)"),
+    ("REGISTRY","REG-17","personal field (x-sensitivity:personal) is NOT stored in the versioned record; value lives in the REG-14 erasable store","needs encrypt-on-write + erasable-store split; not built (ADR-0126)"),
+    ("REGISTRY","REG-17","sensitive field stored inline as per-tenant (rec-<tenant>) transit ciphertext, never plaintext","needs inline transit encrypt-on-write; not built (ADR-0126)"),
+    ("REGISTRY","REG-17","erasure of a personal field deletes the value (REG-14) + records an audited erasure; derived per-person key is NOT erasure","needs erasable store + erasure event; not built (ADR-0126/REG-14)"),
+    ("REGISTRY","REG-17","REG-9 idempotency over a protected field compares a keyed HMAC of plaintext — never a plain hash, never ciphertext","needs HMAC idempotency on the write path; not built (ADR-0126)"),
+    ("REGISTRY","REG-17","unauthorised read of a protected field returns a redacted placeholder — never ciphertext, never plaintext","needs decrypt-authz + redaction on the read path; not built (ADR-0126)"),
+    ("REGISTRY","REG-17","Kernel→Vault uses its own service identity scoped to transit encrypt/decrypt/hmac on rec-*/idx-* (never root); fails closed if Vault down","needs Kernel Vault policy + fail-closed path; not built (ADR-0124/0126)"),
+    ("REGISTRY","REG-17","every key use is audited in the Kernel chain AND Vault audit device, without plaintext/ciphertext","needs transit audit wiring; not built (ADR-0126/REG-12)"),
+    ("ACCOUNT","ACC-3","identity-binding uniqueness via a keyed blind index (HMAC), not a plaintext column","needs blind-index on write + uniqueness check; not built (ADR-0126)"),
+    ("DECISION","DEC-10","every decryption of personal data produces a full decision record (actor/subject/purpose/basis)","needs personal-read decision-record emission; not built (ADR-0126/0125)"),
 ]
 def case_F2_no_grant(outsider_cookie):
     """A valid NON-admin session must be denied a governance write — authority from a grant, not auth."""
     st, _, _ = http("POST", "/bridge/role-grant", {"principal": "x", "role": "network.admin"}, cookie=outsider_cookie)
-    expect("FOUNDATIONS", "F2", "valid non-admin session denied governance write (abuse)",
+    expect("FOUNDATIONS", "FND-2", "valid non-admin session denied governance write (abuse)",
            st in (401, 403), "outsider POST /bridge/role-grant -> %s (want 401/403)" % st)
 
 def run_cred_cases():
     if not CREDS:
-        record("REGISTRY","B15","components list does not leak run_token (abuse) [debt B15]","needs-creds","SKIP_CREDS","needs admin session to install first")
-        record("REGISTRY","R10","deterministic resolution over records (pos)","needs-creds","SKIP_CREDS","needs a reader session to see records")
-        record("FOUNDATIONS","F2","valid non-admin session denied governance write (abuse)","needs-creds","SKIP_CREDS","needs a non-admin session")
+        record("REGISTRY","DEBT-B15","components list does not leak run_token (abuse) [debt DEBT-B15]","needs-creds","SKIP_CREDS","needs admin session to install first")
+        record("REGISTRY","REG-10","deterministic resolution over records (pos)","needs-creds","SKIP_CREDS","needs a reader session to see records")
+        record("FOUNDATIONS","FND-2","valid non-admin session denied governance write (abuse)","needs-creds","SKIP_CREDS","needs a non-admin session")
         for s,r,n,why in CRED_NO_BRIDGE: record(s,r,n,"needs-build","SKIP_BUILD",why)
         return
     cookie, msg = login_session("admin")
-    expect("FOUNDATIONS","F1","authenticated session opens (pos)", bool(cookie), "admin login: %s" % msg)
+    expect("FOUNDATIONS","FND-1","authenticated session opens (pos)", bool(cookie), "admin login: %s" % msg)
     if cookie:
         case_B15(cookie); case_R10(cookie)
     else:
-        record("REGISTRY","B15","components list does not leak run_token (abuse) [debt B15]","needs-creds","SKIP_CREDS","admin login failed: %s"%msg)
-        record("REGISTRY","R10","deterministic resolution over records (pos)","needs-creds","SKIP_CREDS","admin login failed: %s"%msg)
+        record("REGISTRY","DEBT-B15","components list does not leak run_token (abuse) [debt DEBT-B15]","needs-creds","SKIP_CREDS","admin login failed: %s"%msg)
+        record("REGISTRY","REG-10","deterministic resolution over records (pos)","needs-creds","SKIP_CREDS","admin login failed: %s"%msg)
     ocookie, omsg = login_session("outsider")
     if ocookie:
         case_F2_no_grant(ocookie)
     else:
-        record("FOUNDATIONS","F2","valid non-admin session denied governance write (abuse)","needs-creds","SKIP_CREDS","outsider login failed: %s"%omsg)
-    # ADR-0122 P4 black-box — platform.authority is a recorded role (enforce). admin holds it; faker (same
+        record("FOUNDATIONS","FND-2","valid non-admin session denied governance write (abuse)","needs-creds","SKIP_CREDS","outsider login failed: %s"%omsg)
+    # ADR-0122 PLT-4 black-box — platform.authority is a recorded role (enforce). admin holds it; faker (same
     # tenant) does not. Requires the ld-network running dev-b375cfe + bootstrap phase 4b seed.
     pacookie, _ = login_session("opadmin")   # E1: platform.authority holder is admin@<inst>-operator
     pncookie, _ = login_session("platnone")
@@ -268,90 +268,90 @@ def case_platform_authority(pa_cookie, pn_cookie):
     # (same platform tenant, no recorded role). Supply their passwords in .creds.json to run these.
     # PA1 — the platform.authority holder performs a platform-authority action (sees all networks, flag true).
     if not pa_cookie:
-        record("PLATFORM","P4","opadmin (platform.authority) performs a platform-authority action (pos)","needs-creds","SKIP_CREDS","opadmin not in .creds.json")
+        record("PLATFORM","PLT-4","opadmin (platform.authority) performs a platform-authority action (pos)","needs-creds","SKIP_CREDS","opadmin not in .creds.json")
     else:
         st, rows = _networks_mine(pa_cookie)
         ok = st == 200 and len(rows) >= 1 and all(r.get("platform_authority") is True for r in rows)
-        expect("PLATFORM","P4","opadmin (operator tenant) sees all networks w/ platform_authority=true (pos)",
+        expect("PLATFORM","PLT-4","opadmin (operator tenant) sees all networks w/ platform_authority=true (pos)",
                ok, "opadmin /bridge/networks-mine -> %s rows=%d pa=%s" % (st, len(rows),
                     sorted({bool(r.get("platform_authority")) for r in rows}) if rows else []))
     # PA2 — a same-tenant user WITHOUT the role is not platform authority.
     if not pn_cookie:
-        record("PLATFORM","P4","platnone (same tenant, no role) is not platform authority (abuse)","needs-creds","SKIP_CREDS","platnone not in .creds.json")
+        record("PLATFORM","PLT-4","platnone (same tenant, no role) is not platform authority (abuse)","needs-creds","SKIP_CREDS","platnone not in .creds.json")
     else:
         st, rows = _networks_mine(pn_cookie)
         ok = st == 200 and all(r.get("platform_authority") is not True for r in rows)
-        expect("PLATFORM","P4","platnone (same tenant, no role) is NOT platform authority (abuse)",
+        expect("PLATFORM","PLT-4","platnone (same tenant, no role) is NOT platform authority (abuse)",
                ok, "platnone /bridge/networks-mine -> %s rows=%d pa=%s" % (st, len(rows),
                     sorted({bool(r.get("platform_authority")) for r in rows}) if rows else []))
     # PA3 — granting platform.authority without a different-holder CR is refused (a holder already exists).
     if not pa_cookie:
-        record("PLATFORM","P5","grant platform.authority without a CR refused (abuse)","needs-creds","SKIP_CREDS","opadmin not in .creds.json")
+        record("PLATFORM","PLT-5","grant platform.authority without a CR refused (abuse)","needs-creds","SKIP_CREDS","opadmin not in .creds.json")
     else:
         st, _, _ = http("POST", "/bridge/gov-assign-role",
                         {"principal": "user://localdev-network/conf-probe", "role": "platform.authority",
                          "status": "active"}, cookie=pa_cookie)
         if st in (0, 404):
-            record("PLATFORM","P5","grant platform.authority without a CR refused (abuse)","needs-build","SKIP_BUILD",
+            record("PLATFORM","PLT-5","grant platform.authority without a CR refused (abuse)","needs-build","SKIP_BUILD",
                    "/bridge/gov-assign-role not reachable (%s)" % st)
         else:
-            expect("PLATFORM","P5","grant platform.authority without a different-holder CR is refused (abuse)",
+            expect("PLATFORM","PLT-5","grant platform.authority without a different-holder CR is refused (abuse)",
                    st in (400, 401, 403, 409), "opadmin assign platform.authority (no CR) -> %s (want refuse)" % st)
         # PA4 — revoking the LAST platform.authority holder (admin@operator) is refused.
         st, _, _ = http("POST", "/bridge/gov-assign-role",
                         {"principal": "user://localdev-operator/admin", "role": "platform.authority",
                          "status": "revoked"}, cookie=pa_cookie)
         if st in (0, 404):
-            record("PLATFORM","P5","revoke last platform.authority holder refused (abuse)","needs-build","SKIP_BUILD",
+            record("PLATFORM","PLT-5","revoke last platform.authority holder refused (abuse)","needs-build","SKIP_BUILD",
                    "/bridge/gov-assign-role not reachable (%s)" % st)
         else:
-            expect("PLATFORM","P5","revoking the last platform.authority holder (admin@operator) is refused (abuse)",
+            expect("PLATFORM","PLT-5","revoking the last platform.authority holder (admin@operator) is refused (abuse)",
                    st in (400, 401, 403, 409), "opadmin revoke platform.authority (last holder) -> %s (want refuse)" % st)
 
 def case_admin_network_admin(admin_cookie):
     # After 2b, admin is a PLAIN network.admin (platform.authority revoked). It must still work as
     # network.admin (sees its network, role network.admin) and must NOT be platform authority.
     if not admin_cookie:
-        record("NETWORK","N3","admin works as plain network.admin after losing platform.authority (pos)","needs-creds","SKIP_CREDS","admin login failed")
+        record("NETWORK","NET-3","admin works as plain network.admin after losing platform.authority (pos)","needs-creds","SKIP_CREDS","admin login failed")
         return
     st, rows = _networks_mine(admin_cookie)
     has_na = any("network.admin" in (r.get("roles") or []) for r in rows)
     no_pa = all(r.get("platform_authority") is not True for r in rows)
-    expect("NETWORK","N3","admin is a plain network.admin (network.admin role, not platform authority) (pos)",
+    expect("NETWORK","NET-3","admin is a plain network.admin (network.admin role, not platform authority) (pos)",
            st == 200 and has_na and no_pa,
            "admin /bridge/networks-mine -> %s rows=%d network.admin=%s platform_authority=%s"
            % (st, len(rows), has_na, sorted({bool(r.get("platform_authority")) for r in rows}) if rows else []))
 
 # ============================ EXTERNAL: NEEDS-BUILD (genuinely not built) ============================
 NEEDS_BUILD = [
-    ("FOUNDATIONS","F5","durable authority survives restart","restart orchestration"),
-    ("FOUNDATIONS","F7","kernel authorizes with Network down","network-down orchestration [debt B9]"),
-    ("FOUNDATIONS","F16","missing config stops startup","startup-time"),
-    ("FOUNDATIONS","F17","agent delegation; no self-widen","no delegation primitive (NOT BUILT)"),
-    ("REGISTRY","R12","trust-bearing write audited","audit not black-box readable"),
-    ("REGISTRY","R14","personal data by reference; erasure","erasable store PLANNED"),
-    ("REGISTRY","R15","public = schema flag via CR","hardcoded allow-list [debt B8]"),
-    ("REGISTRY","R16","archived version resolves identically","archiving PLANNED"),
-    ("DECISION","D1","protected authz emits a decision record","not emitted [debt A9/B1]"),
-    ("DECISION","D3","replayable; model output as input","replay harness not exposed"),
-    ("DECISION","D4","decider needs recorded authority [debt B3]","not emitted; authn accepted"),
-    ("DECISION","D6","denial recorded with reason [debt A9]","denials not logged"),
-    ("DECISION","D7","personal data in decision by reference","inherits R14 (PLANNED)"),
-    ("DECISION","D8","reason codes; subject reads own decisions","subject-access not built"),
-    ("DECISION","D10","personal-data read always full record","tiered logging not built"),
-    ("DECISION","D11","contest flow; reviewer != decider","contest flow not proven"),
-    ("DECISION","D12","automated decision labelled + human authority [debt B18]","not built"),
-    ("NETWORK","N4","suspended net refuses exchange, allows reads","status machine not verified"),
-    ("NETWORK","N6","join never creates a login [debt B9]","needs creds to drive join (EXPECTED FAIL)"),
-    ("NETWORK","N7","issuer trust admin-only + scoped","needs creds (EXPECTED FAIL)"),
-    ("ACCOUNT","A2","id/handle/binding distinct; handle reserved","model not verified"),
-    ("ACCOUNT","A3","raw id never shown; one-identity-one-account","assurance untrustworthy [debt B13]; R14 PLANNED"),
-    ("ACCOUNT","A7","consent by holder; withdraw->erase","consent enforcement pending [debt B12]"),
-    ("ACCOUNT","A8","assisted access via F17","no delegation primitive"),
-    ("ACCOUNT","A9","closure withdraws consents + erases","not built"),
-    ("ACCOUNT","W3","presentation bound to recipient/purpose","PLANNED"),
-    ("ACCOUNT","W4","selective disclosure","PLANNED"),
-    ("CLIENT","C6","public versioned protocol, not /bridge/* [debt A23]","only /bridge/* + /embed/* exist"),
+    ("FOUNDATIONS","FND-5","durable authority survives restart","restart orchestration"),
+    ("FOUNDATIONS","FND-7","kernel authorizes with Network down","network-down orchestration [debt DEBT-B9]"),
+    ("FOUNDATIONS","FND-16","missing config stops startup","startup-time"),
+    ("FOUNDATIONS","FND-17","agent delegation; no self-widen","no delegation primitive (NOT BUILT)"),
+    ("REGISTRY","REG-12","trust-bearing write audited","audit not black-box readable"),
+    ("REGISTRY","REG-14","personal data by reference; erasure","erasable store PLANNED"),
+    ("REGISTRY","REG-15","public = schema flag via CR","hardcoded allow-list [debt DEBT-B8]"),
+    ("REGISTRY","REG-16","archived version resolves identically","archiving PLANNED"),
+    ("DECISION","DEC-1","protected authz emits a decision record","not emitted [debt DEBT-A9/DEBT-B1]"),
+    ("DECISION","DEC-3","replayable; model output as input","replay harness not exposed"),
+    ("DECISION","DEC-4","decider needs recorded authority [debt DEBT-B3]","not emitted; authn accepted"),
+    ("DECISION","DEC-6","denial recorded with reason [debt DEBT-A9]","denials not logged"),
+    ("DECISION","DEC-7","personal data in decision by reference","inherits REG-14 (PLANNED)"),
+    ("DECISION","DEC-8","reason codes; subject reads own decisions","subject-access not built"),
+    ("DECISION","DEC-10","personal-data read always full record","tiered logging not built"),
+    ("DECISION","DEC-11","contest flow; reviewer != decider","contest flow not proven"),
+    ("DECISION","DEC-12","automated decision labelled + human authority [debt DEBT-B18]","not built"),
+    ("NETWORK","NET-4","suspended net refuses exchange, allows reads","status machine not verified"),
+    ("NETWORK","NET-6","join never creates a login [debt DEBT-B9]","needs creds to drive join (EXPECTED FAIL)"),
+    ("NETWORK","NET-7","issuer trust admin-only + scoped","needs creds (EXPECTED FAIL)"),
+    ("ACCOUNT","ACC-2","id/handle/binding distinct; handle reserved","model not verified"),
+    ("ACCOUNT","ACC-3","raw id never shown; one-identity-one-account","assurance untrustworthy [debt DEBT-B13]; REG-14 PLANNED"),
+    ("ACCOUNT","ACC-7","consent by holder; withdraw->erase","consent enforcement pending [debt DEBT-B12]"),
+    ("ACCOUNT","ACC-8","assisted access via FND-17","no delegation primitive"),
+    ("ACCOUNT","ACC-9","closure withdraws consents + erases","not built"),
+    ("ACCOUNT","ACC-W3","presentation bound to recipient/purpose","PLANNED"),
+    ("ACCOUNT","ACC-W4","selective disclosure","PLANNED"),
+    ("CLIENT","CLI-6","public versioned protocol, not /bridge/* [debt DEBT-A23]","only /bridge/* + /embed/* exist"),
 ]
 def run_needs_build():
     for s,r,n,why in NEEDS_BUILD: record(s,r,n,"needs-build","SKIP_BUILD",why)
@@ -387,8 +387,8 @@ def case_dev_sandbox_confined():
     dev_tenant = os.environ.get("DEV_SANDBOX_TENANT", "localdev-developer")
     tok, why = _mint_service_bearer("dev-sandbox", dev_tenant)
     probes = [
-        ("REGISTRY", "F11", "dev-sandbox refused at kernel admin (registry.usage)", INTERNAL["kernel"] + "/v1/registry/usage", {}),
-        ("REGISTRY", "F2",  "dev-sandbox refused a cross-tenant write", INTERNAL["kernel"] + "/v1/registry/objects",
+        ("REGISTRY", "FND-11", "dev-sandbox refused at kernel admin (registry.usage)", INTERNAL["kernel"] + "/v1/registry/usage", {}),
+        ("REGISTRY", "FND-2",  "dev-sandbox refused a cross-tenant write", INTERNAL["kernel"] + "/v1/registry/objects",
          {"id": "ds:localdev:probe/devsandbox", "object": {"schema": "viz.layer", "id": "ds:localdev:probe/devsandbox"}}),
     ]
     if not tok:
@@ -408,10 +408,10 @@ def case_component_publisher_refused():
     as platform.steward. A 2xx here is a real FAIL (the role leaked admin reach)."""
     tok, why = _mint_component_publisher_token()
     probes = [
-        ("REGISTRY", "F11/B1", "component.publisher refused at kernel admin (registry.usage)", "POST", INTERNAL["kernel"] + "/v1/registry/usage", {}),
-        ("NETWORK",  "N3/B1",  "component.publisher refused at network admin (assign role)",     "POST", INTERNAL["network"] + "/v1/roles", {"role": "network.admin", "principal": "x"}),
-        ("NETWORK",  "N3/B1",  "component.publisher refused at network admin (issue grant)",      "POST", INTERNAL["network"] + "/v1/grants/issue", {"tenant": "localdev", "component_id": "ds:localdev:driver/probe"}),
-        ("ACCOUNT",  "A?/B1",  "component.publisher refused at secrets admin (/set)",             "POST", INTERNAL["secrets"] + "/set", {"tenant": "localdev", "component": "x", "name": "y", "value": "z"}),
+        ("REGISTRY", "FND-11/DEBT-B1", "component.publisher refused at kernel admin (registry.usage)", "POST", INTERNAL["kernel"] + "/v1/registry/usage", {}),
+        ("NETWORK",  "NET-3/DEBT-B1",  "component.publisher refused at network admin (assign role)",     "POST", INTERNAL["network"] + "/v1/roles", {"role": "network.admin", "principal": "x"}),
+        ("NETWORK",  "NET-3/DEBT-B1",  "component.publisher refused at network admin (issue grant)",      "POST", INTERNAL["network"] + "/v1/grants/issue", {"tenant": "localdev", "component_id": "ds:localdev:driver/probe"}),
+        ("ACCOUNT",  "A?/DEBT-B1",  "component.publisher refused at secrets admin (/set)",             "POST", INTERNAL["secrets"] + "/set", {"tenant": "localdev", "component": "x", "name": "y", "value": "z"}),
     ]
     if not tok:
         for spec, rule, name, *_ in probes:
@@ -474,19 +474,19 @@ def case_login_audience_allowlist():
     granted = _login_with_aud("scheduler", sp_t, sp_v, "svc:automation")
     if granted[0] is None:
         for n in ("granted", "svc:kernel refused", "svc:app-host refused", "human refused"):
-            record("FOUNDATIONS", "F15/ADR-0124", "login audience allow-list: " + n, "needs-creds", "SKIP_CREDS", str(granted[1]))
+            record("FOUNDATIONS", "FND-15/ADR-0124", "login audience allow-list: " + n, "needs-creds", "SKIP_CREDS", str(granted[1]))
         return
-    expect("FOUNDATIONS", "F15/ADR-0124", "scheduler may request its recorded audience (svc:automation)",
+    expect("FOUNDATIONS", "FND-15/ADR-0124", "scheduler may request its recorded audience (svc:automation)",
            granted == (200, "svc:automation"), "scheduler svc:automation -> %s" % str(granted))
-    expect("FOUNDATIONS", "F15/ADR-0124", "scheduler refused svc:kernel (not recorded)",
+    expect("FOUNDATIONS", "FND-15/ADR-0124", "scheduler refused svc:kernel (not recorded)",
            _login_with_aud("scheduler", sp_t, sp_v, "svc:kernel")[0] == 403, "expect 403")
-    expect("FOUNDATIONS", "F15/ADR-0124", "scheduler refused svc:app-host (not recorded)",
+    expect("FOUNDATIONS", "FND-15/ADR-0124", "scheduler refused svc:app-host (not recorded)",
            _login_with_aud("scheduler", sp_t, sp_v, "svc:app-host")[0] == 403, "expect 403")
     h = _login_with_aud("platauth", "localdev-network", "secret/data/localdev-network/test-users/platauth", "svc:automation")
     if h[0] is None:
-        record("FOUNDATIONS", "F15/ADR-0124", "login audience allow-list: human refused", "needs-creds", "SKIP_CREDS", str(h[1]))
+        record("FOUNDATIONS", "FND-15/ADR-0124", "login audience allow-list: human refused", "needs-creds", "SKIP_CREDS", str(h[1]))
     else:
-        expect("FOUNDATIONS", "F15/ADR-0124", "human (platauth) refused a service audience", h[0] == 403, "platauth svc:automation -> %s" % str(h))
+        expect("FOUNDATIONS", "FND-15/ADR-0124", "human (platauth) refused a service audience", h[0] == 403, "platauth svc:automation -> %s" % str(h))
 
 
 def case_platform_authority_bootstrap_rule():
@@ -495,24 +495,24 @@ def case_platform_authority_bootstrap_rule():
     vaddr = (os.environ.get("VAULT_ADDR") or "").rstrip("/"); vtok = os.environ.get("VAULT_TOKEN") or ""
     name = "bootstrap grants no platform.authority when a holder exists (ADR-0122)"
     if not (vaddr and vtok):
-        record("NETWORK", "P5/ADR-0122", name, "needs-creds", "SKIP_CREDS", "no VAULT_ADDR/VAULT_TOKEN"); return
+        record("NETWORK", "PLT-5/ADR-0122", name, "needs-creds", "SKIP_CREDS", "no VAULT_ADDR/VAULT_TOKEN"); return
     try:
         r = _req("GET", f"{vaddr}/v1/secret/data/localdev-network/trust-writer/password", headers={"X-Vault-Token": vtok})
         pw = (((json.loads(r[1]) or {}).get("data") or {}).get("data") or {}).get("password") if r[0] == 200 else None
     except Exception as e:
-        record("NETWORK", "P5/ADR-0122", name, "needs-creds", "SKIP_CREDS", "vault: %s" % str(e)[:50]); return
+        record("NETWORK", "PLT-5/ADR-0122", name, "needs-creds", "SKIP_CREDS", "vault: %s" % str(e)[:50]); return
     if not pw:
-        record("NETWORK", "P5/ADR-0122", name, "needs-creds", "SKIP_CREDS", "trust-writer cred absent"); return
+        record("NETWORK", "PLT-5/ADR-0122", name, "needs-creds", "SKIP_CREDS", "trust-writer cred absent"); return
     st, b, _ = _req("POST", INTERNAL["identity"] + "/login", {"username": "trust-writer", "tenant": "localdev-network", "password": pw})
     tok = (json.loads(b) or {}).get("access_token") if st == 200 else None
     if not tok:
-        record("NETWORK", "P5/ADR-0122", name, "needs-creds", "SKIP_CREDS", "trust-writer login -> %s" % st); return
+        record("NETWORK", "PLT-5/ADR-0122", name, "needs-creds", "SKIP_CREDS", "trust-writer login -> %s" % st); return
     body = {"role": "platform.authority", "principal": "user://localdev-network/__bootstrap_probe__",
             "scope": {"type": "platform", "ref": None}, "status": "active"}
     st2, b2, _ = _req("POST", INTERNAL["network"] + "/v1/governance/roles", body, token=tok)
     if st2 in (0, 404):
-        record("NETWORK", "P5/ADR-0122", name, "testable", "SKIP_BUILD", "/v1/governance/roles -> %s" % st2); return
-    expect("NETWORK", "P5/ADR-0122", name, st2 in (401, 403),
+        record("NETWORK", "PLT-5/ADR-0122", name, "testable", "SKIP_BUILD", "/v1/governance/roles -> %s" % st2); return
+    expect("NETWORK", "PLT-5/ADR-0122", name, st2 in (401, 403),
            "/v1/governance/roles grant -> %s (refused expected: a holder exists, no CR)" % st2)
 
 
@@ -541,56 +541,56 @@ def run_internal_cases():
         xfail(spec, rule, name, True, "%s -> %s: handler ran WITHOUT a service token (no auth gate)" % (url, st))
     # ADR-0124 item 1 (service 2/5) — filestore ingress. The gate is live; a WRONG-AUDIENCE token is refused
     # even in shadow (assertable now). The ANONYMOUS-refused case only holds once FILESTORE_REQUIRE_TOKEN flips
-    # on (shadow until every reader — app-host/kernel/launcher — is wired; debt A72), so it is recorded as an
-    # expected-fail until the flip, mirroring how scheduler B5 was handled pre-flip.
+    # on (shadow until every reader — app-host/kernel/launcher — is wired; debt DEBT-A72), so it is recorded as an
+    # expected-fail until the flip, mirroring how scheduler DEBT-B5 was handled pre-flip.
     _fs_wrong = _login_token("scheduler","localdev-operator","secret/data/localdev-operator/scheduler/password","svc:automation")
     if _fs_wrong:
         _stfw, _bfw, _ = _req("POST", T["filestore"]+"/files", body=None, token=_fs_wrong)
-        expect("FOUNDATIONS","F10/B5","filestore refuses a wrong-audience token (abuse)", _stfw == 403,
+        expect("FOUNDATIONS","FND-10/DEBT-B5","filestore refuses a wrong-audience token (abuse)", _stfw == 403,
                "svc:automation token -> %s (expect 403 wrong audience)" % _stfw)
     else:
-        record("FOUNDATIONS","F10/B5","filestore refuses a wrong-audience token (abuse)","needs-creds","SKIP_CREDS","no svc:automation token")
+        record("FOUNDATIONS","FND-10/DEBT-B5","filestore refuses a wrong-audience token (abuse)","needs-creds","SKIP_CREDS","no svc:automation token")
     _stfa, _bfa, _ = _req("POST", T["filestore"]+"/files", body=None)
     if _stfa == 0:
-        record("FOUNDATIONS","F10/B5","filestore refuses an anonymous call (abuse)","expected-fail","SKIP_BUILD","filestore unreachable")
+        record("FOUNDATIONS","FND-10/DEBT-B5","filestore refuses an anonymous call (abuse)","expected-fail","SKIP_BUILD","filestore unreachable")
     else:
-        xfail("FOUNDATIONS","F10/B5","filestore refuses an anonymous call (abuse)", _stfa not in (401,403),
-              "anon /files -> %s (FILESTORE_REQUIRE_TOKEN shadow until all readers wired — debt A72)" % _stfa)
-    tokenless_accepted("FOUNDATIONS","F10/B5","notify /notify accepts without a service token (abuse)","POST", T["notify"]+"/notify", {})
+        xfail("FOUNDATIONS","FND-10/DEBT-B5","filestore refuses an anonymous call (abuse)", _stfa not in (401,403),
+              "anon /files -> %s (FILESTORE_REQUIRE_TOKEN shadow until all readers wired — debt DEBT-A72)" % _stfa)
+    tokenless_accepted("FOUNDATIONS","FND-10/DEBT-B5","notify /notify accepts without a service token (abuse)","POST", T["notify"]+"/notify", {})
     # ADR-0124 item 1 — scheduler /run,/reload now REQUIRE a svc:scheduler token from an allow-listed caller.
     # Promoted from the tokenless-abuse probe to a real assertion: anonymous AND wrong-audience are refused.
     _s_anon, _s_b, _ = _req("POST", T["scheduler"]+"/run", body={"component":"__conformance_probe__","tenant":"kmc"})
     if _s_anon == 0:
-        record("FOUNDATIONS","F10/B5","scheduler /run requires a service token (abuse)","expected-fail","SKIP_BUILD","scheduler unreachable (%s)"%_s_b[:40])
+        record("FOUNDATIONS","FND-10/DEBT-B5","scheduler /run requires a service token (abuse)","expected-fail","SKIP_BUILD","scheduler unreachable (%s)"%_s_b[:40])
     else:
-        expect("FOUNDATIONS","F10/B5","scheduler /run refuses an anonymous call (abuse)", _s_anon in (401,403),
+        expect("FOUNDATIONS","FND-10/DEBT-B5","scheduler /run refuses an anonymous call (abuse)", _s_anon in (401,403),
                "anon /run -> %s (expect 403)" % _s_anon)
         _wrong = _login_token("scheduler","localdev-operator","secret/data/localdev-operator/scheduler/password","svc:automation")
         if not _wrong:
-            record("FOUNDATIONS","F10/B5","scheduler /run refuses a wrong-audience token (abuse)","needs-creds","SKIP_CREDS","could not mint a svc:automation token")
+            record("FOUNDATIONS","FND-10/DEBT-B5","scheduler /run refuses a wrong-audience token (abuse)","needs-creds","SKIP_CREDS","could not mint a svc:automation token")
         else:
             _stw, _bw, _ = _req("POST", T["scheduler"]+"/run", body={"component":"__conformance_probe__","tenant":"kmc"}, token=_wrong)
-            expect("FOUNDATIONS","F10/B5","scheduler /run refuses a wrong-audience token (abuse)", _stw == 403,
+            expect("FOUNDATIONS","FND-10/DEBT-B5","scheduler /run refuses a wrong-audience token (abuse)", _stw == 403,
                    "svc:automation token -> %s (expect 403 wrong audience)" % _stw)
-    tokenless_accepted("FOUNDATIONS","F10/B5","model-gateway /complete accepts without a service token (abuse)","POST", T["model-gateway"]+"/complete", {})
-    tokenless_accepted("FOUNDATIONS","F10/B5","automation /events accepts without a service token (abuse)","POST", T["automation"]+"/events", {})
-    # F9 / debt B4 — fail-open internal-token gates
-    tokenless_accepted("FOUNDATIONS","F9/B4","secrets /materialize accepts w/o internal token (abuse)","POST", T["secrets"]+"/materialize", {})
-    tokenless_accepted("FOUNDATIONS","F9/B4","secrets /fetch accepts w/o internal token (abuse)","POST", T["secrets"]+"/fetch", {})
-    record("FOUNDATIONS","F9/B4","runtime-manager /invoke fail-open (abuse)","expected-fail","SKIP_BUILD","no runtime-manager in the local-dev stack")
-    # B6 — identity directory disclosure
+    tokenless_accepted("FOUNDATIONS","FND-10/DEBT-B5","model-gateway /complete accepts without a service token (abuse)","POST", T["model-gateway"]+"/complete", {})
+    tokenless_accepted("FOUNDATIONS","FND-10/DEBT-B5","automation /events accepts without a service token (abuse)","POST", T["automation"]+"/events", {})
+    # FND-9 / debt DEBT-B4 — fail-open internal-token gates
+    tokenless_accepted("FOUNDATIONS","FND-9/DEBT-B4","secrets /materialize accepts w/o internal token (abuse)","POST", T["secrets"]+"/materialize", {})
+    tokenless_accepted("FOUNDATIONS","FND-9/DEBT-B4","secrets /fetch accepts w/o internal token (abuse)","POST", T["secrets"]+"/fetch", {})
+    record("FOUNDATIONS","FND-9/DEBT-B4","runtime-manager /invoke fail-open (abuse)","expected-fail","SKIP_BUILD","no runtime-manager in the local-dev stack")
+    # DEBT-B6 — identity directory disclosure
     st, b, _ = _req("GET", T["identity"]+"/users")
     if st == 0:
-        record("CLIENT","C5/B6","identity /users directory disclosure (abuse)","expected-fail","SKIP_BUILD","identity /users unreachable (%s)"%b[:40])
+        record("CLIENT","CLI-5/DEBT-B6","identity /users directory disclosure (abuse)","expected-fail","SKIP_BUILD","identity /users unreachable (%s)"%b[:40])
     else:
         disclosed = st == 200 and ("username" in b or '"users"' in b or b.strip().startswith("["))
-        # ADR-0124 B6 — the directory now requires the internal provisioner token; an anonymous GET must be
+        # ADR-0124 DEBT-B6 — the directory now requires the internal provisioner token; an anonymous GET must be
         # refused (not disclosed). Promoted from expected-fail to a real assertion.
-        expect("CLIENT","C5/B6","identity /users directory requires an authorised caller (abuse)", not disclosed,
+        expect("CLIENT","CLI-5/DEBT-B6","identity /users directory requires an authorised caller (abuse)", not disclosed,
                "anon GET identity/users -> %s discloses=%s (want refused)" % (st, disclosed))
     # kernel reachable directly internally (parity with external anon read)
     st, _, _ = _req("POST", T["kernel"]+"/v1/registry/resolve", {"filter": {"schema": "network.network"}})
-    xfail("REGISTRY","R6/F8","anonymous kernel read denied (internal) [debt A1]", st == 200,
+    xfail("REGISTRY","REG-6/FND-8","anonymous kernel read denied (internal) [debt DEBT-A1]", st == 200,
           "kernel:8080 anon read -> %s (rule 401; live-violation 200)" % st)
 
 # ============================ runner ============================

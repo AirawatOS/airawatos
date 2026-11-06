@@ -11,29 +11,29 @@ Definitions: [Glossary](specs/GLOSSARY.md). Normative rules: [Specifications](sp
 | Primer says | System term | Where it's specified |
 |---|---|---|
 | shared register | **Kernel** (registry + broker) | REGISTRY |
-| login pass | **token** (identity only: iss, sub, tenant, aud, exp) | FOUNDATIONS F1 |
-| data-sharing permission | **CapabilityGrant** | NETWORK N9, ADR-0127 |
+| login pass | **token** (identity only: iss, sub, tenant, aud, exp) | FOUNDATIONS FND-1 |
+| data-sharing permission | **CapabilityGrant** | NETWORK NET-9, ADR-0127 |
 | authorised officer | **RoleAssignment** (platform / tenant / network scope) | FOUNDATIONS §3, ADR-0122 |
-| your permission | **Consent** | ACCOUNT A7, ADR-0125 |
+| your permission | **Consent** | ACCOUNT DEBT-A7, ADR-0125 |
 | the two permissions | **two-key rule** (grant + consent for personal data) | FOUNDATIONS §3 |
 | reasons on file | **decision record** | DECISION |
-| tamper-proof log | **audit chain** (hash-chained, signed) | REGISTRY R12 |
+| tamper-proof log | **audit chain** (hash-chained, signed) | REGISTRY REG-12 |
 | your agency's space | **tenant** | PLATFORM |
 | shared space for agencies | **Network** (e.g. Urban Network) | NETWORK |
-| the agency that starts a shared space | **governing tenant / Network host** | NETWORK N2, ADR-0128 |
-| register as a member / member ID | **participant registration / participant ID** (role, keys, conformance status) | PARTICIPANT PP1, FEDERATION |
-| pass the checks for your role | **per-role conformance before activation** | PARTICIPANT PP11 |
+| the agency that starts a shared space | **governing tenant / Network host** | NETWORK NET-2, ADR-0128 |
+| register as a member / member ID | **participant registration / participant ID** (role, keys, conformance status) | PARTICIPANT PTC-1, FEDERATION |
+| pass the checks for your role | **per-role conformance before activation** | PARTICIPANT PTC-11 |
 | three ways to join | **member modes**: hosted tenant · own AirawatOS installation · own system + SDK | ADR-0128 |
 | set up Airawat (with connection built in) | **participant node** (an installation joining remote Networks) | PLATFORM, FEDERATION |
-| connection kit | **Participant SDK** | PARTICIPANT PP12 |
-| account address (`meera@metro`) | **account handle** | ACCOUNT A2 |
-| document locker | **wallet** | ACCOUNT A6, W1–W4 |
+| connection kit | **Participant SDK** | PARTICIPANT PTC-12 |
+| account address (`meera@metro`) | **account handle** | ACCOUNT ACC-2 |
+| document locker | **wallet** | ACCOUNT ACC-6, ACC-W1–ACC-W4 |
 | tools and models | **components**: drivers, connectors, engines, apps | COMPONENT |
-| approved AI providers | **capability gateway** + provider catalog | PLATFORM P16–P21 |
-| self-declared | **self-asserted fact** (wallet-signed, labelled) | POLICY PL2 |
-| challenge a decision | **contest** | DECISION D11 |
-| budget for relief | **funding envelope** | OFFERINGS O6 |
-| payment system | **payment rail** (records only; money moves on rails) | OFFERINGS O8 |
+| approved AI providers | **capability gateway** + provider catalog | PLATFORM PLT-16–PLT-21 |
+| self-declared | **self-asserted fact** (wallet-signed, labelled) | POLICY POL-2 |
+| challenge a decision | **contest** | DECISION DEC-11 |
+| budget for relief | **funding envelope** | OFFERINGS OFF-6 |
+| payment system | **payment rail** (records only; money moves on rails) | OFFERINGS OFF-8 |
 
 ---
 
@@ -90,7 +90,7 @@ The Disaster Authority's flood-risk engine reads the Neighbouring Municipality's
    |   from Neighbouring Municipality in this Network? recorded via the
    |   governance path (provenance), live, in scope?
    v
- allow -> records returned; access recorded (decision record / aggregate per D10)
+ allow -> records returned; access recorded (decision record / aggregate per DEC-10)
  deny  -> refused; refusal recorded
    |
    v
@@ -128,7 +128,7 @@ Every AirawatOS installation is both a **Network host** and a **participant node
   conformance suite for each role before activation. A Network never creates tenants, logins or participant
   systems.
 - **Cross-installation trust:** requests are signed with registered participant keys; each installation's
-  home issuer is trusted only for its own participants (FEDERATION; F15). The directory of Networks / root
+  home issuer is trusted only for its own participants (FEDERATION; FND-15). The directory of Networks / root
   of trust is deferred (FEDERATION FED8).
 
 ---

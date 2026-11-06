@@ -1,7 +1,7 @@
 # FACT migration plan — kv namespaces → governed registry records
 
 **Date:** 2026-11-06 · **Relates to:** [[ADR-0123]] (Kernel holds its own trust records), §Step 4a kv matrix
-(`docs/operator/INSTALLER.md`), §Step 4b (split-role DB, SHIPPED), FOUNDATIONS F2/F7, debt B9.
+(`docs/operator/INSTALLER.md`), §Step 4b (split-role DB, SHIPPED), FOUNDATIONS FND-2/FND-7, debt DEBT-B9.
 
 ## Why
 
@@ -13,7 +13,7 @@ named schema, not as `kv(store,key,value)` tuples.
 
 This plan classifies every `kv` namespace as a FACT with a target registry schema, merges the duplicated
 records into canonical ones, and sequences the migration so that **each Kernel→Network authorization call
-(ADR-0123 / B9) is deleted as soon as the fact it depends on lands in the Kernel registry.**
+(ADR-0123 / DEBT-B9) is deleted as soon as the fact it depends on lands in the Kernel registry.**
 
 **Classification principle.** A `kv` namespace is a **FACT** when its rows are authoritative state other code
 decides from (identity, authorization, catalog, membership, tenancy). It is **operational/ephemeral** (stays
@@ -28,7 +28,7 @@ Owners/rows from the §Step 4a matrix (live rows as of 2026-11-03).
 |---|---|---:|---|---|---|
 | `trusted_issuers` | network | 2 | FACT (authority keys) | `governance.trusted_issuer` | `authn.py:103` JWKS/authority-key fetch |
 | `certificates` | network | 8 | FACT (certification) | `governance.certificate` | — |
-| `roles` | network | 9 | FACT (authority) → **merge** | **`governance.role_assignment`** (canonical) | `app.py` grant/role resolution (B9) |
+| `roles` | network | 9 | FACT (authority) → **merge** | **`governance.role_assignment`** (canonical) | `app.py` grant/role resolution (DEBT-B9) |
 | `participation` | network | 6 | FACT (membership) → **merge** | **`network.membership`** (canonical) | — |
 | `networks` | network | 2 | FACT (network identity) → **merge** | **`network.network`** (canonical) | — |
 | `tenants` | network | 6 | FACT (tenancy + classification) | `network.tenant` | `app.py:1816,1819` `_net_get("/v1/tenants")` tenant/dev classification |
@@ -100,14 +100,14 @@ Reversible at every step: a namespace can fall back to kv by clearing its flag u
 
 ## ADR-0123 call-removal map (the point of the ordering)
 
-| Kernel→Network call (B9) | file:line | removed once this fact is registry-local |
+| Kernel→Network call (DEBT-B9) | file:line | removed once this fact is registry-local |
 |---|---|---|
 | authority / trusted-issuer key fetch | `authn.py:103` | `governance.trusted_issuer` (step 1) |
-| grant / role resolution | `app.py` (B9 set) | `governance.role_assignment` (step 2) |
+| grant / role resolution | `app.py` (DEBT-B9 set) | `governance.role_assignment` (step 2) |
 | tenant + dev classification | `app.py:1816,1819` | `network.tenant` (step 3) |
 | schema catalog read | `app.py:1287,2243` | `platform.schema` catalog mirror (step 4) |
 
-When all four are gone, the Kernel authorizes from its own registry with no Network reachable (F7/F8), and the
+When all four are gone, the Kernel authorizes from its own registry with no Network reachable (FND-7/FND-8), and the
 standalone self-sign fallback can be deleted.
 
 ## Risks / open questions

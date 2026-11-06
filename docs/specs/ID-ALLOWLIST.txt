@@ -1,0 +1,52 @@
+ID-ALLOWLIST — bare tokens that match an old rule-ID pattern but are NOT rule IDs
+=================================================================================
+Generated for the ID-scheme apply slice (Step B, 2026-11-06). See ID-SCHEME.md for
+the old -> new alias table. Every token below is intentionally LEFT UNCHANGED because
+it is a port, a task/priority label, a caller-site label, a workflow-slice ref, a
+test-case label, or a code identifier -- not a reference to a governed rule, debt,
+finding or assurance level.
+
+The B.5 residual scan (tmp/verify.py) must report ONLY the tokens listed here.
+
+TOKEN   FILE:LINE                                              REASON
+-----   ---------                                              ------
+P0      docs/specs/REGISTRY-v0.1.md:56                         task-priority label: "single write gate exists (P0, task #124)" — the P0 registry-authz hardening milestone, not PLATFORM rule P-#.
+P1      docs/specs/REGISTRY-v0.1.md:25                         task-priority label: "Bitemporal correctness proven (debt task P1 / #125)" — the P1 registry slice, not PLATFORM rule.
+P1      docs/specs/REGISTRY-v0.1.md:50                         task-priority label: "(DEBT-B1–DEBT-B4 of the P1 slice, task #125)" — the P1 registry slice, not PLATFORM rule.
+
+R1      docs/consolidation/FILESTORE-CALLER-INVENTORY.md:33,52 filestore READ caller-site label (scheduler dev-source materialise), not REGISTRY rule R1.
+R2      docs/consolidation/FILESTORE-CALLER-INVENTORY.md:34,56 filestore READ caller-site label (app-bundle rehydrate), not REGISTRY rule.
+R3      docs/consolidation/FILESTORE-CALLER-INVENTORY.md:35     filestore READ caller-site label (draft source read), not REGISTRY rule.
+R4      docs/consolidation/FILESTORE-CALLER-INVENTORY.md:36     filestore READ caller-site label (component source materialise), not REGISTRY rule.
+R5      docs/consolidation/FILESTORE-CALLER-INVENTORY.md:37     filestore READ caller-site label (download bridge), not REGISTRY rule.
+R6      docs/consolidation/FILESTORE-CALLER-INVENTORY.md:38     filestore READ caller-site label (file read), not REGISTRY rule.
+R7      docs/consolidation/FILESTORE-CALLER-INVENTORY.md:39     filestore READ caller-site label (VFS node bytes), not REGISTRY rule.
+R8      docs/consolidation/FILESTORE-CALLER-INVENTORY.md:40     filestore READ caller-site label (VFS node stream), not REGISTRY rule.
+R9      docs/consolidation/FILESTORE-CALLER-INVENTORY.md:41     filestore READ caller-site label (asset read), not REGISTRY rule.
+R10     docs/consolidation/FILESTORE-CALLER-INVENTORY.md:42,56  filestore READ caller-site label (cross-tenant asset read), not REGISTRY rule.
+R11     docs/consolidation/FILESTORE-CALLER-INVENTORY.md:43,56  filestore READ caller-site label (camera/media frame), not REGISTRY rule.
+R12     docs/consolidation/FILESTORE-CALLER-INVENTORY.md:44,56  filestore READ caller-site label (kernel embed/archive read), not REGISTRY rule.
+R13     docs/consolidation/FILESTORE-CALLER-INVENTORY.md:45,56,60 filestore READ caller-site label (launcher source fetch-and-verify), not REGISTRY rule.
+W1      docs/consolidation/FILESTORE-CALLER-INVENTORY.md:18,52  filestore WRITE caller-site label (asset-url-fetch), not wallet rule ACC-W1.
+W2      docs/consolidation/FILESTORE-CALLER-INVENTORY.md:19,52  filestore WRITE caller-site label (_store_bundle), not wallet rule.
+W3      docs/consolidation/FILESTORE-CALLER-INVENTORY.md:20,56  filestore WRITE caller-site label (stage DRAFT source), not wallet rule.
+W4      docs/consolidation/FILESTORE-CALLER-INVENTORY.md:21     filestore WRITE caller-site label (upload bridge file-push), not wallet rule.
+W5      docs/consolidation/FILESTORE-CALLER-INVENTORY.md:22     filestore WRITE caller-site label (upload bridge chunk), not wallet rule.
+W6      docs/consolidation/FILESTORE-CALLER-INVENTORY.md:23     filestore WRITE caller-site label (upload streamed fh), not wallet rule.
+W7      docs/consolidation/FILESTORE-CALLER-INVENTORY.md:24     filestore WRITE caller-site label (upload streamed fh), not wallet rule.
+W8      docs/consolidation/FILESTORE-CALLER-INVENTORY.md:25,56  filestore WRITE caller-site label (component_asset write), not wallet rule.
+W9      docs/consolidation/FILESTORE-CALLER-INVENTORY.md:26,56  filestore WRITE caller-site label (kernel embed/receipt store), not wallet rule.
+W10     docs/consolidation/FILESTORE-CALLER-INVENTORY.md:27,56  filestore WRITE caller-site label (kernel archive-tiering store), not wallet rule.
+
+C1      docs/consolidation/CURRENT-STATE.md:22                  route-authz test-case label ("route authz C1–C4/H1/H2"), not CLIENT rule CLI-1.
+C4      docs/consolidation/CURRENT-STATE.md:22                  route-authz test-case label (upper bound of C1–C4 range), not CLIENT rule.
+
+W5      docs/specs/NETWORK-v0.1.md:151                          ADR-0097 workflow build-slice ref ("W5 Publish-as-Service"), not wallet rule ACC-W5.
+W5      docs/specs/PARTICIPANT-v0.1.md:47                       ADR-0097 workflow build-slice ref ("ADR-0067 S1, W5"), not wallet rule.
+
+case_B15  conformance/run.py:152,241                           Python function identifier; the case's emitted label string IS renamed ("DEBT-B15"). Hyphenated IDs cannot be identifiers.
+case_R10  conformance/run.py:187,241                           Python function identifier; the case's emitted label string IS renamed ("REG-10"). Hyphenated IDs cannot be identifiers.
+
+Note on ports / version / step labels: the scope files contain ordinary ports (8080/8090/8095), version
+strings (0.1.0, 0.2.0, 0.3.0) and slice labels (S1–S5) that never matched a single-letter rule prefix, so they
+required no allowlisting. ADRs (docs/decisions/*.md) are out of the rename scope entirely (see ID-SCHEME.md).

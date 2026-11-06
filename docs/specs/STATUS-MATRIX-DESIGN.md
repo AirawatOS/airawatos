@@ -9,7 +9,7 @@ would be *generated from conformance results* so the per-rule status in the spec
 Each spec rule carries a hand-written status (IN PLACE / PARTIAL / VIOLATED / PLANNED / TO CONFIRM). Those are
 edited by hand, so they drift from what the live system actually does, and they describe a single blended
 posture even though a rule can be **held on local-dev but not in production** (the Step-1 "status lag" note:
-F11/P4/P5/N3). The conformance suite (`conformance/run.py`) already *measures* behaviour per rule, per
+FND-11/PLT-4/PLT-5/NET-3). The conformance suite (`conformance/run.py`) already *measures* behaviour per rule, per
 environment — so the status should be **derived from it**, not retyped.
 
 ## The matrix
@@ -18,9 +18,9 @@ One row per spec rule, one column per **environment**, each cell a **derived sta
 
 | rule | local-dev | production | source |
 |---|---|---|---|
-| FND-8 (F8 fail-closed) | VIOLATED (XFAIL R6/F8) | VIOLATED (XFAIL) | run 2026-11-06, cases F1/F3/F15… |
-| PLT-4 (P4 tenant confers nothing) | HELD (PASS P4) | PARTIAL (not cut over) | local-dev enforce; prod shadow |
-| NET-3 (network.admin role) | HELD (PASS N3) | PARTIAL | … |
+| FND-8 (fail-closed) | VIOLATED (XFAIL REG-6/FND-8) | VIOLATED (XFAIL) | run 2026-11-06, cases FND-1/FND-3/FND-15… |
+| PLT-4 (tenant confers nothing) | HELD (PASS PLT-4) | PARTIAL (not cut over) | local-dev enforce; prod shadow |
+| NET-3 (network.admin role) | HELD (PASS NET-3) | PARTIAL | … |
 | REG-14 (erasable store) | PLANNED (SKIP_BUILD) | PLANNED (SKIP_BUILD) | not black-box reachable |
 
 Environments to start: **local-dev** and **production** (the two the installer profiles target). The column set
@@ -29,7 +29,7 @@ is open — a `rehearsal` or per-tenant column can be added by running the suite
 ## How it is produced (from `conformance/run.py`)
 
 `run.py` already emits, per case: a **result kind** (PASS / XFAIL / XPASS / FAIL / SKIP_CREDS / SKIP_BUILD), the
-**rule IDs** the case cites (e.g. "F1/F3/F15", "N3", "P4"), and the **mode** (external / internal). It runs
+**rule IDs** the case cites (e.g. "FND-1/FND-3/FND-15", "NET-3", "PLT-4"), and the **mode** (external / internal). It runs
 against a base URL (`AOS_BASE`) — i.e. an environment. The matrix is a thin aggregation layer on top:
 
 1. **Tag each case with its rule IDs** (already in the case label; formalise as a `rules=[…]` field so the

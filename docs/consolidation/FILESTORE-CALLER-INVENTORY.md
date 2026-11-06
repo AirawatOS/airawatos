@@ -51,7 +51,7 @@ app-host's `NETWORK_FILESTORE_URL` writes target that one.
 - `hostcore.filestore_token()` / `fs_headers()`; app-host principal granted the `svc:filestore` audience
   (bootstrap phase 10). WRITE callers W1,W2 + READ caller R1 wired.
 
-## Remaining before flip (its own slice — debt A72)
+## Remaining before flip (its own slice — debt DEBT-A72)
 
 Route **all app_host read/write sites (W3–W8, R2–R11) + kernel (W9,W10,R12) + the launcher (R13)** through a
 token-bearing helper. The app-host reads feed the **live OS browser UI** (SSR, bundles, media), so a single
