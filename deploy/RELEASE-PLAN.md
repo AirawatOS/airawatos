@@ -58,6 +58,16 @@ out; they are called out here so the §4 rebuilds and the §8 gate explicitly ac
 
 ### EC2 interim containment (DEBT-B33/B34) — apply NOW, before the §4 network rebuild
 
+> **Status 2026-11-06 (read-only forensics):** NOT yet applied. The live on-box `~/airawatos/nginx.conf`
+> (== `airawat-nginx` container config, == committed `deploy/ec2/nginx/nginx.conf`, sha256 `db08240…`) still
+> has a bare `location /network/` with no deny; external probes return 400/500 (handler reached), not 403.
+> B33/B34 remain internet-exploitable until the block below is applied or the `dev-a75`-based image ships.
+> Forensics also confirmed **no exploitation to date**: the network access log (since 2026-11-02, 1.3M lines,
+> unrotated) has **zero successful (2xx) POST** to `/v1/participants` or `/v1/grants`; all 261 grants carry a
+> steward `grantor`+`approved_by`; all 31 participants are known tenants (one off-pattern id `ds:pune:participant`
+> to confirm, benign — same key as `ds:pune:steward`).
+
+
 The current EC2 network image (`0.3.5-dev-tenant-ensure`) exposes `POST /network/v1/grants` and
 `POST /network/v1/participants` **unauthenticated and internet-reachable** (the `location /network/` block
 blanket-proxies the whole service). Until `dev-a75`→a pinned prod tag ships, block the two write paths at the
