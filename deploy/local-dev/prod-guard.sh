@@ -12,6 +12,36 @@ _truthy() {
   esac
 }
 
+# ── FIX-PLAN L1-1b — per-service Vault AppRole login (closes DEBT-B58) ──────────────────────────────
+# Each service authenticates to Vault with ITS OWN AppRole (role-id + secret-id from its env_file) and gets a
+# short-lived, policy-scoped token. The shared root token is gone from every service. If VAULT_TOKEN is ALREADY
+# set (the installer's one-off bootstrap runs pass root via `-e VAULT_TOKEN=…`), we use it and skip the login.
+if [ -z "${VAULT_TOKEN:-}" ] && [ -n "${VAULT_ROLE_ID:-}" ] && [ -n "${VAULT_SECRET_ID:-}" ] && [ -n "${VAULT_ADDR:-}" ]; then
+  _VT=""
+  i=0
+  while [ "$i" -lt 10 ]; do
+    _VT="$(VAULT_ADDR="$VAULT_ADDR" VAULT_ROLE_ID="$VAULT_ROLE_ID" VAULT_SECRET_ID="$VAULT_SECRET_ID" python3 -c '
+import os, json, urllib.request, sys
+try:
+    body = json.dumps({"role_id": os.environ["VAULT_ROLE_ID"], "secret_id": os.environ["VAULT_SECRET_ID"]}).encode()
+    req = urllib.request.Request(os.environ["VAULT_ADDR"].rstrip("/") + "/v1/auth/approle/login",
+                                 data=body, headers={"Content-Type": "application/json"})
+    d = json.loads(urllib.request.urlopen(req, timeout=8).read())
+    sys.stdout.write(d["auth"]["client_token"])
+except Exception:
+    sys.exit(1)
+' 2>/dev/null)" && [ -n "$_VT" ] && break
+    i=$((i + 1)); sleep 2
+  done
+  if [ -z "$_VT" ]; then
+    echo "[prod-guard] FATAL: Vault AppRole login failed for this service (role_id/secret_id/VAULT_ADDR) — refusing to start (fail-closed)." >&2
+    exit 96
+  fi
+  export VAULT_TOKEN="$_VT"
+  unset VAULT_SECRET_ID    # don't leave the secret-id in the service process environment
+  echo "[prod-guard] Vault: logged in via AppRole (scoped token; not printed)." >&2
+fi
+
 _ENV="$(printf '%s' "${AIRAWAT_ENV:-}" | tr '[:upper:]' '[:lower:]')"
 if [ "$_ENV" = "production" ]; then
   VIOL=""

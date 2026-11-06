@@ -36,7 +36,6 @@ x-svc-identity: &svcid
   <<: *devenv
   IDENTITY_URL: http://identity:8093
   VAULT_ADDR: http://vault:8200
-  VAULT_TOKEN: ${VAULT_TOKEN}
   SERVICE_PRINCIPAL: scheduler
   SERVICE_TENANT: localdev-operator
   SERVICE_TOKEN_AUDIENCE: *aud
@@ -70,6 +69,7 @@ services:
   kernel:
     image: manishsv/airawatos-kernel:dev-hard5
     container_name: airawat-ld-kernel
+    env_file: [ ./vault/approle/kernel.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
     networks: [aos-svc, aos-data-facts, aos-data-secrets, aos-component]  # aos-component: the broker is the ONLY door a placed component can reach (step 3)
     entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]
     command: ["uvicorn","api.app:app","--host","0.0.0.0","--port","8080"]   # entrypoint override clears image CMD → set it
@@ -85,7 +85,6 @@ services:
       DB_USER: kernel_app
       DB_PASSWORD_VAULT_PATH: secret/data/localdev/kernel-app/password
       VAULT_ADDR: http://vault:8200
-      VAULT_TOKEN: ${VAULT_TOKEN}
       REGISTRY_SKIP_DDL: "1"
       KV_SKIP_DDL: "1"
       NETWORK_URL: http://network:8090
@@ -117,6 +116,7 @@ services:
   network:
     image: manishsv/airawatos-network:dev-a75
     container_name: airawat-ld-network
+    env_file: [ ./vault/approle/network.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
     networks: [aos-edge, aos-svc, aos-data-facts, aos-data-secrets]
     entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]
     command: ["sh","-c","exec uvicorn api:app --host 0.0.0.0 --port 8090"]   # entrypoint override clears image CMD → set it
@@ -133,7 +133,6 @@ services:
       DB_PASSWORD_VAULT_PATH: secret/data/localdev/network-app/password
       KV_SKIP_DDL: "1"
       VAULT_ADDR: http://vault:8200
-      VAULT_TOKEN: ${VAULT_TOKEN}
       IDENTITY_JWKS: http://identity:8093/jwks
       IDENTITY_URL: http://identity:8093
       IDENTITY_INTERNAL: airawat-ld-identity-internal
@@ -177,13 +176,13 @@ services:
   identity:
     <<: *ref
     container_name: airawat-ld-identity
+    env_file: [ ./vault/approle/identity.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
     networks: [aos-svc, aos-data-facts, aos-data-secrets]
     command: ["python","reference/identity.py"]
     environment:
       <<: *devenv
       NETWORK_URL: http://network:8090
       VAULT_ADDR: http://vault:8200
-      VAULT_TOKEN: ${VAULT_TOKEN}
       IDENTITY_USERS_FILE: /data/identity/identity-users.json
       IDENTITY_PASSWORDS_FILE: /data/identity/identity-passwords.json
       IDENTITY_PASSWORD_REQUIRED: enforce                   # ADR-0124 Step 4 — passwordless login REFUSED
@@ -212,12 +211,12 @@ services:
   secrets:
     <<: *ref
     container_name: airawat-ld-secrets
+    env_file: [ ./vault/approle/secrets.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
     networks: [aos-svc, aos-data-secrets]
     command: ["python","reference/secrets.py"]
     environment:
       <<: *devenv
       VAULT_ADDR: http://vault:8200
-      VAULT_TOKEN: ${VAULT_TOKEN}
       SECRETS_INTERNAL: airawat-ld-broker-secrets
       IDENTITY_JWKS: http://identity:8093/jwks
     depends_on: { vault: { condition: service_healthy } }
@@ -236,9 +235,10 @@ services:
   model-gateway:
     <<: *ref
     container_name: airawat-ld-model-gateway
+    env_file: [ ./vault/approle/model-gateway.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
     networks: [aos-svc, aos-data-secrets]
-    environment: { <<: *devenv, GW_REASONING_BUDGET: "1200" }
-    command: ["python","reference/model_gateway.py","--kernel","http://kernel:8080","--vault","http://vault:8200","--vault-token","${VAULT_TOKEN}"]
+    environment: { <<: *devenv, GW_REASONING_BUDGET: "1200", VAULT_ADDR: http://vault:8200 }
+    command: ["python","reference/model_gateway.py","--kernel","http://kernel:8080","--vault","http://vault:8200"]
 
   # ── active-loop engines ─────────────────────────────────────────────────────────────────────────────
   notify:
@@ -259,6 +259,7 @@ services:
   automation:
     <<: *ref
     container_name: airawat-ld-automation
+    env_file: [ ./vault/approle/automation.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
     networks: [aos-svc, aos-data-secrets]
     command: ["python","reference/automation.py","--kernel","http://kernel:8080"]
     environment: { <<: *svcid, AUTOMATION_EVENTS_REQUIRE_TOKEN: "1" }   # ADR-0124 Step 4
@@ -268,6 +269,7 @@ services:
   event-relay:
     <<: *ref
     container_name: airawat-ld-event-relay
+    env_file: [ ./vault/approle/event-relay.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
     networks: [aos-svc, aos-data-secrets]
     command: ["python","reference/event_relay.py","--kernel","http://kernel:8080","--automation","http://automation:8098"]
     environment: *svcid
@@ -277,6 +279,7 @@ services:
   scheduler:
     <<: *ref
     container_name: airawat-ld-scheduler
+    env_file: [ ./vault/approle/scheduler.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
     networks: [aos-svc, aos-data-secrets]
     command: ["python","reference/scheduler.py","--components-root","/app/components","--kernel","http://kernel:8080","--network","http://network:8090"]
     # ADR-0124 item 1 — gate /run+/reload (callers wired). RUNTIME_NETWORK confines any container the launcher
@@ -293,6 +296,7 @@ services:
   app-host:
     <<: *ref
     container_name: airawat-ld-app-host
+    env_file: [ ./vault/approle/app-host.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
     networks: [aos-edge, aos-svc, aos-data-secrets]
     command: ["python","reference/app_host.py","/app/components/apps","--port","8099",
               "--network","http://network:8090","--kernel","http://kernel:8080",
@@ -311,7 +315,6 @@ services:
       # dev-sandbox), not passwordless steward/devrick borrows.
       IDENTITY_URL: http://identity:8093
       VAULT_ADDR: http://vault:8200
-      VAULT_TOKEN: ${VAULT_TOKEN}
       SERVICE_TOKEN_AUDIENCE: *aud
       COMPONENT_PUBLISHER_TENANT: localdev-network
       DEV_SANDBOX_TENANT: localdev-developer
