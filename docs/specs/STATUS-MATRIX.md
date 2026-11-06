@@ -2,7 +2,7 @@
 
 **Generated** by `conformance/build_matrix.py` from `conformance/results/*.json` (written by `conformance/run.py --matrix`). **Do not hand-edit** — regenerate after a conformance run. This is the conformance-derived single source of truth for per-rule status; the specs reference it (ADR: STATUS-MATRIX-DESIGN.md).
 
-- **local-dev** — measured: modes external+internal, git ``, 2026-11-06T16:08:28Z
+- **local-dev** — measured: modes external+internal, git ``, 2026-11-06T16:41:13Z
 - **production** — *PROJECTED*: no production conformance run yet; not asserted (stand up per docs/operator/FRESH-INSTALL-TEST.md §Step 3, then run the suite with AOS_ENV=production).
 
 **Derived status:** HELD (all cited cases PASS) · PARTIAL (PASS + known-violation XFAIL) · VIOLATED (only XFAIL — tracked as debt) · PLANNED(needs-build) (only SKIP_BUILD, not black-box reachable) · UNVERIFIED(creds) (only SKIP_CREDS — fix the fixture) · REVIEW (XPASS — spec lags code) · REGRESSION (a FAIL — contradicts spec) · NO TEST (no case cites the rule yet).
@@ -11,16 +11,16 @@
 
 | rule | local-dev | production | cases (provenance) |
 |---|---|---|---|
-| `FND-1` | PARTIAL | projected | a roleless-created account has NO roles — no authority by omission [DEBT-B28 fixed]; authenticated session opens (pos); forged role+foreign-iss token rejected ( |
+| `FND-1` | PARTIAL | projected | App Host authority comes from a recorded grant, not the token's roles claim; a roleless-created account has NO roles — no authority by omission [DEBT-B28 fixed] |
 | `FND-2` | HELD | projected | Trust audit chain is verified/reconciled at runtime; dev-sandbox refused a cross-tenant write; valid non-admin session denied governance write (abuse) |
 | `FND-3` | PARTIAL | projected | authority only from a recorded grant, never tenant name (TRUST plane); forged role+foreign-iss token rejected (abuse); home-issued admin role-claim (no recorded |
 | `FND-4` | PLANNED(needs-build) | projected | tenant != network (authority keyed on net:id, not tenant/slug) |
-| `FND-5` | PLANNED(needs-build) | projected | durable authority survives restart |
+| `FND-5` | PLANNED(needs-build) | projected | durable authority survives restart; session cookie is Secure + CSRF/Origin-checked on state-changing bridge POSTs |
 | `FND-6` | HELD | projected | unknown schema handled opaquely (pos) |
 | `FND-7` | PLANNED(needs-build) | projected | kernel authorizes with Network down |
-| `FND-8` | PARTIAL | projected | anonymous kernel read denied (internal) [debt DEBT-A1]; anonymous read denied (abuse) [debt DEBT-A1]; anonymous write denied (abuse); unauthenticated /v1/compon |
+| `FND-8` | PARTIAL | projected | /bridge/component-publish verifies the bearer before publishing (not presence-only); account-hold (admin-disable) check fails CLOSED on registry error; anon bri |
 | `FND-9` | HELD | projected | account-write gate refuses a wrong internal token (fail closed) [DEBT-B29]; no passwordless full-authority mint (residual; write-gate half fixed by DEBT-B29); r |
-| `FND-10` | PARTIAL | projected | automation /events accepts without a service token (abuse); filestore refuses a wrong-audience token (abuse); filestore refuses an anonymous call (abuse); model |
+| `FND-10` | PARTIAL | projected | app-host -> identity/gateway uses an audience-bound minted token, not a static shared secret; automation /events accepts without a service token (abuse); filest |
 | `FND-11` | HELD | projected | SoD for floor roles enforces approver != proposer; component.publisher refused at kernel admin (registry.usage); dev-sandbox refused at kernel admin (registry.u |
 | `FND-12` | PLANNED(needs-build) | projected | every authz decision audited (allow+deny); failed-auth logged |
 | `FND-13` | NO TEST | projected | — |
@@ -84,7 +84,7 @@
 | `NET-9` | HELD | projected | capability-grant store POST /v1/grants refuses anonymous (grant.steward, fail closed); wildcard/unversioned capability grant rejected [debt DEBT-B12] |
 | `NET-10` | PLANNED(needs-build) | projected | publishing a Service requires a recorded service.provide grant |
 | `NET-11` | PLANNED(needs-build) | projected | exchange runs through the one decision function and leaves a decision record |
-| `NET-12` | HELD | projected | anonymous service search returns only public-designated offerings (members-only default); member list GET /v1/participation refuses anonymous (members-only) |
+| `NET-12` | PARTIAL | projected | /bridge/schemas + /bridge/schema-history are not anon (governance provenance); /bridge/service-offerings requires a session (governed directory, not public); /b |
 
 ## ACCOUNT
 
@@ -109,11 +109,11 @@
 | rule | local-dev | production | cases (provenance) |
 |---|---|---|---|
 | `CLI-1` | HELD | projected | registered clients with recorded scopes; unregistered client rejected (abuse) [debt DEBT-A47] |
-| `CLI-2` | PLANNED(needs-build) | projected | scope bound to registered client, not query (abuse) [debt DEBT-B12] |
-| `CLI-3` | VIOLATED | projected | token app-addressed + carries a consent reference [debt DEBT-B31] |
-| `CLI-4` | NO TEST | projected | — |
-| `CLI-5` | HELD | projected | identity /users directory requires an authorised caller (abuse) |
-| `CLI-6` | PLANNED(needs-build) | projected | public versioned protocol, not /bridge/* [debt DEBT-A23] |
+| `CLI-2` | PLANNED(needs-build) | projected | /embed consent is intersected with the client's registered scopes; scope bound to registered client, not query (abuse) [debt DEBT-B12] |
+| `CLI-3` | VIOLATED | projected | /embed/token returns an app-addressed token carrying a consent reference; token app-addressed + carries a consent reference [debt DEBT-B31] |
+| `CLI-4` | PLANNED(needs-build) | projected | client requests are signed by a key the CLIENT controls (not host-forged) |
+| `CLI-5` | HELD | projected | /embed/signup does not leak account existence (anti-enumeration); identity /users directory requires an authorised caller (abuse) |
+| `CLI-6` | PLANNED(needs-build) | projected | public versioned protocol, not /bridge/* [debt DEBT-A23]; the public client/participant protocol is a versioned API, not /bridge/* |
 
 ## PLATFORM
 
@@ -133,7 +133,7 @@
 | `PLT-12` | NO TEST | projected | — |
 | `PLT-13` | NO TEST | projected | — |
 | `PLT-14` | NO TEST | projected | — |
-| `PLT-15` | NO TEST | projected | — |
+| `PLT-15` | PLANNED(needs-build) | projected | public front door is apply/verify/status only, rate-limited + bot-protected + route-separated |
 | `PLT-16` | NO TEST | projected | — |
 | `PLT-17` | NO TEST | projected | — |
 | `PLT-18` | NO TEST | projected | — |
@@ -211,7 +211,7 @@
 | `PTC-9` | PLANNED(needs-build) | projected | events: granted types only; interest != authority; idempotency |
 | `PTC-10` | PLANNED(needs-build) | projected | settlement references |
 | `PTC-11` | PLANNED(needs-build) | projected | per-role conformance before activation |
-| `PTC-12` | PLANNED(needs-build) | projected | one public versioned participant protocol; never /bridge |
+| `PTC-12` | PLANNED(needs-build) | projected | one public versioned participant protocol; never /bridge; the public client/participant protocol is a versioned API, not /bridge/* |
 
 ## FEDERATION
 
@@ -230,6 +230,6 @@
 
 | environment | HELD | PARTIAL | VIOLATED | PLANNED(needs-build) | UNVERIFIED(creds) | REVIEW | REGRESSION | NO TEST | projected |
 |---|---|---|---|---|---|---|---|---|---|
-| local-dev | 16 | 4 | 4 | 72 | 0 | 0 | 0 | 63 | 0 |
+| local-dev | 15 | 5 | 4 | 74 | 0 | 0 | 0 | 61 | 0 |
 | production | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 159 |
 

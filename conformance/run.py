@@ -849,6 +849,62 @@ def run_network_review_cases():
     nb("FEDERATION","FED8","directory-of-Networks / root of trust",
        "DEFERRED in the spec (FED8). No test.")
 
+
+def run_apphost_review_cases():
+    """Consolidation phase-5 APP HOST + BRIDGES review (slice 4): the App Host is served at the PUBLIC ROOT on
+    production (nginx location / -> app-host:8099), so any ungated route is internet-reachable. Internal mode
+    (app-host reachable at app-host:8099). LIVE XFAIL for the black-box-reproducible, prod-verified violations;
+    SKIP_BUILD (reason + proposed test) for the rest. See docs/reviews/APP-HOST-REVIEW.md."""
+    AH = "http://app-host:8099"
+    def _st(method, path, body=None, headers=None):
+        try:
+            s, _, _ = _req(method, AH + path, body, headers=headers); return s
+        except Exception:
+            return None
+
+    # ── VERIFIED VIOLATIONS (reproduced live on local-dev AND production) → XFAIL ──
+    # FND-8 / DEBT-B41 (CRITICAL) — /bridge/component-publish authenticates on PRESENCE of a bearer only (never
+    # verifies it), then publishes a bundle (filestore + app overlay + governed component_asset) under the host
+    # token. A Bearer with any value passes the gate: empty body -> 400 'empty bundle' (NOT 401). Probe sends an
+    # empty body so NOTHING is published.
+    s = _st("POST", "/bridge/component-publish?cid=ds:confprobe:app/x&version=0.0.1", None, {"Authorization": "Bearer x"})
+    xfail("FOUNDATIONS", "FND-8/DEBT-B41", "/bridge/component-publish verifies the bearer before publishing (not presence-only)",
+          s not in (401, 403), "POST /bridge/component-publish with 'Bearer x' + empty body -> %s (rule: verify token -> 401/403; today presence-only -> 400 then unauth publish)" % s)
+    # NET-12 / DEBT-B42 — /bridge/service-offerings returns the governed service directory MANAGE view (every
+    # status incl. suspended/retired) to an anonymous caller; should require a session.
+    s = _st("POST", "/bridge/service-offerings", {})
+    xfail("NETWORK", "NET-12/DEBT-B42", "/bridge/service-offerings requires a session (governed directory, not public)",
+          s not in (401, 403), "anon POST /bridge/service-offerings -> %s (rule: members-only; today anon all-status manage view)" % s)
+
+    # ── SKIP_BUILD: reproducible-but-not-safe-to-automate / architectural / needs a seeded fixture ──
+    def nb(spec, rule, name, why): record(spec, rule, name, "needs-build", "SKIP_BUILD", why)
+    nb("NETWORK","NET-12/DEBT-B42","/bridge/service-search applies audience scoping to anon (no bypass)",
+       "VIOLATED: anon -> my_roles empty -> `not my_roles` disables the audience filter (routes/service_routes.py:212), so an anon caller sees audience-restricted (officer-only) offerings. Reachable anon (POST /bridge/service-search -> 200) but a clean black-box assert needs a seeded officer-only offering to confirm it leaks. Internal test: seed an audience!=civic.resident offering; anon search must exclude it.")
+    nb("NETWORK","NET-12/DEBT-B42","/bridge/schemas + /bridge/schema-history are not anon (governance provenance)",
+       "VIOLATED: anon POST /bridge/schemas (app_host.py:3817) returns the full schema catalog + pending change-requests; /bridge/schema-history (:4298) returns every version merged with change-requests incl. who proposed/decided + justifications. Reachable anon (schemas->200). Proposed: require a session for the change-request-bearing views; public catalog read stays.")
+    nb("FOUNDATIONS","FND-8/DEBT-B48","anon bridge reads/proxies fail closed (schedules/runs/fetch/doc-ask/retrieve)",
+       "PARTIAL/VIOLATED: GET /bridge/schedules|/bridge/runs (app_host.py:10117) disclose component schedules + run errors anon; POST /bridge/fetch (:8685) is an anon host-allowlisted egress proxy (SSRF-bounded, DEBT-B16); POST /bridge/doc-ask (:9150) drives the model gateway anon (cost); POST /bridge/retrieve (knowledge_routes.py:41) passes empty claims to an unscoped kernel read (sibling expert-chat fails closed :25). Reachable anon. Proposed: session-gate the non-public ones; keep the kernel P0 fail-closed as backstop.")
+    nb("CLIENT","CLI-2/DEBT-B12","/embed consent is intersected with the client's registered scopes",
+       "VIOLATED: /embed/authorize + /embed/login take `scope` from the request and never intersect with client['scopes']; consent is written service='*'/scope='service:invoke' (app_host.py:1150,1212,1547,1557). Reachable at the public root but exploiting it needs a completed citizen login (writes a consent) — not safe to automate on a shared/prod stack. Internal test: drive authorize with scope beyond the client's registration -> consent must be clamped.")
+    nb("CLIENT","CLI-3/DEBT-B31","/embed/token returns an app-addressed token carrying a consent reference",
+       "VIOLATED: /embed/token returns the citizen's raw IdP realm JWT (app_host.py:1297) — not aud-bound to the client, no consent ref, roles inside; verify accepts any citizen JWT regardless of client (:1569). Needs a full code/verifier login flow to produce a token -> not safe to automate. Internal test: decode the /embed/token result -> aud == client_id and a consent ref present.")
+    nb("CLIENT","CLI-5/DEBT-B43","/embed/signup does not leak account existence (anti-enumeration)",
+       "VIOLATED: public POST /embed/signup returns a distinguishable 'username is taken' (409) vs a generic message (app_host.py:1268-1269), unauthenticated + unthrottled -> username-enumeration oracle. A black-box probe would create an account for a free name (a write) -> not run. Internal test: a taken vs free username return an identical response + rate-limit.")
+    nb("CLIENT","CLI-4/DEBT-B44","client requests are signed by a key the CLIENT controls (not host-forged)",
+       "VIOLATED: _embed_app_keypair generates + holds the client's Ed25519 key inside app-host and signs on its behalf (app_host.py:974-1003); with PKCE-only public clients (no client secret) there is effectively no client authentication, so the ADR-0024 'which app' signature proves nothing. Architectural. Internal test: the request signer key is one the client published, not a host-generated key.")
+    nb("FOUNDATIONS","FND-5/DEBT-B45","session cookie is Secure + CSRF/Origin-checked on state-changing bridge POSTs",
+       "VIOLATED: the airawat_sid cookie is HttpOnly+SameSite=Lax but omits Secure (app_host.py:2761,2783,2818) and there is NO CSRF token / Origin / Referer check on any cookie-authenticated state-changing /bridge/* POST (SameSite=Lax is the only barrier); sessions are in-memory (hostcore.py:94). Architectural/inspection. Internal test: Set-Cookie carries Secure; a cross-origin cookie-driven bridge POST is rejected.")
+    nb("PLATFORM","PLT-15/DEBT-B46","public front door is apply/verify/status only, rate-limited + bot-protected + route-separated",
+       "VIOLATED: unauth public POSTs /embed/signup, /t/<tenant>/converse, /t/<tenant>/telegram/webhook (app_host.py:2842-2867,5023,5044) have NO rate-limiting / CAPTCHA and share the handler/port with admin bridges; converse/telegram drive the model gateway -> unauth LLM cost-amplification. Load-generating to prove black-box -> not run. Internal test: >N rapid anon converse calls -> 429; front door on a separate route/limiter from admin.")
+    nb("FOUNDATIONS","FND-8/DEBT-B47","account-hold (admin-disable) check fails CLOSED on registry error",
+       "VIOLATED: _login_session admits a disabled login when the hold lookup errors (app_host.py:767-772, fail-open by design) — outside the FOUNDATIONS §3 protective-counter carve-out. Needs a registry fault to reproduce. Internal test: force the hold lookup to error -> login refused, not admitted.")
+    nb("FOUNDATIONS","FND-1/DEBT-A82","App Host authority comes from a recorded grant, not the token's roles claim",
+       "VIOLATED (dominant, DEBT-B1/A23 family): ~20 gates read claims['roles'] as authority (hostcore.py:126 ADMIN_ROLES; app_host.py:2190-2199 _effective_roles via:'identity'; and :3928/:4187/… ); several admin bridges set forward_token=False so the app-host role-claim check is the SOLE gate (participants :3930, participant-resolve :3945, service-offerings manage). Internal test (already live as kernel FND-1/DEBT-B1 XFAIL): a home-issued role claim with no recorded grant is honoured.")
+    nb("FOUNDATIONS","FND-10/DEBT-A71","app-host -> identity/gateway uses an audience-bound minted token, not a static shared secret",
+       "PARTIAL: scheduler/filestore calls use Vault-backed, audience-bound svc tokens (svc_token.py — correct), but app-host->identity (/users,/set-password,/realms) and ->gateway use a STATIC shared secret whose code default is a committed literal (app_host.py:45 IDENTITY_INTERNAL='airawat-identity-internal', :252 GW_INTERNAL_TOKEN='gw-internal'). Mirror the identity DEBT-B29 fix: drop the committed default so an unset secret fails closed, and move to an audience-bound minted token. Config/architectural.")
+    nb("CLIENT","CLI-6/PTC-12/DEBT-A23","the public client/participant protocol is a versioned API, not /bridge/*",
+       "VIOLATED/PLANNED: there is no /v1-versioned public protocol; the live surface is unversioned /embed/* + the internal /bridge/* RPC family served at the public root (app_host.py:2833 dispatch). Architectural (ADR-0023). The specific invariant 'never expose /bridge/* unauthenticated' is covered by the FND-8/NET-12 XFAILs above.")
+
 # ============================ runner ============================
 import re as _re
 _SPEC_RULE_RE = _re.compile(r"\b(?:FND|REG|DEC|NET|CLI|PLT|CMP|OFF|POL|PTC)-\d+[a-z]?\b|\bACC-W?\d+\b|\bFED\d+\b")
@@ -910,7 +966,7 @@ def main():
         # preflight on kernel
         st, _, _ = _req("GET", INTERNAL["kernel"]+"/healthz")
         if st != 200: print("PREFLIGHT: kernel:8080/healthz -> %s" % st)
-        run_internal_cases(); run_kernel_review_cases(); run_identity_review_cases(); run_network_review_cases()
+        run_internal_cases(); run_kernel_review_cases(); run_identity_review_cases(); run_network_review_cases(); run_apphost_review_cases()
     else:
         print("target %s (realm %s); credentials: %s" % (BASE, REALM, "supplied (%d)"%len(CREDS) if CREDS else "none"))
         st, _, _ = http("GET", "/healthz")
