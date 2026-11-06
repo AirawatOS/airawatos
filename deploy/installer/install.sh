@@ -395,8 +395,10 @@ if holders:
     print(f"[phase7b] platform.authority already held by {sorted(holders)} — SKIP seed "
           f"(ADR-0122 first-holder-only bootstrap; a further grant requires a different-holder ChangeRequest)")
 else:
+    # DEBT-B35: the first-holder seed is the ONLY place is_installer=True is set — it runs in-process here
+    # (never the HTTP governance API), so the zero-holder platform.authority bootstrap is installer-only.
     ctx = actor_context_from_claims({"sub": f"service://{inst}-network/trust-bootstrap",
-                                     "roles": ["platform.steward"]})
+                                     "roles": ["platform.steward"]}, is_installer=True)
     # E1: the first platform.authority holder is a principal in the PLATFORM (operator) tenant — the OS/system
     # tenant that owns platform administration — NOT admin@<inst>-network. admin@<inst>-network stays a plain
     # network.admin; platform authority and network admin are never on the same account (so NETWORK N3 holds).
