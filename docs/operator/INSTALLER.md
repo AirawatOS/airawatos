@@ -104,6 +104,46 @@ all passwords in Vault, none in compose; prove each service cannot read another'
 `kernel_app` is denied on `identity_login_fails` and `network_app` denied on `registry_version`, and both
 services boot + conformance both modes. Reversible: revert compose `DB_USER` + the images.
 
+## Step 4a — kv namespace matrix (READ-ONLY; review gate before 4b)
+
+The `kv(store,key,value)` table is shared **physically** by the kernel and network, but every namespace
+(`store`) is **single-owner**. Openers are the `_NS["…"]` / `_NScase(…,"…")` / `_DS_KV` call sites (dict-key
+occurrences like `{"schemas": []}` or `claims.get("roles")` are NOT kv ops and are excluded).
+
+**Live namespaces (rows today):**
+
+| namespace | rows | owner | writer (file:line) | reader | cross-service? |
+|---|---:|---|---|---|---|
+| `certificates` | 8 | network | `network/api.py:73` (`_NS["certificates"]`) | network | single-owner |
+| `domains` | 5 | network | `network/api.py:89` | network | single-owner |
+| `networks` | 2 | network | `network/api.py:71` | network | single-owner |
+| `participation` | 6 | network | `network/api.py:70` | network | single-owner |
+| `roles` | 9 | network | `network/api.py:82` | network | single-owner |
+| `schemas` | 21 | network | `network/api.py:76` | network | single-owner |
+| `tenants` | 6 | network | `network/api.py:78` | network | single-owner |
+| `trusted_issuers` | 2 | network | `network/api.py:100` | network | single-owner |
+| `listings` | 8 | network | `network/api.py:74` (`Store(_NS["listings"])`) | network | single-owner |
+| `tenant_datasets` | 4 | **kernel** | `kernel/api/app.py:2125,2127` (`_DS_KV.put`) | kernel (`:2138,2143,2173,2193,2213`) | single-owner |
+
+**Kernel-owned namespaces (openers present; 0 rows live):** `cases` (`kernel/api/app.py:1958`), `installed`
+(`:2011`), `installed_schemas` (`:2099`). **Network-owned (declared, mostly empty):** the full `_backend([...])`
+list at `network/api.py:57–62` — participants, certificates, listings, inbox, events, offerings, schemas,
+packs, keystore, tenants, grants, solutions, actor_keys, roles, role_requests, schema_requests, pack_requests,
+domains, interfaces, interface_requests, bindings, joins, data_requests, service_offerings,
+service_transactions, jurisdictions, credentials, trusted_issuers, file_shares, store_publish_requests,
+email_codes, participation, networks, network_services, …
+
+**Finding — NO cross-service kv reads.** Neither service reads the other's kv namespaces. The kernel does read
+network-owned *data* (schemas, tenants) but via the **network HTTP API** — `NETWORK_URL/v1/schemas`
+(`kernel/api/app.py:1287,2243`), `_net_get("/v1/tenants")` (`:1819`) — not by reading network's `kv` rows.
+The only coupling of the shared table is physical co-tenancy, not a logical cross-read.
+
+**Implication for 4b:** the split is clean — copy each namespace's rows to `kernel_kv` (tenant_datasets, cases,
+installed, installed_schemas) or `network_kv` (everything else) by owner; there is **nothing to convert to a
+governed registry record (★3)** at the kv layer, because the existing kernel↔network data dependency is
+already an HTTP service boundary, not a shared-table read. (Flagged for review in case any out-of-repo or
+future caller is expected to read across — none found in kernel/ or network/.)
+
 ## Step 7 — extended standing rule
 
 Every code slice ends with: local-dev rebuild + live check of the specific fix + conformance both modes **and
