@@ -57,14 +57,10 @@ OPERATOR_PASSWORD="${OPERATOR_PASSWORD:-}"                      # #282: NO commi
                                                                # GENERATES the admin password into Vault (reused
                                                                # idempotently); bootstrap reads it back after Phase 1.
 SELF_MEMBERSHIP="${SELF_MEMBERSHIP:-0}"                         # §4: platform-tenant self-membership is OPT-IN
-# Dev convenience — make a FRESH dev stack conformance-ready + match the documented `admin` login. When no
-# OPERATOR_PASSWORD is supplied and the gitignored conformance fixture exists, source the `admin` password from
-# it (the fixture file is the source of truth for the dev test creds — still NO committed literal in the repo).
-# Dev profile only; production/rehearsal keep the generate-into-Vault behaviour.
-if [ "$PROFILE" = dev ] && [ -z "$OPERATOR_PASSWORD" ] && [ -f "$SCRIPT_DIR/../../conformance/.creds.json" ]; then
-  OPERATOR_PASSWORD="$(python3 -c "import json;print(json.load(open('$SCRIPT_DIR/../../conformance/.creds.json')).get('admin',{}).get('password',''))" 2>/dev/null || true)"
-  [ -n "$OPERATOR_PASSWORD" ] && echo "  · dev: admin password sourced from conformance/.creds.json (conformance-ready; not printed)"
-fi
+# E2: the installer NEVER reads conformance/.creds.json or any test file. Every dev account password is
+# generated into Vault (ensure_install for admin; Phase 9 for platauth/platnone; Phase 9b for outsider), the
+# same convention as the service principals. conformance/.creds.json is GENERATED FROM Vault after install
+# (Phase 13, dev-only), so the fixture is derived from the live secrets, never a committed input.
 COMPOSE() { docker compose -p "$P" --project-directory "$LOCALDEV" -f "$F" "$@"; }
 XNET()  { COMPOSE exec -T network "$@"; }
 XAPP()  { COMPOSE exec -T app-host "$@"; }
@@ -401,10 +397,13 @@ if holders:
 else:
     ctx = actor_context_from_claims({"sub": f"service://{inst}-network/trust-bootstrap",
                                      "roles": ["platform.steward"]})
+    # E1: the first platform.authority holder is a principal in the PLATFORM (operator) tenant — the OS/system
+    # tenant that owns platform administration — NOT admin@<inst>-network. admin@<inst>-network stays a plain
+    # network.admin; platform authority and network admin are never on the same account (so NETWORK N3 holds).
     rec = gov.assign_role(ctx, {"role": "platform.authority",
-                                "principal": f"user://{inst}-network/admin",
+                                "principal": f"user://{inst}-operator/admin",
                                 "scope": {"type": "platform", "ref": None}, "status": "active"}, now)
-    print(f"[phase7b] seeded FIRST platform.authority holder (admin) via governance — id={rec.get('id')}")
+    print(f"[phase7b] seeded FIRST platform.authority holder (admin@{inst}-operator) via governance — id={rec.get('id')}")
 PY
 
 echo "── Phase 8 · network capability_catalog (Trust-plane governance needs it for grants) ────────────"
@@ -477,6 +476,36 @@ print("[phase9] ADR-0122 test users ready: platauth, platnone — passwords in V
 PY
 else
   echo "── Phase 9 · platform test users SKIPPED (profile=$PROFILE — production carries no test fixtures) ──"
+fi
+
+if [ "$SEED_DATA_TENANT" = 1 ]; then
+echo "── Phase 9b · conformance non-admin test user (outsider) · DEV-ONLY ─────────────────────────────"
+# `outsider`: a NON-admin login in the data tenant, for the conformance F2 case (a valid non-admin session is
+# denied a governance write). Password generated into Vault (same convention), not read from any file.
+XNET env II="airawat-ld-identity-internal" TENANT="${INSTANCE}" INST="${INSTANCE}" python3 - <<'PY'
+import os, json, secrets, urllib.request, urllib.error
+IDN="http://identity:8093"; VADDR=os.environ.get("VAULT_ADDR","http://vault:8200"); VTOK=os.environ["VAULT_TOKEN"]
+II=os.environ["II"]; TENANT=os.environ["TENANT"]; INST=os.environ["INST"]
+def _req(url, data=None, headers=None, method="GET"):
+    r=urllib.request.Request(url, data=(json.dumps(data).encode() if data is not None else None),
+                             headers=headers or {}, method=method)
+    try: return urllib.request.urlopen(r, timeout=10).read()
+    except urllib.error.HTTPError as e: return e
+VPATH=f"secret/data/{INST}/outsider/password"
+b=_req(f"{VADDR}/v1/{VPATH}", headers={"X-Vault-Token":VTOK})
+pw = None if isinstance(b, urllib.error.HTTPError) else (((json.loads(b) or {}).get("data") or {}).get("data") or {}).get("password")
+if not pw:
+    pw=secrets.token_urlsafe(18)
+    _req(f"{VADDR}/v1/{VPATH}", data={"data":{"password":pw}}, headers={"X-Vault-Token":VTOK,"Content-Type":"application/json"}, method="POST")
+    print(f"[phase9b] outsider: stored password in Vault at {VPATH}")
+else:
+    print(f"[phase9b] outsider: password already in Vault at {VPATH} — reusing")
+_req(f"{IDN}/users", data={"username":"outsider","tenant":TENANT,"roles":[]},
+     headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
+_req(f"{IDN}/set-password", data={"username":"outsider","tenant":TENANT,"password":pw,"must_reset":False,"only_if_unset":True},
+     headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
+print(f"[phase9b] outsider ready (non-admin, tenant={TENANT})")
+PY
 fi
 
 echo "── Phase 10 · app-host scheduler-caller principal (ADR-0124 item 1) ─────────────────────────────"
@@ -569,6 +598,37 @@ XNET env INSTANCE="$INSTANCE" DB_HOST=postgres python3 - < "$SCRIPT_DIR/_split_r
 if [ "$RUN_PERF_SEED" = 1 ]; then
   echo "── Phase 12 · synthetic perf dataset (~1M rows) · DEV-ONLY ─────────────────────────────────────"
   ( cd ../.. && python3 perf/seed.py --confirm-dev ) || echo "  · (perf seed skipped/failed — non-fatal)"
+fi
+
+if [ "$SEED_DATA_TENANT" = 1 ]; then
+echo "── Phase 13 · generate conformance/.creds.json FROM Vault · DEV-ONLY ────────────────────────────"
+# E3: the conformance fixture is DERIVED from the live Vault secrets after install, never a committed input.
+# One entry per conformance login user; each password is read from its Vault path (field `password`). admin +
+# opadmin share the operator-admin credential (same account, two realms). Written to the gitignored file; the
+# password values go straight to the file (never echoed).
+CREDS_OUT="$SCRIPT_DIR/../../conformance/.creds.json"
+XNET env INST="$INSTANCE" python3 - > "$CREDS_OUT" <<'PY'
+import os, json, urllib.request, urllib.error
+VADDR=os.environ.get("VAULT_ADDR","http://vault:8200"); VTOK=os.environ["VAULT_TOKEN"]; INST=os.environ["INST"]
+def vget(path):
+    try:
+        b=urllib.request.urlopen(urllib.request.Request(f"{VADDR}/v1/{path}", headers={"X-Vault-Token":VTOK}), timeout=8).read()
+        return (((json.loads(b) or {}).get("data") or {}).get("data") or {}).get("password")
+    except urllib.error.HTTPError:
+        return None
+admin_pw = vget(f"secret/data/{INST}-operator/admin/password")
+creds={}
+if admin_pw:
+    creds["admin"]   = {"password": admin_pw, "tenant": f"{INST}-network"}    # network-realm admin login
+    creds["opadmin"] = {"password": admin_pw, "tenant": f"{INST}-operator", "username": "admin"}  # platform.authority holder (E1): admin@<inst>-operator
+op = vget(f"secret/data/{INST}/outsider/password")
+if op: creds["outsider"] = {"password": op, "tenant": INST}
+pn = vget(f"secret/data/{INST}-network/platnone/password")
+if pn: creds["platnone"] = {"password": pn, "tenant": f"{INST}-network"}
+print(json.dumps(creds, indent=2))
+PY
+if [ -s "$CREDS_OUT" ]; then echo "  · wrote $(python3 -c "import json;print(len(json.load(open('$CREDS_OUT'))))" 2>/dev/null) conformance creds from Vault (passwords not printed)"
+else echo "  ⚠ conformance creds generation produced no output"; fi
 fi
 
 echo "✓ install complete — profile=$PROFILE"
