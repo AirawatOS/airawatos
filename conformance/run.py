@@ -652,6 +652,59 @@ def run_kernel_review_cases():
     nb("COMPONENT","CMP-6","records & files only via the broker under run token + declared scopes",
        "records side held (broker attribution+receipt, broker.py:79-137); files side VIOLATED = REG-18; dataplane sideload gate DATAPLANE_ENFORCE shadow by default (kernelcore.py:62). Internal test: write a fact-schema record with a bare tenant token (not via broker) -> assert refused when DATAPLANE_ENFORCE on.")
 
+def _jwt_claims(tok):
+    """Decode (NO verify) a JWT payload for claim inspection in review cases."""
+    import base64 as _b64
+    try:
+        p = tok.split(".")[1]; p += "=" * (-len(p) % 4)
+        return json.loads(_b64.urlsafe_b64decode(p))
+    except Exception:
+        return {}
+
+def run_identity_review_cases():
+    """Consolidation phase-5 Identity review (slice 2): tests for identity-relevant rules the review found
+    VIOLATED / NO TEST. Internal mode (identity reachable). Expected-fail where the review found a violation;
+    recorded SKIP_BUILD with the reason + proposed internal test otherwise. See docs/reviews/IDENTITY-REVIEW.md."""
+    admin = _login_token("admin", "localdev-network", "secret/data/localdev-operator/admin/password")
+    if not admin:
+        record("ACCOUNT","ACC-3","assurance reflects the real auth method","needs-creds","SKIP_CREDS","could not mint an admin token")
+        record("ACCOUNT","ACC-2","account id permanent + distinct from the handle","needs-creds","SKIP_CREDS","could not mint an admin token")
+        record("CLIENT","CLI-3","token app-addressed + carries a consent reference","needs-creds","SKIP_CREDS","could not mint an admin token")
+    else:
+        cl = _jwt_claims(admin)
+        # ACC-3 — assurance must be COMPUTED from the real auth method (a password login >= AL1), in the spec
+        # AL0–AL3 vocabulary. Today identity stamps a uniform "A0" (DEV_AUTH) even after a real password check —
+        # off-vocabulary AND uncomputed (DEBT-B13/DEBT-A34). Violation reproduced → XFAIL.
+        asr = str(cl.get("assurance") or "")
+        xfail("ACCOUNT","ACC-3","assurance reflects the real auth method (AL-vocabulary, >=AL1 after password) [debt DEBT-B13]",
+              (not asr.startswith("AL")) or asr == "AL0",
+              "admin password-login token assurance=%r amr=%r (rule: computed AL>=1; DEBT-B13: uniform/off-vocabulary)" % (cl.get("assurance"), cl.get("amr")))
+        # ACC-2 — the account should carry a PERMANENT id distinct from the login handle; today `sub` IS the
+        # handle (user://<tenant>/<username>), so id == handle, no rename reservation (DEBT-B30). XFAIL.
+        sub = str(cl.get("sub") or "")
+        xfail("ACCOUNT","ACC-2","account id is permanent + distinct from the login handle [debt DEBT-B30]",
+              sub.endswith("/admin"),
+              "admin token sub=%r (rule: opaque permanent id != handle; today sub embeds the username)" % sub)
+        # CLI-3 — token should be APP-ADDRESSED (aud = the client/app) and carry a CONSENT reference; today a
+        # human login is platform-addressed (aud=\"airawatos\") with no consent claim (DEBT-B31; roles=DEBT-B1). XFAIL.
+        aud = cl.get("aud"); has_consent = any(k in cl for k in ("consent","consent_ref","cnf","scope"))
+        xfail("CLIENT","CLI-3","token app-addressed + carries a consent reference [debt DEBT-B31]",
+              (aud in ("airawatos", None)) or (not has_consent),
+              "admin token aud=%r consent_ref=%s (rule: app-addressed + consent ref; today platform-aud, no consent)" % (aud, has_consent))
+    def nb(spec, rule, name, why): record(spec, rule, name, "needs-build", "SKIP_BUILD", why)
+    nb("FOUNDATIONS","FND-9","internal write gates fail-closed; no passwordless full-authority mint",
+       "VIOLATED per review: POST /users,/set-password,/prefs use `if INTERNAL and hdr!=INTERNAL` → fail OPEN when IDENTITY_INTERNAL is empty (identity.py:691,724,744; the GET directory gate was fixed fail-closed :657); passwordless principals still mint under _PW_MODE=shadow (identity.py:816-823). Masked by a committed literal default, not black-box reproducible on the running config. Internal test: unset IDENTITY_INTERNAL -> POST /users must 401/403; a no-password principal login under shadow must refuse.")
+    nb("FOUNDATIONS","FND-16","safe defaults (no prod-pointing default; enforce-by-default; fail-loud)",
+       "VIOLATED per review: ISS/AUD/HOME_ISS default ds:airawat:identity/airawatos (identity.py:31,33; authn.py:74); _PW_MODE default shadow (:499); roleless-create defaults platform.tenant-admin (:710-711); no fail-loud on missing config. A config-default audit, not a runtime black-box case. Internal test: assert startup refuses when issuer/audience/internal-token are unset.")
+    nb("ACCOUNT","ACC-4","login + recovery; per-account-type recovery",
+       "PARTIAL per review: login mechanics strong (Argon2id/PBKDF2, lockout, must-reset) but NO self-service recovery flow and no per-account-type recovery policy (DEBT-A77). Internal test: a rate-limited + audited recovery-initiate endpoint exists (not built).")
+    nb("ACCOUNT","ACC-5","provider connections (consent + confirmation; revocable)",
+       "not-identity: provider connection is the service-federation/app-host layer (ADR-0067); identity has no provider-connection surface. Test belongs to the app-host/service review.")
+    nb("CLIENT","CLI-1","registered clients with recorded scopes",
+       "not-identity: client registry (platform.app_client, recorded scopes) is app-host/embed (ADR-0112); identity registers users, not client apps. Test belongs to the app-host review.")
+    nb("PLATFORM","PLT-3","operator holds no governance role (+ login-namespace != tenant, DEBT-B21)",
+       "label note: PLT-3 is 'operator holds no governance role', not realm modelling. The login-namespace-as-tenant concern is DEBT-B21 (realms are tenant records; realm==tenant id — identity.py:620-628). Both are modelling/architecture, not a black-box runtime case. Internal test (B21): a person authenticates once and belongs to >1 org without a tenant-per-realm (blocked today).")
+
 # ============================ runner ============================
 import re as _re
 _SPEC_RULE_RE = _re.compile(r"\b(?:FND|REG|DEC|NET|CLI|PLT|CMP|OFF|POL|PTC)-\d+[a-z]?\b|\bACC-W?\d+\b|\bFED\d+\b")
@@ -713,7 +766,7 @@ def main():
         # preflight on kernel
         st, _, _ = _req("GET", INTERNAL["kernel"]+"/healthz")
         if st != 200: print("PREFLIGHT: kernel:8080/healthz -> %s" % st)
-        run_internal_cases(); run_kernel_review_cases()
+        run_internal_cases(); run_kernel_review_cases(); run_identity_review_cases()
     else:
         print("target %s (realm %s); credentials: %s" % (BASE, REALM, "supplied (%d)"%len(CREDS) if CREDS else "none"))
         st, _, _ = http("GET", "/healthz")
