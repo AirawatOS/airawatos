@@ -514,6 +514,95 @@ GRANT SELECT, INSERT, DELETE ON identity_login_fails TO identity_lockout;
 SQL
 echo "  · identity_lockout ready — grants: SELECT/INSERT/DELETE on identity_login_fails only (no registry/audit)"
 
+echo "── Phase 11b · split-role least-privilege DB (4b: migrator + kernel_app + network_app) ───────────"
+# 4b hardening — no service is a Postgres superuser:
+#   migrator    owns every kernel-side table + runs ALL DDL (the ONLY role with CREATE on schema public)
+#   kernel_app  DML only on registry_version / registry_schema_meta / kernel_admin_audit / kernel_kv (+ seqs)
+#   network_app DML only on network_kv
+# Each password is generated once into Vault (reused idempotently) and never written to compose; the kernel
+# boots with REGISTRY_SKIP_DDL=1 + KV_SKIP_DDL=1 and the network with KV_SKIP_DDL=1 (see compose), so the
+# migrator (via kernel/tools/db_migrate) is the sole DDL author. This phase is idempotent and reversible: it
+# converges an existing install onto the split roles. On a legacy install it also copies the shared `kv`
+# rows into kernel_kv / network_kv by owner (the step-1 split), leaving `kv` in place.
+#
+# NOTE (fresh install, DEFERRED to the volume-wipe test): on an empty DB the app-role services cannot boot
+# until the tables exist, so the bring-up must run `docker compose up -d postgres vault`, then the migrator
+# (`docker compose run --rm -e DB_USER=migrator -e DB_PASSWORD_VAULT_PATH=… kernel python -m tools.db_migrate`
+# after this phase has created the roles), then `docker compose up -d`. This installer currently runs AGAINST
+# an already-up stack (preflight health-checks kernel+network), so the converge path below is what it exercises.
+XNET env INSTANCE="$INSTANCE" DB_HOST=postgres python3 - <<'PY' || { echo "✗ Phase 11b failed"; exit 1; }
+import os, json, secrets, urllib.request, urllib.error
+import psycopg2
+inst = os.environ["INSTANCE"]
+VA = (os.environ.get("VAULT_ADDR") or "http://vault:8200").rstrip("/"); VT = os.environ.get("VAULT_TOKEN", "")
+
+def vault_pw(path, prefix):
+    try:
+        d = json.load(urllib.request.urlopen(urllib.request.Request(VA + "/v1/" + path, headers={"X-Vault-Token": VT}), timeout=8))
+        pw = ((d.get("data") or {}).get("data") or {}).get("password")
+        if pw: return pw
+    except urllib.error.HTTPError:
+        pass
+    pw = f"{prefix}_" + secrets.token_hex(24)
+    urllib.request.urlopen(urllib.request.Request(VA + "/v1/" + path, data=json.dumps({"data": {"password": pw}}).encode(),
+        headers={"X-Vault-Token": VT, "Content-Type": "application/json"}, method="POST"), timeout=8).read()
+    return pw
+
+roles = {"migrator": (f"secret/data/{inst}/migrator/password", "mg"),
+         "kernel_app": (f"secret/data/{inst}/kernel-app/password", "ka"),
+         "network_app": (f"secret/data/{inst}/network-app/password", "na")}
+pw = {r: vault_pw(p, pre) for r, (p, pre) in roles.items()}
+
+c = psycopg2.connect(host=os.environ.get("DB_HOST", "postgres"), port=5432, dbname="kernel", user="kernel", password="kernel")
+c.autocommit = True; cur = c.cursor()
+for r in roles:
+    cur.execute("SELECT 1 FROM pg_roles WHERE rolname=%s", (r,))
+    if not cur.fetchone():
+        cur.execute(f"CREATE ROLE {r} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE")
+    cur.execute(f"ALTER ROLE {r} WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD %s", (pw[r],))
+
+# Tables must exist before ownership/grants. CREATE IF NOT EXISTS as superuser here is the install-time
+# equivalent of the migrator entrypoint (kernel/tools/db_migrate); on an up stack the kernel already made the
+# registry tables, so this only fills gaps (kernel_kv / network_kv on a legacy DB).
+cur.execute("CREATE TABLE IF NOT EXISTS kernel_kv  (store TEXT, key TEXT, value JSONB, PRIMARY KEY(store,key))")
+cur.execute("CREATE TABLE IF NOT EXISTS network_kv (store TEXT, key TEXT, value JSONB, PRIMARY KEY(store,key))")
+
+# Legacy split copy (idempotent): if the shared `kv` still exists, copy each namespace to its owner's table.
+cur.execute("SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='kv'")
+if cur.fetchone():
+    KERNEL_NS = ("tenant_datasets", "cases", "installed", "installed_schemas")
+    cur.execute("INSERT INTO kernel_kv  SELECT * FROM kv WHERE store = ANY(%s) ON CONFLICT (store,key) DO NOTHING", (list(KERNEL_NS),))
+    cur.execute("INSERT INTO network_kv SELECT * FROM kv WHERE NOT (store = ANY(%s)) ON CONFLICT (store,key) DO NOTHING", (list(KERNEL_NS),))
+
+KERNEL_TABLES = ["registry_version", "registry_schema_meta", "kernel_admin_audit", "kernel_kv"]
+SEQS = ["registry_version_seq_seq", "kernel_admin_audit_seq_seq"]
+for t in KERNEL_TABLES + ["network_kv"]:
+    cur.execute(f"ALTER TABLE {t} OWNER TO migrator")
+for s in SEQS:
+    cur.execute("SELECT 1 FROM information_schema.sequences WHERE sequence_schema='public' AND sequence_name=%s", (s,))
+    if cur.fetchone():
+        cur.execute(f"ALTER SEQUENCE {s} OWNER TO migrator")
+for r in roles:
+    cur.execute(f"GRANT USAGE ON SCHEMA public TO {r}")
+cur.execute("GRANT CREATE ON SCHEMA public TO migrator")   # migrator is the sole DDL author (PG15+ needs this)
+for r in ("kernel_app", "network_app"):
+    for t in KERNEL_TABLES + ["network_kv"]:
+        cur.execute(f"REVOKE ALL ON {t} FROM {r}")
+    for s in SEQS:
+        cur.execute("SELECT 1 FROM information_schema.sequences WHERE sequence_schema='public' AND sequence_name=%s", (s,))
+        if cur.fetchone():
+            cur.execute(f"REVOKE ALL ON SEQUENCE {s} FROM {r}")
+for t in KERNEL_TABLES:
+    cur.execute(f"GRANT SELECT, INSERT, UPDATE, DELETE ON {t} TO kernel_app")
+for s in SEQS:
+    cur.execute("SELECT 1 FROM information_schema.sequences WHERE sequence_schema='public' AND sequence_name=%s", (s,))
+    if cur.fetchone():
+        cur.execute(f"GRANT USAGE, SELECT, UPDATE ON SEQUENCE {s} TO kernel_app")
+cur.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON network_kv TO network_app")
+cur.close(); c.close()
+print("  · roles migrator/kernel_app/network_app ready — owner→migrator; kernel_app=own 4 tables; network_app=network_kv")
+PY
+
 if [ "$RUN_PERF_SEED" = 1 ]; then
   echo "── Phase 12 · synthetic perf dataset (~1M rows) · DEV-ONLY ─────────────────────────────────────"
   ( cd ../.. && python3 perf/seed.py --confirm-dev ) || echo "  · (perf seed skipped/failed — non-fatal)"

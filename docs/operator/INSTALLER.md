@@ -23,7 +23,7 @@ Across `deploy/local-dev/bootstrap-dev.sh` (phases 1–11), `network/ensure_inst
 | 10 | **First platform.authority holder** via the governance path (first-holder-only) | Phase 7b | **CORE** | ADR-0122; never a direct registry write |
 | 11 | **network capability_catalog** (empty) + link into the network | Phase 8 | **CORE** | Trust-plane grants need it |
 | 12 | **app-host scheduler-caller** principal (+ Vault password, svc:scheduler/filestore audiences) | Phase 10 | **CORE** | ADR-0124 item 1 |
-| 13 | **DB roles + lockout table + indexes** — least-privilege Postgres roles, `identity_login_fails`, registry indexes | Phase 11 (+ step 4) | **CORE** | see §DB-roles |
+| 13 | **DB roles + lockout table + indexes** — least-privilege Postgres roles, `identity_login_fails`, registry indexes | Phase 11 + 11b | **CORE** | see §Step 4b (split roles SHIPPED) |
 | 14 | **platform test users** `platauth` / `platnone` (Vault creds) | Phase 9 | **DEV-ONLY** | ADR-0122 conformance fixtures; created in `dev` + `rehearsal` (credentialed conformance needs them), never `production` |
 | 15 | **Synthetic perf dataset** (~1M `perf.*` rows) | `perf/seed.py` (separate) | **DEV-ONLY** | dev profile only; refuses under `AIRAWAT_ENV=production` |
 | 16 | **Demo tenants / sample components** | later demo slices / Studio (not in these 4 files) | **DEV-ONLY** | not part of the installer; listed for completeness |
@@ -52,9 +52,10 @@ Role attributes today: `kernel` = `Superuser, Create role, Create DB, Replicatio
 tables are owned by `kernel`. `identity_lockout` = non-super, login, no table rights beyond its one grant.
 
 **Finding:** kernel and network both run as the **cluster superuser** and can read/write each other's and
-identity's tables — a compromise or bug in either has the whole database. Only identity is confined. Step 4
-introduces non-superuser `kernel_app` / `network_app` owning only their own tables, keeps `identity_lockout`,
-and adds an installer-only `migrator` role, with cross-service reads proven denied.
+identity's tables — a compromise or bug in either has the whole database. Only identity is confined. **Step 4b
+(SHIPPED, below) replaces this**: non-superuser `kernel_app` / `network_app` own only their own tables (the
+shared `kv` is split into `kernel_kv` / `network_kv`), `identity_lockout` is kept, and an installer-only
+`migrator` role owns every table + is the sole DDL author — cross-service reads proven denied.
 
 ## Step 3 — the unified installer
 
@@ -143,6 +144,44 @@ installed, installed_schemas) or `network_kv` (everything else) by owner; there 
 governed registry record (★3)** at the kv layer, because the existing kernel↔network data dependency is
 already an HTTP service boundary, not a shared-table read. (Flagged for review in case any out-of-repo or
 future caller is expected to read across — none found in kernel/ or network/.)
+
+## Step 4b — split-role least-privilege DB (SHIPPED, local-dev; reversible)
+
+No service runs as a Postgres superuser. The shared `kv` table is split per-service and three non-super roles
+replace the `kernel` superuser on the service path:
+
+| role | owns | may DML | denied (proven) |
+|---|---|---|---|
+| `migrator` | every kernel-side table + 2 sequences; **only** role with `CREATE` on schema `public` | all (it runs the DDL) | — (installer-only; never a service identity) |
+| `kernel_app` | — | `registry_version`, `registry_schema_meta`, `kernel_admin_audit`, `kernel_kv` (+ their sequences) | `network_kv`, `identity_login_fails` |
+| `network_app` | — | `network_kv` | `registry_version`, `kernel_kv`, `identity_login_fails` |
+| `identity_lockout` (unchanged) | — | `identity_login_fails` | everything else |
+
+Every password is in Vault (`secret/data/<instance>/{migrator,kernel-app,network-app}/password`), **none in
+compose**. The kernel boots with `REGISTRY_SKIP_DDL=1` + `KV_SKIP_DDL=1`, the network with `KV_SKIP_DDL=1`, so
+the **migrator is the sole DDL author** — via `kernel/tools/db_migrate.py` (`run_migrations` = `_DDL_CORE` +
+`_DDL_MAINT` + the two `CONCURRENTLY` live-set indexes, then `kernel_admin_audit` + `kernel_kv` + `network_kv`).
+The three boot/lazy DDL sites named in §Step 4 are each guarded behind a skip flag (`pg_store` early-returns
+before boot DDL + skips on-demand `rvx_*`; `adminaudit._ensure_table` returns; both `kv.py` skip `CREATE TABLE`).
+
+**Installer.** Phase 11b (`deploy/installer/install.sh`) creates the three roles (Vault passwords, reuse-or-
+generate), grants `CREATE`/`USAGE` on schema `public` to `migrator`, reassigns the split tables + sequences to
+`migrator`, grants per-service DML, and — on a legacy DB that still has the shared `kv` — copies each namespace
+to `kernel_kv` (tenant_datasets, cases, installed, installed_schemas) or `network_kv` (all else) by owner,
+leaving `kv` in place. Idempotent; it **converges an existing install** onto the split roles.
+
+**Fresh-install bring-up ordering (DEFERRED to the volume-wipe test, step 5 of the earlier slice).** On an
+empty DB the app-role services cannot boot until their tables exist. The fresh-install sequence is:
+`docker compose up -d postgres vault` → create roles (Phase 11b) → run the migrator
+(`docker compose run --rm -e DB_USER=migrator -e DB_PASSWORD_VAULT_PATH=secret/data/<inst>/migrator/password
+kernel python -m tools.db_migrate`) → `docker compose up -d`. The current installer runs **against an already-up
+stack** (preflight health-checks kernel+network), so it exercises the converge path; the from-empty ordering is
+what the deferred wipe test validates.
+
+**Proven (local-dev, 2026-11-06).** Both services boot healthy as non-superusers (kernel logs
+`REGISTRY_SKIP_DDL=1 … skipping boot DDL`); the migrator entrypoint runs idempotently; isolation 8/8 (each app
+role denied the other's tables + `identity_login_fails`); conformance external **and** internal exit 0 (no FAIL;
+XFAILs are pre-existing debt A1/A72, unchanged). Reversible: revert compose `DB_USER`/image tags + the roles.
 
 ## Step 3 — base-install tenants vs PLATFORM P1
 
