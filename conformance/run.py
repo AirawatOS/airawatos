@@ -741,36 +741,46 @@ def run_identity_review_cases():
 def run_network_review_cases():
     """Consolidation phase-5 NETWORK+TRUST review (slice 3): tests for the NETWORK / PARTICIPANT / FEDERATION
     rules and the TRUST-plane FOUNDATIONS rules the network service enforces. Internal mode (network reachable).
-    LIVE XFAIL where the review found a black-box-reproducible violation (verified against the running service);
-    SKIP_BUILD (reason + proposed internal/architectural test) for rules not black-box reachable on a seeded,
-    healthy stack. See docs/reviews/NETWORK-REVIEW.md."""
+    After the slice-4 hotfixes the four reproducible violations (DEBT-B33/B34/B36) are asserted PASS (the
+    anonymous gate refuses); the remaining rules are SKIP_BUILD with a reason + proposed internal/architectural
+    test (DEBT-B35 is now fixed + unit-tested — installer-only bootstrap). See docs/reviews/NETWORK-REVIEW.md."""
     N = INTERNAL["network"]
     def _st(method, path, body=None):
         try:
             s, _, _ = _req(method, N + path, body); return s
         except Exception as e:
             return None
+    def _req2(method, path, body=None):
+        try:
+            return _req(method, N + path, body)
+        except Exception as e:
+            return None, "", {}
 
-    # ── VERIFIED VIOLATIONS (reproduced live → XFAIL). Each probe only writes while the gate is MISSING;
-    #    once the gate lands the probe gets 401/403 and the case flips to XPASS (spec/debt then updated). ──
-    # NET-9 / DEBT-B34 (CRITICAL) — the capability-grant store accepts unauthenticated writes.
+    # ── FIXED violations (slice-4 hotfixes): the anonymous gate must now REFUSE. These assert the fix lands
+    #    (PASS); if a gate regresses to open, the case FAILs. See docs/reviews/NETWORK-REVIEW.md. ──
+    # NET-9 / DEBT-B34 (CRITICAL) — the capability-grant store must refuse an unauthenticated write.
     g = {"id": "ds:localdev:governance.access_grant/conf-unauth-probe", "steward": "ds:localdev:steward",
          "signature": "ZmFrZQ==", "reads": ["ds:localdev:probe.schema"], "writes": [],
          "object": {"kind": "governance.access_grant"}}
     s = _st("POST", "/v1/grants", g)
-    xfail("NETWORK", "NET-9/DEBT-B34", "capability-grant store POST /v1/grants requires a grant.steward (fail closed)",
-          s not in (401, 403), "unauth POST /v1/grants -> %s (rule: 401/403 + grant.steward; today stores ungated — api.py:2360)" % s)
-    # PTC-1 / FED7 / DEBT-B33 (CRITICAL) — the federation trust directory admits key bindings with no auth.
+    expect("NETWORK", "NET-9/DEBT-B34", "capability-grant store POST /v1/grants refuses anonymous (grant.steward, fail closed)",
+           s in (401, 403), "unauth POST /v1/grants -> %s (rule: 401/403 + grant.steward; DEBT-B34 fixed)" % s)
+    # PTC-1 / FED7 / DEBT-B33 (CRITICAL) — the federation trust directory must refuse an unauthenticated bind.
     s = _st("POST", "/v1/participants", {"participant_id": "ds:confprobe:steward", "public_key": "AAAABBBBCCCC"})
-    xfail("PARTICIPANT", "PTC-1/FED7/DEBT-B33", "trust-directory admission POST /v1/participants requires authority (fail closed)",
-          s not in (401, 403), "unauth POST /v1/participants -> %s (rule: authority-gated; today binds authority-signed keys ungated — api.py:332)" % s)
-    # NET-12 / DEBT-B36 — network member list + service directory are public-by-default.
+    expect("PARTICIPANT", "PTC-1/FED7/DEBT-B33", "trust-directory admission POST /v1/participants refuses anonymous (authority-gated)",
+           s in (401, 403), "unauth POST /v1/participants -> %s (rule: authority-gated; DEBT-B33 fixed)" % s)
+    # NET-12 / DEBT-B36 — member list must refuse anonymous; service search must not leak members-only offerings.
     s = _st("GET", "/v1/participation?network=ds:localdev:network/self")
-    xfail("NETWORK", "NET-12/DEBT-B36", "member list GET /v1/participation is members-only (not public)",
-          s not in (401, 403), "anon GET /v1/participation -> %s (rule: members-only; today public — api.py:952)" % s)
-    s = _st("POST", "/v1/service/search", {})
-    xfail("NETWORK", "NET-12/DEBT-B36", "service directory POST /v1/service/search is members-only (REG-15)",
-          s not in (401, 403), "anon POST /v1/service/search -> %s (rule: members-only per REG-15; today public — api.py:3000)" % s)
+    expect("NETWORK", "NET-12/DEBT-B36", "member list GET /v1/participation refuses anonymous (members-only)",
+           s in (401, 403), "anon GET /v1/participation -> %s (rule: members-only; DEBT-B36 fixed)" % s)
+    st_ss, b_ss, _ = _req2("POST", "/v1/service/search", {})
+    cat = []
+    try: cat = ((json.loads(b_ss) or {}).get("message", {}) or {}).get("catalog", []) if st_ss == 200 else []
+    except Exception: cat = []
+    leaked = [o for o in cat if (o.get("visibility") or "members") != "public"]
+    expect("NETWORK", "NET-12/DEBT-B36", "anonymous service search returns only public-designated offerings (members-only default)",
+           (st_ss in (401, 403)) or (not leaked),
+           "anon POST /v1/service/search -> %s, %d non-public offering(s) returned (rule: members-only default per REG-15; DEBT-B36 fixed)" % (st_ss, len(leaked)))
 
     # ── NO-TEST / not black-box reachable on a seeded healthy stack → SKIP_BUILD with reason + proposed test ──
     def nb(spec, rule, name, why): record(spec, rule, name, "needs-build", "SKIP_BUILD", why)
@@ -781,8 +791,8 @@ def run_network_review_cases():
        "HELD in role mode (trust/roles.py:62-66 ignores token roles; authorize.py:82-117 candidate-grant lookup); VIOLATED in the shipped default where is_platform_authority = claims.tenant==authority_tenant (trust_wiring.py:67,79-83, PLATFORM_AUTHORITY_MODE=shadow default). local-dev runs enforce; EC2 default stays shadow. Covered by DEBT-B2. Internal test (shadow): a tenant-only token with no recorded grant manages all networks.")
     nb("FOUNDATIONS","FND-4","tenant != network (authority keyed on net:id, not tenant/slug)",
        "VIOLATED in the legacy default: NETWORK_ADMIN_AUTHZ=legacy makes admin authority = (tenant==network string) (trust_admin_authz.py:66-68) and cross_network_write conflates slug/net:id/tenant (trust_wiring.py:204). HELD in role mode (resolve slug->net:id, authorize on net:id, :224-235). local-dev=role, EC2=legacy. Covered by DEBT-B11/B2. Internal test (legacy): tenant.admin for tenant X writes the network whose slug==X with no role on it.")
-    nb("FOUNDATIONS","FND-11/DEBT-B35","platform.authority first-holder bootstrap checks caller authority",
-       "VIOLATED (CRITICAL): GovernanceService.assign_role floor-role branch returns ok on zero governance-provenanced holders with NO installer/caller-authority check (trust/governance.py:110-137). Not reproducible on a seeded stack (local-dev already has a governed holder). Internal test: with 0 governed platform.authority holders, POST /v1/governance/roles {role:platform.authority,principal:self} from an arbitrary authenticated token -> must refuse (today 200).")
+    nb("FOUNDATIONS","FND-11/DEBT-B35","platform.authority first-holder bootstrap is installer-only",
+       "FIXED (DEBT-B35): the zero-holder first-holder seed now requires ctx.is_installer (set only by the in-process installer, never by the HTTP governance path which builds the context from verified claims with is_installer=False) — trust/governance.py assign_role. Proven by the unit test network/trust/test_bootstrap_installer_only_b35.py (governance-path self-escalation REFUSED; installer seed allowed). Not black-box reachable on a seeded stack (a governed holder already exists), so it stays an internal/unit test, not a live conformance case.")
     nb("FOUNDATIONS","FND-11/DEBT-B38","SoD for floor roles enforces approver != proposer",
        "VIOLATED: SoD checks approver != grantee but not approver != proposer(ctx.actor) (trust/platform_authority.py:119; governance.py:122-128) — a live holder can propose a grant and self-approve as proposer. Internal test: two-holder setup; holder A proposes a grant to C and approves it as the sole approver -> must refuse.")
     nb("FOUNDATIONS","FND-14","role assignments carry grantor + governance provenance",

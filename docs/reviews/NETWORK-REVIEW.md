@@ -17,6 +17,21 @@ live** against the running local-dev network service before being encoded as con
 
 ---
 
+> **Slice-4 hotfix update (2026-11-06).** The four black-box-reproducible violations are now FIXED in local-dev
+> (awaiting production — see `deploy/RELEASE-PLAN.md`), each flipped from VIOLATED to HELD in the matrix:
+> **DEBT-B34** (NET-9) — `POST /v1/grants`+`/revoke` require a recorded admin/steward of the grant's tenant
+> (network `fc849e5`); **DEBT-B33** (PTC-1/FED7) — `POST /v1/participants` requires an authenticated admin of
+> the participant's own tenant (`8fe46b7`); **DEBT-B36** (NET-12) — `GET /v1/participation` requires
+> membership/admin and `POST /v1/service/search` is members-only by default (`b534de7`); **DEBT-B35** (FND-11)
+> — the zero-holder `platform.authority` bootstrap now requires `ctx.is_installer` (in-process installer only,
+> never the governance API) with unit test `test_bootstrap_installer_only_b35.py` (`6f13276`). All ship in the
+> local-dev network image `dev-a75`; conformance both modes ×3 identical, 0 FAIL. **Production exposure note:**
+> B33/B34 are also live + internet-reachable on EC2 (`0.3.5` image, `/network/v1/{grants,participants}`); B35 is
+> absent on EC2 (no trust plane). nginx containment commands for EC2 are in the slice-4 report / RELEASE-PLAN.
+> Residuals remain (DEBT-B37/B38/B39/B40, A78–A81; B34 signature-verify/grammar; B36 offering-catalog reads).
+
+---
+
 ## Summary (one page)
 
 **Verdict counts (26 rules):** held **1** (FND-15) · partial **18** · violated **7** (NET-6, NET-7, NET-9, NET-12,

@@ -8,7 +8,7 @@
   "provenance": {
     "local-dev": {
       "git_sha": "",
-      "ts": "2026-11-06T15:47:45Z",
+      "ts": "2026-11-06T16:08:28Z",
       "modes": [
         "external",
         "internal"
@@ -189,7 +189,7 @@
         "local-dev": "PLANNED(needs-build)"
       },
       "NET-9": {
-        "local-dev": "VIOLATED"
+        "local-dev": "HELD"
       },
       "NET-10": {
         "local-dev": "PLANNED(needs-build)"
@@ -198,7 +198,7 @@
         "local-dev": "PLANNED(needs-build)"
       },
       "NET-12": {
-        "local-dev": "VIOLATED"
+        "local-dev": "HELD"
       }
     },
     "ACCOUNT": {
@@ -455,7 +455,7 @@
     },
     "PARTICIPANT": {
       "PTC-1": {
-        "local-dev": "VIOLATED"
+        "local-dev": "HELD"
       },
       "PTC-2": {
         "local-dev": "PLANNED(needs-build)"
@@ -511,7 +511,7 @@
         "local-dev": "PLANNED(needs-build)"
       },
       "FED7": {
-        "local-dev": "VIOLATED"
+        "local-dev": "HELD"
       },
       "FED8": {
         "local-dev": "PLANNED(needs-build)"
