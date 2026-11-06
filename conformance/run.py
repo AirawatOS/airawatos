@@ -482,7 +482,7 @@ def case_login_audience_allowlist():
            _login_with_aud("scheduler", sp_t, sp_v, "svc:kernel")[0] == 403, "expect 403")
     expect("FOUNDATIONS", "FND-15/ADR-0124", "scheduler refused svc:app-host (not recorded)",
            _login_with_aud("scheduler", sp_t, sp_v, "svc:app-host")[0] == 403, "expect 403")
-    h = _login_with_aud("platauth", "localdev-network", "secret/data/localdev-network/test-users/platauth", "svc:automation")
+    h = _login_with_aud("platauth", "localdev-network", "secret/data/localdev-network/platauth/password", "svc:automation")
     if h[0] is None:
         record("FOUNDATIONS", "FND-15/ADR-0124", "login audience allow-list: human refused", "needs-creds", "SKIP_CREDS", str(h[1]))
     else:
@@ -498,7 +498,10 @@ def case_platform_authority_bootstrap_rule():
         record("NETWORK", "PLT-5/ADR-0122", name, "needs-creds", "SKIP_CREDS", "no VAULT_ADDR/VAULT_TOKEN"); return
     try:
         r = _req("GET", f"{vaddr}/v1/secret/data/localdev-network/trust-writer/password", headers={"X-Vault-Token": vtok})
-        pw = (((json.loads(r[1]) or {}).get("data") or {}).get("data") or {}).get("password") if r[0] == 200 else None
+        # trust-writer secret is stored with field `value` (the field the Trust service itself reads — installer
+        # Phase 7), not `password`; read `value` with a `password` fallback for older installs.
+        _d = (((json.loads(r[1]) or {}).get("data") or {}).get("data") or {}) if r[0] == 200 else {}
+        pw = _d.get("value") or _d.get("password")
     except Exception as e:
         record("NETWORK", "PLT-5/ADR-0122", name, "needs-creds", "SKIP_CREDS", "vault: %s" % str(e)[:50]); return
     if not pw:
