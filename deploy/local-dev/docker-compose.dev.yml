@@ -66,7 +66,7 @@ services:
 
   # ── platform core ─────────────────────────────────────────────────────────────────────────────────
   kernel:
-    image: manishsv/airawatos-kernel:dev-hard4
+    image: manishsv/airawatos-kernel:dev-hard5
     container_name: airawat-ld-kernel
     entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]
     command: ["uvicorn","api.app:app","--host","0.0.0.0","--port","8080"]   # entrypoint override clears image CMD → set it
@@ -75,6 +75,16 @@ services:
       <<: *devenv
       REGISTRY_BACKEND: postgres
       DB_HOST: postgres
+      # 4b least-privilege: kernel runs as NON-SUPERUSER kernel_app (DML only on registry_version /
+      # registry_schema_meta / kernel_admin_audit / kernel_kv). Password from Vault — no compose literal.
+      # It owns NO DDL: the migrator (installer / db_migrate) pre-creates every table, so REGISTRY_SKIP_DDL
+      # and KV_SKIP_DDL are both on. Denied network_kv + identity_login_fails (proven at boot).
+      DB_USER: kernel_app
+      DB_PASSWORD_VAULT_PATH: secret/data/localdev/kernel-app/password
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_TOKEN}
+      REGISTRY_SKIP_DDL: "1"
+      KV_SKIP_DDL: "1"
       NETWORK_URL: http://network:8090
       IDENTITY_JWKS: http://identity:8093/jwks
       KERNEL_REQUIRE_STEWARD_GRANT: "1"
@@ -97,11 +107,12 @@ services:
       APPS_OVERLAY: /data/app-bundles/apps
     depends_on:
       postgres: { condition: service_healthy }
+      vault: { condition: service_healthy }
       network: { condition: service_healthy }
     restart: unless-stopped
 
   network:
-    image: manishsv/airawatos-network:dev-a72
+    image: manishsv/airawatos-network:dev-a73
     container_name: airawat-ld-network
     entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]
     command: ["sh","-c","exec uvicorn api:app --host 0.0.0.0 --port 8090"]   # entrypoint override clears image CMD → set it
@@ -111,8 +122,12 @@ services:
       DB_HOST: postgres
       DB_PORT: "5432"
       DB_NAME: kernel
-      DB_USER: kernel
-      DB_PASSWORD: kernel
+      # 4b least-privilege: network runs as NON-SUPERUSER network_app (DML only on network_kv). Password from
+      # Vault — no compose literal. It owns NO DDL: the migrator pre-creates network_kv, so KV_SKIP_DDL is on.
+      # Denied registry_version / kernel_kv / identity_login_fails (proven at boot).
+      DB_USER: network_app
+      DB_PASSWORD_VAULT_PATH: secret/data/localdev/network-app/password
+      KV_SKIP_DDL: "1"
       VAULT_ADDR: http://vault:8200
       VAULT_TOKEN: ${VAULT_TOKEN}
       IDENTITY_JWKS: http://identity:8093/jwks
