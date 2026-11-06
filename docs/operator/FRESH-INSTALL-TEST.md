@@ -24,10 +24,19 @@ for v in appbundles filestore identity netfiles pg vault; do
   docker run --rm -v "$VOL":/data -v "$BK":/backup alpine \
     sh -c "rm -rf /data/* /data/..?* /data/.[!.]* 2>/dev/null; tar xzf /backup/$v.tar.gz -C /data"
 done
-docker compose -p airawatos-localdev -f deploy/local-dev/docker-compose.dev.yml up -d
+F=deploy/local-dev/docker-compose.dev.yml
+docker compose -p airawatos-localdev -f $F up -d postgres vault
+# IMPORTANT: the restored vault volume carries its OWN root token; if .env was changed since the backup
+# (e.g. a fresh-install run rewrote it) the services will fail Vault auth. Re-sync .env to the restored token:
+sleep 6
+VT="$(docker exec -T airawat-ld-vault sh -lc "tr -d '\n ' < /vault/data/init.json | grep -oE '\"root_token\":\"[^\"]+\"' | cut -d: -f2 | tr -d '\"'")"
+[ -n "$VT" ] && { grep -v '^VAULT_TOKEN=' deploy/local-dev/.env > .e && echo "VAULT_TOKEN=$VT" >> .e && mv .e deploy/local-dev/.env; }
+docker compose -p airawatos-localdev -f $F up -d
 ```
 
-(Each tarball is the full contents of one named volume; restore wipes the volume and untars back into it.)
+(Each tarball is the full contents of one named volume; restore wipes the volume and untars back into it.
+The vault-token re-sync matters because the backup includes the vault volume, whose root token differs from
+whatever `.env` currently holds.)
 
 ## Step 2 / 4 — from-empty `install.sh --profile dev` + gaps fixed in the installer
 
@@ -77,3 +86,31 @@ Bring-up logs: split tables 2/5 (pre-migrator) → migrator creates 5/5 → serv
     fixture + the N3/P4 cases should be regenerated against a canonical install (admin = first platform.authority;
     creds refreshed from Vault / sourced from the dev fixture). This is a conformance-fixture update, deliberately
     kept out of the installer so the installer reproduces the *platform*, not the test fixtures.
+
+## Step 3 — production profile (gates verified; full prod stack needs a prod compose + host)
+
+`--profile production` sets `RUN_TEST_USERS=0` + `SEED_DATA_TENANT=0` → **no test users, no data tenant**
+(verified in the profile case). The production **posture gates** were verified in isolation (no dev-stack
+disturbance):
+- **prod-guard refuses** the dev-convenience compose under `AIRAWAT_ENV=production`
+  (`REFUSING TO START … passwordless-login(AIRAWAT_ALLOW_PASSWORDLESS)`, exit 97), and **passes through clean**
+  when no conveniences are set — so services start under production only with a production-posture env.
+- services still boot as the **non-superuser** split roles (same compose DB_USER/skip-DDL as dev; 4b).
+
+**Not fully runnable locally (honest gap):** a green production *start* + non-demo conformance needs (a) a
+**production compose variant** — `AIRAWAT_ENV=production`, no `AIRAWAT_ALLOW_PASSWORDLESS`, durable **non-root**
+Vault (not the dev auto-init root token), 80/443-only ingress — and (b) a **production-grade host**: the
+installer's own production preflight correctly **stops** on this dev laptop (FileVault off, Vault in dev/root
+mode, published ports other than 80/443). The `deploy/local-dev` compose is explicitly dev-only, and the
+installer's compose project is fixed to `airawatos-localdev`, so a production throwaway cannot be stood up
+against it without disturbing the dev stack. **Recommendation:** add a `deploy/prod` (or `--project`-parameterised)
+production compose variant so the production profile can be exercised end-to-end on a production host; tracked
+as a follow-up, not a 4b blocker.
+
+## Step 5 — dev volumes restored + healthy
+
+All 6 volumes restored from the backup; the dev stack is back to its pre-test state (original data, not the
+fresh install): `registry_version` ≈ 1,000,000 rows (perf seed + content), `network_kv` tenants = 6, the 4b
+split roles present. `.env` VAULT_TOKEN re-synced to the restored vault's root token. Kernel + network both
+**Up (healthy)**; edge `/kernel/v1/health` + `/network/v1/health` OK. The two throwaway fresh-install DBs were
+discarded by the final restore (the restore wipes + untars each volume).
