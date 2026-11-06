@@ -82,6 +82,13 @@ These stay at their conservative status until the same enforcement is live in pr
 proof that the target is reachable, not that it is universally in force. (See also the **NET-5 ↔ ADR-0116 open
 decision** flagged in NETWORK-v0.1 §NET-5.)
 
+## Proposed decisions
+
+Open proposals (Status: **Proposed**) that shape these specs but are not yet ratified — read alongside the
+plane specs above (ratified ADRs are woven into those specs directly):
+
+- **[ADR-0129 — Every organisation can spawn networks; vendors and partners are participants](../decisions/ADR-0129-organisations-spawn-partner-networks.md)** · Proposed, 2026-11-06. A tenant can stand up its own Network and invite vendors, contractors and partners as **participants** (ADR-0116) with recorded, scoped capability grants (ADR-0122/0127) — instead of shared accounts or vendor logins inside its tenant. Builds on ADR-0128 (Networks are federated). Affects PLATFORM (PLT-1/10/16–21), NETWORK (NET-2/3/5/12), PARTICIPANT (PTC-1/11), OFFERINGS (OFF-3/8), COMPONENT (CMP-1), FOUNDATIONS (FND-3/4).
+
 ## Related
 
 - Debt register: `../consolidation/DEBT-REGISTER.md` (A-series transitional mechanisms, B-series invariant
