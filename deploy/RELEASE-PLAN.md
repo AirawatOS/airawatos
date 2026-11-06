@@ -14,9 +14,10 @@ This plan rolls out everything hardened since the **current EC2 images**:
 The EC2 images **predate the entire ADR-0124/0122/#282 series**, so the whole series below is the delta.
 Confirm each image's exact source commit from its OCI label at build time; the ranges below are the authority.
 
-Sequence at a glance: **Stage 0** (backups + restore drill) → **Stage 0b** (housekeeping) → **Stage 1** (full
-rehearsal on an amd64 copy of prod) → §4 image rollouts → §5 enforce flips (one observed step each) → §8 gate.
-Do not start §4 on production until Stage 0, 0b and 1 are green.
+Sequence at a glance: **Stage 0** (backups + restore drill) → **Stage 0b** (housekeeping) → **Stage 0c**
+(production compose variant `deploy/prod` + installer support — prerequisite) → **Stage 1** (full rehearsal on
+an amd64 copy of prod) → §4 image rollouts → §5 enforce flips (one observed step each) → §8 gate.
+Do not start §4 on production until Stage 0, 0b, 0c and 1 are green.
 
 ---
 
@@ -55,6 +56,28 @@ A deploy that flips authentication/authority enforcement must be recoverable to 
       explicitly: is it an adopted direction (then record the ADR/owner + where it lands relative to the
       reference IdP + the ADR-0124 service identities), or dropped (then strike the term)? Do not carry an
       undefined auth concept into a cutover that hardens auth.
+
+## 0c. Stage 0c — production compose variant + installer support (PREREQUISITE for Stage 1)
+
+**Blocker, must land before the rehearsal.** The only compose today is `deploy/local-dev` — it is dev-only
+(`AIRAWAT_ENV=development`, `AIRAWAT_ALLOW_PASSWORDLESS=1`, a dev/root-token Vault auto-init, 127.0.0.1 binds),
+and the installer's compose project is hard-coded to `airawatos-localdev`. The fresh-install test (2026-11-06,
+`docs/operator/FRESH-INSTALL-TEST.md` §Step 3) confirmed the production **posture gates** fire (prod-guard
+refuses dev conveniences under `AIRAWAT_ENV=production`; the production profile seeds no data tenant and no test
+users), but a production stack **cannot be stood up or rehearsed** without:
+
+- [ ] **`deploy/prod` compose variant** — `AIRAWAT_ENV=production` (guard on), **no** `AIRAWAT_ALLOW_PASSWORDLESS`,
+      durable **non-root** Vault (not the dev auto-init root token; real unseal/AppRole), 80/443-only ingress,
+      the split-role DB (4b) with Vault-held passwords, `SCHEMA_VALIDATE=strict`, enforcement flags per §5.
+- [ ] **Installer support for it** — `install.sh` parameterised on the compose project/file (not fixed to
+      `airawatos-localdev`), and the ordered bring-up (infra → keys → roles → migrator → services, 4b) proven
+      against the prod compose; production preflight (FileVault/encrypted volume, durable Vault, ports) passes
+      on a real prod-grade host.
+- [ ] **A from-empty install under `--profile production`** completes EXIT=0 and passes the non-demo
+      conformance cases (the dev-only test-user cases are expected SKIP in production).
+
+Until Stage 0c is green there is nothing production-shaped to rehearse in Stage 1. (Tracked as the
+FRESH-INSTALL-TEST §Step 3 follow-up.)
 
 ## 1b. Stage 1 — full rehearsal on an amd64 copy of production
 
