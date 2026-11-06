@@ -7,8 +7,8 @@
   ],
   "provenance": {
     "local-dev": {
-      "git_sha": "819b4ad",
-      "ts": "2026-11-06T14:56:28Z",
+      "git_sha": "9d72caf",
+      "ts": "2026-11-06T15:04:59Z",
       "modes": [
         "external",
         "internal"
@@ -206,16 +206,16 @@
         "local-dev": "NO TEST"
       },
       "ACC-2": {
-        "local-dev": "PLANNED(needs-build)"
+        "local-dev": "VIOLATED"
       },
       "ACC-3": {
-        "local-dev": "PLANNED(needs-build)"
+        "local-dev": "VIOLATED"
       },
       "ACC-4": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "ACC-5": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "ACC-6": {
         "local-dev": "NO TEST"
@@ -250,7 +250,7 @@
         "local-dev": "PLANNED(needs-build)"
       },
       "CLI-3": {
-        "local-dev": "NO TEST"
+        "local-dev": "VIOLATED"
       },
       "CLI-4": {
         "local-dev": "NO TEST"
@@ -270,7 +270,7 @@
         "local-dev": "NO TEST"
       },
       "PLT-3": {
-        "local-dev": "NO TEST"
+        "local-dev": "PLANNED(needs-build)"
       },
       "PLT-4": {
         "local-dev": "HELD"

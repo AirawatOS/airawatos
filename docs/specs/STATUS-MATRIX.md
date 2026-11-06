@@ -2,7 +2,7 @@
 
 **Generated** by `conformance/build_matrix.py` from `conformance/results/*.json` (written by `conformance/run.py --matrix`). **Do not hand-edit** — regenerate after a conformance run. This is the conformance-derived single source of truth for per-rule status; the specs reference it (ADR: STATUS-MATRIX-DESIGN.md).
 
-- **local-dev** — measured: modes external+internal, git `819b4ad`, 2026-11-06T14:56:28Z
+- **local-dev** — measured: modes external+internal, git `9d72caf`, 2026-11-06T15:04:59Z
 - **production** — *PROJECTED*: no production conformance run yet; not asserted (stand up per docs/operator/FRESH-INSTALL-TEST.md §Step 3, then run the suite with AOS_ENV=production).
 
 **Derived status:** HELD (all cited cases PASS) · PARTIAL (PASS + known-violation XFAIL) · VIOLATED (only XFAIL — tracked as debt) · PLANNED(needs-build) (only SKIP_BUILD, not black-box reachable) · UNVERIFIED(creds) (only SKIP_CREDS — fix the fixture) · REVIEW (XPASS — spec lags code) · REGRESSION (a FAIL — contradicts spec) · NO TEST (no case cites the rule yet).
@@ -19,14 +19,14 @@
 | `FND-6` | HELD | projected | unknown schema handled opaquely (pos) |
 | `FND-7` | PLANNED(needs-build) | projected | kernel authorizes with Network down |
 | `FND-8` | PARTIAL | projected | anonymous kernel read denied (internal) [debt DEBT-A1]; anonymous read denied (abuse) [debt DEBT-A1]; anonymous write denied (abuse); unauthenticated /v1/compon |
-| `FND-9` | PLANNED(needs-build) | projected | runtime-manager /invoke fail-open (abuse); secrets /fetch accepts w/o internal token (abuse); secrets /materialize accepts w/o internal token (abuse) |
+| `FND-9` | PLANNED(needs-build) | projected | internal write gates fail-closed; no passwordless full-authority mint; runtime-manager /invoke fail-open (abuse); secrets /fetch accepts w/o internal token (abu |
 | `FND-10` | PARTIAL | projected | automation /events accepts without a service token (abuse); filestore refuses a wrong-audience token (abuse); filestore refuses an anonymous call (abuse); model |
 | `FND-11` | HELD | projected | component.publisher refused at kernel admin (registry.usage); dev-sandbox refused at kernel admin (registry.usage) |
 | `FND-12` | PLANNED(needs-build) | projected | every authz decision audited (allow+deny); failed-auth logged |
 | `FND-13` | NO TEST | projected | — |
 | `FND-14` | PLANNED(needs-build) | projected | role assignment names its grantor (granted_by) |
 | `FND-15` | HELD | projected | forged role+foreign-iss token rejected (abuse); human (platauth) refused a service audience; scheduler may request its recorded audience (svc:automation); sched |
-| `FND-16` | PLANNED(needs-build) | projected | missing config stops startup |
+| `FND-16` | PLANNED(needs-build) | projected | missing config stops startup; safe defaults (no prod-pointing default; enforce-by-default; fail-loud) |
 | `FND-17` | PLANNED(needs-build) | projected | agent delegation; no self-widen |
 
 ## REGISTRY
@@ -91,10 +91,10 @@
 | rule | local-dev | production | cases (provenance) |
 |---|---|---|---|
 | `ACC-1` | NO TEST | projected | — |
-| `ACC-2` | PLANNED(needs-build) | projected | id/handle/binding distinct; handle reserved |
-| `ACC-3` | PLANNED(needs-build) | projected | identity-binding uniqueness via a keyed blind index (HMAC), not a plaintext column; raw id never shown; one-identity-one-account |
-| `ACC-4` | NO TEST | projected | — |
-| `ACC-5` | NO TEST | projected | — |
+| `ACC-2` | VIOLATED | projected | account id is permanent + distinct from the login handle [debt DEBT-B30]; id/handle/binding distinct; handle reserved |
+| `ACC-3` | VIOLATED | projected | assurance reflects the real auth method (AL-vocabulary, >=AL1 after password) [debt DEBT-B13]; identity-binding uniqueness via a keyed blind index (HMAC), not a |
+| `ACC-4` | PLANNED(needs-build) | projected | login + recovery; per-account-type recovery |
+| `ACC-5` | PLANNED(needs-build) | projected | provider connections (consent + confirmation; revocable) |
 | `ACC-6` | NO TEST | projected | — |
 | `ACC-7` | PLANNED(needs-build) | projected | consent by holder; withdraw->erase |
 | `ACC-8` | PLANNED(needs-build) | projected | assisted access via FND-17 |
@@ -108,9 +108,9 @@
 
 | rule | local-dev | production | cases (provenance) |
 |---|---|---|---|
-| `CLI-1` | HELD | projected | unregistered client rejected (abuse) [debt DEBT-A47] |
+| `CLI-1` | HELD | projected | registered clients with recorded scopes; unregistered client rejected (abuse) [debt DEBT-A47] |
 | `CLI-2` | PLANNED(needs-build) | projected | scope bound to registered client, not query (abuse) [debt DEBT-B12] |
-| `CLI-3` | NO TEST | projected | — |
+| `CLI-3` | VIOLATED | projected | token app-addressed + carries a consent reference [debt DEBT-B31] |
 | `CLI-4` | NO TEST | projected | — |
 | `CLI-5` | HELD | projected | identity /users directory requires an authorised caller (abuse) |
 | `CLI-6` | PLANNED(needs-build) | projected | public versioned protocol, not /bridge/* [debt DEBT-A23] |
@@ -121,7 +121,7 @@
 |---|---|---|---|
 | `PLT-1` | NO TEST | projected | — |
 | `PLT-2` | NO TEST | projected | — |
-| `PLT-3` | NO TEST | projected | — |
+| `PLT-3` | PLANNED(needs-build) | projected | operator holds no governance role (+ login-namespace != tenant, DEBT-B21) |
 | `PLT-4` | HELD | projected | opadmin (operator tenant) sees all networks w/ platform_authority=true (pos); platnone (same tenant, no role) is NOT platform authority (abuse) |
 | `PLT-5` | HELD | projected | bootstrap grants no platform.authority when a holder exists (ADR-0122); grant platform.authority without a different-holder CR is refused (abuse); revoking the  |
 | `PLT-6` | NO TEST | projected | — |
@@ -230,6 +230,6 @@
 
 | environment | HELD | PARTIAL | VIOLATED | PLANNED(needs-build) | UNVERIFIED(creds) | REVIEW | REGRESSION | NO TEST | projected |
 |---|---|---|---|---|---|---|---|---|---|
-| local-dev | 11 | 4 | 1 | 50 | 0 | 0 | 0 | 93 | 0 |
+| local-dev | 11 | 4 | 4 | 51 | 0 | 0 | 0 | 89 | 0 |
 | production | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 159 |
 
