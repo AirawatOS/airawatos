@@ -70,7 +70,7 @@ services:
   kernel:
     image: manishsv/airawatos-kernel:dev-hard5
     container_name: airawat-ld-kernel
-    networks: [aos-svc, aos-data-facts, aos-data-secrets]
+    networks: [aos-svc, aos-data-facts, aos-data-secrets, aos-component]  # aos-component: the broker is the ONLY door a placed component can reach (step 3)
     entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]
     command: ["uvicorn","api.app:app","--host","0.0.0.0","--port","8080"]   # entrypoint override clears image CMD → set it
     volumes: [ ./prod-guard.sh:/local-dev/prod-guard.sh:ro ]
@@ -279,7 +279,12 @@ services:
     container_name: airawat-ld-scheduler
     networks: [aos-svc, aos-data-secrets]
     command: ["python","reference/scheduler.py","--components-root","/app/components","--kernel","http://kernel:8080","--network","http://network:8090"]
-    environment: { <<: *svcid, SCHEDULER_REQUIRE_TOKEN: "1" }   # ADR-0124 item 1 — gate /run+/reload (callers wired)
+    # ADR-0124 item 1 — gate /run+/reload (callers wired). RUNTIME_NETWORK confines any container the launcher
+    # PLACES to aos-component (broker-only egress — ARC-1/DEBT-B52); the broker is reachable there as kernel:8080.
+    # NOTE: local-dev mounts no docker.sock, so the default path is the IN-PROCESS subprocess (host-env inherit,
+    # DEBT-B51 — a Layer-7 confinement fix, not closable by network segmentation); the container-placement path
+    # this confines is exercised on EC2/runtime-manager.
+    environment: { <<: *svcid, SCHEDULER_REQUIRE_TOKEN: "1", RUNTIME_NETWORK: aos-component }
     depends_on:
       kernel: { condition: service_started }
       vault: { condition: service_healthy }
