@@ -596,6 +596,47 @@ def run_internal_cases():
     xfail("REGISTRY","REG-6/FND-8","anonymous kernel read denied (internal) [debt DEBT-A1]", st == 200,
           "kernel:8080 anon read -> %s (rule 401; live-violation 200)" % st)
 
+def run_kernel_review_cases():
+    """Consolidation phase-5 Kernel review (slice 1): cases for Kernel-relevant rules that were NO TEST in
+    STATUS-MATRIX. Black-box/internal where feasible (expected-fail where the review found a violation);
+    otherwise a recorded SKIP_BUILD stating WHY it is not black-box reachable + the proposed internal test.
+    See docs/reviews/KERNEL-REVIEW.md."""
+    K = INTERNAL["kernel"]
+    # FND-8 (NEW, critical) — /v1/components/install has no admin gate: an UNAUTHENTICATED POST is PROCESSED
+    # (reaches component lookup, returns 404/4xx) instead of being refused 401/403 up front. Any status other
+    # than 401/403 means no admin gate fired before the (ungated) run-token-mint path. Reproduce black-box.
+    st, _, _ = _req("POST", K + "/v1/components/install", {"component_id": "ds:localdev:driver/__review_probe__"})
+    xfail("FOUNDATIONS", "FND-8/NEW", "unauthenticated /v1/components/install is admin-gated (abuse)",
+          st not in (401, 403),
+          "unauth install -> %s (want 401/403; any other status = no admin gate before lookup — run-token mint ungated)" % st)
+    # The remaining Kernel-relevant NO-TEST rules are not cleanly black-box reachable; record WHY + the proposed
+    # internal (pytest) test. kind 'needs-build' → SKIP_BUILD (matrix: PLANNED(needs-build)). See KERNEL-REVIEW.md.
+    def nb(spec, rule, name, why): record(spec, rule, name, "needs-build", "SKIP_BUILD", why)
+    nb("REGISTRY","REG-2","schema-governed writes; no ungoverned/ad-hoc shapes",
+       "no black-box registry-write bridge; review VIOLATED-leaning (ungoverned shapes pass unvalidated; kernel stamps latest not caller-declared version — app.py:2297/2296). Internal test: POST kernel /v1/registry/objects an unknown schema -> assert refused.")
+    nb("REGISTRY","REG-4","valid + recorded time",
+       "held per review; not black-box (no write bridge). Internal test EXISTS: kernel/tests/test_registry_bitemporal.py.")
+    nb("REGISTRY","REG-8","Kernel/participant signature on each committed version",
+       "VIOLATED per review: versions are SHA-256 content-hashed, not signed (store.py:35-37; audit_verify.py:20-24). Not black-box (needs an authed read of a known record). Internal test: resolve a committed version -> assert a kernel Ed25519 signature present (currently none).")
+    nb("REGISTRY","REG-9","idempotent writes (content-hash dedup)",
+       "held per review (pg_store.py:202-207); not black-box (no write bridge). Internal test: write a byte-identical object twice -> assert one version, same ref.")
+    nb("REGISTRY","REG-11","schemas are records; owner != adopter",
+       "largely Network-owned: the kernel fetches defs upward (app.py:2269). Belongs to the Network review. Kernel-side internal test: /v1/registry/schemas/local is dev-tenant-gated and may not shadow a governed schema (app.py:797).")
+    nb("REGISTRY","REG-18","files are records (Kernel-mediated bytes)",
+       "VIOLATED per review: /v1/file/{put,get} gate only on run-token presence, no per-file authority/receipt (app.py:1632-1666). Internal test (needs a stored-blob fixture): fetch a blob by digest with a run token lacking a file grant -> assert refused.")
+    nb("FOUNDATIONS","FND-12","every authz decision audited (allow+deny); failed-auth logged",
+       "PARTIAL per review: only the admin gate + egress audit; general read/write denials and failed authentication emit no record (app.py:1105,1225; kernelcore.py:44). Audit store not black-box readable. Internal test: assert an audit row on an allow AND a deny at a non-admin gate, and on a failed authentication.")
+    nb("DECISION","DEC-2","decision record contents",
+       "no decision-record read surface and the kernel authz path emits none (decision lib disconnected; DEC-1 violated). Internal test: drive the authz gate -> assert a record with case_ref + version-pinned admitted_basis + named authority + reason.")
+    nb("DECISION","DEC-5","decision records never edited",
+       "held-by-construction (governed append-only, REG-3) but not exercised on the kernel path. Internal test: supersede a decision -> assert new version + original marked contested, no in-place edit.")
+    nb("DECISION","DEC-9","decisions linked (correlation/op ids) to CRs + audit",
+       "PARTIAL per review: the adminaudit correlation_id threads nothing beyond its own row (app.py:35). Internal test: assert one correlation id links the decision record, the ChangeRequest, and the audit event.")
+    nb("COMPONENT","CMP-3","run token = declaration ∩ authority",
+       "declaration∩tenant half held; the ∩-runner-authority half absent (run token is a bearer secret; app.py:1119). Broker caps covered by kernel/tests/test_broker_caps.py. Internal test: a run token presented by a principal lacking the run's authority is refused.")
+    nb("COMPONENT","CMP-6","records & files only via the broker under run token + declared scopes",
+       "records side held (broker attribution+receipt, broker.py:79-137); files side VIOLATED = REG-18; dataplane sideload gate DATAPLANE_ENFORCE shadow by default (kernelcore.py:62). Internal test: write a fact-schema record with a bare tenant token (not via broker) -> assert refused when DATAPLANE_ENFORCE on.")
+
 # ============================ runner ============================
 import re as _re
 _SPEC_RULE_RE = _re.compile(r"\b(?:FND|REG|DEC|NET|CLI|PLT|CMP|OFF|POL|PTC)-\d+[a-z]?\b|\bACC-W?\d+\b|\bFED\d+\b")
@@ -657,7 +698,7 @@ def main():
         # preflight on kernel
         st, _, _ = _req("GET", INTERNAL["kernel"]+"/healthz")
         if st != 200: print("PREFLIGHT: kernel:8080/healthz -> %s" % st)
-        run_internal_cases()
+        run_internal_cases(); run_kernel_review_cases()
     else:
         print("target %s (realm %s); credentials: %s" % (BASE, REALM, "supplied (%d)"%len(CREDS) if CREDS else "none"))
         st, _, _ = http("GET", "/healthz")
