@@ -57,9 +57,65 @@ OPERATOR_PASSWORD="${OPERATOR_PASSWORD:-}"                      # #282: NO commi
                                                                # GENERATES the admin password into Vault (reused
                                                                # idempotently); bootstrap reads it back after Phase 1.
 SELF_MEMBERSHIP="${SELF_MEMBERSHIP:-0}"                         # §4: platform-tenant self-membership is OPT-IN
+# Dev convenience — make a FRESH dev stack conformance-ready + match the documented `admin` login. When no
+# OPERATOR_PASSWORD is supplied and the gitignored conformance fixture exists, source the `admin` password from
+# it (the fixture file is the source of truth for the dev test creds — still NO committed literal in the repo).
+# Dev profile only; production/rehearsal keep the generate-into-Vault behaviour.
+if [ "$PROFILE" = dev ] && [ -z "$OPERATOR_PASSWORD" ] && [ -f "$SCRIPT_DIR/../../conformance/.creds.json" ]; then
+  OPERATOR_PASSWORD="$(python3 -c "import json;print(json.load(open('$SCRIPT_DIR/../../conformance/.creds.json')).get('admin',{}).get('password',''))" 2>/dev/null || true)"
+  [ -n "$OPERATOR_PASSWORD" ] && echo "  · dev: admin password sourced from conformance/.creds.json (conformance-ready; not printed)"
+fi
 COMPOSE() { docker compose -p "$P" --project-directory "$LOCALDEV" -f "$F" "$@"; }
 XNET()  { COMPOSE exec -T network "$@"; }
 XAPP()  { COMPOSE exec -T app-host "$@"; }
+# One-off containers on a service image, WITHOUT pulling up its depends_on graph (used before the long-running
+# services exist, so they cannot wait on a not-yet-healthy network/kernel).
+XRUNNET()  { COMPOSE run --rm --no-deps -T network "$@"; }
+XRUNKERN() { COMPOSE run --rm --no-deps -T kernel "$@"; }
+
+# ── Fresh-install bring-up (idempotent): infra → keys → roles → migrator → services ──────────────────
+# 4b: the app-role services (kernel_app/network_app boot with REGISTRY_SKIP_DDL/KV_SKIP_DDL and are NON-owners)
+# cannot start until their tables + roles exist, so a from-empty install MUST order the bring-up. On an
+# already-up stack every step is a no-op/converge, so this prelude is safe to re-run.
+echo "▶ bring-up: postgres + vault"
+COMPOSE up -d postgres vault >/dev/null 2>&1 || COMPOSE up -d postgres vault
+for i in $(seq 1 45); do
+  COMPOSE exec -T postgres pg_isready -U kernel >/dev/null 2>&1 \
+    && COMPOSE exec -T vault sh -lc 'VAULT_ADDR=http://127.0.0.1:8200 vault status >/dev/null 2>&1' && break
+  sleep 2
+done
+# A fresh vault volume re-initialises with a NEW root token (persisted in its own data volume at
+# /vault/data/init.json); the compose VAULT_TOKEN (from .env) is stale after a wipe. Discover the live root
+# token and make it the VAULT_TOKEN every subsequent compose command interpolates (one-off `run` containers +
+# the final `up -d`), persisting it to .env. Idempotent on an already-up stack (re-reads the same token).
+VT_DISC="$(COMPOSE exec -T vault sh -lc "tr -d '\n ' < /vault/data/init.json 2>/dev/null | sed 's/.*\"root_token\":\"\\([^\"]*\\)\".*/\\1/'" 2>/dev/null | tr -d '\r')"
+if [ -n "$VT_DISC" ]; then
+  export VAULT_TOKEN="$VT_DISC"
+  if [ -f "$LOCALDEV/.env" ] && grep -q '^VAULT_TOKEN=' "$LOCALDEV/.env"; then
+    sed "s|^VAULT_TOKEN=.*|VAULT_TOKEN=$VT_DISC|" "$LOCALDEV/.env" > "$LOCALDEV/.env.tmp" && mv "$LOCALDEV/.env.tmp" "$LOCALDEV/.env"
+  else
+    printf 'VAULT_TOKEN=%s\n' "$VT_DISC" >> "$LOCALDEV/.env"
+  fi
+  echo "  · VAULT_TOKEN discovered from the vault volume (not printed)"
+else
+  echo "  ⚠ could not read vault root token from /vault/data/init.json — relying on .env VAULT_TOKEN"
+fi
+echo "▶ bring-up: signing + audit keys (Vault)"
+XRUNNET env INSTANCE="$INSTANCE" python3 - < "$SCRIPT_DIR/_keys.py" || { echo "✗ bring-up keys failed"; exit 1; }
+echo "▶ bring-up: split roles (create migrator/kernel_app/network_app; grant CREATE to migrator)"
+XRUNNET env INSTANCE="$INSTANCE" DB_HOST=postgres python3 - < "$SCRIPT_DIR/_split_roles.py" || { echo "✗ bring-up roles failed"; exit 1; }
+echo "▶ bring-up: migrator DDL (create all tables owned by migrator)"
+XRUNKERN env DB_USER=migrator DB_PASSWORD_VAULT_PATH="secret/data/$INSTANCE/migrator/password" \
+  python -m tools.db_migrate || { echo "✗ bring-up migrator failed"; exit 1; }
+echo "▶ bring-up: table ownership + least-privilege DML grants"
+XRUNNET env INSTANCE="$INSTANCE" DB_HOST=postgres python3 - < "$SCRIPT_DIR/_split_roles.py" || { echo "✗ bring-up grants failed"; exit 1; }
+echo "▶ bring-up: all services"
+COMPOSE up -d >/dev/null 2>&1 || COMPOSE up -d
+for i in $(seq 1 60); do
+  curl -fsS http://127.0.0.1:8080/network/v1/health >/dev/null 2>&1 \
+    && curl -fsS http://127.0.0.1:8080/kernel/v1/health >/dev/null 2>&1 && break
+  sleep 2
+done
 
 # ── Host pre-flight (BEFORE any change) ──────────────────────────────────────────────────────────────
 # Each check prints PASS/WARN/FAIL + a plain-language FIX. In production a FAIL stops the install; in dev it
@@ -113,47 +169,7 @@ echo "── Phase 0 · signing + audit keys in Vault (generate-or-verify BEFORE
 # records), and the trust-plane audit HMAC (signs the governance audit log). Services create the transit keys
 # lazily on first use; this step makes them EXPLICIT and FAILS CLEARLY if Vault is unreachable or a key is
 # missing/invalid — so an install never silently proceeds on absent trust roots. Idempotent.
-XNET env INSTANCE="$INSTANCE" python3 - <<'PY' || { echo "✗ STEP 0 failed — fix Vault/keys above, then re-run"; exit 1; }
-import os, sys, json, secrets, urllib.request, urllib.error
-VA=(os.environ.get("VAULT_ADDR") or "http://vault:8200").rstrip("/"); VT=os.environ.get("VAULT_TOKEN",""); INST=os.environ["INSTANCE"]
-def v(method, path, body=None, ok_fail=False):
-    data=json.dumps(body).encode() if body is not None else None
-    r=urllib.request.Request(f"{VA}/v1/{path}", data=data, method=method,
-                             headers={"X-Vault-Token":VT, **({"Content-Type":"application/json"} if data else {})})
-    try: return json.loads(urllib.request.urlopen(r, timeout=8).read() or b"{}")
-    except urllib.error.HTTPError as e:
-        if ok_fail: return None
-        raise
-def fail(msg, fix):
-    print(f"  ✗ {msg}\n     FIX: {fix}", file=sys.stderr); sys.exit(1)
-if not VT:
-    fail("VAULT_TOKEN is not set — the installer cannot reach Vault.",
-         "Set VAULT_TOKEN in the environment (compose .env in local-dev); never commit it.")
-try:
-    v("GET", "sys/health", ok_fail=False)
-except Exception as e:
-    fail(f"Vault not reachable at {VA} ({str(e)[:80]}).",
-         "Start Vault and confirm VAULT_ADDR/VAULT_TOKEN; in production Vault must be unsealed and NOT in dev-root mode.")
-v("POST", "sys/mounts/transit", {"type":"transit"}, ok_fail=True)   # idempotent enable
-for key, label in (("airawat-identity","identity issuer"), ("airawat-authority","Network authority")):
-    v("POST", f"transit/keys/{key}", {"type":"ed25519"}, ok_fail=True)   # create if missing (idempotent)
-    r=v("GET", f"transit/keys/{key}", ok_fail=True)
-    keys=((r or {}).get("data") or {}).get("keys") or {}
-    pub=next((kv.get("public_key") for kv in keys.values() if isinstance(kv,dict) and kv.get("public_key")), None)
-    if not pub:
-        fail(f"{label} key transit/keys/{key} missing or has no public key.",
-             f"Ensure the Vault transit engine is enabled and the installer can create keys (token policy), or pre-provision transit/keys/{key} (ed25519).")
-    print(f"  ✓ {label} key: transit/keys/{key} (ed25519, public key present)")
-AUD=f"secret/data/{INST}-network/trust-plane/audit_hmac"   # field `value`, same as installer Phase 6 + the network reader
-r=v("GET", AUD, ok_fail=True)
-hm=(((r or {}).get("data") or {}).get("data") or {}).get("value") if r else None
-if not hm:
-    v("POST", AUD, {"data":{"value":secrets.token_hex(32)}})
-    print(f"  ✓ trust-plane audit HMAC: generated at {AUD}")
-else:
-    print(f"  ✓ trust-plane audit HMAC: present at {AUD}")
-print("  Phase 0 OK — trust roots present + valid.")
-PY
+XNET env INSTANCE="$INSTANCE" python3 - < "$SCRIPT_DIR/_keys.py" || { echo "✗ STEP 0 failed — fix Vault/keys above, then re-run"; exit 1; }
 
 echo "── Phase 1 · base-OS install (instance=$INSTANCE) ─────────────────────────────────────────────"
 XNET env INSTANCE="$INSTANCE" OPERATOR_PASSWORD="$OPERATOR_PASSWORD" SEED_DATA_TENANT="$SEED_DATA_TENANT" python3 /app/ensure_install.py
@@ -355,6 +371,15 @@ s=_req(f"{IDN}/set-password", data={"username":USER,"tenant":TENANT,"password":p
 print("[phase7] trust-writer login password set:", "OK" if not isinstance(s, urllib.error.HTTPError) else f"{s.code}")
 PY
 
+# The kernel caches the "current version" per schema (~300s) on first use. During Phase 1 it may have cached
+# governance.role_assignment@0.1.0 (before Phase 2 publishes the 0.2.0 scoped shape that platform.authority
+# needs), so the first governed kernel write below would validate against the stale 0.1.0 def (missing
+# platform.authority + requiring `network`). Drop the kernel's schema cache so it re-reads the freshly-seeded
+# catalog (latest version) before Phase 7b's write. A restart is the simplest cache-clear (kernel is stateless).
+echo "▶ refresh kernel schema cache (pick up Phase-2 schema versions before the first governed write)"
+COMPOSE restart kernel >/dev/null 2>&1 || true
+for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/kernel/v1/health >/dev/null 2>&1 && break; sleep 2; done
+
 echo "── Phase 7b · platform.authority FIRST-HOLDER seed via the governance path (ADR-0122) ───────────"
 # Seed platform.authority ONLY when there are ZERO live holders, through GovernanceService.assign_role (the
 # first-holder-only rule) — NEVER a direct registry write, and NEVER a second grant when a holder already
@@ -539,78 +564,7 @@ echo "── Phase 11b · split-role least-privilege DB (4b: migrator + kernel_a
 # (`docker compose run --rm -e DB_USER=migrator -e DB_PASSWORD_VAULT_PATH=… kernel python -m tools.db_migrate`
 # after this phase has created the roles), then `docker compose up -d`. This installer currently runs AGAINST
 # an already-up stack (preflight health-checks kernel+network), so the converge path below is what it exercises.
-XNET env INSTANCE="$INSTANCE" DB_HOST=postgres python3 - <<'PY' || { echo "✗ Phase 11b failed"; exit 1; }
-import os, json, secrets, urllib.request, urllib.error
-import psycopg2
-inst = os.environ["INSTANCE"]
-VA = (os.environ.get("VAULT_ADDR") or "http://vault:8200").rstrip("/"); VT = os.environ.get("VAULT_TOKEN", "")
-
-def vault_pw(path, prefix):
-    try:
-        d = json.load(urllib.request.urlopen(urllib.request.Request(VA + "/v1/" + path, headers={"X-Vault-Token": VT}), timeout=8))
-        pw = ((d.get("data") or {}).get("data") or {}).get("password")
-        if pw: return pw
-    except urllib.error.HTTPError:
-        pass
-    pw = f"{prefix}_" + secrets.token_hex(24)
-    urllib.request.urlopen(urllib.request.Request(VA + "/v1/" + path, data=json.dumps({"data": {"password": pw}}).encode(),
-        headers={"X-Vault-Token": VT, "Content-Type": "application/json"}, method="POST"), timeout=8).read()
-    return pw
-
-roles = {"migrator": (f"secret/data/{inst}/migrator/password", "mg"),
-         "kernel_app": (f"secret/data/{inst}/kernel-app/password", "ka"),
-         "network_app": (f"secret/data/{inst}/network-app/password", "na")}
-pw = {r: vault_pw(p, pre) for r, (p, pre) in roles.items()}
-
-c = psycopg2.connect(host=os.environ.get("DB_HOST", "postgres"), port=5432, dbname="kernel", user="kernel", password="kernel")
-c.autocommit = True; cur = c.cursor()
-for r in roles:
-    cur.execute("SELECT 1 FROM pg_roles WHERE rolname=%s", (r,))
-    if not cur.fetchone():
-        cur.execute(f"CREATE ROLE {r} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE")
-    cur.execute(f"ALTER ROLE {r} WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD %s", (pw[r],))
-
-# Tables must exist before ownership/grants. CREATE IF NOT EXISTS as superuser here is the install-time
-# equivalent of the migrator entrypoint (kernel/tools/db_migrate); on an up stack the kernel already made the
-# registry tables, so this only fills gaps (kernel_kv / network_kv on a legacy DB).
-cur.execute("CREATE TABLE IF NOT EXISTS kernel_kv  (store TEXT, key TEXT, value JSONB, PRIMARY KEY(store,key))")
-cur.execute("CREATE TABLE IF NOT EXISTS network_kv (store TEXT, key TEXT, value JSONB, PRIMARY KEY(store,key))")
-
-# Legacy split copy (idempotent): if the shared `kv` still exists, copy each namespace to its owner's table.
-cur.execute("SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='kv'")
-if cur.fetchone():
-    KERNEL_NS = ("tenant_datasets", "cases", "installed", "installed_schemas")
-    cur.execute("INSERT INTO kernel_kv  SELECT * FROM kv WHERE store = ANY(%s) ON CONFLICT (store,key) DO NOTHING", (list(KERNEL_NS),))
-    cur.execute("INSERT INTO network_kv SELECT * FROM kv WHERE NOT (store = ANY(%s)) ON CONFLICT (store,key) DO NOTHING", (list(KERNEL_NS),))
-
-KERNEL_TABLES = ["registry_version", "registry_schema_meta", "kernel_admin_audit", "kernel_kv"]
-SEQS = ["registry_version_seq_seq", "kernel_admin_audit_seq_seq"]
-for t in KERNEL_TABLES + ["network_kv"]:
-    cur.execute(f"ALTER TABLE {t} OWNER TO migrator")
-for s in SEQS:
-    cur.execute("SELECT 1 FROM information_schema.sequences WHERE sequence_schema='public' AND sequence_name=%s", (s,))
-    if cur.fetchone():
-        cur.execute(f"ALTER SEQUENCE {s} OWNER TO migrator")
-for r in roles:
-    cur.execute(f"GRANT USAGE ON SCHEMA public TO {r}")
-cur.execute("GRANT CREATE ON SCHEMA public TO migrator")   # migrator is the sole DDL author (PG15+ needs this)
-for r in ("kernel_app", "network_app"):
-    for t in KERNEL_TABLES + ["network_kv"]:
-        cur.execute(f"REVOKE ALL ON {t} FROM {r}")
-    for s in SEQS:
-        cur.execute("SELECT 1 FROM information_schema.sequences WHERE sequence_schema='public' AND sequence_name=%s", (s,))
-        if cur.fetchone():
-            cur.execute(f"REVOKE ALL ON SEQUENCE {s} FROM {r}")
-for t in KERNEL_TABLES:
-    cur.execute(f"GRANT SELECT, INSERT, UPDATE, DELETE ON {t} TO kernel_app")
-for s in SEQS:
-    cur.execute("SELECT 1 FROM information_schema.sequences WHERE sequence_schema='public' AND sequence_name=%s", (s,))
-    if cur.fetchone():
-        cur.execute(f"GRANT USAGE, SELECT, UPDATE ON SEQUENCE {s} TO kernel_app")
-cur.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON network_kv TO network_app")
-cur.close(); c.close()
-print("  · roles migrator/kernel_app/network_app ready — owner→migrator; kernel_app=own 4 tables; network_app=network_kv")
-PY
+XNET env INSTANCE="$INSTANCE" DB_HOST=postgres python3 - < "$SCRIPT_DIR/_split_roles.py" || { echo "✗ Phase 11b failed"; exit 1; }
 
 if [ "$RUN_PERF_SEED" = 1 ]; then
   echo "── Phase 12 · synthetic perf dataset (~1M rows) · DEV-ONLY ─────────────────────────────────────"
