@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
+# ============================================================================================================
+# ⚠️  SUPERSEDED (2026-11-06) — do not extend. The canonical installer is the profiled, idempotent
+#     deploy/local-dev/install.sh  (--profile production | rehearsal | dev), documented in
+#     docs/operator/INSTALLER.md. From-source local-dev: `cd deploy/local-dev && ./bootstrap-dev.sh`
+#     (== install.sh --profile dev). This script remains ONLY as a zero-repo, prebuilt-image demo bootstrap
+#     for a bare Docker host (it materialises a compose + brings images up); it is NOT the install logic and
+#     is no longer maintained in step with the installer. Use install.sh for any real install.
+# ============================================================================================================
 # AirawatOS — zero-repo local bootstrap. Run this on a BRAND-NEW machine that has ONLY Docker.
 # It materialises the entire deploy/local/ folder (5 files) into a working dir and brings the stack up.
 # The platform images are PUBLIC on Docker Hub, so no git clone and no registry login are needed.
