@@ -2,7 +2,7 @@
 
 **Generated** by `conformance/build_matrix.py` from `conformance/results/*.json` (written by `conformance/run.py --matrix`). **Do not hand-edit** — regenerate after a conformance run. This is the conformance-derived single source of truth for per-rule status; the specs reference it (ADR: STATUS-MATRIX-DESIGN.md).
 
-- **local-dev** — measured: modes external+internal, git ``, 2026-11-06T16:41:13Z
+- **local-dev** — measured: modes external+internal, git ``, 2026-11-06T17:00:14Z
 - **production** — *PROJECTED*: no production conformance run yet; not asserted (stand up per docs/operator/FRESH-INSTALL-TEST.md §Step 3, then run the suite with AOS_ENV=production).
 
 **Derived status:** HELD (all cited cases PASS) · PARTIAL (PASS + known-violation XFAIL) · VIOLATED (only XFAIL — tracked as debt) · PLANNED(needs-build) (only SKIP_BUILD, not black-box reachable) · UNVERIFIED(creds) (only SKIP_CREDS — fix the fixture) · REVIEW (XPASS — spec lags code) · REGRESSION (a FAIL — contradicts spec) · NO TEST (no case cites the rule yet).
@@ -18,7 +18,7 @@
 | `FND-5` | PLANNED(needs-build) | projected | durable authority survives restart; session cookie is Secure + CSRF/Origin-checked on state-changing bridge POSTs |
 | `FND-6` | HELD | projected | unknown schema handled opaquely (pos) |
 | `FND-7` | PLANNED(needs-build) | projected | kernel authorizes with Network down |
-| `FND-8` | PARTIAL | projected | /bridge/component-publish verifies the bearer before publishing (not presence-only); account-hold (admin-disable) check fails CLOSED on registry error; anon bri |
+| `FND-8` | PARTIAL | projected | /bridge/component-publish refuses an unverified bearer (not presence-only); account-hold (admin-disable) check fails CLOSED on registry error; anon bridge reads |
 | `FND-9` | HELD | projected | account-write gate refuses a wrong internal token (fail closed) [DEBT-B29]; no passwordless full-authority mint (residual; write-gate half fixed by DEBT-B29); r |
 | `FND-10` | PARTIAL | projected | app-host -> identity/gateway uses an audience-bound minted token, not a static shared secret; automation /events accepts without a service token (abuse); filest |
 | `FND-11` | HELD | projected | SoD for floor roles enforces approver != proposer; component.publisher refused at kernel admin (registry.usage); dev-sandbox refused at kernel admin (registry.u |
@@ -84,7 +84,7 @@
 | `NET-9` | HELD | projected | capability-grant store POST /v1/grants refuses anonymous (grant.steward, fail closed); wildcard/unversioned capability grant rejected [debt DEBT-B12] |
 | `NET-10` | PLANNED(needs-build) | projected | publishing a Service requires a recorded service.provide grant |
 | `NET-11` | PLANNED(needs-build) | projected | exchange runs through the one decision function and leaves a decision record |
-| `NET-12` | PARTIAL | projected | /bridge/schemas + /bridge/schema-history are not anon (governance provenance); /bridge/service-offerings requires a session (governed directory, not public); /b |
+| `NET-12` | HELD | projected | /bridge/schema-history refuses anonymous (change-request provenance); /bridge/schemas refuses anonymous (catalog + pending change-requests); /bridge/service-off |
 
 ## ACCOUNT
 
@@ -230,6 +230,6 @@
 
 | environment | HELD | PARTIAL | VIOLATED | PLANNED(needs-build) | UNVERIFIED(creds) | REVIEW | REGRESSION | NO TEST | projected |
 |---|---|---|---|---|---|---|---|---|---|
-| local-dev | 15 | 5 | 4 | 74 | 0 | 0 | 0 | 61 | 0 |
+| local-dev | 16 | 4 | 4 | 74 | 0 | 0 | 0 | 61 | 0 |
 | production | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 159 |
 

@@ -17,7 +17,17 @@ headline finding was **verified live, read-only, against production** (no writes
 
 ---
 
-## 🔴 PRODUCTION EXPOSURE — unauthenticated, internet-reachable (reported first; live-verified read-only)
+> **Slice-5 hotfix update (2026-11-06).** DEBT-B41 and DEBT-B42 are now FIXED in local-dev (ship in reference
+> image `dev-hard11`): `/bridge/component-publish` VERIFIES the bearer + requires the publisher role before any
+> processing (anon/`Bearer x` → 401); `/bridge/service-offerings`, `/bridge/schemas`, `/bridge/schema-history`
+> require an authenticated session (anon → 401); `/bridge/service-search` shows anon only `civic.resident`
+> offerings (no audience bypass). Conformance `FND-8/DEBT-B41` + `NET-12/DEBT-B42` (×3) now PASS; matrix NET-12
+> → HELD, FND-8 → PARTIAL. The remaining findings below (B43–B48, A82, CLI-2/3 embed, PLT-15) are unchanged and
+> still open. **EC2 note:** per `docs/reviews/REVIEW-METHOD.md`, EC2 is a dev environment and out of scope; the
+> prod-exposure lines below are retained as the as-found record (first production deploy = fresh install of the
+> fixed source).
+
+## 🔴 PRODUCTION EXPOSURE — unauthenticated, internet-reachable (as-found; retained for history)
 
 1. **`POST /bridge/component-publish` — unauthenticated privileged write (CRITICAL, DEBT-B41).**
    `routes/marketplace_routes.py:327-377`: the only auth check is `if not auth.lower().startswith("bearer "):`

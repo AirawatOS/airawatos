@@ -862,26 +862,27 @@ def run_apphost_review_cases():
         except Exception:
             return None
 
-    # ── VERIFIED VIOLATIONS (reproduced live on local-dev AND production) → XFAIL ──
-    # FND-8 / DEBT-B41 (CRITICAL) — /bridge/component-publish authenticates on PRESENCE of a bearer only (never
-    # verifies it), then publishes a bundle (filestore + app overlay + governed component_asset) under the host
-    # token. A Bearer with any value passes the gate: empty body -> 400 'empty bundle' (NOT 401). Probe sends an
-    # empty body so NOTHING is published.
-    s = _st("POST", "/bridge/component-publish?cid=ds:confprobe:app/x&version=0.0.1", None, {"Authorization": "Bearer x"})
-    xfail("FOUNDATIONS", "FND-8/DEBT-B41", "/bridge/component-publish verifies the bearer before publishing (not presence-only)",
-          s not in (401, 403), "POST /bridge/component-publish with 'Bearer x' + empty body -> %s (rule: verify token -> 401/403; today presence-only -> 400 then unauth publish)" % s)
-    # NET-12 / DEBT-B42 — /bridge/service-offerings returns the governed service directory MANAGE view (every
-    # status incl. suspended/retired) to an anonymous caller; should require a session.
+    # ── FIXED violations (slice-5 hotfixes): the anonymous gate must now REFUSE (expect PASS). ──
+    # FND-8 / DEBT-B41 (CRITICAL) — /bridge/component-publish now VERIFIES the bearer (presence-only was the bug):
+    # an invalid 'Bearer x' fails verification -> 401 before any body read/extract/publish.
+    s = _st("POST", "/bridge/component-publish?component=ds:confprobe:app/x&version=0.0.1", None, {"Authorization": "Bearer x"})
+    expect("FOUNDATIONS", "FND-8/DEBT-B41", "/bridge/component-publish refuses an unverified bearer (not presence-only)",
+           s in (401, 403), "POST /bridge/component-publish 'Bearer x' + empty body -> %s (rule: verify token/publisher role -> 401/403; DEBT-B41 fixed)" % s)
+    # NET-12 / DEBT-B42 — governed directory / governance-provenance bridges now require a session for anon.
     s = _st("POST", "/bridge/service-offerings", {})
-    xfail("NETWORK", "NET-12/DEBT-B42", "/bridge/service-offerings requires a session (governed directory, not public)",
-          s not in (401, 403), "anon POST /bridge/service-offerings -> %s (rule: members-only; today anon all-status manage view)" % s)
+    expect("NETWORK", "NET-12/DEBT-B42", "/bridge/service-offerings refuses anonymous (governed manage view)",
+           s in (401, 403), "anon POST /bridge/service-offerings -> %s (rule: members-only; DEBT-B42 fixed)" % s)
+    s = _st("POST", "/bridge/schemas", {})
+    expect("NETWORK", "NET-12/DEBT-B42", "/bridge/schemas refuses anonymous (catalog + pending change-requests)",
+           s in (401, 403), "anon POST /bridge/schemas -> %s (rule: authenticated; DEBT-B42 fixed)" % s)
+    s = _st("POST", "/bridge/schema-history", {"schema_id": "governance.role_assignment"})
+    expect("NETWORK", "NET-12/DEBT-B42", "/bridge/schema-history refuses anonymous (change-request provenance)",
+           s in (401, 403), "anon POST /bridge/schema-history -> %s (rule: authenticated; DEBT-B42 fixed)" % s)
 
     # ── SKIP_BUILD: reproducible-but-not-safe-to-automate / architectural / needs a seeded fixture ──
     def nb(spec, rule, name, why): record(spec, rule, name, "needs-build", "SKIP_BUILD", why)
-    nb("NETWORK","NET-12/DEBT-B42","/bridge/service-search applies audience scoping to anon (no bypass)",
-       "VIOLATED: anon -> my_roles empty -> `not my_roles` disables the audience filter (routes/service_routes.py:212), so an anon caller sees audience-restricted (officer-only) offerings. Reachable anon (POST /bridge/service-search -> 200) but a clean black-box assert needs a seeded officer-only offering to confirm it leaks. Internal test: seed an audience!=civic.resident offering; anon search must exclude it.")
-    nb("NETWORK","NET-12/DEBT-B42","/bridge/schemas + /bridge/schema-history are not anon (governance provenance)",
-       "VIOLATED: anon POST /bridge/schemas (app_host.py:3817) returns the full schema catalog + pending change-requests; /bridge/schema-history (:4298) returns every version merged with change-requests incl. who proposed/decided + justifications. Reachable anon (schemas->200). Proposed: require a session for the change-request-bearing views; public catalog read stays.")
+    nb("NETWORK","NET-12/DEBT-B42","/bridge/service-search shows anon only public-designated offerings (no audience bypass)",
+       "FIXED (DEBT-B42): routes/service_routes.py now shows an anon caller only `audience=='civic.resident'` offerings (was `or not my_roles`, which disabled the filter). A clean black-box assert that an officer-only offering is excluded needs a seeded audience!=civic.resident offering (none on the seed). Internal test: seed such an offering; anon search must exclude it.")
     nb("FOUNDATIONS","FND-8/DEBT-B48","anon bridge reads/proxies fail closed (schedules/runs/fetch/doc-ask/retrieve)",
        "PARTIAL/VIOLATED: GET /bridge/schedules|/bridge/runs (app_host.py:10117) disclose component schedules + run errors anon; POST /bridge/fetch (:8685) is an anon host-allowlisted egress proxy (SSRF-bounded, DEBT-B16); POST /bridge/doc-ask (:9150) drives the model gateway anon (cost); POST /bridge/retrieve (knowledge_routes.py:41) passes empty claims to an unscoped kernel read (sibling expert-chat fails closed :25). Reachable anon. Proposed: session-gate the non-public ones; keep the kernel P0 fail-closed as backstop.")
     nb("CLIENT","CLI-2/DEBT-B12","/embed consent is intersected with the client's registered scopes",
