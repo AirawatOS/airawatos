@@ -2,7 +2,7 @@
 
 **Generated** by `conformance/build_matrix.py` from `conformance/results/*.json` (written by `conformance/run.py --matrix`). **Do not hand-edit** — regenerate after a conformance run. This is the conformance-derived single source of truth for per-rule status; the specs reference it (ADR: STATUS-MATRIX-DESIGN.md).
 
-- **local-dev** — measured: modes external+internal, git ``, 2026-11-06T17:00:14Z
+- **local-dev** — measured: modes external+internal, git ``, 2026-11-06T17:19:27Z
 - **production** — *PROJECTED*: no production conformance run yet; not asserted (stand up per docs/operator/FRESH-INSTALL-TEST.md §Step 3, then run the suite with AOS_ENV=production).
 
 **Derived status:** HELD (all cited cases PASS) · PARTIAL (PASS + known-violation XFAIL) · VIOLATED (only XFAIL — tracked as debt) · PLANNED(needs-build) (only SKIP_BUILD, not black-box reachable) · UNVERIFIED(creds) (only SKIP_CREDS — fix the fixture) · REVIEW (XPASS — spec lags code) · REGRESSION (a FAIL — contradicts spec) · NO TEST (no case cites the rule yet).
@@ -20,7 +20,7 @@
 | `FND-7` | PLANNED(needs-build) | projected | kernel authorizes with Network down |
 | `FND-8` | PARTIAL | projected | /bridge/component-publish refuses an unverified bearer (not presence-only); account-hold (admin-disable) check fails CLOSED on registry error; anon bridge reads |
 | `FND-9` | HELD | projected | account-write gate refuses a wrong internal token (fail closed) [DEBT-B29]; no passwordless full-authority mint (residual; write-gate half fixed by DEBT-B29); r |
-| `FND-10` | PARTIAL | projected | app-host -> identity/gateway uses an audience-bound minted token, not a static shared secret; automation /events accepts without a service token (abuse); filest |
+| `FND-10` | PARTIAL | projected | app-host -> identity/gateway uses an audience-bound minted token, not a static shared secret; automation /events refuses an anonymous call (abuse); filestore bl |
 | `FND-11` | HELD | projected | SoD for floor roles enforces approver != proposer; component.publisher refused at kernel admin (registry.usage); dev-sandbox refused at kernel admin (registry.u |
 | `FND-12` | PLANNED(needs-build) | projected | every authz decision audited (allow+deny); failed-auth logged |
 | `FND-13` | NO TEST | projected | — |
@@ -132,7 +132,7 @@
 | `PLT-11` | NO TEST | projected | — |
 | `PLT-12` | NO TEST | projected | — |
 | `PLT-13` | NO TEST | projected | — |
-| `PLT-14` | NO TEST | projected | — |
+| `PLT-14` | PLANNED(needs-build) | projected | docrender shared renderer does not neutralise active content (latent stored XSS) |
 | `PLT-15` | PLANNED(needs-build) | projected | public front door is apply/verify/status only, rate-limited + bot-protected + route-separated |
 | `PLT-16` | NO TEST | projected | — |
 | `PLT-17` | NO TEST | projected | — |
@@ -230,6 +230,6 @@
 
 | environment | HELD | PARTIAL | VIOLATED | PLANNED(needs-build) | UNVERIFIED(creds) | REVIEW | REGRESSION | NO TEST | projected |
 |---|---|---|---|---|---|---|---|---|---|
-| local-dev | 16 | 4 | 4 | 74 | 0 | 0 | 0 | 61 | 0 |
+| local-dev | 16 | 4 | 4 | 75 | 0 | 0 | 0 | 60 | 0 |
 | production | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 159 |
 

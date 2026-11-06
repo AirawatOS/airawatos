@@ -576,7 +576,19 @@ def run_internal_cases():
             expect("FOUNDATIONS","FND-10/DEBT-B5","scheduler /run refuses a wrong-audience token (abuse)", _stw == 403,
                    "svc:automation token -> %s (expect 403 wrong audience)" % _stw)
     tokenless_accepted("FOUNDATIONS","FND-10/DEBT-B5","model-gateway /complete accepts without a service token (abuse)","POST", T["model-gateway"]+"/complete", {})
-    tokenless_accepted("FOUNDATIONS","FND-10/DEBT-B5","automation /events accepts without a service token (abuse)","POST", T["automation"]+"/events", {})
+    # ADR-0124 item 1 (service armed) — automation /events now REQUIRES a svc:automation|platform token.
+    # Promoted from the tokenless-abuse probe to a real assertion (anon + wrong-audience refused), mirroring
+    # scheduler (slice-5 review F5: the gate is ARMED in local-dev via AUTOMATION_EVENTS_REQUIRE_TOKEN but was
+    # still only probed shadow-style, so its armed state was never proven by a PASS).
+    _a_anon, _a_b, _ = _req("POST", T["automation"]+"/events", body={})
+    if _a_anon == 0:
+        record("FOUNDATIONS","FND-10/DEBT-B5","automation /events requires a service token (abuse)","expected-fail","SKIP_BUILD","automation unreachable (%s)"%_a_b[:40])
+    else:
+        expect("FOUNDATIONS","FND-10/DEBT-B5","automation /events refuses an anonymous call (abuse)", _a_anon in (401,403),
+               "anon /events -> %s (expect 401/403)" % _a_anon)
+        # Wrong-audience rejection is already unit-proven by test_automation_ingress.py (svc:app-host refused);
+        # not repeated here because the scheduler principal cannot mint a wrong-but-mintable audience for
+        # automation under the identity audience allow-list (would only add a SKIP_CREDS).
     # FND-9 / debt DEBT-B4 — fail-open internal-token gates
     tokenless_accepted("FOUNDATIONS","FND-9/DEBT-B4","secrets /materialize accepts w/o internal token (abuse)","POST", T["secrets"]+"/materialize", {})
     tokenless_accepted("FOUNDATIONS","FND-9/DEBT-B4","secrets /fetch accepts w/o internal token (abuse)","POST", T["secrets"]+"/fetch", {})
@@ -595,6 +607,28 @@ def run_internal_cases():
     st, _, _ = _req("POST", T["kernel"]+"/v1/registry/resolve", {"filter": {"schema": "network.network"}})
     xfail("REGISTRY","REG-6/FND-8","anonymous kernel read denied (internal) [debt DEBT-A1]", st == 200,
           "kernel:8080 anon read -> %s (rule 401; live-violation 200)" % st)
+
+def run_internal_services_review_cases():
+    """Consolidation phase-5 INTERNAL SERVICES + GATEWAYS review (slice 5). The slice's substantive risks all
+    map to EXISTING debt already encoded in run_internal_cases() (unauth/shadow ingress DEBT-B5/A72, shared
+    literals DEBT-B4/A71/A37, authority-from-claim DEBT-B1/B3). These two cases cover the slice's only NEW
+    findings; both are code-audit facts not black-box-reachable on a seeded healthy local-dev stack, so they
+    are recorded SKIP_BUILD with the proposed unit test (per the review method)."""
+    # DEBT-B49 (FND-10) — filestore has NO tenant segment in its content-addressed path, so even once
+    # FILESTORE_REQUIRE_TOKEN flips on, any allow-listed caller can GET any tenant's blob by digest. Not
+    # black-box-reproducible today (gate is shadow; once gated it needs a known cross-tenant digest).
+    record("FOUNDATIONS","FND-10/DEBT-B49","filestore blob path carries no owning-tenant scope (cross-tenant read once gated)",
+           "expected-fail","SKIP_BUILD",
+           "filestore.py:42-44 _path=DATA/<hex[:2]>/<hex>, no tenant; gate (filestore.py:63-70) checks aud+caller, never owner tenant. "
+           "Proposed unit test: seed two tenants' blobs, assert tenant-A token cannot GET tenant-B digest once the gate is armed.")
+    # DEBT-B50 (content safety) — docrender.md_to_html strips <script> but passes SVG event handlers
+    # (onload=) and javascript: link schemes through; safe on /bridge/component-docs only because that route
+    # sets script-src 'none', but /bridge/doc-render returns the raw fragment as JSON and build_portal renders
+    # full pages from the same lib. Verified by direct md_to_html probe (see INTERNAL-SERVICES-REVIEW.md).
+    record("CLIENT","PLT-14/DEBT-B50","docrender shared renderer does not neutralise active content (latent stored XSS)",
+           "expected-fail","SKIP_BUILD",
+           "docrender.py:22 (link href, no scheme allow-list) + :53-57 (svg fence strips <script> only, leaves onload=/<foreignObject>). "
+           "Proposed unit test: md_to_html('[x](javascript:...)') and an svg-onload fence, assert the js scheme + event handler are stripped.")
 
 def run_kernel_review_cases():
     """Consolidation phase-5 Kernel review (slice 1): cases for Kernel-relevant rules that were NO TEST in
@@ -967,7 +1001,7 @@ def main():
         # preflight on kernel
         st, _, _ = _req("GET", INTERNAL["kernel"]+"/healthz")
         if st != 200: print("PREFLIGHT: kernel:8080/healthz -> %s" % st)
-        run_internal_cases(); run_kernel_review_cases(); run_identity_review_cases(); run_network_review_cases(); run_apphost_review_cases()
+        run_internal_cases(); run_kernel_review_cases(); run_identity_review_cases(); run_network_review_cases(); run_apphost_review_cases(); run_internal_services_review_cases()
     else:
         print("target %s (realm %s); credentials: %s" % (BASE, REALM, "supplied (%d)"%len(CREDS) if CREDS else "none"))
         st, _, _ = http("GET", "/healthz")
