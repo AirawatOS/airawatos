@@ -224,3 +224,49 @@ task numbers are deliberately left out — those belong in the specs' references
   problems are marked "expected to fail" and flip when fixed.
 - **Debt register** — the list of temporary workarounds and known rule violations, each with the condition
   for removing it.
+
+---
+
+## Plain words used in the primer
+
+The [primer](../PRIMER.md) uses everyday words for the governed concepts. The mapping:
+
+| Plain word (primer) | Governed term | Where |
+|---|---|---|
+| shared register | **Kernel** (the governed registry) | REGISTRY |
+| login pass | **token** (identity only: iss/sub/tenant/aud/exp) | FOUNDATIONS F1 |
+| data-sharing permission | **capability grant** (`governance.capability_grant`) | FOUNDATIONS §3; NETWORK N9 |
+| authorised officer | **role** (a `governance.role_assignment`) | FOUNDATIONS §3; ADR-0122 |
+| your permission | **consent** (`governance.consent`, subject-granted) | FOUNDATIONS F13; ADR-0125 |
+| reasons on file | **decision record** (`governance.decision`) | DECISION |
+| tamper-proof log | **audit chain** (hash-chained audit) | FOUNDATIONS F12 |
+| your agency's space | **tenant** (an owning organisation) | FOUNDATIONS §1 |
+| shared space | **Network** (a federation/standards body) | NETWORK; FEDERATION |
+| document locker | **wallet** (holds verifiable credentials) | ACCOUNT |
+| account address | **handle** (a resolvable name for an account) | ACCOUNT; CLIENT |
+
+## Operator vs governing tenant (Network host)
+
+- **Operator** — whoever **runs the servers** of an installation (the host machine, Docker, Vault, the OS,
+  backups, the perimeter). The operator holds **no governance authority**: running the infrastructure confers
+  nothing over any tenant's data or any Network's decisions (FOUNDATIONS F2; PLATFORM "who does what"). Analogy:
+  the web-hosting company.
+- **Governing tenant / Network host** — the **tenant that created a Network** (held `network.creator`) and
+  **governs** it: its registry, directory and grant/decision records for that Network live on its installation,
+  and its `network.admin` runs the Network (ADR-0128, FEDERATION FED1/FED2). The host *governs the Network*; it
+  does not necessarily *run the servers* (that is the operator). Analogy: the organisation that registered the
+  domain and sets its rules. **These are distinct roles and may be different parties.**
+
+## Federation terms
+
+- **Participant registration** — the act of joining a Network by recording, in the **hosting** Network's
+  registry, a participant ID + role(s) + public keys + conformance status (FEDERATION FED3; NETWORK N6). It is
+  belonging, not capability, and the Network never creates the tenant/login/system behind it.
+- **Participant ID** — the recorded identity of a member within a Network (tenant-free; ADR-0116). Service
+  accounts that act for the member live under this ID (PARTICIPANT PP1).
+- **Member modes** — the three ways a participant is realised (ADR-0128): (1) a tenant on the host's
+  installation; (2) a tenant on another AirawatOS installation; (3) an own system via the Participant SDK.
+- **Participant node** — a running system that acts as a participant in one or more Networks (a tenant's
+  services, or an own system). Every installation runs participant nodes and may host Networks (PLATFORM).
+- **Participant SDK** — the library an own system (mode 3) uses to implement the specs and act as a registered
+  participant without being a tenant on an AirawatOS installation (ADR-0117; PARTICIPANT).

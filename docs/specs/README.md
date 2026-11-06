@@ -1,5 +1,7 @@
 # AirawatOS v0.1 specs — index
 
+*New here? Start with [../PRIMER.md](../PRIMER.md); engineers continue with [../AIRAWAT-FOR-ENGINEERS.md](../AIRAWAT-FOR-ENGINEERS.md) and [GLOSSARY.md](GLOSSARY.md).*
+
 The twelve **v0.1 specifications** that define AirawatOS: what the platform guarantees, stated as numbered
 rules with a per-rule **status** (IN PLACE / PARTIAL / VIOLATED / PLANNED / TO CONFIRM) and debt references to
 `../consolidation/DEBT-REGISTER.md`. The specs are the contract; the code is measured against them, and the
