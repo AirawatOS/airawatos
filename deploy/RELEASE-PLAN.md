@@ -1,7 +1,10 @@
 # Production release plan — ADR-0124 (dedicated service identities) + ADR-0122 (platform.authority) + #282 (password hygiene)
 
 **Status: PLAN ONLY. Nothing here has been applied to production.** EC2 (`airos.airawat.org`,
-13.205.13.220) is the frozen demo box; it was touched only by read-only audits.
+13.205.13.220) is a **development environment** and is **out of scope** — consolidation reviews do not probe
+or check it (see `docs/reviews/REVIEW-METHOD.md`), and the **first production deployment will be a fresh
+install** (not an in-place migration of this box). The audit findings and the interim EC2 containment recorded
+below are retained for history, but EC2 state is no longer a gating input to the reviews.
 
 This plan rolls out everything hardened since the **current EC2 images**:
 
