@@ -541,12 +541,16 @@ def run_internal_cases():
     if _stfa == 0:
         record("FOUNDATIONS","FND-10/DEBT-B5","filestore refuses an anonymous call (abuse)","expected-fail","SKIP_BUILD","filestore unreachable")
     else:
-        xfail("FOUNDATIONS","FND-10/DEBT-B5","filestore refuses an anonymous call (abuse)", _stfa not in (401,403),
-              "anon /files -> %s (FILESTORE_REQUIRE_TOKEN shadow until all readers wired — debt DEBT-A72)" % _stfa)
-    # ADR-0124 slice-1c — notify now has a svc:notify ingress gate (shadow in local-dev until decision/workflow
-    # have service principals). Tokenless is accepted in shadow (recorded); but a WRONG-AUDIENCE token (addressed
-    # to another door) is refused even in shadow — assertable now ("token for another door → refused").
-    tokenless_accepted("FOUNDATIONS","FND-10/DEBT-B5","notify /notify accepts without a service token (shadow; NOTIFY_SHADOW)","POST", T["notify"]+"/notify", {})
+        expect("FOUNDATIONS","FND-10/DEBT-B5","filestore refuses an anonymous call (abuse)", _stfa in (401,403),
+               "anon /files -> %s (ENFORCE — slice-1c-ii: app-host/kernel/launcher all mint svc:filestore; closes A72)" % _stfa)
+    # ADR-0124 slice-1c-ii — notify ENFORCES a svc:notify gate (decision + workflow mint it). Anonymous refused;
+    # a WRONG-AUDIENCE token (addressed to another door) refused.
+    _n_anon, _n_b, _ = _req("POST", T["notify"]+"/notify", body={"actor":"x","title":"probe"})
+    if _n_anon == 0:
+        record("FOUNDATIONS","FND-10/DEBT-B5","notify /notify refuses an anonymous call (abuse)","expected-fail","SKIP_BUILD","notify unreachable")
+    else:
+        expect("FOUNDATIONS","FND-10/DEBT-B5","notify /notify refuses an anonymous call (abuse)", _n_anon in (401,403),
+               "anon /notify -> %s (ENFORCE — slice-1c-ii)" % _n_anon)
     if _fs_wrong:
         _stnw, _bnw, _ = _req("POST", T["notify"]+"/notify", body={"actor":"x","title":"probe"}, token=_fs_wrong)
         expect("FOUNDATIONS","FND-10/DEBT-B5","notify refuses a wrong-audience token (another door)", _stnw == 403,
@@ -568,10 +572,14 @@ def run_internal_cases():
             _stw, _bw, _ = _req("POST", T["scheduler"]+"/run", body={"component":"__conformance_probe__","tenant":"kmc"}, token=_wrong)
             expect("FOUNDATIONS","FND-10/DEBT-B5","scheduler /run refuses a wrong-audience token (abuse)", _stw == 403,
                    "svc:automation token -> %s (expect 403 wrong audience)" % _stw)
-    # ADR-0124 slice-1c — model-gateway now has a svc:model-gateway ingress gate on /complete,/embed,/transcribe
-    # (shadow in local-dev until the KERNEL — the /complete caller — has a service principal). Tokenless accepted
-    # in shadow (recorded); a WRONG-AUDIENCE token is refused even in shadow — assertable now.
-    tokenless_accepted("FOUNDATIONS","FND-10/DEBT-B5","model-gateway /complete accepts without a service token (shadow; MODELGW_SHADOW)","POST", T["model-gateway"]+"/complete", {})
+    # ADR-0124 slice-1c-ii — model-gateway ENFORCES a svc:model-gateway gate on /complete,/embed,/transcribe
+    # (kernel mints for /complete, app-host for the rest). Anonymous refused; WRONG-AUDIENCE refused.
+    _m_anon, _m_b, _ = _req("POST", T["model-gateway"]+"/complete", body={"messages":[{"role":"user","content":"x"}]})
+    if _m_anon == 0:
+        record("FOUNDATIONS","FND-10/DEBT-B5","model-gateway /complete refuses an anonymous call (abuse)","expected-fail","SKIP_BUILD","model-gateway unreachable")
+    else:
+        expect("FOUNDATIONS","FND-10/DEBT-B5","model-gateway /complete refuses an anonymous call (abuse)", _m_anon in (401,403),
+               "anon /complete -> %s (ENFORCE — slice-1c-ii)" % _m_anon)
     if _fs_wrong:
         _stmw, _bmw, _ = _req("POST", T["model-gateway"]+"/complete", body={"messages":[{"role":"user","content":"x"}]}, token=_fs_wrong)
         expect("FOUNDATIONS","FND-10/DEBT-B5","model-gateway refuses a wrong-audience token (another door)", _stmw == 403,

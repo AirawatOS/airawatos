@@ -29,8 +29,8 @@ DECLARED = {
     "airawat-ld-filestore":     {"aos-svc"},
     "airawat-ld-model-gateway": {"aos-svc", "aos-data-secrets"},
     "airawat-ld-notify":        {"aos-svc"},
-    "airawat-ld-workflow":      {"aos-svc"},
-    "airawat-ld-decision":      {"aos-svc"},
+    "airawat-ld-workflow":      {"aos-svc", "aos-data-secrets"},   # slice-1c-ii: mints svc:notify (reads Vault pw)
+    "airawat-ld-decision":      {"aos-svc", "aos-data-secrets"},   # slice-1c-ii: mints svc:notify (reads Vault pw)
     "airawat-ld-automation":    {"aos-svc", "aos-data-secrets"},
     "airawat-ld-event-relay":   {"aos-svc", "aos-data-secrets"},
     "airawat-ld-scheduler":     {"aos-svc", "aos-data-secrets"},
@@ -96,8 +96,10 @@ def main():
                   not leak, "facts restricted to the 3 DB-role holders"
                   if not leak else "postgres ALSO reachable by: " + ", ".join(leak))
 
-    pure_compute = ["airawat-ld-notify", "airawat-ld-workflow", "airawat-ld-decision",
-                    "airawat-ld-filestore", "airawat-ld-nginx"]
+    # slice-1c-ii: decision + workflow now MINT svc:notify (svc_token reads a Vault password), so they are
+    # Vault-connected like the daemons — no longer pure-compute. notify stays pure-compute (it VERIFIES the
+    # token via JWKS/identity, never Vault). filestore + nginx remain pure-compute / edge.
+    pure_compute = ["airawat-ld-notify", "airawat-ld-filestore", "airawat-ld-nginx"]
     vleak = [c for c in pure_compute if shares_net(c, "airawat-ld-vault", actual)]
     ok_all &= rec("ARC-7", "Vault is not reachable by pure-compute services or the edge",
                   not vleak, "vault closed to pure-compute + edge"

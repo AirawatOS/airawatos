@@ -24,6 +24,10 @@ TIGHT = {
     "automation":  ("secret/data/localdev-operator/scheduler/password",    "secret/data/localdev/kernel-app/password"),
     "event-relay": ("secret/data/localdev-operator/scheduler/password",    "secret/data/localdev/kernel-app/password"),
     "app-host":    ("secret/data/localdev-operator/app-host/password",     "secret/data/localdev/kernel-app/password"),
+    # slice-1c-ii: decision + workflow now hold their OWN service-identity to mint svc:notify (svc-decision /
+    # svc-workflow policies grant only their own password path).
+    "decision":    ("secret/data/localdev-operator/decision/password",     "secret/data/localdev/kernel-app/password"),
+    "workflow":    ("secret/data/localdev-operator/workflow/password",     "secret/data/localdev/kernel-app/password"),
 }
 # broker service: svc-secrets is broad on secret/data/* BY DESIGN (it IS the KV broker; per-(tenant,component)
 # authz is its own gate — the decision-function follow-up). Assert scoped non-root token + can read a sample.
@@ -36,8 +40,9 @@ BROAD = {
 NARROWED = {
     "model-gateway": ("secret/data/localdev/kernel-app/password", "secret/data/localdev-operator/scheduler"),
 }
-# services with no Vault door — must carry no Vault token at all
-NOVAULT = ["notify", "workflow", "decision", "filestore"]
+# services with no Vault door — must carry no Vault token at all (slice-1c-ii: decision + workflow moved to
+# TIGHT — they now mint svc:notify; notify VERIFIES tokens via JWKS, not Vault, so it stays here).
+NOVAULT = ["notify", "filestore"]
 
 RESULTS = []
 def rec(rule, name, ok, detail, kind="testable"):

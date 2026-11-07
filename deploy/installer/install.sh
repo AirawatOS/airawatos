@@ -262,6 +262,52 @@ PY
 fi
 echo "  · govern base domains/roles/schemas"
 XNET python3 /app/seed_base.py
+
+echo "── Phase 1c · service principals (app-host/kernel/decision/workflow/launcher) — ADR-0124 slice-1c-ii ──"
+# MUST run BEFORE base-app delivery: the filestore / model-gateway / notify gates ENFORCE, so every edge caller
+# needs its Vault-backed audience-bound credential in place when delivery first writes/reads the filestore.
+# Each is role [] (no platform reach — authority rides the run/dev token), pw in Vault (never compose), with a
+# recorded audience allow-list so identity /login honours the aud request (ADR-0124). Idempotent (reuse pw).
+XNET env II="airawat-ld-identity-internal" TENANT="${INSTANCE}-operator" python3 - <<'PY'
+import os, json, secrets, urllib.request, urllib.error
+IDN="http://identity:8093"; VADDR=os.environ.get("VAULT_ADDR","http://vault:8200"); VTOK=os.environ["VAULT_TOKEN"]
+II=os.environ["II"]; TENANT=os.environ["TENANT"]
+PRINCIPALS = {
+    "app-host": ["svc:scheduler", "svc:filestore", "svc:model-gateway"],   # scheduler /run + filestore + model-gateway
+    "kernel":   ["svc:model-gateway", "svc:filestore"],                    # broker /complete forward + file put/get
+    "decision": ["svc:notify"],
+    "workflow": ["svc:notify"],
+    "launcher": ["svc:filestore"],                                         # in-process in scheduler; component source fetch
+}
+def _req(url, data=None, headers=None, method="GET"):
+    r=urllib.request.Request(url, data=(json.dumps(data).encode() if data is not None else None),
+                             headers=headers or {}, method=method)
+    try: return urllib.request.urlopen(r, timeout=10).read()
+    except urllib.error.HTTPError as e: return e
+for USER, AUDS in PRINCIPALS.items():
+    VPATH=f"secret/data/{TENANT}/{USER}/password"
+    b=_req(f"{VADDR}/v1/{VPATH}", headers={"X-Vault-Token":VTOK})
+    pw = None if isinstance(b, urllib.error.HTTPError) else (((json.loads(b) or {}).get("data") or {}).get("data") or {}).get("password")
+    if pw:
+        print(f"[phase1c] {USER}: password already in Vault at {VPATH} — reusing (idempotent)")
+    else:
+        pw = secrets.token_urlsafe(18)
+        w=_req(f"{VADDR}/v1/{VPATH}", data={"data":{"password":pw}},
+               headers={"X-Vault-Token":VTOK,"Content-Type":"application/json"}, method="POST")
+        print(f"[phase1c] {USER}: stored password in Vault at {VPATH}" if not isinstance(w, urllib.error.HTTPError)
+              else f"[phase1c] {USER}: VAULT WRITE FAILED {w.code}")
+    _req(f"{IDN}/users", data={"username":USER,"tenant":TENANT,"roles":[],"audiences":AUDS},
+         headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
+    s=_req(f"{IDN}/set-password", data={"username":USER,"tenant":TENANT,"password":pw,"must_reset":False,"only_if_unset":True},
+           headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
+    print(f"[phase1c] {USER} ready: tenant={TENANT} roles=[] audiences={AUDS}",
+          "OK" if not isinstance(s, urllib.error.HTTPError) else f"set-pw {s.code}")
+PY
+# app-host must be RECREATED so its running process picks up the credential before it delivers to the filestore.
+COMPOSE up -d --force-recreate app-host >/dev/null 2>&1 || COMPOSE up -d app-host
+KHEALTH 2>/dev/null || true
+for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/healthz >/dev/null 2>&1 && break; sleep 1; done
+
 echo "  · stage base-app source into app-host + deliver + list + shelf"
 BASE_APPS="admin settings file-explorer console inbox personal-assistant storefront network-admin data"
 XAPP sh -lc 'mkdir -p /app/_seed'
@@ -592,80 +638,6 @@ _req(f"{IDN}/set-password", data={"username":"outsider","tenant":TENANT,"passwor
 print(f"[phase9b] outsider ready (non-admin, tenant={TENANT})")
 PY
 fi
-
-echo "── Phase 10 · app-host scheduler-caller principal (ADR-0124 item 1) ─────────────────────────────"
-# app-host calls the scheduler's /run,/reload as a DEDICATED least-privilege principal: role [] (NO platform
-# reach of its own — the run's authority rides the run-token/dev-token in the body), recorded audience
-# svc:scheduler so it may mint a token the scheduler's ingress accepts. Password in Vault, minted on demand;
-# NO passwordless login. Idempotent: reuse an existing Vault password, don't rotate.
-XNET env II="airawat-ld-identity-internal" TENANT="${INSTANCE}-operator" python3 - <<'PY'
-import os, json, secrets, urllib.request, urllib.error
-IDN="http://identity:8093"; VADDR=os.environ.get("VAULT_ADDR","http://vault:8200"); VTOK=os.environ["VAULT_TOKEN"]
-II=os.environ["II"]; TENANT=os.environ["TENANT"]; USER="app-host"; AUDS=["svc:scheduler","svc:filestore","svc:model-gateway"]   # slice-1c-ii: +svc:model-gateway (transcribe/embed/complete/provider-key)
-def _req(url, data=None, headers=None, method="GET"):
-    r=urllib.request.Request(url, data=(json.dumps(data).encode() if data is not None else None),
-                             headers=headers or {}, method=method)
-    try: return urllib.request.urlopen(r, timeout=10).read()
-    except urllib.error.HTTPError as e: return e
-VPATH=f"secret/data/{TENANT}/{USER}/password"
-b=_req(f"{VADDR}/v1/{VPATH}", headers={"X-Vault-Token":VTOK})
-pw = None if isinstance(b, urllib.error.HTTPError) else (((json.loads(b) or {}).get("data") or {}).get("data") or {}).get("password")
-if pw:
-    print(f"[phase10] app-host: password already in Vault at {VPATH} — reusing (idempotent, no write)")
-else:
-    pw = secrets.token_urlsafe(18)
-    w=_req(f"{VADDR}/v1/{VPATH}", data={"data":{"password":pw}},
-           headers={"X-Vault-Token":VTOK,"Content-Type":"application/json"}, method="POST")
-    print(f"[phase10] app-host: stored password in Vault at {VPATH}" if not isinstance(w, urllib.error.HTTPError)
-          else f"[phase10] app-host: VAULT WRITE FAILED {w.code}")
-# role [] + the svc:scheduler audience allow-list (so /login honours an aud request for it, ADR-0124)
-u=_req(f"{IDN}/users", data={"username":USER,"tenant":TENANT,"roles":[],"audiences":AUDS},
-       headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
-s=_req(f"{IDN}/set-password", data={"username":USER,"tenant":TENANT,"password":pw,"must_reset":False,"only_if_unset":True},
-       headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
-print(f"[phase10] app-host scheduler-caller ready: tenant={TENANT} roles=[] audiences={AUDS}",
-      "OK" if not isinstance(s, urllib.error.HTTPError) else f"set-pw {s.code}")
-PY
-
-echo "── Phase 10b · service principals for kernel / decision / workflow / launcher (ADR-0124 slice-1c-ii) ──"
-# GATES ON closure: give the remaining edge callers their OWN least-privilege service principals (role [],
-# Vault-backed password, recorded audience allow-list) so they mint audience-bound tokens for their declared
-# edges — NO passwordless login. kernel → svc:model-gateway (/complete) + svc:filestore (broker files);
-# decision/workflow → svc:notify; launcher (in-process in scheduler) → svc:filestore. Idempotent (reuse pw).
-XNET env II="airawat-ld-identity-internal" TENANT="${INSTANCE}-operator" python3 - <<'PY'
-import os, json, secrets, urllib.request, urllib.error
-IDN="http://identity:8093"; VADDR=os.environ.get("VAULT_ADDR","http://vault:8200"); VTOK=os.environ["VAULT_TOKEN"]
-II=os.environ["II"]; TENANT=os.environ["TENANT"]
-PRINCIPALS = {
-    "kernel":   ["svc:model-gateway", "svc:filestore"],
-    "decision": ["svc:notify"],
-    "workflow": ["svc:notify"],
-    "launcher": ["svc:filestore"],
-}
-def _req(url, data=None, headers=None, method="GET"):
-    r=urllib.request.Request(url, data=(json.dumps(data).encode() if data is not None else None),
-                             headers=headers or {}, method=method)
-    try: return urllib.request.urlopen(r, timeout=10).read()
-    except urllib.error.HTTPError as e: return e
-for USER, AUDS in PRINCIPALS.items():
-    VPATH=f"secret/data/{TENANT}/{USER}/password"
-    b=_req(f"{VADDR}/v1/{VPATH}", headers={"X-Vault-Token":VTOK})
-    pw = None if isinstance(b, urllib.error.HTTPError) else (((json.loads(b) or {}).get("data") or {}).get("data") or {}).get("password")
-    if pw:
-        print(f"[phase10b] {USER}: password already in Vault at {VPATH} — reusing (idempotent)")
-    else:
-        pw = secrets.token_urlsafe(18)
-        w=_req(f"{VADDR}/v1/{VPATH}", data={"data":{"password":pw}},
-               headers={"X-Vault-Token":VTOK,"Content-Type":"application/json"}, method="POST")
-        print(f"[phase10b] {USER}: stored password in Vault at {VPATH}" if not isinstance(w, urllib.error.HTTPError)
-              else f"[phase10b] {USER}: VAULT WRITE FAILED {w.code}")
-    _req(f"{IDN}/users", data={"username":USER,"tenant":TENANT,"roles":[],"audiences":AUDS},
-         headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
-    s=_req(f"{IDN}/set-password", data={"username":USER,"tenant":TENANT,"password":pw,"must_reset":False,"only_if_unset":True},
-           headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
-    print(f"[phase10b] {USER} ready: tenant={TENANT} roles=[] audiences={AUDS}",
-          "OK" if not isinstance(s, urllib.error.HTTPError) else f"set-pw {s.code}")
-PY
 
 echo "── Phase 11 · identity_lockout least-privilege DB role (ADR-0121 hardening) ─────────────────────"
 # Provisioned by the split-role step (_split_roles.py, Phase 11b / bring-up): single source of truth so
