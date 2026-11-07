@@ -21,7 +21,7 @@ x-devenv: &devenv
   AIRAWAT_ALLOW_PASSWORDLESS: "1"     # reference IdP passwordless dev auth (gated: prod-guard blocks under production)
 
 x-ref: &ref                          # one source-built reference image; many services (per-service command)
-  image: manishsv/airawatos-reference:dev-hard18   # + 1c-iv-c (identity svc:identity) + step 2 (runtime-manager; scheduler delegates; clean-env launcher) + step 3 (scheduler-owned pipelines)
+  image: manishsv/airawatos-reference:dev-hard19   # + 1c-iv-c (svc:identity) + step 2 (runtime-manager) + step 3 (scheduler-owned pipelines) + step 4 (gateway secret in Vault)
   restart: unless-stopped
   entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]     # production guard (effective-settings check)
   volumes: [ ./prod-guard.sh:/local-dev/prod-guard.sh:ro ]

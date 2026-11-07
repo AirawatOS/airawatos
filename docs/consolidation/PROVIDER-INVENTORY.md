@@ -85,10 +85,10 @@ Shorthand: **N** = north / caller-facing interface, **S** = south / provider-fac
 - **Status:** working (adapter-gated).
 
 ### 6. Chat messaging — SMS / USSD (inbound) — `app-host`
-- **Owner / file:** `app_host.py` `_bridge_sms_intake` (`/bridge/sms-intake`, `:3044`); `SMS_GATEWAY_TOKEN` (`:5705`).
-- **Provider:** an external SMS/USSD gateway POSTs inbound messages; shared-secret header (`X-Gateway-Token == SMS_GATEWAY_TOKEN`, fail-closed).
+- **Owner / file:** `app_host.py` `_bridge_sms_intake` / `_bridge_message_intake` (`/bridge/sms-intake`, `/bridge/message-intake`); gate `_gateway_denied`.
+- **Provider:** an external SMS/USSD gateway POSTs inbound messages; `X-Gateway-Token` checked (constant-time) against the Vault secret, fail-closed.
 - **Direction:** inbound.
-- **Credentials:** `SMS_GATEWAY_TOKEN` env — a **shared static literal**, per-installation (A71-class).
+- **Credentials:** Vault `secret/<op>/sms-gateway/token` (field `token`), operator-set — one per installation (slice-1c-iv step 4; the env var is no longer read). **Target (DEBT-B64, Layer 6 with B46):** per-provider, per-tenant signed webhooks.
 - **Who chooses:** operator (configures the gateway + token).
 - **Pre-call checks:** shared-secret match only.
 - **Status:** partial / seam (intake wired; outbound SMS send is not a built provider).

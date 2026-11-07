@@ -166,7 +166,7 @@ edge crosses a declared door — ARC §c) is the capstone net that proves nets 1
   authority from token roles / authentication-alone), **DEBT-B10** (automation dedup + scheduler receipts
   in-memory → double-fire on restart), **DEBT-B49** (filestore blob path has no owning-tenant scope even once
   gated), **DEBT-A40** (notify unattributed registry write), **DEBT-A65** (dual-audience migration acceptance),
-  **DEBT-A11/B16** (connector/secrets `/fetch` SSRF). Confirmed fixed: B4/A36 fail-closed-when-unset; B6/B28/B29
+  **DEBT-A11/B16** (connector/secrets `/fetch` SSRF). **Conversation-channel gateway (with DEBT-B46):** **DEBT-B64** — inbound SMS/USSD/message intake authenticated by one shared secret (interim: moved to Vault, slice-1c-iv step 4); **target:** per-provider, per-tenant signed webhooks, tenant bound by provider registration, behind the B46 rate-limited front door. Confirmed fixed: B4/A36 fail-closed-when-unset; B6/B28/B29
   identity directory; automation `/events` promoted to a PASS (slice-5).
 - **Missing tests:** anon→refusal on model-gateway/notify once gated (XFAIL until armed); cross-tenant filestore
   read once gated (B49); decide-authorization from a recorded grant (B3); workflow /instantiate authority (B1);

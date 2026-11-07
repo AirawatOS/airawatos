@@ -97,6 +97,15 @@ def run_no_cred_cases():
     expect("NETWORK", "NET-3", "anonymous governance role-write denied (abuse)", st in (401, 403),
            "anon network governance -> %s" % st)
 
+    # slice-1c-iv step 4 (DEBT-B64) — the inbound channel gateway secret moved to Vault: an anonymous intake and one
+    # presenting the RETIRED demo literal that older images baked as ENV are both refused at the edge.
+    for _gp in ("/bridge/sms-intake", "/bridge/message-intake"):
+        _gb = {"tenant": "localdev", "from": "+0000", "text": "conformance probe"}
+        st_a, _, _ = http("POST", _gp, _gb)
+        st_l, _, _ = http("POST", _gp, _gb, headers={"X-Gateway-Token": "sms-gw-" + "demo-2026"})
+        expect("PLATFORM", "PLT-15/DEBT-B64", "channel gateway %s refuses anon + the retired baked literal (abuse)" % _gp,
+               st_a == 403 and st_l == 403, "anon -> %s, retired literal -> %s (want 403/403)" % (st_a, st_l))
+
     st, _, _ = http("POST", "/login", {"realm": REALM, "username": "admin", "password": "admin"})
     expect("ACCOUNT", "DEBT-A4", "handle/username is not a credential (abuse)", st in (401, 403),
            "login admin/pw=admin -> %s" % st)
