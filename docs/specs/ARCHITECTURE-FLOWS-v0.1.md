@@ -313,3 +313,14 @@ service principal (`secret/data/<inst>/kernel/password` + identity user, install
 attaches `Authorization: Bearer <svc:model-gateway|svc:filestore>` on the kernel's two egress calls
 (`app.py` `/v1/complete` forward + the filestore read/write helpers) and the launcher's filestore reads. This is
 the remaining half of DEBT-A72.
+
+> **Resolved (slice-1c-ii) ✅:** the kernel-edge gates now **ENFORCE** in local-dev and on a fresh install. The
+> installer (Phase 1c) seeds Vault-backed, audience-bound **service principals** (role []) for the remaining
+> edge callers: **kernel** [`svc:model-gateway`, `svc:filestore`] attaches on `/v1/complete` + broker file
+> put/get; **decision** + **workflow** [`svc:notify`] on their notify posts; **launcher** [`svc:filestore`]
+> (in-process in scheduler) on component-source fetch; **app-host** gains `svc:model-gateway` for
+> `/embed`,`/transcribe`,`/admin/provider-key`. `GW_INTERNAL_TOKEN` is retired (provider-key is now
+> `svc:model-gateway`-gated, allow `{app-host}`, always-enforce). All three `*_SHADOW` flags are removed. The
+> install seeds principals **before** base-app delivery (which writes/reads the filestore). **DEBT-A72 is
+> closed** — no svc_authz gate remains shadow. Conformance: anon→401/403 + wrong-audience→403 PASS for all five
+> doors; fresh install external 13/0, internal 35 PASS/6 XFAIL/0 XPASS/0 FAIL.
