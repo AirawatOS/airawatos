@@ -408,7 +408,7 @@ PRINCIPALS = {
     "kernel":   ["svc:model-gateway", "svc:filestore", "svc:secrets", "svc:runtime-manager"],  # +1c-iii: broker /fetch + runtime-mgr
     "decision": ["svc:notify"],
     "workflow": ["svc:notify"],
-    "launcher": ["svc:filestore", "svc:secrets"],                          # in-process in scheduler; source fetch + /materialize
+    "launcher": ["svc:filestore", "svc:secrets", "svc:network"],           # (runtime manager) source fetch + /materialize + runtime attest (step 5)
 }
 def _req(url, data=None, headers=None, method="GET"):
     r=urllib.request.Request(url, data=(json.dumps(data).encode() if data is not None else None),
@@ -741,7 +741,7 @@ _ppw = None if isinstance(_b, urllib.error.HTTPError) else (((json.loads(_b) or 
 if not _ppw:
     _ppw = secrets.token_urlsafe(18)
     _req(f"{VADDR}/v1/{_PV}", data={"data":{"password":_ppw}}, headers={"X-Vault-Token":VTOK,"Content-Type":"application/json"}, method="POST")
-_req(f"{IDN}/users", data={"username":"svcprobe","tenant":f"{INST}-operator","roles":[],"audiences":["svc:runtime-manager","svc:identity"]},
+_req(f"{IDN}/users", data={"username":"svcprobe","tenant":f"{INST}-operator","roles":[],"audiences":["svc:runtime-manager","svc:identity","svc:network"]},
      headers={"Authorization":"Bearer "+IDT,"Content-Type":"application/json"}, method="POST")
 _s=_req(f"{IDN}/set-password", data={"username":"svcprobe","tenant":f"{INST}-operator","password":_ppw,"must_reset":False,"only_if_unset":True},
         headers={"Authorization":"Bearer "+IDT,"Content-Type":"application/json"}, method="POST")

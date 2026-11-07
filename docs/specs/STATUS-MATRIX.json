@@ -7,8 +7,8 @@
   ],
   "provenance": {
     "local-dev": {
-      "git_sha": "",
-      "ts": "2026-11-07T02:55:25Z",
+      "git_sha": "2796174",
+      "ts": "2026-11-07T08:21:02Z",
       "modes": [
         "external",
         "flowmap",
@@ -47,7 +47,7 @@
         "local-dev": "HELD"
       },
       "FND-10": {
-        "local-dev": "PARTIAL"
+        "local-dev": "HELD"
       },
       "FND-11": {
         "local-dev": "HELD"

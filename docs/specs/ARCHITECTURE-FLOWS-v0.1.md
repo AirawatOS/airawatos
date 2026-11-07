@@ -293,10 +293,11 @@ production cannot run with a gate open.
 | model-gateway `/admin/provider-key` | bespoke `X-Internal-Token` (`GW_INTERNAL_TOKEN`) | shared literal | **app-host** | enforce-when-set, **literal default `gw-internal`** (DEBT-A37) | **ENFORCE, fail-closed** (refuses when unset) |
 | model-gateway `/complete`,`/embed` | svc_authz **(NEW)** | `svc:model-gateway` | **kernel** (`/complete`), app-host | **none** (DEBT-B5) | code default **ENFORCE**; local-dev **shadow via explicit `MODELGW_SHADOW`** — kernel caller unwired (A72 kernel sub-slice) |
 | filestore `/files` (read+write) | svc_authz | `svc:filestore` | **app-host, kernel, launcher** | shadow (`FILESTORE_REQUIRE_TOKEN` unset) | code default **ENFORCE**; local-dev **shadow via explicit `FILESTORE_SHADOW`** — kernel+launcher readers unwired (A72 kernel sub-slice) |
-| secrets `/materialize`,`/fetch` | bespoke `X-Internal-Token` (`SECRETS_INTERNAL`) | shared literal | **kernel broker** | ENFORCE (fail-closed when unset) | ENFORCE (unchanged; literal→audience = DEBT-A71, decision-fn priority) |
+| secrets `/materialize`,`/fetch` | svc_authz **(1c-iii)** | `svc:secrets` | **kernel** broker (`/fetch`), **launcher** (`/materialize`, in the runtime manager) | ENFORCE (literal `SECRETS_INTERNAL`) | **ENFORCE, always** — literal retired (A71); anon/wrong-aud 403 (conformance) |
 | runtime-manager `/v1/invoke`,`/v1/ensure-connector` | svc_authz **(1c-iii; runs in local-dev since 1c-iv step 2)** | `svc:runtime-manager` | **scheduler** (installed runs), **kernel** (warm-connector ensure), launcher | ENFORCE (literal `RUNTIME_MANAGER_INTERNAL`) | **ENFORCE, always** — anon **401**, wrong-aud/undeclared **403** (conformance live). Scheduler never executes itself; in-process only via explicit dev flag `AIRAWAT_INPROCESS_COMPONENTS` (prod-guard refuses) |
 | identity `/users` (POST+GET), `/set-password`, `/prefs`, `/realms`, `/realms/<t>/users` | svc_authz **(1c-iv-c)** + operator-realm check | `svc:identity` (verified against identity's **own** JWKS) | **provisioner** (installer phases, network join→provision) + **app-host** (own principal) — both `@<operator>` | ENFORCE (literal `IDENTITY_INTERNAL`; B29) | **ENFORCE, always** — literal retired (A71 closed, ADR-0131); unseeded provisioner ⇒ fail-closed + prod refuses boot (B29) |
 | kernel `/v1/components/run-token` **(1c-iv step 3)** | kernel admin gate variant (home-issued platform service) + principal check | home-issued token, role `platform.scheduler`, principal on `RUN_TOKEN_READERS` | **scheduler** only | — (did not exist; the list read leaked no token, so runs broke — B61) | **ENFORCE, always**, audited allow/deny; returns ONE install's run-token |
+| network `/v1/runtime/attest` **(1c-iv step 5)** | network `authn.verify(audience=svc:network)` + caller allow-list | `svc:network` | **launcher** (the runtime manager attesting its certified images) | ENFORCE (literal `RUNTIME_ATTEST_INTERNAL`, code default `airawat-attest-internal`) | **ENFORCE, always** — literal retired; anon **401**, literal/wrong-aud/undeclared **403**, launcher admitted (conformance) |
 | decision `/decide` | user-token authn (`tokens.verify`) | user bearer (AUTHORITY) | authenticated **users** | authn-only (no svc gate) | authn-only — **user-facing door**, not a service gate |
 | workflow `/instantiate`,`/complete-task` | user-token authn (`tokens.verify`) | user bearer | authenticated **users** | authn-only | authn-only — user-facing door |
 | decision/workflow `/verify`, model-gateway/embed `/healthz` | **none (public by design)** | — | anyone | none (intended) | none (public verify / liveness — documented, not debt) |
@@ -315,6 +316,18 @@ service principal (`secret/data/<inst>/kernel/password` + identity user, install
 attaches `Authorization: Bearer <svc:model-gateway|svc:filestore>` on the kernel's two egress calls
 (`app.py` `/v1/complete` forward + the filestore read/write helpers) and the launcher's filestore reads. This is
 the remaining half of DEBT-A72.
+
+> **Resolved (slice-1c-iv) ✅ — NO shared-literal internal gate remains in current code.** Every internal door in
+> this table is an audience-bound service-token gate with a declared caller allow-list, always enforced: identity
+> (`svc:identity`, 1c-iv-c), runtime-manager (`svc:runtime-manager`, now running in local-dev — step 2), network
+> runtime-attest (`svc:network`, step 5), kernel run-token (scheduler-only, step 3), plus the 1c-ii/1c-iii doors.
+> Proven by a cross-repo grep (no `X-Internal-Token` / `*_INTERNAL` compare in any service) and live conformance
+> (anon / retired-literal / wrong-audience / undeclared-caller refused; declared callers admitted). **Recorded
+> exceptions (not internal gates):** the inbound SMS/message channel gateway still uses ONE operator secret — now in
+> Vault, constant-time, env not honoured (DEBT-B64 interim; target per-provider per-tenant signed webhooks, Layer 6
+> with B46); and the **legacy** stacks (root `docker-compose.yml`, `deploy/local`, EC2 compose) still pin pre-A71
+> images whose gates ARE the literals — their `SECRETS_INTERNAL` / `RUNTIME_MANAGER_INTERNAL` lines are annotated
+> LEGACY and go away when those stacks move to reference `dev-hard16+` via the ADR-0131 installer.
 
 > **Resolved (slice-1c-ii) ✅:** the kernel-edge gates now **ENFORCE** in local-dev and on a fresh install. The
 > installer (Phase 1c) seeds Vault-backed, audience-bound **service principals** (role []) for the remaining

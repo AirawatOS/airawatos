@@ -2,7 +2,7 @@
 
 **Generated** by `conformance/build_matrix.py` from `conformance/results/*.json` (written by `conformance/run.py --matrix`). **Do not hand-edit** — regenerate after a conformance run. This is the conformance-derived single source of truth for per-rule status; the specs reference it (ADR: STATUS-MATRIX-DESIGN.md).
 
-- **local-dev** — measured: modes external+flowmap+internal+vaultscope, git ``, 2026-11-07T02:55:25Z
+- **local-dev** — measured: modes external+flowmap+internal+vaultscope, git `2796174`, 2026-11-07T08:21:02Z
 - **production** — *PROJECTED*: no production conformance run yet; not asserted (stand up per docs/operator/FRESH-INSTALL-TEST.md §Step 3, then run the suite with AOS_ENV=production).
 
 **Derived status:** HELD (all cited cases PASS) · PARTIAL (PASS + known-violation XFAIL) · VIOLATED (only XFAIL — tracked as debt) · PLANNED(needs-build) (only SKIP_BUILD, not black-box reachable) · UNVERIFIED(creds) (only SKIP_CREDS — fix the fixture) · REVIEW (XPASS — spec lags code) · REGRESSION (a FAIL — contradicts spec) · NO TEST (no case cites the rule yet).
@@ -19,8 +19,8 @@
 | `FND-6` | HELD | projected | unknown schema handled opaquely (internal, pos) |
 | `FND-7` | PLANNED(needs-build) | projected | kernel authorizes with Network down |
 | `FND-8` | PARTIAL | projected | /bridge/component-publish refuses an unverified bearer (not presence-only); account-hold (admin-disable) check fails CLOSED on registry error; anon bridge reads |
-| `FND-9` | HELD | projected | account-write gate refuses a wrong internal token (fail closed) [DEBT-B29]; no passwordless full-authority mint (residual; write-gate half fixed by DEBT-B29); r |
-| `FND-10` | PARTIAL | projected | app-host -> identity/gateway uses an audience-bound minted token, not a static shared secret; automation /events refuses an anonymous call (abuse); filestore bl |
+| `FND-9` | HELD | projected | identity /login refuses svc:identity to an undeclared principal (kernel); identity /users refuses a wrong-audience token (another door); identity /users refuses |
+| `FND-10` | HELD | projected | automation /events refuses an anonymous call (abuse); filestore blob path carries no owning-tenant scope (cross-tenant read once gated); filestore refuses a wro |
 | `FND-11` | HELD | projected | SoD for floor roles enforces approver != proposer; component.publisher refused at kernel admin (registry.usage); dev-sandbox refused at kernel admin (registry.u |
 | `FND-12` | PLANNED(needs-build) | projected | every authz decision audited (allow+deny); failed-auth logged |
 | `FND-13` | NO TEST | projected | — |
@@ -242,6 +242,6 @@
 
 | environment | HELD | PARTIAL | VIOLATED | PLANNED(needs-build) | UNVERIFIED(creds) | REVIEW | REGRESSION | NO TEST | projected |
 |---|---|---|---|---|---|---|---|---|---|
-| local-dev | 20 | 4 | 4 | 79 | 0 | 0 | 0 | 59 | 0 |
+| local-dev | 21 | 3 | 4 | 79 | 0 | 0 | 0 | 59 | 0 |
 | production | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 166 |
 

@@ -74,7 +74,7 @@ services:
       # by every tenant via the ADR-0066 shared mechanism (own-tenant ∪ shared steward). No read-gate change.
       SHARED_SCHEMAS: "knowledge.document,knowledge.version,knowledge.chunk,knowledge.embedding,governance.rule,platform.verb_alias,platform.lifecycle"
       SECRETS_URL: http://secrets:8102
-      SECRETS_INTERNAL: airawat-broker-secrets-internal
+      SECRETS_INTERNAL: airawat-broker-secrets-internal   # LEGACY: this stack pins a pre-A71 image whose gate IS this literal; retired in reference dev-hard16+ (svc_authz) — drop on upgrade
       FILESTORE_URL: http://filestore:8095
       APPS_OVERLAY: /data/app-bundles/apps
     ports: [ "8081:8080" ]   # host 8081 (old airawat-stack still holds 8080)
@@ -107,7 +107,7 @@ services:
     environment:
       VAULT_ADDR: http://vault:8200
       VAULT_TOKEN: airawat-dev-root
-      SECRETS_INTERNAL: airawat-broker-secrets-internal
+      SECRETS_INTERNAL: airawat-broker-secrets-internal   # LEGACY: this stack pins a pre-A71 image whose gate IS this literal; retired in reference dev-hard16+ (svc_authz) — drop on upgrade
       IDENTITY_JWKS: http://identity:8093/jwks
     depends_on: { vault: { condition: service_healthy } }
 

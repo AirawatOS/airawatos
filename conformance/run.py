@@ -103,7 +103,7 @@ def run_no_cred_cases():
         _gb = {"tenant": "localdev", "from": "+0000", "text": "conformance probe"}
         st_a, _, _ = http("POST", _gp, _gb)
         st_l, _, _ = http("POST", _gp, _gb, headers={"X-Gateway-Token": "sms-gw-" + "demo-2026"})
-        expect("PLATFORM", "PLT-15/DEBT-B64", "channel gateway %s refuses anon + the retired baked literal (abuse)" % _gp,
+        expect("FOUNDATIONS", "FND-8/DEBT-B64", "channel gateway %s refuses anon + the retired baked literal (abuse)" % _gp,
                st_a == 403 and st_l == 403, "anon -> %s, retired literal -> %s (want 403/403)" % (st_a, st_l))
 
     st, _, _ = http("POST", "/login", {"realm": REALM, "username": "admin", "password": "admin"})
@@ -669,6 +669,28 @@ def run_internal_cases():
         _ks, _ksb, _ = _req("POST", _KRT, _kb, token=_st)
         expect("FOUNDATIONS","FND-8/B15","kernel run-token door admits the scheduler (pos; absent install → 404)",
                _ks == 404, "scheduler -> %s %s" % (_ks, _ksb[:60]))
+    # slice-1c-iv step 5 — network /v1/runtime/attest: the last shared-literal gate, now svc:network from {launcher}.
+    _NAT = T["network"] + "/v1/runtime/attest"; _nb = {"runtime_id": "ds:none:runtime/absent", "node": "conformance"}
+    _na, _, _ = _req("POST", _NAT, _nb)
+    expect("FOUNDATIONS","FND-9/A71","network runtime-attest refuses an anonymous call (401)", _na == 401, "anon -> %s" % _na)
+    _nl, _, _ = _req("POST", _NAT, _nb, headers={"X-Internal-Token": "airawat-" + "attest-internal"})
+    expect("FOUNDATIONS","FND-9/A71","network runtime-attest refuses the RETIRED shared literal", _nl in (401, 403), "literal -> %s" % _nl)
+    if _fs_wrong:
+        _nw, _, _ = _req("POST", _NAT, _nb, token=_fs_wrong)
+        expect("FOUNDATIONS","FND-9/A71","network runtime-attest refuses a wrong-audience token (403)", _nw == 403, "svc:automation -> %s" % _nw)
+    _np = _login_token("svcprobe","localdev-operator","secret/data/localdev-operator/svcprobe/password","svc:network")
+    if _np:
+        _nu, _, _ = _req("POST", _NAT, _nb, token=_np)
+        expect("FOUNDATIONS","FND-9/A71","network runtime-attest refuses an UNDECLARED caller holding svc:network (403)", _nu == 403, "svcprobe -> %s" % _nu)
+    else:
+        record("FOUNDATIONS","FND-9/A71","network runtime-attest refuses an UNDECLARED caller holding svc:network (403)","needs-creds","SKIP_CREDS","no svcprobe svc:network token")
+    _nlt = _login_token("launcher","localdev-operator","secret/data/localdev-operator/launcher/password","svc:network")
+    if _nlt:
+        _nd, _ndb, _ = _req("POST", _NAT, _nb, token=_nlt)
+        expect("FOUNDATIONS","FND-9/A71","network runtime-attest admits the DECLARED caller launcher (pos; unknown runtime → 404)",
+               _nd == 404, "launcher svc:network -> %s %s" % (_nd, _ndb[:50]))
+    else:
+        record("FOUNDATIONS","FND-9/A71","network runtime-attest admits the DECLARED caller launcher (pos; unknown runtime → 404)","needs-creds","SKIP_CREDS","no launcher svc:network token")
     # DEBT-B6 — identity directory disclosure
     st, b, _ = _req("GET", T["identity"]+"/users")
     if st == 0:

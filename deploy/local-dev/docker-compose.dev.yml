@@ -21,7 +21,7 @@ x-devenv: &devenv
   AIRAWAT_ALLOW_PASSWORDLESS: "1"     # reference IdP passwordless dev auth (gated: prod-guard blocks under production)
 
 x-ref: &ref                          # one source-built reference image; many services (per-service command)
-  image: manishsv/airawatos-reference:dev-hard19   # + 1c-iv-c (svc:identity) + step 2 (runtime-manager) + step 3 (scheduler-owned pipelines) + step 4 (gateway secret in Vault)
+  image: manishsv/airawatos-reference:dev-hard20   # + 1c-iv-c (svc:identity) + step 2 (runtime-manager) + step 3 (scheduler-owned pipelines) + step 4 (gateway secret in Vault) + step 5 (launcher attests svc:network)
   restart: unless-stopped
   entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]     # production guard (effective-settings check)
   volumes: [ ./prod-guard.sh:/local-dev/prod-guard.sh:ro ]
@@ -119,7 +119,7 @@ services:
     restart: unless-stopped
 
   network:
-    image: manishsv/airawatos-network:dev-a77   # slice-1c-iv-c: join→provision mints svc:identity as provisioner (Vault)
+    image: manishsv/airawatos-network:dev-a78   # 1c-iv-c: join→provision mints svc:identity; step 5: /v1/runtime/attest → svc:network (literal retired)
     container_name: airawat-ld-network
     env_file: [ ./vault/approle/network.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
     networks: [aos-edge, aos-svc, aos-data-facts, aos-data-secrets]
@@ -344,7 +344,7 @@ services:
       FILESTORE_URL: http://filestore:8095
       SECRETS_URL: http://secrets:8102
       RUNTIME_NETWORK: aos-component                       # a placed container joins the broker-only net (EC2 path)
-      RUNTIME_ATTEST: "0"                                  # no docker images to attest in local-dev (and attest's literal is EC2-only)
+      NODE_ID: localdev-node                               # attestation node identity (attest = svc:network as launcher, step 5)
     depends_on:
       kernel: { condition: service_started }
       vault: { condition: service_healthy }
