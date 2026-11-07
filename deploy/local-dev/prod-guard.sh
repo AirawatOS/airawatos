@@ -63,6 +63,12 @@ if [ "$_ENV" = "production" ]; then
   # L1-1b step4 — the in-process component runtime inherits the host env + is unconfined (DEBT-B51). Refuse it
   # in production (interim: the operator must run a confined container runtime, not the in-process subprocess).
   _truthy "${AIRAWAT_INPROCESS_COMPONENTS:-}" && VIOL="$VIOL in-process-component-placement(DEBT-B51)"
+  # L1-1c step3 — an inbound GATE in SHADOW is an OPEN write/spend/execute door. Every gate ENFORCES by default;
+  # a dev opts one open ONLY via an explicit <SVC>_SHADOW flag. Production refuses ANY such flag (fail-loud):
+  for _sv in $(env | sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*_SHADOW\)=.*/\1/p'); do
+    eval "_sval=\${$_sv:-}"
+    _truthy "$_sval" && VIOL="$VIOL gate-shadow($_sv)"
+  done
   # effective command args — catches --no-verify-cert passed on the service command line
   for a in "$@"; do
     [ "$a" = "--no-verify-cert" ] && VIOL="$VIOL no-verify-cert(--no-verify-cert arg)"
