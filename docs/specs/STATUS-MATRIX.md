@@ -2,7 +2,7 @@
 
 **Generated** by `conformance/build_matrix.py` from `conformance/results/*.json` (written by `conformance/run.py --matrix`). **Do not hand-edit** — regenerate after a conformance run. This is the conformance-derived single source of truth for per-rule status; the specs reference it (ADR: STATUS-MATRIX-DESIGN.md).
 
-- **local-dev** — measured: modes external+flowmap+internal, git ``, 2026-11-06T18:22:04Z
+- **local-dev** — measured: modes external+flowmap+internal+vaultscope, git ``, 2026-11-07T02:55:25Z
 - **production** — *PROJECTED*: no production conformance run yet; not asserted (stand up per docs/operator/FRESH-INSTALL-TEST.md §Step 3, then run the suite with AOS_ENV=production).
 
 **Derived status:** HELD (all cited cases PASS) · PARTIAL (PASS + known-violation XFAIL) · VIOLATED (only XFAIL — tracked as debt) · PLANNED(needs-build) (only SKIP_BUILD, not black-box reachable) · UNVERIFIED(creds) (only SKIP_CREDS — fix the fixture) · REVIEW (XPASS — spec lags code) · REGRESSION (a FAIL — contradicts spec) · NO TEST (no case cites the rule yet).
@@ -236,7 +236,7 @@
 | `ARC-4` | PLANNED(needs-build) | projected | per-service micro-segmentation within the svc mesh (declared calls: only) |
 | `ARC-5` | HELD | projected | the edge (nginx) reaches no internal service or data store |
 | `ARC-6` | NO TEST | projected | — |
-| `ARC-7` | HELD | projected | Vault is not reachable by pure-compute services or the edge |
+| `ARC-7` | HELD | projected | Vault is not reachable by pure-compute services or the edge; app-host: CAN read its own path; app-host: CANNOT read a foreign service's path; app-host: holds a  |
 
 ## Tally (rules per derived status, per environment)
 

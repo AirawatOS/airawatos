@@ -8,11 +8,12 @@
   "provenance": {
     "local-dev": {
       "git_sha": "",
-      "ts": "2026-11-06T18:22:04Z",
+      "ts": "2026-11-07T02:55:25Z",
       "modes": [
         "external",
         "flowmap",
-        "internal"
+        "internal",
+        "vaultscope"
       ]
     }
   },

@@ -184,6 +184,10 @@ _REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 if [ -f "$_REPO_ROOT/conformance/flow_map_test.py" ]; then
   AOS_LD_PROJECT="$P" python3 "$_REPO_ROOT/conformance/flow_map_test.py" || { echo "✗ ARC flow-map test FAILED — off-map path"; exit 1; }
 fi
+# L1-1b step5 — per-service Vault least-privilege (own paths readable, foreign refused, root absent).
+if [ -f "$_REPO_ROOT/conformance/vault_scope_test.py" ]; then
+  AOS_LD_PROJECT="$P" python3 "$_REPO_ROOT/conformance/vault_scope_test.py" || { echo "✗ Vault least-privilege test FAILED"; exit 1; }
+fi
 
 # ── Host pre-flight (BEFORE any change) ──────────────────────────────────────────────────────────────
 # Each check prints PASS/WARN/FAIL + a plain-language FIX. In production a FAIL stops the install; in dev it
