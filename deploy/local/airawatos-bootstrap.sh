@@ -104,7 +104,6 @@ services:
       VAULT_TOKEN: ${VAULT_TOKEN}
       IDENTITY_JWKS: http://identity:8093/jwks
       IDENTITY_URL: http://identity:8093
-      IDENTITY_INTERNAL: airawat-identity-internal
       ENSURE_DEV_TENANT: "1"
       DEV_TENANT: airawatdeveloper
       DEV_STEWARD: ds:airawatdeveloper:participant/developer

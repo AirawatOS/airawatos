@@ -117,6 +117,17 @@ def main():
         ok_all &= rec("ARC-7", "%s: no static VAULT_TOKEN in container config" % svc,
                       not config_has_static_vault_token(svc), "config static token present=%s" % config_has_static_vault_token(svc))
 
+    # ADR-0131 / slice-1c-iv-c — the svc-network grant for the provisioner credential is EXACT: network can read
+    # the provisioner's install-config secret (to mint svc:identity for join→provision) but NOT the operator
+    # admin's bootstrap password next to it, nor any other operator-realm principal.
+    for own, foreign in (("secret/data/localdev-operator/provisioner/password", "secret/data/localdev-operator/admin/password"),
+                         ("secret/data/localdev-operator/provisioner/password", "secret/data/localdev-operator/app-host/password")):
+        o = probe("network", own, foreign)
+        ok_all &= rec("ARC-7", "network: CAN read the provisioner credential (svc:identity mint, ADR-0131)",
+                      o.get("OWN") == "200", "%s -> %s (want 200)" % (own, o.get("OWN")))
+        ok_all &= rec("ARC-7", "network: CANNOT read another operator-realm secret (grant is exact)",
+                      o.get("FOREIGN") == "403", "%s -> %s (want 403)" % (foreign, o.get("FOREIGN")))
+
     for svc, sample in BROAD.items():
         o = probe(svc, sample, "")
         tok = o.get("TOKEN", "")

@@ -21,7 +21,7 @@ x-devenv: &devenv
   AIRAWAT_ALLOW_PASSWORDLESS: "1"     # reference IdP passwordless dev auth (gated: prod-guard blocks under production)
 
 x-ref: &ref                          # one source-built reference image; many services (per-service command)
-  image: manishsv/airawatos-reference:dev-hard15   # slice1 B28/B29 + slice5 B41/B42 + slice1c (GATES ON: enforce-default + svc_gate + notify/model-gateway gates)
+  image: manishsv/airawatos-reference:dev-hard16   # + slice-1c-iv-c (ADR-0131): identity door → svc:identity only; app-host mints svc:identity (IDENTITY_INTERNAL retired)
   restart: unless-stopped
   entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]     # production guard (effective-settings check)
   volumes: [ ./prod-guard.sh:/local-dev/prod-guard.sh:ro ]
@@ -118,7 +118,7 @@ services:
     restart: unless-stopped
 
   network:
-    image: manishsv/airawatos-network:dev-a76
+    image: manishsv/airawatos-network:dev-a77   # slice-1c-iv-c: join→provision mints svc:identity as provisioner (Vault)
     container_name: airawat-ld-network
     env_file: [ ./vault/approle/network.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
     networks: [aos-edge, aos-svc, aos-data-facts, aos-data-secrets]
@@ -139,7 +139,7 @@ services:
       VAULT_ADDR: http://vault:8200
       IDENTITY_JWKS: http://identity:8093/jwks
       IDENTITY_URL: http://identity:8093
-      IDENTITY_INTERNAL: airawat-ld-identity-internal
+      IDENTITY_PROVISIONER_TENANT: localdev-operator         # ADR-0131 — join→provision mints svc:identity as provisioner@<this realm> (Vault)
       EXPECTED_AUDIENCE: *aud                               # network token-aud check must match the local IdP audience (§8 alignment)
       IDENTITY_HOME_ISS: *iss                               # issuer-scoped admin/publisher authority = the local home issuer (hardening)
       NETWORK_ADMIN_AUTHZ: role                             # Commit-D role-based admin authz (local-dev validation; global all-or-nothing)
@@ -192,7 +192,6 @@ services:
       IDENTITY_PASSWORDS_FILE: /data/identity/identity-passwords.json
       IDENTITY_PASSWORD_REQUIRED: enforce                   # ADR-0124 Step 4 — passwordless login REFUSED
       IDENTITY_SEED_DEMO: ""                                # de-seeded (operator-first); bootstrap provisions admins
-      IDENTITY_INTERNAL: airawat-ld-identity-internal       # provisioner shared secret (must match network + app-host)
       IDENTITY_ISSUER: *iss
       IDENTITY_AUDIENCE: *aud
       # Durable + shared brute-force lockout store (ADR-0121). LEAST-PRIVILEGE role identity_lockout — access
@@ -324,7 +323,6 @@ services:
       <<: *devenv
       FILESTORE_URL: http://filestore:8095
       EMBED_URL: http://model-gateway:8104
-      IDENTITY_INTERNAL: airawat-ld-identity-internal
       PUBLIC_BASE_URL: "http://localhost:8080"
       TELEGRAM_BOT_TOKEN: ""
       TELEGRAM_WEBHOOK_SECRET: ""

@@ -246,7 +246,7 @@ root token is used only during install, then kept off every running service (ste
 | Service | Vault policy | Paths granted (least privilege) | Widened? |
 |---|---|---|---|
 | kernel | `svc-kernel` | `secret/data/localdev/kernel-app/*` (DB pw) + `transit/*` | **transit** (per brief; active use is REG-17/B23 future) |
-| network | `svc-network` | `network-app` pw + `localdev-network/trust-{reader,writer,plane}/*` + `transit/*` | no (transit = authority key) |
+| network | `svc-network` | `network-app` pw + `localdev-network/trust-{reader,writer,plane}/*` + `localdev-operator/provisioner/*` (1c-iv-c: svc:identity mint) + `transit/*` | no (transit = authority key; provisioner grant is exact — vault-scope test proves admin/app-host paths 403) |
 | identity | `svc-identity` | `identity-lockout` pw + `transit/*` | no (transit = issuer key) |
 | secrets | `svc-secrets` | `secret/data/*` + `secret/metadata/*` (read/write/delete) | **yes** — it IS the KV broker; per-(tenant,component) authz is in `secrets.py`'s own gate |
 | model-gateway | `svc-model-gateway` | `secret/data/*` (read/write) | **yes** — per-tenant provider-key broker |
@@ -294,7 +294,7 @@ production cannot run with a gate open.
 | filestore `/files` (read+write) | svc_authz | `svc:filestore` | **app-host, kernel, launcher** | shadow (`FILESTORE_REQUIRE_TOKEN` unset) | code default **ENFORCE**; local-dev **shadow via explicit `FILESTORE_SHADOW`** — kernel+launcher readers unwired (A72 kernel sub-slice) |
 | secrets `/materialize`,`/fetch` | bespoke `X-Internal-Token` (`SECRETS_INTERNAL`) | shared literal | **kernel broker** | ENFORCE (fail-closed when unset) | ENFORCE (unchanged; literal→audience = DEBT-A71, decision-fn priority) |
 | runtime-manager `/invoke` | bespoke `X-Internal-Token` (`RUNTIME_MANAGER_INTERNAL`) | shared literal | **launcher/orchestrator** | ENFORCE (fail-closed) | ENFORCE (unchanged; A71) |
-| identity `/set-password`,`/provision`,dir writes | bespoke `X-Internal-Token` (`IDENTITY_INTERNAL`) | shared literal | **provisioner** (app-host, network, installer) | ENFORCE (fail-closed; refuses boot in prod if unset — B29) | ENFORCE (unchanged; A71) |
+| identity `/users` (POST+GET), `/set-password`, `/prefs`, `/realms`, `/realms/<t>/users` | svc_authz **(1c-iv-c)** + operator-realm check | `svc:identity` (verified against identity's **own** JWKS) | **provisioner** (installer phases, network join→provision) + **app-host** (own principal) — both `@<operator>` | ENFORCE (literal `IDENTITY_INTERNAL`; B29) | **ENFORCE, always** — literal retired (A71 closed, ADR-0131); unseeded provisioner ⇒ fail-closed + prod refuses boot (B29) |
 | decision `/decide` | user-token authn (`tokens.verify`) | user bearer (AUTHORITY) | authenticated **users** | authn-only (no svc gate) | authn-only — **user-facing door**, not a service gate |
 | workflow `/instantiate`,`/complete-task` | user-token authn (`tokens.verify`) | user bearer | authenticated **users** | authn-only | authn-only — user-facing door |
 | decision/workflow `/verify`, model-gateway/embed `/healthz` | **none (public by design)** | — | anyone | none (intended) | none (public verify / liveness — documented, not debt) |

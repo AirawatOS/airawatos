@@ -78,7 +78,6 @@ services:
       VAULT_TOKEN: ${VAULT_TOKEN}
       IDENTITY_JWKS: http://identity:8093/jwks
       IDENTITY_URL: http://identity:8093
-      IDENTITY_INTERNAL: airawat-identity-internal
       ENSURE_DEV_TENANT: "${ENSURE_DEV_TENANT-0}"      # OFF by default — the installer provisions <instance>-developer. Set =1 for the airawatdeveloper quick-dev sandbox.
       DEV_TENANT: airawatdeveloper
       DEV_STEWARD: ds:airawatdeveloper:participant/developer   # used only to CREATE the record on a fresh/bedrock DB

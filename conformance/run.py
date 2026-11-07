@@ -783,6 +783,10 @@ def run_identity_review_cases():
     VIOLATED / NO TEST. Internal mode (identity reachable). Expected-fail where the review found a violation;
     recorded SKIP_BUILD with the reason + proposed internal test otherwise. See docs/reviews/IDENTITY-REVIEW.md."""
     admin = _login_token("admin", "localdev-network", "secret/data/localdev-operator/admin/password")
+    if not admin and CREDS.get("admin"):   # ADR-0131: the bootstrap pw is scrubbed post-install → use the fixture
+        _c = CREDS["admin"]
+        _st, _b, _ = _req("POST", INTERNAL["identity"] + "/login", {"username": "admin", "tenant": _c.get("tenant", "localdev-network"), "password": _c["password"]})
+        admin = json.loads(_b).get("access_token") if _st == 200 else None
     if not admin:
         record("ACCOUNT","ACC-3","assurance reflects the real auth method","needs-creds","SKIP_CREDS","could not mint an admin token")
         record("ACCOUNT","ACC-2","account id permanent + distinct from the handle","needs-creds","SKIP_CREDS","could not mint an admin token")
@@ -813,11 +817,12 @@ def run_identity_review_cases():
     # Provision a BRAND-NEW account on the LIVE IdP with NO roles, set a password, log in, and inspect the
     # token: its roles claim must be EMPTY. Before the hotfix a roleless create defaulted to
     # platform.tenant-admin (full authority). See identity._apply_create_roles + test_identity_hotfix_b28_b29.py.
-    itok = os.environ.get("IDENTITY_INTERNAL", "")
+    # ADR-0131 / 1c-iv-c — provisioning is svc:identity-only: act as the provisioner (Vault-backed) like the installer.
+    itok = _login_token("provisioner", "localdev-operator", "secret/data/localdev-operator/provisioner/password", "svc:identity")
     if not itok:
-        record("FOUNDATIONS","FND-1/DEBT-B28","roleless-created account carries no authority","needs-creds","SKIP_CREDS","IDENTITY_INTERNAL not in env")
+        record("FOUNDATIONS","FND-1/DEBT-B28","roleless-created account carries no authority","needs-creds","SKIP_CREDS","could not mint a provisioner svc:identity token")
     else:
-        ih = {"X-Internal-Token": itok}; pu, pt, ppw = "b28probe", "localdev-network", "B28-Probe-Pw-9x!q2"
+        ih = {"Authorization": "Bearer " + itok}; pu, pt, ppw = "b28probe", "localdev-network", "B28-Probe-Pw-9x!q2"
         st_c, _, _ = _req("POST", INTERNAL["identity"]+"/users", {"username": pu, "tenant": pt}, headers=ih)   # NO roles field
         _req("POST", INTERNAL["identity"]+"/set-password", {"username": pu, "tenant": pt, "password": ppw}, headers=ih)
         st_l, b_l, _ = _req("POST", INTERNAL["identity"]+"/login", {"username": pu, "tenant": pt, "password": ppw})
@@ -831,20 +836,50 @@ def run_identity_review_cases():
             expect("FOUNDATIONS","FND-1/DEBT-B28","a roleless-created account has NO roles — no authority by omission [DEBT-B28 fixed]",
                    rr == [], "b28probe token roles=%r (rule: omitted roles ⇒ [], never platform.tenant-admin)" % (rr,))
 
-    # ── DEBT-B29 (FND-9) — account-write gate is live-enforced (fails closed; expected PASS) ────────
-    # A POST /users with a WRONG internal token must be refused on the running config. The empty/unset
-    # IDENTITY_INTERNAL fail-closed branch and the production boot refusal are proven by the unit test
-    # (test_identity_hotfix_b28_b29.py) — not reachable black-box on a correctly-configured server.
-    st_bad, _, _ = _req("POST", INTERNAL["identity"]+"/users", {"username":"b29probe","tenant":"localdev-network"},
-                        headers={"X-Internal-Token": "definitely-the-wrong-token"})
-    expect("FOUNDATIONS","FND-9/DEBT-B29","account-write gate refuses a wrong internal token (fail closed) [DEBT-B29]",
-           st_bad in (401, 403), "POST /users wrong-token -> %s (rule: refuse; want 401/403)" % st_bad)
+    # ── DEBT-B29 / DEBT-A71 (FND-9) — identity door is svc:identity-only (ADR-0131 / slice-1c-iv-c) ─────
+    # accept svc:identity · allow {provisioner, app-host}@operator realm · verified against identity's own JWKS ·
+    # always enforce. The unseeded-provisioner fail-closed branch + production boot refusal are unit-proven
+    # (test_identity_hotfix_b28_b29.py) — not reachable black-box on a correctly-installed server.
+    _IU = INTERNAL["identity"] + "/users"; _probe = {"username": "b29probe", "tenant": "localdev-network"}
+    st_anon, _, _ = _req("POST", _IU, _probe)
+    expect("FOUNDATIONS","FND-9/DEBT-B29","identity /users refuses an anonymous write (fail closed) [A71 closed]",
+           st_anon in (401, 403), "anon POST /users -> %s (want 401/403)" % st_anon)
+    st_lit, _, _ = _req("POST", _IU, _probe, headers={"X-Internal-Token": "airawat-ld-" + "identity-internal"})
+    expect("FOUNDATIONS","FND-9/DEBT-A71","identity /users refuses the RETIRED shared literal (no literal gate)",
+           st_lit in (401, 403), "retired X-Internal-Token literal -> %s (want 401/403)" % st_lit)
+    _wa = _login_token("scheduler","localdev-operator","secret/data/localdev-operator/scheduler/password","svc:automation")
+    if _wa:
+        st_wa, _, _ = _req("POST", _IU, _probe, token=_wa)
+        expect("FOUNDATIONS","FND-9/DEBT-A71","identity /users refuses a wrong-audience token (another door)",
+               st_wa == 403, "svc:automation token -> %s (want 403)" % st_wa)
+    else:
+        record("FOUNDATIONS","FND-9/DEBT-A71","identity /users refuses a wrong-audience token (another door)","needs-creds","SKIP_CREDS","no svc:automation token")
+    # undeclared caller: a principal NOT on the allow-list presenting the platform audience (the only audience a
+    # non-allow-listed principal can mint) — refused; and identity /login refuses it an svc:identity token at all.
+    _ud = _login_token("kernel","localdev-operator","secret/data/localdev-operator/kernel/password")
+    if _ud:
+        st_ud, _, _ = _req("POST", _IU, _probe, token=_ud)
+        expect("FOUNDATIONS","FND-9/DEBT-A71","identity /users refuses an UNDECLARED caller (kernel, not allow-listed)",
+               st_ud == 403, "kernel platform-aud token -> %s (want 403)" % st_ud)
+        _kd = _login_token("kernel","localdev-operator","secret/data/localdev-operator/kernel/password","svc:identity")
+        expect("FOUNDATIONS","FND-9/DEBT-A71","identity /login refuses svc:identity to an undeclared principal (kernel)",
+               _kd is None, "kernel svc:identity mint -> %s (want refused)" % ("TOKEN" if _kd else "refused"))
+    else:
+        record("FOUNDATIONS","FND-9/DEBT-A71","identity /users refuses an UNDECLARED caller (kernel, not allow-listed)","needs-creds","SKIP_CREDS","no kernel token")
+    for _who, _pth in (("provisioner","secret/data/localdev-operator/provisioner/password"),
+                       ("app-host","secret/data/localdev-operator/app-host/password")):
+        _dt = _login_token(_who, "localdev-operator", _pth, "svc:identity")
+        if not _dt:
+            record("FOUNDATIONS","FND-9/DEBT-A71","identity directory admits the DECLARED caller %s (pos)" % _who,"needs-creds","SKIP_CREDS","no %s svc:identity token" % _who); continue
+        st_ok, b_ok, _ = _req("GET", INTERNAL["identity"] + "/users?tenant=localdev-operator&page_size=5", token=_dt)
+        expect("FOUNDATIONS","FND-9/DEBT-A71","identity directory admits the DECLARED caller %s (pos)" % _who,
+               st_ok == 200 and '"users"' in b_ok, "%s svc:identity GET /users -> %s" % (_who, st_ok))
 
     def nb(spec, rule, name, why): record(spec, rule, name, "needs-build", "SKIP_BUILD", why)
     nb("FOUNDATIONS","FND-9","no passwordless full-authority mint (residual; write-gate half fixed by DEBT-B29)",
-       "write-gate half FIXED (DEBT-B29): POST /users,/set-password,/prefs now fail CLOSED via _internal_write_denied (unset/empty IDENTITY_INTERNAL refuses; wrong token refused — live PASS case above) and production refuses to boot without IDENTITY_INTERNAL (assert_internal_secret_configured) — all covered by platform-spec/reference/test_identity_hotfix_b28_b29.py. RESIDUAL (DEBT-B14/A26): passwordless principals (steward/scheduler) still mint under _PW_MODE=shadow; not reproducible on this local-dev config (IDENTITY_PASSWORD_REQUIRED=enforce → passwordless login refused). Internal test: a no-password principal login under shadow must refuse.")
+       "write-gate half FIXED (DEBT-B29, ADR-0131 form): POST /users,/set-password,/prefs + directory reads admit ONLY svc:identity from {provisioner,app-host}@operator (anon/literal/wrong-aud/undeclared refused — live PASS cases above); unseeded provisioner fails CLOSED and production refuses to boot (assert_provisioner_seeded) — all covered by platform-spec/reference/test_identity_hotfix_b28_b29.py. RESIDUAL (DEBT-B14/A26): passwordless principals (steward/scheduler) still mint under _PW_MODE=shadow; not reproducible on this local-dev config (IDENTITY_PASSWORD_REQUIRED=enforce → passwordless login refused). Internal test: a no-password principal login under shadow must refuse.")
     nb("FOUNDATIONS","FND-16","safe defaults (no prod-pointing default; enforce-by-default; fail-loud)",
-       "PARTIAL per review: roleless-create default FIXED (DEBT-B28 — no longer platform.tenant-admin) and IDENTITY_INTERNAL now has no committed default + a prod boot guard (DEBT-B29). RESIDUAL: ISS/AUD/HOME_ISS default ds:airawat:identity/airawatos (identity.py:31,33; authn.py:74); _PW_MODE default shadow (:499); no fail-loud on missing issuer/audience. A config-default audit, not a runtime black-box case. Internal test: assert startup refuses when issuer/audience are unset.")
+       "PARTIAL per review: roleless-create default FIXED (DEBT-B28 — no longer platform.tenant-admin) and the identity door has no literal at all — svc:identity only + a prod boot guard on the provisioner (DEBT-B29/A71, ADR-0131). RESIDUAL: ISS/AUD/HOME_ISS default ds:airawat:identity/airawatos (identity.py:31,33; authn.py:74); _PW_MODE default shadow (:499); no fail-loud on missing issuer/audience. A config-default audit, not a runtime black-box case. Internal test: assert startup refuses when issuer/audience are unset.")
     nb("ACCOUNT","ACC-4","login + recovery; per-account-type recovery",
        "PARTIAL per review: login mechanics strong (Argon2id/PBKDF2, lockout, must-reset) but NO self-service recovery flow and no per-account-type recovery policy (DEBT-A77). Internal test: a rate-limited + audited recovery-initiate endpoint exists (not built).")
     nb("ACCOUNT","ACC-5","provider connections (consent + confirmation; revocable)",
@@ -1018,8 +1053,9 @@ def run_apphost_review_cases():
        "VIOLATED: _login_session admits a disabled login when the hold lookup errors (app_host.py:767-772, fail-open by design) — outside the FOUNDATIONS §3 protective-counter carve-out. Needs a registry fault to reproduce. Internal test: force the hold lookup to error -> login refused, not admitted.")
     nb("FOUNDATIONS","FND-1/DEBT-A82","App Host authority comes from a recorded grant, not the token's roles claim",
        "VIOLATED (dominant, DEBT-B1/A23 family): ~20 gates read claims['roles'] as authority (hostcore.py:126 ADMIN_ROLES; app_host.py:2190-2199 _effective_roles via:'identity'; and :3928/:4187/… ); several admin bridges set forward_token=False so the app-host role-claim check is the SOLE gate (participants :3930, participant-resolve :3945, service-offerings manage). Internal test (already live as kernel FND-1/DEBT-B1 XFAIL): a home-issued role claim with no recorded grant is honoured.")
-    nb("FOUNDATIONS","FND-10/DEBT-A71","app-host -> identity/gateway uses an audience-bound minted token, not a static shared secret",
-       "PARTIAL: scheduler/filestore calls use Vault-backed, audience-bound svc tokens (svc_token.py — correct), but app-host->identity (/users,/set-password,/realms) and ->gateway use a STATIC shared secret whose code default is a committed literal (app_host.py:45 IDENTITY_INTERNAL='airawat-identity-internal', :252 GW_INTERNAL_TOKEN='gw-internal'). Mirror the identity DEBT-B29 fix: drop the committed default so an unset secret fails closed, and move to an audience-bound minted token. Config/architectural.")
+    # FND-10/DEBT-A71 (app-host -> identity/gateway minted token) — RESOLVED: gateway = svc:model-gateway (slice-1c-ii),
+    # identity = svc:identity as app-host's own principal (slice-1c-iv-c). Now live-asserted by the FND-9/DEBT-A71
+    # identity-door cases (declared caller app-host admitted; anon / retired literal / wrong-aud / undeclared refused).
     nb("CLIENT","CLI-6/PTC-12/DEBT-A23","the public client/participant protocol is a versioned API, not /bridge/*",
        "VIOLATED/PLANNED: there is no /v1-versioned public protocol; the live surface is unversioned /embed/* + the internal /bridge/* RPC family served at the public root (app_host.py:2833 dispatch). Architectural (ADR-0023). The specific invariant 'never expose /bridge/* unauthenticated' is covered by the FND-8/NET-12 XFAILs above.")
 

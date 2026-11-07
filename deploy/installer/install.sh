@@ -76,6 +76,25 @@ XAPP()  { COMPOSE exec -T -e VAULT_TOKEN="${VAULT_TOKEN:-}" app-host "$@"; }
 # services exist, so they cannot wait on a not-yet-healthy network/kernel).
 XRUNNET()  { COMPOSE run --rm --no-deps -T -e VAULT_TOKEN="${VAULT_TOKEN:-}" network "$@"; }
 XRUNKERN() { COMPOSE run --rm --no-deps -T -e VAULT_TOKEN="${VAULT_TOKEN:-}" kernel "$@"; }
+# ADR-0131 / slice-1c-iv-c — identity's provisioning door accepts ONLY an svc:identity token from an allow-listed
+# operator-realm caller. The installer acts as the `provisioner` principal (self-seeded by identity from the Vault
+# install config): read its password from Vault (root, install-time) and mint a FRESH short-lived svc:identity
+# token for each identity-writing phase. No shared literal; empty output => that phase's writes are refused (403).
+_idt() {
+  XNET env INST="$INSTANCE" python3 - <<'PYIDT'
+import os, json, urllib.request
+VA=(os.environ.get("VAULT_ADDR") or "http://vault:8200").rstrip("/"); VT=os.environ.get("VAULT_TOKEN","")
+op=f"{os.environ['INST']}-operator"
+try:
+    r=urllib.request.Request(f"{VA}/v1/secret/data/{op}/provisioner/password", headers={"X-Vault-Token":VT})
+    pw=((json.load(urllib.request.urlopen(r,timeout=8)).get("data") or {}).get("data") or {}).get("password","")
+    lg=urllib.request.Request("http://identity:8093/login", data=json.dumps({"username":"provisioner","tenant":op,
+        "password":pw,"aud":"svc:identity"}).encode(), headers={"Content-Type":"application/json"})
+    print(json.load(urllib.request.urlopen(lg,timeout=10)).get("access_token",""), end="")
+except Exception:
+    print("", end="")
+PYIDT
+}
 
 # L1-1b — provision per-service Vault AppRoles (closes DEBT-B58). Uses ROOT (install-time) via the vault
 # container CLI. Enables approle, writes the least-privilege policies (stdin, no bind-mount), creates one role
@@ -177,7 +196,20 @@ _setup_vault_approle
 echo "▶ bring-up: operator install config (admin + provisioner passwords) → Vault (ADR-0131)"
 # admin: an operator MAY pass OPERATOR_PASSWORD (interactive install); else a strong password is generated.
 # CREATE-ONLY either way — a re-install never overwrites an existing credential.
-if [ -n "$OPERATOR_PASSWORD" ]; then
+# ADR-0131 constraint 4 — after a CONFIRMED bootstrap the installer scrubs the admin bootstrap password and leaves a
+# marker (secret/<op>/install-state). A re-install over that state must NOT mint a fresh (unusable) bootstrap
+# password: the admin already exists in identity (the create-only seed ignores config changes). The operator passes
+# the CURRENT admin password as OPERATOR_PASSWORD; it is used in-shell only and never written back to Vault.
+ADMIN_SCRUBBED=0
+if ! VROOT "vault kv get -mount=secret ${INSTANCE}-operator/admin/password >/dev/null 2>&1" \
+   && VROOT "vault kv get -mount=secret ${INSTANCE}-operator/install-state >/dev/null 2>&1"; then
+  ADMIN_SCRUBBED=1
+  if [ -z "$OPERATOR_PASSWORD" ]; then
+    echo "✗ the admin bootstrap password was scrubbed after the first install (ADR-0131); re-run with"
+    echo "  OPERATOR_PASSWORD=<the current admin@${INSTANCE}-operator / realm-admin password>"; exit 1
+  fi
+  echo "  · admin: bootstrap password already scrubbed (re-install) — using operator-supplied password in-shell only"
+elif [ -n "$OPERATOR_PASSWORD" ]; then
   VROOT "vault kv get -mount=secret ${INSTANCE}-operator/admin/password >/dev/null 2>&1 \
     || vault kv put -mount=secret ${INSTANCE}-operator/admin/password password='$OPERATOR_PASSWORD' >/dev/null" \
     && echo "  · admin: operator-supplied password stored (create-only)" \
@@ -288,6 +320,31 @@ PY
   [ -n "$OPERATOR_PASSWORD" ] && echo "  · admin password read from Vault (generated at install; not printed)" \
                              || { echo "✗ could not read generated admin password from Vault"; exit 1; }
 fi
+echo "── Phase 1a · confirm identity self-bootstrap (ADR-0131) — provisioner mint + admin login ───────"
+# The door is svc:identity-only from day one, so nothing below works unless identity seeded the provisioner (and
+# the admin) from the install config. Confirm BOTH before any identity write; the admin confirmation also gates
+# the end-of-install scrub of the bootstrap password (constraint 4).
+for i in $(seq 1 30); do XNET python3 -c "import urllib.request;urllib.request.urlopen('http://identity:8093/healthz',timeout=3)" >/dev/null 2>&1 && break; sleep 2; done
+IDT="$(_idt)"
+[ -n "$IDT" ] && echo "  ✓ provisioner@${INSTANCE}-operator minted an svc:identity token (self-bootstrap confirmed)" \
+  || { echo "✗ provisioner could not mint svc:identity — identity did not self-bootstrap from Vault (see identity logs)"; exit 1; }
+ADMIN_BOOTSTRAP_CONFIRMED=0
+_adm="$(XNET env INST="$INSTANCE" PW="$OPERATOR_PASSWORD" python3 - <<'PYADM'
+import os, json, urllib.request, urllib.error
+op=f"{os.environ['INST']}-operator"
+r=urllib.request.Request(f"http://identity:8093/realms/{op}/login", data=json.dumps({"username":"admin","password":os.environ["PW"]}).encode(),
+                         headers={"Content-Type":"application/json"})
+try:
+    d=json.load(urllib.request.urlopen(r,timeout=10)); print("OK", "must_reset" if d.get("must_reset") else "rotated", end="")
+except urllib.error.HTTPError as e:
+    print("FAIL", e.code, end="")
+PYADM
+)"
+case "$_adm" in
+  OK*) ADMIN_BOOTSTRAP_CONFIRMED=1; echo "  ✓ admin@${INSTANCE}-operator logs in (${_adm#OK })" ;;
+  *)   echo "✗ admin@${INSTANCE}-operator login failed ($_adm) — bootstrap not confirmed"; exit 1 ;;
+esac
+
 echo "  · govern base domains/roles/schemas"
 XNET python3 /app/seed_base.py
 
@@ -295,12 +352,12 @@ echo "── Phase 1b-svc · role-bearing service principals (scheduler/componen
 # ADR-0131 — these moved OUT of ensure_install (which now only signs tenant records). Each is a dedicated SERVICE
 # principal with a random Vault-backed password (never compose/human) at the SAME path its consumer reads via
 # svc_token.py. Production minimum: scheduler + component-publisher always; dev-sandbox dev-only; embed-service
-# only when embedding is enabled. (slice-1c-iv-b keeps the IDENTITY_INTERNAL door; the gate flips to svc:identity
-# in 1c-iv-c.) MUST run before base-app delivery so app-host's publish/dev-token creds exist.
-XNET env II="airawat-ld-identity-internal" INST="${INSTANCE}" PROFILE="$PROFILE" EMBED_ENABLED="$EMBED_ENABLED" python3 - <<'PY'
+# only when embedding is enabled. Written through the svc:identity door as the provisioner (1c-iv-c).
+# MUST run before base-app delivery so app-host's publish/dev-token creds exist.
+XNET env IDT="$(_idt)" INST="${INSTANCE}" PROFILE="$PROFILE" EMBED_ENABLED="$EMBED_ENABLED" python3 - <<'PY'
 import os, json, secrets, urllib.request, urllib.error
 IDN="http://identity:8093"; VADDR=os.environ.get("VAULT_ADDR","http://vault:8200"); VTOK=os.environ["VAULT_TOKEN"]
-II=os.environ["II"]; INST=os.environ["INST"]; PROFILE=os.environ["PROFILE"]; EMBED=os.environ.get("EMBED_ENABLED")=="1"
+IDT=os.environ["IDT"]; INST=os.environ["INST"]; PROFILE=os.environ["PROFILE"]; EMBED=os.environ.get("EMBED_ENABLED")=="1"
 operator, network, developer = f"{INST}-operator", f"{INST}-network", f"{INST}-developer"
 # (user, tenant, roles, audiences, include?)
 PRINCIPALS = [
@@ -330,9 +387,9 @@ for USER, TENANT, ROLES, AUDS, INCLUDE in PRINCIPALS:
               else f"[1b-svc] {USER}: VAULT WRITE FAILED {w.code}")
     _u={"username":USER,"tenant":TENANT,"roles":ROLES}
     if AUDS is not None: _u["audiences"]=AUDS
-    _req(f"{IDN}/users", data=_u, headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
+    _req(f"{IDN}/users", data=_u, headers={"Authorization":"Bearer "+IDT,"Content-Type":"application/json"}, method="POST")
     s=_req(f"{IDN}/set-password", data={"username":USER,"tenant":TENANT,"password":pw,"must_reset":False,"only_if_unset":True},
-           headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
+           headers={"Authorization":"Bearer "+IDT,"Content-Type":"application/json"}, method="POST")
     print(f"[1b-svc] {USER} ready: tenant={TENANT} roles={ROLES} audiences={AUDS}",
           "OK" if not isinstance(s, urllib.error.HTTPError) else f"set-pw {s.code}")
 PY
@@ -342,12 +399,12 @@ echo "── Phase 1c · service principals (app-host/kernel/decision/workflow/l
 # needs its Vault-backed audience-bound credential in place when delivery first writes/reads the filestore.
 # Each is role [] (no platform reach — authority rides the run/dev token), pw in Vault (never compose), with a
 # recorded audience allow-list so identity /login honours the aud request (ADR-0124). Idempotent (reuse pw).
-XNET env II="airawat-ld-identity-internal" TENANT="${INSTANCE}-operator" python3 - <<'PY'
+XNET env IDT="$(_idt)" TENANT="${INSTANCE}-operator" python3 - <<'PY'
 import os, json, secrets, urllib.request, urllib.error
 IDN="http://identity:8093"; VADDR=os.environ.get("VAULT_ADDR","http://vault:8200"); VTOK=os.environ["VAULT_TOKEN"]
-II=os.environ["II"]; TENANT=os.environ["TENANT"]
+IDT=os.environ["IDT"]; TENANT=os.environ["TENANT"]
 PRINCIPALS = {
-    "app-host": ["svc:scheduler", "svc:filestore", "svc:model-gateway"],   # scheduler /run + filestore + model-gateway
+    "app-host": ["svc:scheduler", "svc:filestore", "svc:model-gateway", "svc:identity"],   # +1c-iv-c: identity door (own principal)
     "kernel":   ["svc:model-gateway", "svc:filestore", "svc:secrets", "svc:runtime-manager"],  # +1c-iii: broker /fetch + runtime-mgr
     "decision": ["svc:notify"],
     "workflow": ["svc:notify"],
@@ -371,9 +428,9 @@ for USER, AUDS in PRINCIPALS.items():
         print(f"[phase1c] {USER}: stored password in Vault at {VPATH}" if not isinstance(w, urllib.error.HTTPError)
               else f"[phase1c] {USER}: VAULT WRITE FAILED {w.code}")
     _req(f"{IDN}/users", data={"username":USER,"tenant":TENANT,"roles":[],"audiences":AUDS},
-         headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
+         headers={"Authorization":"Bearer "+IDT,"Content-Type":"application/json"}, method="POST")
     s=_req(f"{IDN}/set-password", data={"username":USER,"tenant":TENANT,"password":pw,"must_reset":False,"only_if_unset":True},
-           headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
+           headers={"Authorization":"Bearer "+IDT,"Content-Type":"application/json"}, method="POST")
     print(f"[phase1c] {USER} ready: tenant={TENANT} roles=[] audiences={AUDS}",
           "OK" if not isinstance(s, urllib.error.HTTPError) else f"set-pw {s.code}")
 PY
@@ -478,11 +535,11 @@ echo "── Phase 5 · trust-reader service principal (role-mode mint-on-demand
 # Role mode (NETWORK_ADMIN_AUTHZ=role) mints its kernel-read token on demand for a DEDICATED read-only
 # principal, password in Vault (never compose). Provision both here so role mode works with NO manual token.
 # Idempotent: if the Vault password + identity user already exist, reuse them (no rotation, no write).
-XNET env II="airawat-ld-identity-internal" TENANT="${INSTANCE}-network" USER="trust-reader" \
+XNET env IDT="$(_idt)" TENANT="${INSTANCE}-network" USER="trust-reader" \
         VPATH="secret/data/${INSTANCE}-network/trust-reader/password" python3 - <<'PY'
 import os, json, secrets, urllib.request, urllib.error
 IDN="http://identity:8093"; VADDR=os.environ.get("VAULT_ADDR","http://vault:8200"); VTOK=os.environ["VAULT_TOKEN"]
-II=os.environ["II"]; TENANT=os.environ["TENANT"]; USER=os.environ["USER"]; VPATH=os.environ["VPATH"]
+IDT=os.environ["IDT"]; TENANT=os.environ["TENANT"]; USER=os.environ["USER"]; VPATH=os.environ["VPATH"]
 def _req(url, data=None, headers=None, method="GET"):
     r=urllib.request.Request(url, data=(json.dumps(data).encode() if data is not None else None),
                              headers=headers or {}, method=method)
@@ -505,10 +562,10 @@ else:
           else f"[phase5] VAULT WRITE FAILED: {w.code} {(w.read() or b'').decode()[:120]}")
 # ensure the identity user exists (role [] — NOT platform.service) + set its password (idempotent)
 u=_req(f"{IDN}/users", data={"username":USER,"tenant":TENANT,"roles":[]},
-       headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
+       headers={"Authorization":"Bearer "+IDT,"Content-Type":"application/json"}, method="POST")
 print("[phase5] identity user ensured:", "OK" if not isinstance(u, urllib.error.HTTPError) else f"{u.code} (exists ok)")
 s=_req(f"{IDN}/set-password", data={"username":USER,"tenant":TENANT,"password":pw,"must_reset":False},
-       headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
+       headers={"Authorization":"Bearer "+IDT,"Content-Type":"application/json"}, method="POST")
 print("[phase5] trust-reader login password set:", "OK" if not isinstance(s, urllib.error.HTTPError) else f"{s.code}")
 PY
 
@@ -539,11 +596,11 @@ echo "── Phase 7 · trust-writer service principal (Trust-plane governance W
 # Governance writes (role assign, capability define, grant issue/revoke) persist via a DEDICATED write
 # principal — own-tenant write to the Trust steward (ds:<inst>-network:), role [], NEVER platform.service;
 # password in Vault, minted on demand. Separate from the read-only trust-reader. Idempotent (reuse).
-XNET env II="airawat-ld-identity-internal" TENANT="${INSTANCE}-network" USER="trust-writer" \
+XNET env IDT="$(_idt)" TENANT="${INSTANCE}-network" USER="trust-writer" \
         VPATH="secret/data/${INSTANCE}-network/trust-writer/password" python3 - <<'PY'
 import os, json, secrets, urllib.request, urllib.error
 IDN="http://identity:8093"; VADDR=os.environ.get("VAULT_ADDR","http://vault:8200"); VTOK=os.environ["VAULT_TOKEN"]
-II=os.environ["II"]; TENANT=os.environ["TENANT"]; USER=os.environ["USER"]; VPATH=os.environ["VPATH"]
+IDT=os.environ["IDT"]; TENANT=os.environ["TENANT"]; USER=os.environ["USER"]; VPATH=os.environ["VPATH"]
 def _req(url, data=None, headers=None, method="GET"):
     r=urllib.request.Request(url, data=(json.dumps(data).encode() if data is not None else None), headers=headers or {}, method=method)
     try: return urllib.request.urlopen(r, timeout=10).read()
@@ -558,9 +615,9 @@ else:
     pw=secrets.token_urlsafe(18)
     w=_req(f"{VADDR}/v1/{VPATH}", data={"data":{"value":pw}}, headers={"X-Vault-Token":VTOK,"Content-Type":"application/json"}, method="POST")
     print(f"[phase7] stored trust-writer password in Vault at {VPATH}" if not isinstance(w, urllib.error.HTTPError) else f"[phase7] VAULT WRITE FAILED: {w.code}")
-u=_req(f"{IDN}/users", data={"username":USER,"tenant":TENANT,"roles":[]}, headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
+u=_req(f"{IDN}/users", data={"username":USER,"tenant":TENANT,"roles":[]}, headers={"Authorization":"Bearer "+IDT,"Content-Type":"application/json"}, method="POST")
 print("[phase7] identity user ensured:", "OK" if not isinstance(u, urllib.error.HTTPError) else f"{u.code} (exists ok)")
-s=_req(f"{IDN}/set-password", data={"username":USER,"tenant":TENANT,"password":pw,"must_reset":False}, headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
+s=_req(f"{IDN}/set-password", data={"username":USER,"tenant":TENANT,"password":pw,"must_reset":False}, headers={"Authorization":"Bearer "+IDT,"Content-Type":"application/json"}, method="POST")
 print("[phase7] trust-writer login password set:", "OK" if not isinstance(s, urllib.error.HTTPError) else f"{s.code}")
 PY
 
@@ -638,10 +695,10 @@ echo "── Phase 9 · ADR-0122 platform test users (platauth, platnone) · DEV
 # RECEIVE platform.authority — via a ChangeRequest approved by a different holder, NOT granted here) and
 # `platnone` (same tenant, no recorded role). Passwords generated + stored in Vault; usernames printed,
 # passwords NOT. Idempotent: reuse an existing Vault password, don't rotate.
-XNET env II="airawat-ld-identity-internal" TENANT="${INSTANCE}-network" INST="${INSTANCE}" python3 - <<'PY'
+XNET env IDT="$(_idt)" TENANT="${INSTANCE}-network" INST="${INSTANCE}" python3 - <<'PY'
 import os, json, secrets, urllib.request, urllib.error
 IDN="http://identity:8093"; VADDR=os.environ.get("VAULT_ADDR","http://vault:8200"); VTOK=os.environ["VAULT_TOKEN"]
-II=os.environ["II"]; TENANT=os.environ["TENANT"]; INST=os.environ["INST"]
+IDT=os.environ["IDT"]; TENANT=os.environ["TENANT"]; INST=os.environ["INST"]
 def _req(url, data=None, headers=None, method="GET"):
     r=urllib.request.Request(url, data=(json.dumps(data).encode() if data is not None else None),
                              headers=headers or {}, method=method)
@@ -670,9 +727,9 @@ for USER, _roles in (("platauth", []), ("platnone", []), ("rolesteward", ["platf
     # DEBT-B28/A73: a single CREATE persists the explicit roles list (and an empty/omitted list is NOT defaulted
     # to platform.tenant-admin), so the old double-POST workaround for rolesteward is gone.
     _req(f"{IDN}/users", data={"username":USER,"tenant":TENANT,"roles":_roles},
-         headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
+         headers={"Authorization":"Bearer "+IDT,"Content-Type":"application/json"}, method="POST")
     s=_req(f"{IDN}/set-password", data={"username":USER,"tenant":TENANT,"password":pw,"must_reset":False,"only_if_unset":True},
-           headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
+           headers={"Authorization":"Bearer "+IDT,"Content-Type":"application/json"}, method="POST")
     print(f"[phase9] created test user (username only): {USER}   tenant={TENANT}   roles={_roles or '(none)'}",
           "OK" if not isinstance(s, urllib.error.HTTPError) else f"set-pw {s.code}")
 print("[phase9] ADR-0122 test users ready: platauth, platnone — passwords in Vault at "
@@ -687,10 +744,10 @@ if [ "$SEED_DATA_TENANT" = 1 ]; then
 echo "── Phase 9b · conformance non-admin test user (outsider) · DEV-ONLY ─────────────────────────────"
 # `outsider`: a NON-admin login in the data tenant, for the conformance F2 case (a valid non-admin session is
 # denied a governance write). Password generated into Vault (same convention), not read from any file.
-XNET env II="airawat-ld-identity-internal" TENANT="${INSTANCE}" INST="${INSTANCE}" python3 - <<'PY'
+XNET env IDT="$(_idt)" TENANT="${INSTANCE}" INST="${INSTANCE}" python3 - <<'PY'
 import os, json, secrets, urllib.request, urllib.error
 IDN="http://identity:8093"; VADDR=os.environ.get("VAULT_ADDR","http://vault:8200"); VTOK=os.environ["VAULT_TOKEN"]
-II=os.environ["II"]; TENANT=os.environ["TENANT"]; INST=os.environ["INST"]
+IDT=os.environ["IDT"]; TENANT=os.environ["TENANT"]; INST=os.environ["INST"]
 def _req(url, data=None, headers=None, method="GET"):
     r=urllib.request.Request(url, data=(json.dumps(data).encode() if data is not None else None),
                              headers=headers or {}, method=method)
@@ -706,9 +763,9 @@ if not pw:
 else:
     print(f"[phase9b] outsider: password already in Vault at {VPATH} — reusing")
 _req(f"{IDN}/users", data={"username":"outsider","tenant":TENANT,"roles":[]},
-     headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
+     headers={"Authorization":"Bearer "+IDT,"Content-Type":"application/json"}, method="POST")
 _req(f"{IDN}/set-password", data={"username":"outsider","tenant":TENANT,"password":pw,"must_reset":False,"only_if_unset":True},
-     headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
+     headers={"Authorization":"Bearer "+IDT,"Content-Type":"application/json"}, method="POST")
 print(f"[phase9b] outsider ready (non-admin, tenant={TENANT})")
 PY
 fi
@@ -750,7 +807,7 @@ echo "── Phase 13 · generate conformance/.creds.json FROM Vault · DEV-ONLY
 # opadmin share the operator-admin credential (same account, two realms). Written to the gitignored file; the
 # password values go straight to the file (never echoed).
 CREDS_OUT="$SCRIPT_DIR/../../conformance/.creds.json"
-XNET env INST="$INSTANCE" python3 - > "$CREDS_OUT" <<'PY'
+XNET env INST="$INSTANCE" ADMIN_PW="$OPERATOR_PASSWORD" python3 - > "$CREDS_OUT" <<'PY'
 import os, json, urllib.request, urllib.error
 VADDR=os.environ.get("VAULT_ADDR","http://vault:8200"); VTOK=os.environ["VAULT_TOKEN"]; INST=os.environ["INST"]
 def vget(path):
@@ -759,7 +816,7 @@ def vget(path):
         return (((json.loads(b) or {}).get("data") or {}).get("data") or {}).get("password")
     except urllib.error.HTTPError:
         return None
-admin_pw = vget(f"secret/data/{INST}-operator/admin/password")
+admin_pw = vget(f"secret/data/{INST}-operator/admin/password") or os.environ.get("ADMIN_PW") or None   # re-install after scrub
 creds={}
 if admin_pw:
     creds["admin"]   = {"password": admin_pw, "tenant": f"{INST}-network"}    # network-realm admin login
@@ -772,6 +829,25 @@ print(json.dumps(creds, indent=2))
 PY
 if [ -s "$CREDS_OUT" ]; then echo "  · wrote $(python3 -c "import json;print(len(json.load(open('$CREDS_OUT'))))" 2>/dev/null) conformance creds from Vault (passwords not printed)"
 else echo "  ⚠ conformance creds generation produced no output"; fi
+fi
+
+echo "── Phase 14 · scrub the admin BOOTSTRAP password from Vault (ADR-0131 constraint 4) ─────────────"
+# Only after identity CONFIRMED the bootstrap (Phase 1a admin login) and every phase that logs in as admin has run
+# (and, in dev, Phase 13 has derived the gitignored conformance fixture). `kv metadata delete` destroys ALL versions
+# (a plain `kv delete` is a recoverable soft-delete). A marker records the scrub so a re-install asks for the
+# current password instead of minting a new, unusable bootstrap one. The provisioner credential STAYS (service).
+if [ "$ADMIN_BOOTSTRAP_CONFIRMED" = 1 ] && [ "$ADMIN_SCRUBBED" = 0 ]; then
+  VROOT "vault kv put -mount=secret ${INSTANCE}-operator/install-state admin_bootstrap_scrubbed=$(date -u +%Y-%m-%dT%H:%M:%SZ) >/dev/null \
+         && vault kv metadata delete -mount=secret ${INSTANCE}-operator/admin/password >/dev/null" \
+    || { echo "✗ could not scrub the admin bootstrap password from Vault"; exit 1; }
+  if VROOT "vault kv get -mount=secret ${INSTANCE}-operator/admin/password >/dev/null 2>&1"; then
+    echo "✗ admin bootstrap password STILL present after scrub"; exit 1
+  fi
+  echo "  ✓ admin bootstrap password removed from Vault (all versions); admin must rotate at first login (must_reset)"
+elif [ "$ADMIN_SCRUBBED" = 1 ]; then
+  echo "  · already scrubbed on a previous install — nothing to remove"
+else
+  echo "✗ bootstrap NOT confirmed — refusing to scrub (and refusing to report success)"; exit 1
 fi
 
 echo "✓ install complete — profile=$PROFILE"

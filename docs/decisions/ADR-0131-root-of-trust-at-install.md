@@ -75,7 +75,28 @@ The cutover ships in three fresh-install-gated commits so the one irreversible s
     exactly **{scheduler, component-publisher}** (+ `embed-service` iff embedding is enabled); `dev-sandbox` never.
 - **1c-iv-c** — flip the door to `svc:identity`-only; app-host (×8 sites), network `api.py` join→provision, and
   the installer phases mint `svc:identity`; `IDENTITY_INTERNAL` removed everywhere; B29 adapted to the
-  provisioner-seedable check. New images (e.g. reference `dev-hard16`, network `dev-a77`). **Dedicated session.**
+  provisioner-seedable check. New images reference `dev-hard16`, network `dev-a77`. **Shipped.**
+  - **As built:** identity gate = `svc_authz.ingress_gate(accept={svc:identity}, allow={provisioner, app-host},
+    require=True)` against identity's own `/jwks` (loopback), **plus** the caller's `sub` must be in the operator
+    realm (`SERVICE_TENANT`) — a same-named principal in another realm is refused. Covers `/users` (POST+GET),
+    `/set-password`, `/prefs`, `/realms`, `/realms/<t>/users`. **app-host** calls as its **own** `app-host`
+    principal (recorded audience `svc:identity`, installer Phase 1c) — per-caller identity, not the shared
+    provisioner; **network** `api.py` (join→provision ×3) mints as `provisioner` via an inline Vault-backed minter
+    (`svc-network` grants exactly `secret/data/<op>/provisioner/*`); the **installer** mints a fresh provisioner
+    token per identity-writing phase (`_idt`, phases 1b-svc/1c/5/7/9/9b). **B29:** `assert_provisioner_seeded`
+    refuses boot under production when the provisioner is not seeded; outside production every call fails closed.
+  - **Bootstrap confirmation + scrub (constraint 4):** installer Phase 1a confirms the bootstrap (provisioner mints
+    `svc:identity` AND `admin@<op>` logs in, `must_reset:true`) before any identity write; Phase 14 — after every
+    phase that logs in as admin and the dev conformance fixture — removes the admin bootstrap password with
+    `vault kv metadata delete` (all versions; a soft `kv delete` would be recoverable) and writes the marker
+    `secret/<op>/install-state`. A **re-install over a scrubbed install** requires `OPERATOR_PASSWORD=<current
+    admin password>` (used in-shell only, never written back) instead of minting a new, unusable bootstrap secret.
+  - **Verified (fresh `install.sh --profile dev`, EXIT 0):** 63/63 login-path checks — operator admin
+    (`must_reset`), 3 dev realm admins + 4 dev test users, provisioner (`svc:identity` ok, other aud 403), all 11
+    service principals (each recorded audience mints; `svc:identity` refused to every undeclared one), a normal user
+    + a must-reset user through the App Host (login, change-password via app-host→identity, rotated pw works, old
+    refused); network minter (own AppRole token) writes through the door. Conformance external 13/0, internal 44
+    PASS / 6 XFAIL / 0 XPASS / 0 FAIL. Rollback was **not** needed.
 
 ## Rollback procedure for the 1c-iv-c cutover
 
