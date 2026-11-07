@@ -89,6 +89,11 @@ services:
       KV_SKIP_DDL: "1"
       NETWORK_URL: http://network:8090
       IDENTITY_JWKS: http://identity:8093/jwks
+      # slice-1c-ii — the kernel's OWN service identity (ADR-0124): mints svc:model-gateway (/v1/complete
+      # forward) + svc:filestore (broker file put/get) tokens via svc_token, reading its password from Vault.
+      IDENTITY_URL: http://identity:8093
+      SERVICE_PRINCIPAL: kernel
+      SERVICE_TENANT: localdev-operator
       KERNEL_REQUIRE_STEWARD_GRANT: "1"
       DEV_REQUIRE_DEVELOPER: "1"
       SCHEMA_VALIDATE: strict                               # not shadow
@@ -257,13 +262,21 @@ services:
   workflow:
     <<: *ref
     container_name: airawat-ld-workflow
-    networks: [aos-svc]
+    env_file:
+      - path: ./vault/approle/workflow.env   # slice-1c-ii: per-service Vault AppRole (installer-seeded); required:false so a pre-install `up` tolerates its absence
+        required: false
+    networks: [aos-svc, aos-data-secrets]
     command: ["python","reference/workflow.py","--kernel","http://kernel:8080","--network","http://network:8090"]
+    environment: { <<: *svcid, SERVICE_PRINCIPAL: workflow }   # slice-1c-ii: mints svc:notify for the workflow→notify edge
   decision:
     <<: *ref
     container_name: airawat-ld-decision
-    networks: [aos-svc]
+    env_file:
+      - path: ./vault/approle/decision.env   # slice-1c-ii: per-service Vault AppRole (installer-seeded); required:false so a pre-install `up` tolerates its absence
+        required: false
+    networks: [aos-svc, aos-data-secrets]
     command: ["python","reference/decision.py","--kernel","http://kernel:8080","--network","http://network:8090","--workflow","http://workflow:8097"]
+    environment: { <<: *svcid, SERVICE_PRINCIPAL: decision }   # slice-1c-ii: mints svc:notify for the decision→notify edge
   automation:
     <<: *ref
     container_name: airawat-ld-automation
