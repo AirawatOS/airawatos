@@ -261,3 +261,48 @@ policy; `svc-kernel` carries `transit/*` per the slice brief ahead of its active
 scoped to three tenant prefixes rather than exact principal names. Everything else is tight (one or two exact
 paths). Tokens are renewable with a bounded TTL; an auto-renewer (Vault Agent sidecar) is the production
 follow-up for truly short tokens — recorded, not yet built.
+
+> **Update (slice-1c, step 4):** `svc-model-gateway` is **narrowed** from `secret/data/*` to the provider-key
+> prefix `secret/data/+/+/*` (KV-v2 reads/writes of `secret/data/<tenant>/<component>/<key>`, the exact shape
+> `_vault_key`/`/admin/provider-key` use) — it is no longer a general KV broker. `svc-secrets` **stays broad**
+> because it *is* the KV broker; its gate (`SECRETS_INTERNAL`) is flagged as a priority for the decision-function
+> work (per-(tenant,component) authorization moving into a governed decision, not a shared literal). See §h.
+
+## h. Inbound gate inventory (ARC, slice-1c — "GATES ON", closes A72/B5 where held)
+
+Every externally-reachable write/spend/execute door and its **ingress gate**. Two mechanisms exist: the shared
+`svc_authz.ingress_gate` (audience-bound service token verified against JWKS + a caller allow-list) and a
+**bespoke** shared-literal `X-Internal-Token`. "Default" is the **code default** when no env flag is set.
+
+Slice-1c inverts the stale semantics: the code now **defaults to ENFORCE**; a deployment opts a door into
+**shadow only via an explicit `<SVC>_SHADOW` flag** (was: `<SVC>_REQUIRE_TOKEN` defaulting *off*). The
+production startup guard (`prod-guard.sh`, step 3) **refuses to boot if any `*_SHADOW` flag is set** — so
+production cannot run with a gate open.
+
+| Door | Gate | Accept audience / token | Declared callers (the edge) | Default BEFORE 1c | Default AFTER 1c |
+|---|---|---|---|---|---|
+| scheduler `/run`,`/reload` | svc_authz | `svc:scheduler` | **app-host** | shadow (`SCHEDULER_REQUIRE_TOKEN`, armed=1 in compose) | **ENFORCE** (code default) |
+| automation `/events` | svc_authz (`_authz_event`) | `svc:automation`, platform | **event-relay** (platform aud) | shadow (armed=1 in compose) | **ENFORCE** (code default) |
+| notify `/notify` | svc_authz **(NEW)** | `svc:notify` | **decision, workflow** | **none** (DEBT-B5) | **ENFORCE** (code default) — closes B5 |
+| embed `/embed` (:8104) | svc_authz **(NEW)** | `svc:embed` | **app-host** (vector index) | **none** | **ENFORCE** (code default) |
+| model-gateway `/transcribe` | svc_authz **(NEW)** | `svc:model-gateway` | **app-host** | **none** (DEBT-B5) | **ENFORCE** (code default) |
+| model-gateway `/admin/provider-key` | bespoke `X-Internal-Token` (`GW_INTERNAL_TOKEN`) | shared literal | **app-host** | enforce-when-set, **literal default `gw-internal`** (DEBT-A37) | **ENFORCE, fail-closed** (refuses when unset) |
+| model-gateway `/complete`,`/embed` | svc_authz **(NEW)** | `svc:model-gateway` | **kernel** (`/complete`), app-host | **none** (DEBT-B5) | code default **ENFORCE**; local-dev **shadow via explicit `MODELGW_SHADOW`** — kernel caller unwired (A72 kernel sub-slice) |
+| filestore `/files` (read+write) | svc_authz | `svc:filestore` | **app-host, kernel, launcher** | shadow (`FILESTORE_REQUIRE_TOKEN` unset) | code default **ENFORCE**; local-dev **shadow via explicit `FILESTORE_SHADOW`** — kernel+launcher readers unwired (A72 kernel sub-slice) |
+| secrets `/materialize`,`/fetch` | bespoke `X-Internal-Token` (`SECRETS_INTERNAL`) | shared literal | **kernel broker** | ENFORCE (fail-closed when unset) | ENFORCE (unchanged; literal→audience = DEBT-A71, decision-fn priority) |
+| runtime-manager `/invoke` | bespoke `X-Internal-Token` (`RUNTIME_MANAGER_INTERNAL`) | shared literal | **launcher/orchestrator** | ENFORCE (fail-closed) | ENFORCE (unchanged; A71) |
+| identity `/set-password`,`/provision`,dir writes | bespoke `X-Internal-Token` (`IDENTITY_INTERNAL`) | shared literal | **provisioner** (app-host, network, installer) | ENFORCE (fail-closed; refuses boot in prod if unset — B29) | ENFORCE (unchanged; A71) |
+| decision `/decide` | user-token authn (`tokens.verify`) | user bearer (AUTHORITY) | authenticated **users** | authn-only (no svc gate) | authn-only — **user-facing door**, not a service gate |
+| workflow `/instantiate`,`/complete-task` | user-token authn (`tokens.verify`) | user bearer | authenticated **users** | authn-only | authn-only — user-facing door |
+| decision/workflow `/verify`, model-gateway/embed `/healthz` | **none (public by design)** | — | anyone | none (intended) | none (public verify / liveness — documented, not debt) |
+
+**The two kernel-edge gates** (model-gateway `/complete`, filestore read/write) are the only doors whose caller
+set includes the **kernel**, which today has Vault + JWKS-verify but **no service principal and no `svc_token`**
+(it authenticates *components* by run-token, it does not mint an identity token of its own). Their gate code
+defaults to ENFORCE, but local-dev holds them open with an **explicit** `MODELGW_SHADOW` / `FILESTORE_SHADOW`
+flag (never the old silent unset-is-off), the kernel edge is **declared here**, and the prod guard refuses those
+flags — so the forcing function is real: production cannot start until the **kernel sub-slice** wires a kernel
+service principal (`secret/data/<inst>/kernel/password` + identity user, installer-seeded) + `svc_token`, and
+attaches `Authorization: Bearer <svc:model-gateway|svc:filestore>` on the kernel's two egress calls
+(`app.py` `/v1/complete` forward + the filestore read/write helpers) and the launcher's filestore reads. This is
+the remaining half of DEBT-A72.
