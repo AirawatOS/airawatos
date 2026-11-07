@@ -25,11 +25,16 @@ TIGHT = {
     "event-relay": ("secret/data/localdev-operator/scheduler/password",    "secret/data/localdev/kernel-app/password"),
     "app-host":    ("secret/data/localdev-operator/app-host/password",     "secret/data/localdev/kernel-app/password"),
 }
-# broker services: broad on secret/data/* BY DESIGN (svc-secrets/svc-model-gateway, recorded widening). Assert
-# they hold a scoped (non-root) token and can read a sample path; do NOT assert foreign-refused.
+# broker service: svc-secrets is broad on secret/data/* BY DESIGN (it IS the KV broker; per-(tenant,component)
+# authz is its own gate — the decision-function follow-up). Assert scoped non-root token + can read a sample.
 BROAD = {
     "secrets":       "secret/data/localdev/kernel-app/password",
-    "model-gateway": "secret/data/localdev/kernel-app/password",
+}
+# slice-1c step 4 — model-gateway NARROWED from secret/data/* to the per-(tenant,component) KV SHAPE
+# secret/data/+/+/*: (3-seg own path readable) AND (a 2-segment path now REFUSED 403, proving it is no longer
+# the whole tree). own = 3-seg component-secret shape; short = 2-seg path that the narrowed glob excludes.
+NARROWED = {
+    "model-gateway": ("secret/data/localdev/kernel-app/password", "secret/data/localdev-operator/scheduler"),
 }
 # services with no Vault door — must carry no Vault token at all
 NOVAULT = ["notify", "workflow", "decision", "filestore"]
@@ -114,6 +119,18 @@ def main():
                       bool(tok) and tok != ROOT and o.get("OWN") in ("200", "404"),
                       "token present=%s non-root=%s read=%s (svc-%s is intentionally broad — recorded widening)"
                       % (bool(tok), tok != ROOT, o.get("OWN"), svc))
+        ok_all &= rec("ARC-7", "%s: no static VAULT_TOKEN in container config" % svc,
+                      not config_has_static_vault_token(svc), "config static token present=%s" % config_has_static_vault_token(svc))
+
+    for svc, (own, short) in NARROWED.items():
+        o = probe(svc, own, short)
+        tok = o.get("TOKEN", "")
+        ok_all &= rec("ARC-7", "%s: holds a scoped (non-root) Vault token" % svc,
+                      bool(tok) and tok != ROOT, "token present=%s, is-root=%s" % (bool(tok), tok == ROOT and bool(ROOT)))
+        ok_all &= rec("ARC-7", "%s: CAN read a per-(tenant,component) component-secret path (its shape)" % svc,
+                      o.get("OWN") in ("200", "404"), "%s -> %s" % (own, o.get("OWN")))
+        ok_all &= rec("ARC-7", "%s: NARROWED — a 2-segment path is now REFUSED (no longer secret/data/*)" % svc,
+                      o.get("FOREIGN") == "403", "%s -> %s (want 403; proves svc-model-gateway narrowed to +/+/*)" % (short, o.get("FOREIGN")))
         ok_all &= rec("ARC-7", "%s: no static VAULT_TOKEN in container config" % svc,
                       not config_has_static_vault_token(svc), "config static token present=%s" % config_has_static_vault_token(svc))
 

@@ -262,11 +262,15 @@ scoped to three tenant prefixes rather than exact principal names. Everything el
 paths). Tokens are renewable with a bounded TTL; an auto-renewer (Vault Agent sidecar) is the production
 follow-up for truly short tokens — recorded, not yet built.
 
-> **Update (slice-1c, step 4):** `svc-model-gateway` is **narrowed** from `secret/data/*` to the provider-key
-> prefix `secret/data/+/+/*` (KV-v2 reads/writes of `secret/data/<tenant>/<component>/<key>`, the exact shape
-> `_vault_key`/`/admin/provider-key` use) — it is no longer a general KV broker. `svc-secrets` **stays broad**
-> because it *is* the KV broker; its gate (`SECRETS_INTERNAL`) is flagged as a priority for the decision-function
-> work (per-(tenant,component) authorization moving into a governed decision, not a shared literal). See §h.
+> **Update (slice-1c, step 4):** `svc-model-gateway` is **narrowed** from `secret/data/*` (the entire KV tree,
+> any shape) to the per-(tenant,component) KV **shape** `secret/data/+/+/*` — the exact shape
+> `secret/data/<tenant>/<component>/<key>` that `_vault_key`/`/admin/provider-key` use. It can no longer read
+> root-level or 1-/2-segment paths (proven by the vault-scope test: a 2-segment read now returns 403). It is
+> **not** moved to a disjoint provider-only prefix, because provider keys live on the **same component-secret
+> plane** the Components-app "Settings → API keys" UI writes to (that is the "set your key in the UI" contract);
+> so, like `svc-secrets`, its per-(tenant,component) **authorization** (which tenant/component a caller may
+> read) is the **decision-function follow-up**, not a Vault path glob. `svc-secrets` **stays broad** because it
+> *is* the KV broker; its gate (`SECRETS_INTERNAL`) carries the same decision-function priority. See §h.
 
 ## h. Inbound gate inventory (ARC, slice-1c — "GATES ON", closes A72/B5 where held)
 
