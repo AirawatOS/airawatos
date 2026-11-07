@@ -21,7 +21,7 @@ x-devenv: &devenv
   AIRAWAT_ALLOW_PASSWORDLESS: "1"     # reference IdP passwordless dev auth (gated: prod-guard blocks under production)
 
 x-ref: &ref                          # one source-built reference image; many services (per-service command)
-  image: manishsv/airawatos-reference:dev-hard12   # slice1 B28/B29 + slice5 B41/B42 + slice1c (GATES ON: enforce-default + svc_gate + notify/model-gateway gates)
+  image: manishsv/airawatos-reference:dev-hard13   # slice1 B28/B29 + slice5 B41/B42 + slice1c (GATES ON: enforce-default + svc_gate + notify/model-gateway gates)
   restart: unless-stopped
   entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]     # production guard (effective-settings check)
   volumes: [ ./prod-guard.sh:/local-dev/prod-guard.sh:ro ]
@@ -67,7 +67,7 @@ services:
 
   # ── platform core ─────────────────────────────────────────────────────────────────────────────────
   kernel:
-    image: manishsv/airawatos-kernel:dev-hard5
+    image: manishsv/airawatos-kernel:dev-hard6
     container_name: airawat-ld-kernel
     env_file: [ ./vault/approle/kernel.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
     networks: [aos-svc, aos-data-facts, aos-data-secrets, aos-component]  # aos-component: the broker is the ONLY door a placed component can reach (step 3)
@@ -231,9 +231,8 @@ services:
     container_name: airawat-ld-filestore
     networks: [aos-svc]
     command: ["python","reference/filestore.py","--port","8095"]
-    # slice-1c: gate ENFORCE is the code default. FILESTORE_SHADOW is the EXPLICIT dev opt-out (kernel + launcher
-    # readers do not mint an svc:filestore token yet — kernel sub-slice). IDENTITY_URL lets the gate build JWKS.
-    environment: { <<: *devenv, FILESTORE_DIR: /data/filestore, IDENTITY_URL: http://identity:8093, FILESTORE_SHADOW: "1" }
+    # slice-1c-ii: ENFORCE (shadow flag removed) — app-host/kernel/launcher all mint svc:filestore now.
+    environment: { <<: *devenv, FILESTORE_DIR: /data/filestore, IDENTITY_URL: http://identity:8093 }
     depends_on: {}
     volumes:
       - ./prod-guard.sh:/local-dev/prod-guard.sh:ro
@@ -244,10 +243,9 @@ services:
     container_name: airawat-ld-model-gateway
     env_file: [ ./vault/approle/model-gateway.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
     networks: [aos-svc, aos-data-secrets]
-    # slice-1c: /complete,/embed,/transcribe gate ENFORCE is the code default. MODELGW_SHADOW is the EXPLICIT dev
-    # opt-out (the kernel — the /complete caller — has no service principal yet; kernel sub-slice). GW_INTERNAL_TOKEN
-    # gates /admin/provider-key (now fail-closed; must match app-host). IDENTITY_URL lets the gate build JWKS.
-    environment: { <<: *devenv, GW_REASONING_BUDGET: "1200", VAULT_ADDR: http://vault:8200, IDENTITY_URL: http://identity:8093, GW_INTERNAL_TOKEN: airawat-ld-gw-internal, MODELGW_SHADOW: "1" }
+    # slice-1c-ii: ENFORCE (shadow flag removed) — kernel mints svc:model-gateway for /complete, app-host for
+    # /embed,/transcribe,/admin/provider-key. GW_INTERNAL_TOKEN retired (provider-key now svc:model-gateway-gated).
+    environment: { <<: *devenv, GW_REASONING_BUDGET: "1200", VAULT_ADDR: http://vault:8200, IDENTITY_URL: http://identity:8093 }
     command: ["python","reference/model_gateway.py","--kernel","http://kernel:8080","--vault","http://vault:8200"]
 
   # ── active-loop engines ─────────────────────────────────────────────────────────────────────────────
@@ -256,9 +254,8 @@ services:
     container_name: airawat-ld-notify
     networks: [aos-svc]
     command: ["python","reference/notify.py","--kernel","http://kernel:8080"]
-    # slice-1c: /notify gate ENFORCE is the code default. NOTIFY_SHADOW is the EXPLICIT dev opt-out (decision +
-    # workflow — the callers — have no service principal yet to mint svc:notify; recorded remaining wiring).
-    environment: { <<: *devenv, IDENTITY_URL: http://identity:8093, NOTIFY_SHADOW: "1" }
+    # slice-1c-ii: ENFORCE (shadow flag removed) — decision + workflow now mint svc:notify.
+    environment: { <<: *devenv, IDENTITY_URL: http://identity:8093 }
   workflow:
     <<: *ref
     container_name: airawat-ld-workflow
@@ -345,7 +342,6 @@ services:
       # provisions the credential + the audience allow-list.
       SCHEDULER_CALLER_PRINCIPAL: app-host
       SCHEDULER_CALLER_TENANT: localdev-operator
-      GW_INTERNAL_TOKEN: airawat-ld-gw-internal   # slice-1c: must match model-gateway (provider-key write; now fail-closed)
     volumes:
       - ./prod-guard.sh:/local-dev/prod-guard.sh:ro
       - localdev_appbundles:/data/app-bundles
