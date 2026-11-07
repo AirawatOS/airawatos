@@ -21,7 +21,7 @@ x-devenv: &devenv
   AIRAWAT_ALLOW_PASSWORDLESS: "1"     # reference IdP passwordless dev auth (gated: prod-guard blocks under production)
 
 x-ref: &ref                          # one source-built reference image; many services (per-service command)
-  image: manishsv/airawatos-reference:dev-hard11   # slice1 B28/B29 + slice5 B41 (component-publish verify) + B42 (bridge directory gates)
+  image: manishsv/airawatos-reference:dev-hard12   # slice1 B28/B29 + slice5 B41/B42 + slice1c (GATES ON: enforce-default + svc_gate + notify/model-gateway gates)
   restart: unless-stopped
   entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]     # production guard (effective-settings check)
   volumes: [ ./prod-guard.sh:/local-dev/prod-guard.sh:ro ]
@@ -226,7 +226,9 @@ services:
     container_name: airawat-ld-filestore
     networks: [aos-svc]
     command: ["python","reference/filestore.py","--port","8095"]
-    environment: { <<: *devenv, FILESTORE_DIR: /data/filestore }
+    # slice-1c: gate ENFORCE is the code default. FILESTORE_SHADOW is the EXPLICIT dev opt-out (kernel + launcher
+    # readers do not mint an svc:filestore token yet — kernel sub-slice). IDENTITY_URL lets the gate build JWKS.
+    environment: { <<: *devenv, FILESTORE_DIR: /data/filestore, IDENTITY_URL: http://identity:8093, FILESTORE_SHADOW: "1" }
     depends_on: {}
     volumes:
       - ./prod-guard.sh:/local-dev/prod-guard.sh:ro
@@ -237,7 +239,10 @@ services:
     container_name: airawat-ld-model-gateway
     env_file: [ ./vault/approle/model-gateway.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
     networks: [aos-svc, aos-data-secrets]
-    environment: { <<: *devenv, GW_REASONING_BUDGET: "1200", VAULT_ADDR: http://vault:8200 }
+    # slice-1c: /complete,/embed,/transcribe gate ENFORCE is the code default. MODELGW_SHADOW is the EXPLICIT dev
+    # opt-out (the kernel — the /complete caller — has no service principal yet; kernel sub-slice). GW_INTERNAL_TOKEN
+    # gates /admin/provider-key (now fail-closed; must match app-host). IDENTITY_URL lets the gate build JWKS.
+    environment: { <<: *devenv, GW_REASONING_BUDGET: "1200", VAULT_ADDR: http://vault:8200, IDENTITY_URL: http://identity:8093, GW_INTERNAL_TOKEN: airawat-ld-gw-internal, MODELGW_SHADOW: "1" }
     command: ["python","reference/model_gateway.py","--kernel","http://kernel:8080","--vault","http://vault:8200"]
 
   # ── active-loop engines ─────────────────────────────────────────────────────────────────────────────
@@ -246,6 +251,9 @@ services:
     container_name: airawat-ld-notify
     networks: [aos-svc]
     command: ["python","reference/notify.py","--kernel","http://kernel:8080"]
+    # slice-1c: /notify gate ENFORCE is the code default. NOTIFY_SHADOW is the EXPLICIT dev opt-out (decision +
+    # workflow — the callers — have no service principal yet to mint svc:notify; recorded remaining wiring).
+    environment: { <<: *devenv, IDENTITY_URL: http://identity:8093, NOTIFY_SHADOW: "1" }
   workflow:
     <<: *ref
     container_name: airawat-ld-workflow
@@ -262,7 +270,7 @@ services:
     env_file: [ ./vault/approle/automation.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
     networks: [aos-svc, aos-data-secrets]
     command: ["python","reference/automation.py","--kernel","http://kernel:8080"]
-    environment: { <<: *svcid, AUTOMATION_EVENTS_REQUIRE_TOKEN: "1" }   # ADR-0124 Step 4
+    environment: *svcid   # slice-1c: gate ENFORCE is the code default (was AUTOMATION_EVENTS_REQUIRE_TOKEN:"1")
     depends_on:
       kernel: { condition: service_started }
       vault: { condition: service_healthy }
@@ -287,7 +295,7 @@ services:
     # NOTE: local-dev mounts no docker.sock, so the default path is the IN-PROCESS subprocess (host-env inherit,
     # DEBT-B51 — a Layer-7 confinement fix, not closable by network segmentation); the container-placement path
     # this confines is exercised on EC2/runtime-manager.
-    environment: { <<: *svcid, SCHEDULER_REQUIRE_TOKEN: "1", RUNTIME_NETWORK: aos-component }
+    environment: { <<: *svcid, RUNTIME_NETWORK: aos-component }   # slice-1c: gate ENFORCE is the code default (was SCHEDULER_REQUIRE_TOKEN:"1")
     depends_on:
       kernel: { condition: service_started }
       vault: { condition: service_healthy }
@@ -324,6 +332,7 @@ services:
       # provisions the credential + the audience allow-list.
       SCHEDULER_CALLER_PRINCIPAL: app-host
       SCHEDULER_CALLER_TENANT: localdev-operator
+      GW_INTERNAL_TOKEN: airawat-ld-gw-internal   # slice-1c: must match model-gateway (provider-key write; now fail-closed)
     volumes:
       - ./prod-guard.sh:/local-dev/prod-guard.sh:ro
       - localdev_appbundles:/data/app-bundles

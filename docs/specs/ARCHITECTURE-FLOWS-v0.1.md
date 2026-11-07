@@ -283,9 +283,8 @@ production cannot run with a gate open.
 |---|---|---|---|---|---|
 | scheduler `/run`,`/reload` | svc_authz | `svc:scheduler` | **app-host** | shadow (`SCHEDULER_REQUIRE_TOKEN`, armed=1 in compose) | **ENFORCE** (code default) |
 | automation `/events` | svc_authz (`_authz_event`) | `svc:automation`, platform | **event-relay** (platform aud) | shadow (armed=1 in compose) | **ENFORCE** (code default) |
-| notify `/notify` | svc_authz **(NEW)** | `svc:notify` | **decision, workflow** | **none** (DEBT-B5) | **ENFORCE** (code default) — closes B5 |
-| embed `/embed` (:8104) | svc_authz **(NEW)** | `svc:embed` | **app-host** (vector index) | **none** | **ENFORCE** (code default) |
-| model-gateway `/transcribe` | svc_authz **(NEW)** | `svc:model-gateway` | **app-host** | **none** (DEBT-B5) | **ENFORCE** (code default) |
+| notify `/notify` | svc_authz **(NEW)** | `svc:notify` | **decision, workflow** | **none** (DEBT-B5) | code default **ENFORCE**; local-dev **shadow via explicit `NOTIFY_SHADOW`** — decision/workflow have no service principal yet (recorded remaining wiring) |
+| model-gateway `/transcribe` | svc_authz **(NEW)** (shared service-wide gate) | `svc:model-gateway` | **app-host** | **none** (DEBT-B5) | code default **ENFORCE**; shares the model-gateway gate below (held shadow by the kernel edge) |
 | model-gateway `/admin/provider-key` | bespoke `X-Internal-Token` (`GW_INTERNAL_TOKEN`) | shared literal | **app-host** | enforce-when-set, **literal default `gw-internal`** (DEBT-A37) | **ENFORCE, fail-closed** (refuses when unset) |
 | model-gateway `/complete`,`/embed` | svc_authz **(NEW)** | `svc:model-gateway` | **kernel** (`/complete`), app-host | **none** (DEBT-B5) | code default **ENFORCE**; local-dev **shadow via explicit `MODELGW_SHADOW`** — kernel caller unwired (A72 kernel sub-slice) |
 | filestore `/files` (read+write) | svc_authz | `svc:filestore` | **app-host, kernel, launcher** | shadow (`FILESTORE_REQUIRE_TOKEN` unset) | code default **ENFORCE**; local-dev **shadow via explicit `FILESTORE_SHADOW`** — kernel+launcher readers unwired (A72 kernel sub-slice) |
@@ -295,6 +294,10 @@ production cannot run with a gate open.
 | decision `/decide` | user-token authn (`tokens.verify`) | user bearer (AUTHORITY) | authenticated **users** | authn-only (no svc gate) | authn-only — **user-facing door**, not a service gate |
 | workflow `/instantiate`,`/complete-task` | user-token authn (`tokens.verify`) | user bearer | authenticated **users** | authn-only | authn-only — user-facing door |
 | decision/workflow `/verify`, model-gateway/embed `/healthz` | **none (public by design)** | — | anyone | none (intended) | none (public verify / liveness — documented, not debt) |
+
+*(`embed.py` on :8104 is **not deployed** in local-dev — `EMBED_URL` points at the model-gateway, which serves
+`/embed` on :8104 behind the model-gateway gate; the standalone embed service carries no gate of its own but
+runs nowhere, so it is not in the table.)*
 
 **The two kernel-edge gates** (model-gateway `/complete`, filestore read/write) are the only doors whose caller
 set includes the **kernel**, which today has Vault + JWKS-verify but **no service principal and no `svc_token`**
