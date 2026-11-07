@@ -8,6 +8,9 @@
 !/LIMITATIONS.md
 !/ALPHA-RELEASE-PLAN.md
 !/deploy/
+# conformance suite (run.py, flow-map, vault-scope, matrix) — tracked; its own .gitignore keeps the generated
+# .creds.json (passwords) and results/ out of git.
+!/conformance/
 # root docs tree (specs, decisions/ADRs, operator guide, consolidation) — tracked normally; genuine
 # artefacts are still excluded by the per-type rules below (*.pem/*.key/.DS_Store) + any docs/ artefact rule.
 !/docs/
