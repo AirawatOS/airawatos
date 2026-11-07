@@ -30,6 +30,7 @@ INTERNAL = {  # in-cluster service base URLs (see README for the docker-network 
     "notify": "http://notify:8094", "secrets": "http://secrets:8102", "scheduler": "http://scheduler:8103",
     "model-gateway": "http://model-gateway:8104", "filestore": "http://filestore:8095",
     "automation": "http://automation:8098", "event-relay": "http://event-relay:8101",
+    "runtime-manager": "http://runtime-manager:8105",
 }
 
 def _load_creds():
@@ -615,7 +616,36 @@ def run_internal_cases():
                "svc:automation token -> %s (expect 403; secrets accepts svc:secrets only)" % _sw)
     else:
         record("FOUNDATIONS","FND-9/A71","secrets /fetch refuses a wrong-audience token (another door)","needs-creds","SKIP_CREDS","no svc:automation token")
-    record("FOUNDATIONS","FND-9/A71","runtime-manager /invoke → svc:runtime-manager gate (abuse)","expected-fail","SKIP_BUILD","no runtime-manager in the local-dev stack (EC2-only); gate swapped to svc_authz")
+    # slice-1c-iv step 2 — the runtime manager now RUNS in local-dev (placement authority; the scheduler delegates).
+    # Gate: svc:runtime-manager from {kernel, launcher, scheduler}, always enforce.
+    _RM = T["runtime-manager"] + "/v1/invoke"; _rb = {"component": "__conformance__/absent", "run_token": "x"}
+    _ra, _, _ = _req("POST", _RM, _rb)
+    if _ra == 0:
+        record("FOUNDATIONS","FND-9/A71","runtime-manager /v1/invoke refuses an anonymous call (401)","expected-fail","SKIP_BUILD","runtime-manager unreachable")
+    else:
+        expect("FOUNDATIONS","FND-9/A71","runtime-manager /v1/invoke refuses an anonymous call (401)", _ra == 401,
+               "anon -> %s (want 401)" % _ra)
+        if _fs_wrong:
+            _rw, _, _ = _req("POST", _RM, _rb, token=_fs_wrong)
+            expect("FOUNDATIONS","FND-9/A71","runtime-manager refuses a wrong-audience token (403)", _rw == 403,
+                   "svc:automation token -> %s (want 403)" % _rw)
+        else:
+            record("FOUNDATIONS","FND-9/A71","runtime-manager refuses a wrong-audience token (403)","needs-creds","SKIP_CREDS","no svc:automation token")
+        _up = _login_token("svcprobe","localdev-operator","secret/data/localdev-operator/svcprobe/password","svc:runtime-manager")
+        if _up:
+            _ru, _, _ = _req("POST", _RM, _rb, token=_up)
+            expect("FOUNDATIONS","FND-9/A71","runtime-manager refuses an UNDECLARED caller holding svc:runtime-manager (403)", _ru == 403,
+                   "svcprobe svc:runtime-manager -> %s (want 403: not on the allow-list)" % _ru)
+        else:
+            record("FOUNDATIONS","FND-9/A71","runtime-manager refuses an UNDECLARED caller holding svc:runtime-manager (403)","needs-creds","SKIP_CREDS","no svcprobe token (dev fixture)")
+        for _who in ("scheduler", "kernel"):
+            _dt = _login_token(_who,"localdev-operator","secret/data/localdev-operator/%s/password" % _who,"svc:runtime-manager")
+            if not _dt:
+                record("FOUNDATIONS","FND-9/A71","runtime-manager admits the DECLARED caller %s (pos)" % _who,"needs-creds","SKIP_CREDS","no %s svc:runtime-manager token" % _who); continue
+            _rd, _rdb, _ = _req("POST", _RM, _rb, token=_dt)
+            # admitted ⇒ the handler ran: an absent component is a 404 "unknown component", never 401/403
+            expect("FOUNDATIONS","FND-9/A71","runtime-manager admits the DECLARED caller %s (pos)" % _who,
+                   _rd == 404 and "unknown component" in _rdb, "%s svc:runtime-manager -> %s %s" % (_who, _rd, _rdb[:60]))
     # DEBT-B6 — identity directory disclosure
     st, b, _ = _req("GET", T["identity"]+"/users")
     if st == 0:
@@ -866,6 +896,13 @@ def run_identity_review_cases():
                _kd is None, "kernel svc:identity mint -> %s (want refused)" % ("TOKEN" if _kd else "refused"))
     else:
         record("FOUNDATIONS","FND-9/DEBT-A71","identity /users refuses an UNDECLARED caller (kernel, not allow-listed)","needs-creds","SKIP_CREDS","no kernel token")
+    _ip = _login_token("svcprobe","localdev-operator","secret/data/localdev-operator/svcprobe/password","svc:identity")
+    if _ip:
+        st_ip, _, _ = _req("POST", _IU, _probe, token=_ip)
+        expect("FOUNDATIONS","FND-9/DEBT-A71","identity /users refuses an UNDECLARED caller holding svc:identity (403)",
+               st_ip == 403, "svcprobe svc:identity -> %s (want 403: not on the allow-list)" % st_ip)
+    else:
+        record("FOUNDATIONS","FND-9/DEBT-A71","identity /users refuses an UNDECLARED caller holding svc:identity (403)","needs-creds","SKIP_CREDS","no svcprobe token (dev fixture)")
     for _who, _pth in (("provisioner","secret/data/localdev-operator/provisioner/password"),
                        ("app-host","secret/data/localdev-operator/app-host/password")):
         _dt = _login_token(_who, "localdev-operator", _pth, "svc:identity")

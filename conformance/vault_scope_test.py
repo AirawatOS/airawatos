@@ -28,6 +28,8 @@ TIGHT = {
     # svc-workflow policies grant only their own password path).
     "decision":    ("secret/data/localdev-operator/decision/password",     "secret/data/localdev/kernel-app/password"),
     "workflow":    ("secret/data/localdev-operator/workflow/password",     "secret/data/localdev/kernel-app/password"),
+    # slice-1c-iv step 2: the runtime manager reads ONLY the launcher password (moved off the scheduler).
+    "runtime-manager": ("secret/data/localdev-operator/launcher/password", "secret/data/localdev-operator/scheduler/password"),
 }
 # broker service: svc-secrets is broad on secret/data/* BY DESIGN (it IS the KV broker; per-(tenant,component)
 # authz is its own gate — the decision-function follow-up). Assert scoped non-root token + can read a sample.

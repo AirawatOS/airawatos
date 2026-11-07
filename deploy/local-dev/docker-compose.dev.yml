@@ -21,7 +21,7 @@ x-devenv: &devenv
   AIRAWAT_ALLOW_PASSWORDLESS: "1"     # reference IdP passwordless dev auth (gated: prod-guard blocks under production)
 
 x-ref: &ref                          # one source-built reference image; many services (per-service command)
-  image: manishsv/airawatos-reference:dev-hard16   # + slice-1c-iv-c (ADR-0131): identity door → svc:identity only; app-host mints svc:identity (IDENTITY_INTERNAL retired)
+  image: manishsv/airawatos-reference:dev-hard17   # + 1c-iv-c (identity svc:identity) + 1c-iv step 2 (runtime-manager in local-dev; scheduler delegates; clean-env launcher)
   restart: unless-stopped
   entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]     # production guard (effective-settings check)
   volumes: [ ./prod-guard.sh:/local-dev/prod-guard.sh:ro ]
@@ -77,6 +77,7 @@ services:
     environment:
       <<: *devenv
       REGISTRY_BACKEND: postgres
+      RUNTIME_MANAGER_URL: http://runtime-manager:8105    # slice-1c-iv step 2 — warm-connector ensure (svc:runtime-manager)
       DB_HOST: postgres
       # 4b least-privilege: kernel runs as NON-SUPERUSER kernel_app (DML only on registry_version /
       # registry_schema_meta / kernel_admin_audit / kernel_kv). Password from Vault — no compose literal.
@@ -303,7 +304,47 @@ services:
     # NOTE: local-dev mounts no docker.sock, so the default path is the IN-PROCESS subprocess (host-env inherit,
     # DEBT-B51 — a Layer-7 confinement fix, not closable by network segmentation); the container-placement path
     # this confines is exercised on EC2/runtime-manager.
-    environment: { <<: *svcid, RUNTIME_NETWORK: aos-component }   # slice-1c: gate ENFORCE is the code default (was SCHEDULER_REQUIRE_TOKEN:"1")
+    # slice-1c-iv step 2 — installed runs go to the RUNTIME MANAGER (the placement authority); the scheduler executes
+    # nothing itself. AIRAWAT_INPROCESS_COMPONENTS is the EXPLICIT dev flag that admits the ADR-0051 dev-Test draft
+    # path (in-process, dev tenant only); the prod-guard refuses it under production (DEBT-B51).
+    environment:
+      <<: *svcid
+      RUNTIME_NETWORK: aos-component
+      RUNTIME_MANAGER_URL: http://runtime-manager:8105
+      AIRAWAT_INPROCESS_COMPONENTS: "1"                    # DEV ONLY — dev-Test drafts; installed runs never use it
+    depends_on:
+      kernel: { condition: service_started }
+      vault: { condition: service_healthy }
+      runtime-manager: { condition: service_started }
+
+  # ── placement authority (slice-1c-iv step 2) ──────────────────────────────────────────────────────────
+  # The ONE holder of execution power (ADR-0030/0058). Gate: svc:runtime-manager from {kernel, launcher, scheduler}
+  # (always enforce; anon 401, wrong-aud/undeclared 403). Declared networks: aos-svc (its callers — scheduler,
+  # kernel — and its own calls: identity JWKS, network cert-resolve, filestore source, secrets /materialize) +
+  # aos-data-secrets (Vault, ONLY to read the `launcher` principal's password and mint the launcher's
+  # svc:secrets/svc:filestore tokens). Local-dev mounts NO docker.sock: certified-container placement
+  # (runtime.profile) is refused (exit 89) here and exercised on EC2; keyless components run in-process in THIS
+  # container under a CLEAN env (launcher) — never the scheduler's, never this container's Vault token.
+  runtime-manager:
+    <<: *ref
+    container_name: airawat-ld-runtime-manager
+    env_file: [ ./vault/approle/runtime-manager.env ]
+    networks: [aos-svc, aos-data-secrets]
+    command: ["python","reference/runtime_manager.py","--port","8105"]
+    environment:
+      <<: *devenv
+      COMPONENTS_ROOT: /app/components
+      IDENTITY_URL: http://identity:8093
+      IDENTITY_JWKS: http://identity:8093/jwks
+      VAULT_ADDR: http://vault:8200
+      SERVICE_TENANT: localdev-operator                    # the `launcher` principal's realm
+      AIRAWAT_API: http://kernel:8080
+      KERNEL_ALIAS: kernel
+      NETWORK_URL: http://network:8090
+      FILESTORE_URL: http://filestore:8095
+      SECRETS_URL: http://secrets:8102
+      RUNTIME_NETWORK: aos-component                       # a placed container joins the broker-only net (EC2 path)
+      RUNTIME_ATTEST: "0"                                  # no docker images to attest in local-dev (and attest's literal is EC2-only)
     depends_on:
       kernel: { condition: service_started }
       vault: { condition: service_healthy }

@@ -251,6 +251,7 @@ root token is used only during install, then kept off every running service (ste
 | secrets | `svc-secrets` | `secret/data/*` + `secret/metadata/*` (read/write/delete) | **yes** — it IS the KV broker; per-(tenant,component) authz is in `secrets.py`'s own gate |
 | model-gateway | `svc-model-gateway` | `secret/data/*` (read/write) | **yes** — per-tenant provider-key broker |
 | scheduler / automation / event-relay | `svc-scheduler` | `secret/data/localdev-operator/scheduler/*` (one principal pw) | no |
+| runtime-manager | `svc-runtime-manager` | `secret/data/localdev-operator/launcher/*` (the launcher principal pw — moved off svc-scheduler, 1c-iv step 2) | no |
 | app-host | `svc-app-host` | `localdev-operator/*`, `localdev-network/component-publisher/*`, `localdev-developer/*` | modest — scoped to the 3 principal-bearing tenants, not exact principal names |
 | filestore, notify, workflow, decision | *(none)* | — they use no Vault door | n/a |
 
@@ -293,7 +294,7 @@ production cannot run with a gate open.
 | model-gateway `/complete`,`/embed` | svc_authz **(NEW)** | `svc:model-gateway` | **kernel** (`/complete`), app-host | **none** (DEBT-B5) | code default **ENFORCE**; local-dev **shadow via explicit `MODELGW_SHADOW`** — kernel caller unwired (A72 kernel sub-slice) |
 | filestore `/files` (read+write) | svc_authz | `svc:filestore` | **app-host, kernel, launcher** | shadow (`FILESTORE_REQUIRE_TOKEN` unset) | code default **ENFORCE**; local-dev **shadow via explicit `FILESTORE_SHADOW`** — kernel+launcher readers unwired (A72 kernel sub-slice) |
 | secrets `/materialize`,`/fetch` | bespoke `X-Internal-Token` (`SECRETS_INTERNAL`) | shared literal | **kernel broker** | ENFORCE (fail-closed when unset) | ENFORCE (unchanged; literal→audience = DEBT-A71, decision-fn priority) |
-| runtime-manager `/invoke` | bespoke `X-Internal-Token` (`RUNTIME_MANAGER_INTERNAL`) | shared literal | **launcher/orchestrator** | ENFORCE (fail-closed) | ENFORCE (unchanged; A71) |
+| runtime-manager `/v1/invoke`,`/v1/ensure-connector` | svc_authz **(1c-iii; runs in local-dev since 1c-iv step 2)** | `svc:runtime-manager` | **scheduler** (installed runs), **kernel** (warm-connector ensure), launcher | ENFORCE (literal `RUNTIME_MANAGER_INTERNAL`) | **ENFORCE, always** — anon **401**, wrong-aud/undeclared **403** (conformance live). Scheduler never executes itself; in-process only via explicit dev flag `AIRAWAT_INPROCESS_COMPONENTS` (prod-guard refuses) |
 | identity `/users` (POST+GET), `/set-password`, `/prefs`, `/realms`, `/realms/<t>/users` | svc_authz **(1c-iv-c)** + operator-realm check | `svc:identity` (verified against identity's **own** JWKS) | **provisioner** (installer phases, network join→provision) + **app-host** (own principal) — both `@<operator>` | ENFORCE (literal `IDENTITY_INTERNAL`; B29) | **ENFORCE, always** — literal retired (A71 closed, ADR-0131); unseeded provisioner ⇒ fail-closed + prod refuses boot (B29) |
 | decision `/decide` | user-token authn (`tokens.verify`) | user bearer (AUTHORITY) | authenticated **users** | authn-only (no svc gate) | authn-only — **user-facing door**, not a service gate |
 | workflow `/instantiate`,`/complete-task` | user-token authn (`tokens.verify`) | user bearer | authenticated **users** | authn-only | authn-only — user-facing door |

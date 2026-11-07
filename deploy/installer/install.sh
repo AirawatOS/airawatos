@@ -108,7 +108,7 @@ _setup_vault_approle() {
   mkdir -p "$LOCALDEV/vault/approle"
   # policy name : service(s) that use it : role name(s)
   # (automation/event-relay/scheduler share the svc-scheduler policy but each gets its OWN role → own creds)
-  for pol in svc-kernel svc-network svc-identity svc-secrets svc-model-gateway svc-scheduler svc-app-host svc-decision svc-workflow; do
+  for pol in svc-kernel svc-network svc-identity svc-secrets svc-model-gateway svc-scheduler svc-app-host svc-decision svc-workflow svc-runtime-manager; do
     VROOT "VAULT_TOKEN=$VAULT_TOKEN vault policy write $pol -" < "$LOCALDEV/vault/policies/$pol.hcl" >/dev/null \
       || { echo "✗ vault policy write $pol failed"; exit 1; }
   done
@@ -116,7 +116,7 @@ _setup_vault_approle() {
   for pair in kernel:svc-kernel network:svc-network identity:svc-identity secrets:svc-secrets \
               model-gateway:svc-model-gateway app-host:svc-app-host \
               automation:svc-scheduler event-relay:svc-scheduler scheduler:svc-scheduler \
-              decision:svc-decision workflow:svc-workflow; do
+              decision:svc-decision workflow:svc-workflow runtime-manager:svc-runtime-manager; do
     role="${pair%%:*}"; pol="${pair##*:}"
     VROOT "vault write auth/approle/role/$role token_policies=$pol token_ttl=24h token_max_ttl=168h token_num_uses=0 secret_id_num_uses=0 secret_id_ttl=0" >/dev/null \
       || { echo "✗ vault approle role $role failed"; exit 1; }
@@ -125,7 +125,7 @@ _setup_vault_approle() {
     [ -n "$rid" ] && [ -n "$sid" ] || { echo "✗ vault approle creds for $role empty"; exit 1; }
     printf 'VAULT_ROLE_ID=%s\nVAULT_SECRET_ID=%s\n' "$rid" "$sid" > "$LOCALDEV/vault/approle/$role.env"
   done
-  echo "  ✓ 9 AppRoles provisioned; per-service env_files written (secret-ids not printed)"
+  echo "  ✓ 12 AppRoles provisioned; per-service env_files written (secret-ids not printed)"
 }
 
 # ARC-5 (slice-1a): the Kernel door is internal-only — the edge no longer proxies /kernel/. Readiness is checked
@@ -361,7 +361,7 @@ IDT=os.environ["IDT"]; INST=os.environ["INST"]; PROFILE=os.environ["PROFILE"]; E
 operator, network, developer = f"{INST}-operator", f"{INST}-network", f"{INST}-developer"
 # (user, tenant, roles, audiences, include?)
 PRINCIPALS = [
-    ("scheduler",           operator,  ["platform.scheduler"], ["svc:automation"], True),             # daemons mint svc:automation
+    ("scheduler",           operator,  ["platform.scheduler"], ["svc:automation", "svc:runtime-manager"], True),  # daemons → automation; scheduler → runtime-manager /v1/invoke (step 2)
     ("component-publisher", network,   ["component.publisher"], None,              True),             # app-host publish/sign
     ("dev-sandbox",         developer, ["platform.developer"],  None,              PROFILE == "dev"), # dev-token mint (DEV ONLY)
     ("embed-service",       operator,  ["embed.client-admin"],  None,              EMBED),            # citizen-embed OIDC (if enabled)
@@ -704,7 +704,7 @@ def _req(url, data=None, headers=None, method="GET"):
                              headers=headers or {}, method=method)
     try: return urllib.request.urlopen(r, timeout=10).read()
     except urllib.error.HTTPError as e: return e
-for USER, _roles in (("platauth", []), ("platnone", []), ("rolesteward", ["platform.tenant-admin"])):
+for USER, _roles in (("platauth", []), ("platnone", []), ("rolesteward", ["platform.tenant-admin"])):   # (svcprobe below)
     # rolesteward (phase-5 FND-1/FND-3 test honesty): a HOME-issued account whose TOKEN carries an admin
     # role CLAIM (platform.tenant-admin) but which holds NO recorded governance grant — the negative case proving
     # "identity carries no authority" / "authority only from recorded grants". Conformance expects a kernel
@@ -732,6 +732,20 @@ for USER, _roles in (("platauth", []), ("platnone", []), ("rolesteward", ["platf
            headers={"Authorization":"Bearer "+IDT,"Content-Type":"application/json"}, method="POST")
     print(f"[phase9] created test user (username only): {USER}   tenant={TENANT}   roles={_roles or '(none)'}",
           "OK" if not isinstance(s, urllib.error.HTTPError) else f"set-pw {s.code}")
+# svcprobe@<op> (DEV-ONLY conformance fixture): roles [], recorded audiences svc:runtime-manager + svc:identity, but
+# on NO door's allow-list — it mints a correctly-addressed token so conformance can prove "undeclared caller → 403"
+# (the allow-list, not just the audience, is enforced). Never created outside dev/rehearsal.
+_PV=f"secret/data/{INST}-operator/svcprobe/password"
+_b=_req(f"{VADDR}/v1/{_PV}", headers={"X-Vault-Token":VTOK})
+_ppw = None if isinstance(_b, urllib.error.HTTPError) else (((json.loads(_b) or {}).get("data") or {}).get("data") or {}).get("password")
+if not _ppw:
+    _ppw = secrets.token_urlsafe(18)
+    _req(f"{VADDR}/v1/{_PV}", data={"data":{"password":_ppw}}, headers={"X-Vault-Token":VTOK,"Content-Type":"application/json"}, method="POST")
+_req(f"{IDN}/users", data={"username":"svcprobe","tenant":f"{INST}-operator","roles":[],"audiences":["svc:runtime-manager","svc:identity"]},
+     headers={"Authorization":"Bearer "+IDT,"Content-Type":"application/json"}, method="POST")
+_s=_req(f"{IDN}/set-password", data={"username":"svcprobe","tenant":f"{INST}-operator","password":_ppw,"must_reset":False,"only_if_unset":True},
+        headers={"Authorization":"Bearer "+IDT,"Content-Type":"application/json"}, method="POST")
+print("[phase9] svcprobe (undeclared-caller fixture) ready:", "OK" if not isinstance(_s, urllib.error.HTTPError) else f"set-pw {_s.code}")
 print("[phase9] ADR-0122 test users ready: platauth, platnone — passwords in Vault at "
       f"secret/data/{INST}-network/<name>/password (field `password`); platform.authority is granted to "
       "platauth SEPARATELY via a ChangeRequest approved by a different holder (ADR-0122 step 2b), never here.")

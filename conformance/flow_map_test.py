@@ -34,6 +34,7 @@ DECLARED = {
     "airawat-ld-automation":    {"aos-svc", "aos-data-secrets"},
     "airawat-ld-event-relay":   {"aos-svc", "aos-data-secrets"},
     "airawat-ld-scheduler":     {"aos-svc", "aos-data-secrets"},
+    "airawat-ld-runtime-manager": {"aos-svc", "aos-data-secrets"},   # 1c-iv step 2: placement authority (launcher pw only)
     "airawat-ld-postgres":      {"aos-data-facts"},
     "airawat-ld-vault":         {"aos-data-secrets"},
 }
