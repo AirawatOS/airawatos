@@ -164,6 +164,19 @@ else
   echo "✗ could not read the vault root token from /vault/data/init.json — cannot provision AppRoles"; exit 1
 fi
 _setup_vault_approle
+# ── 1c-iv-a (ADR-0131) · operator install config in Vault, BEFORE identity boots ──────────────────────
+# The root of trust at install: write the operator admin's initial password + the provisioner principal's
+# password to Vault NOW (postgres+vault are up; all other services are still down), so when identity starts it
+# can self-seed the admin + provisioner from this config (slice-1c-iv-b). CREATE-ONLY: never overwrite an
+# existing password (idempotent re-install; matches ensure_install's reuse of the admin password). The admin
+# path is the SAME one ensure_install reads back, so the human-admin password is unchanged.
+echo "▶ bring-up: operator install config (admin + provisioner passwords) → Vault (ADR-0131)"
+for _pr in admin provisioner; do
+  VROOT "vault kv get -mount=secret ${INSTANCE}-operator/${_pr}/password >/dev/null 2>&1 \
+    || vault kv put -mount=secret ${INSTANCE}-operator/${_pr}/password password=\"\$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 32)\" >/dev/null" \
+    && echo "  · ${_pr}: password present at secret/${INSTANCE}-operator/${_pr}/password (create-only)" \
+    || { echo "✗ could not write ${_pr} install-config password to Vault"; exit 1; }
+done
 echo "▶ bring-up: signing + audit keys (Vault)"
 XRUNNET env INSTANCE="$INSTANCE" python3 - < "$SCRIPT_DIR/_keys.py" || { echo "✗ bring-up keys failed"; exit 1; }
 echo "▶ bring-up: split roles (create migrator/kernel_app/network_app; grant CREATE to migrator)"
