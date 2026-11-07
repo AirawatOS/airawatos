@@ -543,7 +543,16 @@ def run_internal_cases():
     else:
         xfail("FOUNDATIONS","FND-10/DEBT-B5","filestore refuses an anonymous call (abuse)", _stfa not in (401,403),
               "anon /files -> %s (FILESTORE_REQUIRE_TOKEN shadow until all readers wired — debt DEBT-A72)" % _stfa)
-    tokenless_accepted("FOUNDATIONS","FND-10/DEBT-B5","notify /notify accepts without a service token (abuse)","POST", T["notify"]+"/notify", {})
+    # ADR-0124 slice-1c — notify now has a svc:notify ingress gate (shadow in local-dev until decision/workflow
+    # have service principals). Tokenless is accepted in shadow (recorded); but a WRONG-AUDIENCE token (addressed
+    # to another door) is refused even in shadow — assertable now ("token for another door → refused").
+    tokenless_accepted("FOUNDATIONS","FND-10/DEBT-B5","notify /notify accepts without a service token (shadow; NOTIFY_SHADOW)","POST", T["notify"]+"/notify", {})
+    if _fs_wrong:
+        _stnw, _bnw, _ = _req("POST", T["notify"]+"/notify", body={"actor":"x","title":"probe"}, token=_fs_wrong)
+        expect("FOUNDATIONS","FND-10/DEBT-B5","notify refuses a wrong-audience token (another door)", _stnw == 403,
+               "svc:automation token -> %s (expect 403; notify accepts svc:notify only)" % _stnw)
+    else:
+        record("FOUNDATIONS","FND-10/DEBT-B5","notify refuses a wrong-audience token (another door)","needs-creds","SKIP_CREDS","no svc:automation token")
     # ADR-0124 item 1 — scheduler /run,/reload now REQUIRE a svc:scheduler token from an allow-listed caller.
     # Promoted from the tokenless-abuse probe to a real assertion: anonymous AND wrong-audience are refused.
     _s_anon, _s_b, _ = _req("POST", T["scheduler"]+"/run", body={"component":"__conformance_probe__","tenant":"kmc"})
@@ -559,7 +568,16 @@ def run_internal_cases():
             _stw, _bw, _ = _req("POST", T["scheduler"]+"/run", body={"component":"__conformance_probe__","tenant":"kmc"}, token=_wrong)
             expect("FOUNDATIONS","FND-10/DEBT-B5","scheduler /run refuses a wrong-audience token (abuse)", _stw == 403,
                    "svc:automation token -> %s (expect 403 wrong audience)" % _stw)
-    tokenless_accepted("FOUNDATIONS","FND-10/DEBT-B5","model-gateway /complete accepts without a service token (abuse)","POST", T["model-gateway"]+"/complete", {})
+    # ADR-0124 slice-1c — model-gateway now has a svc:model-gateway ingress gate on /complete,/embed,/transcribe
+    # (shadow in local-dev until the KERNEL — the /complete caller — has a service principal). Tokenless accepted
+    # in shadow (recorded); a WRONG-AUDIENCE token is refused even in shadow — assertable now.
+    tokenless_accepted("FOUNDATIONS","FND-10/DEBT-B5","model-gateway /complete accepts without a service token (shadow; MODELGW_SHADOW)","POST", T["model-gateway"]+"/complete", {})
+    if _fs_wrong:
+        _stmw, _bmw, _ = _req("POST", T["model-gateway"]+"/complete", body={"messages":[{"role":"user","content":"x"}]}, token=_fs_wrong)
+        expect("FOUNDATIONS","FND-10/DEBT-B5","model-gateway refuses a wrong-audience token (another door)", _stmw == 403,
+               "svc:automation token -> %s (expect 403; model-gateway accepts svc:model-gateway only)" % _stmw)
+    else:
+        record("FOUNDATIONS","FND-10/DEBT-B5","model-gateway refuses a wrong-audience token (another door)","needs-creds","SKIP_CREDS","no svc:automation token")
     # ADR-0124 item 1 (service armed) — automation /events now REQUIRES a svc:automation|platform token.
     # Promoted from the tokenless-abuse probe to a real assertion (anon + wrong-audience refused), mirroring
     # scheduler (slice-5 review F5: the gate is ARMED in local-dev via AUTOMATION_EVENTS_REQUIRE_TOKEN but was
