@@ -262,6 +262,19 @@ Prod Vault must be **unsealed without a human-held root token in compose**:
 - **Do not** put a long-lived `VAULT_TOKEN` in the prod compose. The mint helpers (`svc_token.py`,
   trust-reader/writer) fail **closed** — a missing/expired token means no token minted, not a bypass.
 
+**GATE (not an open decision) — KMS auto-unseal + per-service AppRole.** The decided production posture is:
+- [ ] **Vault auto-unseal via AWS KMS** (seal stanza), unseal keys off-box; survives an instance reboot.
+- [ ] **No root or shared Vault token on any service.** FIX-PLAN L1 slice-1b implemented per-service AppRole
+      login in `prod-guard.sh` with least-privilege policies (`deploy/local-dev/vault/policies/`), removed the
+      shared `VAULT_TOKEN` from every service (DEBT-B58), and made the root token install-time only. The prod
+      guard **refuses** a static/root Vault token (and in-process component placement) under
+      `AIRAWAT_ENV=production`.
+- [ ] **Verified:** `conformance/vault_scope_test.py` is green (each service reads only its own paths; foreign
+      refused; root absent) and `conformance/flow_map_test.py` ARC-7 holds. Vault image is a current supported
+      release pinned by digest (off the EOL Alpine 3.18 base; slice-1b step 8 → Vault 1.20.x / Alpine 3.22).
+A Vault Agent sidecar for continuous token renewal is a recorded follow-up (the AppRole tokens are renewable
+with a bounded TTL and re-minted on restart).
+
 ---
 
 ## 2d. Pre-migration trust audit (read-only; run immediately before §3/§4)

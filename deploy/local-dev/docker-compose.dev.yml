@@ -52,7 +52,7 @@ services:
     restart: unless-stopped
 
   vault:
-    image: hashicorp/vault:1.15
+    image: hashicorp/vault:1.20@sha256:268bb80aa9c6d13d65fcfa05c0c268caca068952240a8087291a6ce0b66e3a10   # L1-1b step8: off EOL Alpine 3.18 → Vault 1.20.4 / Alpine 3.22, pinned by digest
     container_name: airawat-ld-vault
     networks: [aos-data-secrets]
     cap_add: [ IPC_LOCK ]

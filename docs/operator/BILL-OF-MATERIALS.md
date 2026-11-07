@@ -116,11 +116,12 @@ serves without any of them.
    `aos-data-facts` network only (ARC-3 — the fact store is Kernel/network/identity-reachable only; map to the RDS
    security group), and drop the local pg volume. **Open:** what the installer must do for a managed DB, and
    whether to keep container Postgres for the first production.
-3. **Vault unseal method.** Today: demo auto-unseal — a single unseal key + root token persisted in
-   `/vault/data/init.json` on the data volume (`vault/entrypoint.sh`), file storage. **Open:** production should
-   use **KMS auto-unseal** (AWS KMS, keys off-box) and keep the root token sealed/revoked after install
-   (slice-1b already removes the shared root from every service and uses it only during install). Decide KMS vs
-   Transit-unseal vs manual unseal-on-boot.
+3. **Vault unseal method — DECIDED (not open).** Production uses **KMS auto-unseal** (AWS KMS, keys off-box) —
+   now a RELEASE-PLAN gate, not an open decision (`deploy/RELEASE-PLAN.md` §2c). Today's local-dev is the demo
+   auto-unseal (single unseal key + root token on the data volume, `vault/entrypoint.sh`, file storage). Slice-1b
+   already removed the shared root from every service (per-service AppRole, DEBT-B58) and uses root only during
+   install; the Vault image is pinned by digest on a current supported release (1.20.x / Alpine 3.22, off the EOL
+   3.18 base). Remaining prod work for the gate: the KMS seal stanza + a Vault Agent renewer (recorded).
 
 ---
 
