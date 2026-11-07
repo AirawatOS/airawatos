@@ -646,6 +646,20 @@ def run_internal_cases():
             # admitted ⇒ the handler ran: an absent component is a 404 "unknown component", never 401/403
             expect("FOUNDATIONS","FND-9/A71","runtime-manager admits the DECLARED caller %s (pos)" % _who,
                    _rd == 404 and "unknown component" in _rdb, "%s svc:runtime-manager -> %s %s" % (_who, _rd, _rdb[:60]))
+    # slice-1c-iv step 3 — kernel /v1/components/run-token: the ONE run-token disclosure door, scheduler-only.
+    _KRT = T["kernel"] + "/v1/components/run-token"; _kb = {"component_id": "ds:none:engine/absent", "tenant": "localdev"}
+    _ka, _, _ = _req("POST", _KRT, _kb)
+    expect("FOUNDATIONS","FND-8/B15","kernel run-token door refuses an anonymous call", _ka in (401, 403), "anon -> %s" % _ka)
+    _cp, _ = _mint_component_publisher_token()
+    if _cp:
+        _kc, _, _ = _req("POST", _KRT, _kb, token=_cp)
+        expect("FOUNDATIONS","FND-8/B15","kernel run-token door refuses a non-scheduler platform service (component-publisher)",
+               _kc == 403, "component-publisher -> %s (want 403)" % _kc)
+    _st = _login_token("scheduler","localdev-operator","secret/data/localdev-operator/scheduler/password")
+    if _st:
+        _ks, _ksb, _ = _req("POST", _KRT, _kb, token=_st)
+        expect("FOUNDATIONS","FND-8/B15","kernel run-token door admits the scheduler (pos; absent install → 404)",
+               _ks == 404, "scheduler -> %s %s" % (_ks, _ksb[:60]))
     # DEBT-B6 — identity directory disclosure
     st, b, _ = _req("GET", T["identity"]+"/users")
     if st == 0:

@@ -21,7 +21,7 @@ x-devenv: &devenv
   AIRAWAT_ALLOW_PASSWORDLESS: "1"     # reference IdP passwordless dev auth (gated: prod-guard blocks under production)
 
 x-ref: &ref                          # one source-built reference image; many services (per-service command)
-  image: manishsv/airawatos-reference:dev-hard17   # + 1c-iv-c (identity svc:identity) + 1c-iv step 2 (runtime-manager in local-dev; scheduler delegates; clean-env launcher)
+  image: manishsv/airawatos-reference:dev-hard18   # + 1c-iv-c (identity svc:identity) + step 2 (runtime-manager; scheduler delegates; clean-env launcher) + step 3 (scheduler-owned pipelines)
   restart: unless-stopped
   entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]     # production guard (effective-settings check)
   volumes: [ ./prod-guard.sh:/local-dev/prod-guard.sh:ro ]
@@ -67,7 +67,7 @@ services:
 
   # ── platform core ─────────────────────────────────────────────────────────────────────────────────
   kernel:
-    image: manishsv/airawatos-kernel:dev-hard7
+    image: manishsv/airawatos-kernel:dev-hard8   # + slice-1c-iv step 3: scheduler-only /v1/components/run-token
     container_name: airawat-ld-kernel
     env_file: [ ./vault/approle/kernel.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
     networks: [aos-svc, aos-data-facts, aos-data-secrets, aos-component]  # aos-component: the broker is the ONLY door a placed component can reach (step 3)
