@@ -15,8 +15,9 @@ scope) is [REVIEW-METHOD.md](../reviews/REVIEW-METHOD.md); the door/flow topolog
 **Open findings & debt**, **Missing tests**, and an **Exit gate**. A layer's exit gate is met only when: every
 owned finding is closed *or* explicitly deferred with a written reason; every owned rule has a test; every owned
 rule reads **HELD** in the matrix (or a deferred-with-reason exception is recorded); all assurance nets (§0) are
-green for that layer; an **independent fresh-reviewer pass** finds no new High/Med; and a **fresh install +
-conformance (both modes)** passes.
+green for that layer; an **independent fresh-reviewer pass** finds no new High/Med; the layer's services are
+**safe as N copies** (FND-18 — no HA-blocking state; see [HA-AUDIT.md](HA-AUDIT.md) + the proposed two-copy test);
+and a **fresh install + conformance (both modes)** passes.
 
 ---
 
@@ -225,9 +226,19 @@ These span layers; each must be closed everywhere, not in one layer. Listed with
   (L4 catalog + L7 delivery) both need a participant/publisher signature + verifiable provenance + a verified,
   fail-closed digest at use. One signing spine (`signing.py` per ADR-0052) applied across kernel rows and
   component versions.
-- **Thread T5 — No silent in-memory authoritative state (FND-5).** Durable sessions (L5), durable network
-  certs/requests (L4), durable automation dedup + scheduler receipts (L6, B10). Each layer makes its authoritative
-  state recoverable across restart.
+- **Thread T5 — No silent in-memory authoritative state (FND-5) → safe as N copies (FND-18).** Each item below
+  is **HA-blocking**: it breaks when the service runs as ≥2 copies behind a load balancer (full analysis +
+  fixes in [HA-AUDIT.md](HA-AUDIT.md)). Per owning layer:
+  - *L2 Kernel* — run-tokens are boot-rehydrated from KV but not looked up live (**B20/B10**): read them from KV
+    per use. **HA-blocking.**
+  - *L3 Identity* — user/password store is a local file: move to a durable store. **HA-blocking.**
+  - *L4 Network* — certificates + publish-requests are in memory (restart wipes): make them durable. **HA-blocking.**
+  - *L5 App Host* — `_SESSIONS` in memory (**B10/B45**): durable shared session store (or sticky LB interim). **HA-blocking.**
+  - *L6 Services* — automation dedup + scheduler receipts in memory and the scheduler clock / event-relay drain /
+    automation dispatch are assumed-singleton loops (**B10**): durable shared dedup + **leader election / lease**
+    for the singleton work; **filestore** local-disk blobs → shared object storage. **HA-blocking.**
+  Already safe as N: secrets, model-gateway, notify, workflow, decision, nginx. Each layer's exit gate now
+  includes "safe as N copies (FND-18)", verified by the proposed two-copy conformance test (HA-AUDIT §e).
 - **Thread T6 — Confinement is enforced, not conventional (CMP-5/6 / DEBT-B51/B52).** Depends on Layer-1 network
   separation; realized in Layer 7 as the isolation runtime. Until L1 lands, L7 cannot close.
 
