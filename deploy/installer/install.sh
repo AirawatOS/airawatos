@@ -274,10 +274,10 @@ IDN="http://identity:8093"; VADDR=os.environ.get("VAULT_ADDR","http://vault:8200
 II=os.environ["II"]; TENANT=os.environ["TENANT"]
 PRINCIPALS = {
     "app-host": ["svc:scheduler", "svc:filestore", "svc:model-gateway"],   # scheduler /run + filestore + model-gateway
-    "kernel":   ["svc:model-gateway", "svc:filestore"],                    # broker /complete forward + file put/get
+    "kernel":   ["svc:model-gateway", "svc:filestore", "svc:secrets", "svc:runtime-manager"],  # +1c-iii: broker /fetch + runtime-mgr
     "decision": ["svc:notify"],
     "workflow": ["svc:notify"],
-    "launcher": ["svc:filestore"],                                         # in-process in scheduler; component source fetch
+    "launcher": ["svc:filestore", "svc:secrets"],                          # in-process in scheduler; source fetch + /materialize
 }
 def _req(url, data=None, headers=None, method="GET"):
     r=urllib.request.Request(url, data=(json.dumps(data).encode() if data is not None else None),

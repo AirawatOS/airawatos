@@ -108,7 +108,6 @@ services:
       SHARED_SCHEMAS: "knowledge.document,knowledge.version,knowledge.chunk,knowledge.embedding,governance.rule,platform.verb_alias,platform.lifecycle"
       EVENT_SINK: http://automation:8098/events
       SECRETS_URL: http://secrets:8102
-      SECRETS_INTERNAL: airawat-ld-broker-secrets
       FILESTORE_URL: http://filestore:8095
       EMBED_URL: http://model-gateway:8104
       APPS_OVERLAY: /data/app-bundles/apps
@@ -222,7 +221,6 @@ services:
     environment:
       <<: *devenv
       VAULT_ADDR: http://vault:8200
-      SECRETS_INTERNAL: airawat-ld-broker-secrets
       IDENTITY_JWKS: http://identity:8093/jwks
     depends_on: { vault: { condition: service_healthy } }
 
