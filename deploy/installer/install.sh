@@ -40,6 +40,10 @@ case "$PROFILE" in
   rehearsal)  RUN_TEST_USERS=1; RUN_PERF_SEED=0; SEED_DATA_TENANT=0 ;;                           # conformance creds, no demo data
   production) RUN_TEST_USERS=0; RUN_PERF_SEED=0; SEED_DATA_TENANT=0 ;;                           # CORE only; no demo data
 esac
+# ADR-0131 production-minimum for relocated service principals: dev-sandbox (the app-host dev-token principal)
+# exists ONLY under the dev profile; embed-service (citizen-embed OIDC) ONLY when embedding is enabled. scheduler
+# + component-publisher are always created (both are production-needed). Default embedding ON in dev, OFF otherwise.
+case "$PROFILE" in dev) EMBED_ENABLED="${EMBED_ENABLED:-1}" ;; *) EMBED_ENABLED="${EMBED_ENABLED:-0}" ;; esac
 # PLATFORM P1 — the `<instance>` data tenant is NOT platform infrastructure: nothing at install time requires
 # it (every later phase targets -operator / -network / -developer; its only install-time consumer is the
 # base-app shelf default, cosmetic). It is a *first data tenant*, so it is created ONLY under the dev profile
@@ -171,12 +175,23 @@ _setup_vault_approle
 # existing password (idempotent re-install; matches ensure_install's reuse of the admin password). The admin
 # path is the SAME one ensure_install reads back, so the human-admin password is unchanged.
 echo "▶ bring-up: operator install config (admin + provisioner passwords) → Vault (ADR-0131)"
-for _pr in admin provisioner; do
-  VROOT "vault kv get -mount=secret ${INSTANCE}-operator/${_pr}/password >/dev/null 2>&1 \
-    || vault kv put -mount=secret ${INSTANCE}-operator/${_pr}/password password=\"\$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 32)\" >/dev/null" \
-    && echo "  · ${_pr}: password present at secret/${INSTANCE}-operator/${_pr}/password (create-only)" \
-    || { echo "✗ could not write ${_pr} install-config password to Vault"; exit 1; }
-done
+# admin: an operator MAY pass OPERATOR_PASSWORD (interactive install); else a strong password is generated.
+# CREATE-ONLY either way — a re-install never overwrites an existing credential.
+if [ -n "$OPERATOR_PASSWORD" ]; then
+  VROOT "vault kv get -mount=secret ${INSTANCE}-operator/admin/password >/dev/null 2>&1 \
+    || vault kv put -mount=secret ${INSTANCE}-operator/admin/password password='$OPERATOR_PASSWORD' >/dev/null" \
+    && echo "  · admin: operator-supplied password stored (create-only)" \
+    || { echo "✗ could not write admin install-config password to Vault"; exit 1; }
+else
+  VROOT "vault kv get -mount=secret ${INSTANCE}-operator/admin/password >/dev/null 2>&1 \
+    || vault kv put -mount=secret ${INSTANCE}-operator/admin/password password=\"\$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 32)\" >/dev/null" \
+    && echo "  · admin: password present at secret/${INSTANCE}-operator/admin/password (create-only, generated)" \
+    || { echo "✗ could not write admin install-config password to Vault"; exit 1; }
+fi
+VROOT "vault kv get -mount=secret ${INSTANCE}-operator/provisioner/password >/dev/null 2>&1 \
+  || vault kv put -mount=secret ${INSTANCE}-operator/provisioner/password password=\"\$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 32)\" >/dev/null" \
+  && echo "  · provisioner: password present at secret/${INSTANCE}-operator/provisioner/password (create-only)" \
+  || { echo "✗ could not write provisioner install-config password to Vault"; exit 1; }
 echo "▶ bring-up: signing + audit keys (Vault)"
 XRUNNET env INSTANCE="$INSTANCE" python3 - < "$SCRIPT_DIR/_keys.py" || { echo "✗ bring-up keys failed"; exit 1; }
 echo "▶ bring-up: split roles (create migrator/kernel_app/network_app; grant CREATE to migrator)"
@@ -275,6 +290,52 @@ PY
 fi
 echo "  · govern base domains/roles/schemas"
 XNET python3 /app/seed_base.py
+
+echo "── Phase 1b-svc · role-bearing service principals (scheduler/component-publisher/dev-sandbox/embed-service) — ADR-0131 ──"
+# ADR-0131 — these moved OUT of ensure_install (which now only signs tenant records). Each is a dedicated SERVICE
+# principal with a random Vault-backed password (never compose/human) at the SAME path its consumer reads via
+# svc_token.py. Production minimum: scheduler + component-publisher always; dev-sandbox dev-only; embed-service
+# only when embedding is enabled. (slice-1c-iv-b keeps the IDENTITY_INTERNAL door; the gate flips to svc:identity
+# in 1c-iv-c.) MUST run before base-app delivery so app-host's publish/dev-token creds exist.
+XNET env II="airawat-ld-identity-internal" INST="${INSTANCE}" PROFILE="$PROFILE" EMBED_ENABLED="$EMBED_ENABLED" python3 - <<'PY'
+import os, json, secrets, urllib.request, urllib.error
+IDN="http://identity:8093"; VADDR=os.environ.get("VAULT_ADDR","http://vault:8200"); VTOK=os.environ["VAULT_TOKEN"]
+II=os.environ["II"]; INST=os.environ["INST"]; PROFILE=os.environ["PROFILE"]; EMBED=os.environ.get("EMBED_ENABLED")=="1"
+operator, network, developer = f"{INST}-operator", f"{INST}-network", f"{INST}-developer"
+# (user, tenant, roles, audiences, include?)
+PRINCIPALS = [
+    ("scheduler",           operator,  ["platform.scheduler"], ["svc:automation"], True),             # daemons mint svc:automation
+    ("component-publisher", network,   ["component.publisher"], None,              True),             # app-host publish/sign
+    ("dev-sandbox",         developer, ["platform.developer"],  None,              PROFILE == "dev"), # dev-token mint (DEV ONLY)
+    ("embed-service",       operator,  ["embed.client-admin"],  None,              EMBED),            # citizen-embed OIDC (if enabled)
+]
+def _req(url, data=None, headers=None, method="GET"):
+    r=urllib.request.Request(url, data=(json.dumps(data).encode() if data is not None else None),
+                             headers=headers or {}, method=method)
+    try: return urllib.request.urlopen(r, timeout=10).read()
+    except urllib.error.HTTPError as e: return e
+for USER, TENANT, ROLES, AUDS, INCLUDE in PRINCIPALS:
+    if not INCLUDE:
+        print(f"[1b-svc] {USER}@{TENANT}: SKIPPED (not in this profile's minimum)"); continue
+    VPATH=f"secret/data/{TENANT}/{USER}/password"
+    b=_req(f"{VADDR}/v1/{VPATH}", headers={"X-Vault-Token":VTOK})
+    pw = None if isinstance(b, urllib.error.HTTPError) else (((json.loads(b) or {}).get("data") or {}).get("data") or {}).get("password")
+    if pw:
+        print(f"[1b-svc] {USER}: password already in Vault at {VPATH} — reusing (idempotent)")
+    else:
+        pw = secrets.token_urlsafe(18)
+        w=_req(f"{VADDR}/v1/{VPATH}", data={"data":{"password":pw}},
+               headers={"X-Vault-Token":VTOK,"Content-Type":"application/json"}, method="POST")
+        print(f"[1b-svc] {USER}: stored password in Vault at {VPATH}" if not isinstance(w, urllib.error.HTTPError)
+              else f"[1b-svc] {USER}: VAULT WRITE FAILED {w.code}")
+    _u={"username":USER,"tenant":TENANT,"roles":ROLES}
+    if AUDS is not None: _u["audiences"]=AUDS
+    _req(f"{IDN}/users", data=_u, headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
+    s=_req(f"{IDN}/set-password", data={"username":USER,"tenant":TENANT,"password":pw,"must_reset":False,"only_if_unset":True},
+           headers={"X-Internal-Token":II,"Content-Type":"application/json"}, method="POST")
+    print(f"[1b-svc] {USER} ready: tenant={TENANT} roles={ROLES} audiences={AUDS}",
+          "OK" if not isinstance(s, urllib.error.HTTPError) else f"set-pw {s.code}")
+PY
 
 echo "── Phase 1c · service principals (app-host/kernel/decision/workflow/launcher) — ADR-0124 slice-1c-ii ──"
 # MUST run BEFORE base-app delivery: the filestore / model-gateway / notify gates ENFORCE, so every edge caller

@@ -21,7 +21,7 @@ x-devenv: &devenv
   AIRAWAT_ALLOW_PASSWORDLESS: "1"     # reference IdP passwordless dev auth (gated: prod-guard blocks under production)
 
 x-ref: &ref                          # one source-built reference image; many services (per-service command)
-  image: manishsv/airawatos-reference:dev-hard14   # slice1 B28/B29 + slice5 B41/B42 + slice1c (GATES ON: enforce-default + svc_gate + notify/model-gateway gates)
+  image: manishsv/airawatos-reference:dev-hard15   # slice1 B28/B29 + slice5 B41/B42 + slice1c (GATES ON: enforce-default + svc_gate + notify/model-gateway gates)
   restart: unless-stopped
   entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]     # production guard (effective-settings check)
   volumes: [ ./prod-guard.sh:/local-dev/prod-guard.sh:ro ]
@@ -118,7 +118,7 @@ services:
     restart: unless-stopped
 
   network:
-    image: manishsv/airawatos-network:dev-a75
+    image: manishsv/airawatos-network:dev-a76
     container_name: airawat-ld-network
     env_file: [ ./vault/approle/network.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
     networks: [aos-edge, aos-svc, aos-data-facts, aos-data-secrets]
@@ -187,6 +187,7 @@ services:
       <<: *devenv
       NETWORK_URL: http://network:8090
       VAULT_ADDR: http://vault:8200
+      SERVICE_TENANT: localdev-operator                     # ADR-0131 — the operator realm identity self-bootstraps from (admin + provisioner, create-only)
       IDENTITY_USERS_FILE: /data/identity/identity-users.json
       IDENTITY_PASSWORDS_FILE: /data/identity/identity-passwords.json
       IDENTITY_PASSWORD_REQUIRED: enforce                   # ADR-0124 Step 4 — passwordless login REFUSED

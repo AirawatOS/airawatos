@@ -56,3 +56,53 @@ no bootstrap channel on the internal door.**
 - Trade-off: the install config (passwords) lives in Vault during install — acceptable because Vault is already
   the platform root, the admin password is single-use (`must_reset` + scrubbed), and nothing is a committed
   literal.
+
+## Staged delivery (a / b / c)
+
+The cutover ships in three fresh-install-gated commits so the one irreversible step (flipping the door to
+`svc:identity`) happens only after the seed + relocations are proven:
+
+- **1c-iv-a** — the installer writes the operator install config (`admin` + `provisioner` passwords) to Vault
+  *before* bring-up (create-only). Images unchanged. **Shipped.**
+- **1c-iv-b** — identity self-bootstraps the admins + provisioner from that config at boot (create-only);
+  `ensure_install` stops all IdP writes (keeps the tenant records); the four role-bearing service principals
+  (`scheduler`, `component-publisher`, `dev-sandbox`, `embed-service`) move to installer **Phase 1b-svc**. The
+  door is **still `IDENTITY_INTERNAL`** — no cutover. Images: reference `dev-hard15`, network `dev-a76`.
+  **Shipped (this commit; tag `pre-identity-cutover`).**
+  - **Production minimum for the relocated principals:** `scheduler` + `component-publisher` are created on every
+    profile (both production-needed). `dev-sandbox` is created **only under the dev profile**; `embed-service`
+    **only when `EMBED_ENABLED=1`** (default on in dev, off otherwise). So a production install's relocated set is
+    exactly **{scheduler, component-publisher}** (+ `embed-service` iff embedding is enabled); `dev-sandbox` never.
+- **1c-iv-c** — flip the door to `svc:identity`-only; app-host (×8 sites), network `api.py` join→provision, and
+  the installer phases mint `svc:identity`; `IDENTITY_INTERNAL` removed everywhere; B29 adapted to the
+  provisioner-seedable check. New images (e.g. reference `dev-hard16`, network `dev-a77`). **Dedicated session.**
+
+## Rollback procedure for the 1c-iv-c cutover
+
+If the gate flip (1c-iv-c) breaks login or a service-principal mint and the fix is not immediately clear, roll
+back to the **`pre-identity-cutover`** tag (the 1c-iv-b state, where the door is still `IDENTITY_INTERNAL` and
+every caller still presents it):
+
+1. **Revert the code** in all three repos to the tag:
+   `git -C platform-spec checkout pre-identity-cutover -- reference/identity.py reference/… ` (or reset the
+   branch), likewise `network` (`ensure_install.py`, `api.py`) and root (`deploy/`). The tag is applied to all
+   three repos at the same slice so they revert as a consistent set.
+2. **Revert the compose image tags** to the b-state: reference `dev-hard15`, network `dev-a76` (the c images
+   `dev-hard16`/`dev-a77` are the forward tags). `docker compose up -d --force-recreate identity network app-host`
+   — or a full fresh install for a clean environment.
+3. **Vault: no restore needed.** The install config (`secret/data/<op>/{admin,provisioner}/password`) is written
+   create-only and is read identically by the b and c identity images, so it is forward/backward compatible. The
+   c step scrubs the admin password only *after* identity confirms the bootstrap; if c failed before that scrub
+   the password is still present (expected), and if it was scrubbed the admin has already rotated (login uses the
+   rotated password, which lives in the identity data volume, not the install config). Do **not** wipe the config.
+4. **Postgres: no restore needed.** Identity's principal + password + must-reset stores live on the
+   `localdev_identity` Docker volume (only the brute-force lockout table is in Postgres). The b boot-seed is
+   create-only, so bringing the b image back up against the existing volume leaves every provisioned principal
+   and rotated password intact — nothing is re-seeded or reset.
+5. **Verify after rollback:** (a) `admin@<operator>` logs in (if not yet rotated, response carries
+   `must_reset:true`; if rotated, the rotated password works); (b) the realm admins log in; (c) a service
+   principal mints its token — e.g. `scheduler@<operator>` obtains an `aud=svc:automation` token and
+   `provisioner@<operator>` obtains `aud=svc:identity` but is **refused** any other audience (403); (d) a fresh
+   `install.sh --profile dev` completes green with conformance both modes 0 FAIL. If login still fails on the
+   rolled-back b image, the fault is in the shared config/volume, not the gate — investigate there, do not
+   re-flip the gate.
