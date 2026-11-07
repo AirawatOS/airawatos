@@ -12,6 +12,11 @@ _truthy() {
   esac
 }
 
+# L1-1b step4 — capture whether a STATIC VAULT_TOKEN was injected via the environment, BEFORE the AppRole login
+# below may set one. In production a service must obtain its token via AppRole; a pre-injected static token is a
+# root/shared token and the prod guard refuses it.
+_VAULT_PRESET="${VAULT_TOKEN:-}"
+
 # ── FIX-PLAN L1-1b — per-service Vault AppRole login (closes DEBT-B58) ──────────────────────────────
 # Each service authenticates to Vault with ITS OWN AppRole (role-id + secret-id from its env_file) and gets a
 # short-lived, policy-scoped token. The shared root token is gone from every service. If VAULT_TOKEN is ALREADY
@@ -52,6 +57,12 @@ if [ "$_ENV" = "production" ]; then
   _truthy "${AIRAWAT_NO_VERIFY_CERT:-}"     && VIOL="$VIOL no-verify-cert(AIRAWAT_NO_VERIFY_CERT)"
   [ "$(printf '%s' "${SCHEMA_VALIDATE:-}" | tr '[:upper:]' '[:lower:]')" = "shadow" ] \
       && VIOL="$VIOL schema-shadow(SCHEMA_VALIDATE=shadow)"
+  # L1-1b step4 — a service must obtain its Vault token via AppRole; a STATIC token injected via env is a
+  # root/shared token (DEBT-B58). Refuse it in production.
+  [ -n "$_VAULT_PRESET" ] && VIOL="$VIOL static-vault-token(root/shared — use per-service AppRole)"
+  # L1-1b step4 — the in-process component runtime inherits the host env + is unconfined (DEBT-B51). Refuse it
+  # in production (interim: the operator must run a confined container runtime, not the in-process subprocess).
+  _truthy "${AIRAWAT_INPROCESS_COMPONENTS:-}" && VIOL="$VIOL in-process-component-placement(DEBT-B51)"
   # effective command args — catches --no-verify-cert passed on the service command line
   for a in "$@"; do
     [ "$a" = "--no-verify-cert" ] && VIOL="$VIOL no-verify-cert(--no-verify-cert arg)"
