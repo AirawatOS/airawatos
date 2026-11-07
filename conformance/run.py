@@ -600,9 +600,22 @@ def run_internal_cases():
         # not repeated here because the scheduler principal cannot mint a wrong-but-mintable audience for
         # automation under the identity audience allow-list (would only add a SKIP_CREDS).
     # FND-9 / debt DEBT-B4 — fail-open internal-token gates
-    tokenless_accepted("FOUNDATIONS","FND-9/DEBT-B4","secrets /materialize accepts w/o internal token (abuse)","POST", T["secrets"]+"/materialize", {})
-    tokenless_accepted("FOUNDATIONS","FND-9/DEBT-B4","secrets /fetch accepts w/o internal token (abuse)","POST", T["secrets"]+"/fetch", {})
-    record("FOUNDATIONS","FND-9/DEBT-B4","runtime-manager /invoke fail-open (abuse)","expected-fail","SKIP_BUILD","no runtime-manager in the local-dev stack")
+    # ADR-0124 slice-1c-iii — secrets /materialize + /fetch now ENFORCE svc:secrets (from {kernel,launcher});
+    # A71 literal retired. Anonymous refused; a wrong-audience token (addressed to another door) refused.
+    for _ep in ("/materialize", "/fetch"):
+        _ss, _sb, _ = _req("POST", T["secrets"] + _ep, body={})
+        if _ss == 0:
+            record("FOUNDATIONS","FND-9/A71","secrets %s refuses an anonymous call (abuse)" % _ep,"expected-fail","SKIP_BUILD","secrets unreachable")
+        else:
+            expect("FOUNDATIONS","FND-9/A71","secrets %s refuses an anonymous call (abuse)" % _ep, _ss in (401,403),
+                   "anon %s -> %s (ENFORCE svc:secrets — slice-1c-iii)" % (_ep, _ss))
+    if _fs_wrong:
+        _sw, _swb, _ = _req("POST", T["secrets"]+"/fetch", body={"url":"http://x"}, token=_fs_wrong)
+        expect("FOUNDATIONS","FND-9/A71","secrets /fetch refuses a wrong-audience token (another door)", _sw == 403,
+               "svc:automation token -> %s (expect 403; secrets accepts svc:secrets only)" % _sw)
+    else:
+        record("FOUNDATIONS","FND-9/A71","secrets /fetch refuses a wrong-audience token (another door)","needs-creds","SKIP_CREDS","no svc:automation token")
+    record("FOUNDATIONS","FND-9/A71","runtime-manager /invoke → svc:runtime-manager gate (abuse)","expected-fail","SKIP_BUILD","no runtime-manager in the local-dev stack (EC2-only); gate swapped to svc_authz")
     # DEBT-B6 — identity directory disclosure
     st, b, _ = _req("GET", T["identity"]+"/users")
     if st == 0:
