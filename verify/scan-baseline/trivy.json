@@ -1,0 +1,50 @@
+{
+ "_meta": {
+  "rule": "a CRITICAL not listed here fails; HIGH counts are reported",
+  "tool": "aquasec/trivy:0.57.1",
+  "updated": "2026-11-08"
+ },
+ "images": {
+  "hashicorp/vault:1.20": {
+   "critical": [
+    "github.com/jackc/pgx/v5:CVE-2026-33815",
+    "github.com/jackc/pgx/v5:CVE-2026-33816",
+    "google.golang.org/grpc:CVE-2026-33186",
+    "libcrypto3:CVE-2026-31789",
+    "libssl3:CVE-2026-31789",
+    "stdlib:CVE-2025-68121"
+   ],
+   "debt": "DEBT-B79",
+   "high_at_baseline": 88
+  },
+  "manishsv/airawatos-kernel:dev-hard11": {
+   "critical": [],
+   "debt": "DEBT-B80",
+   "high_at_baseline": 53
+  },
+  "manishsv/airawatos-network:dev-a81": {
+   "critical": [],
+   "debt": "DEBT-B80",
+   "high_at_baseline": 53
+  },
+  "manishsv/airawatos-reference:dev-hard23": {
+   "critical": [
+    "stdlib:CVE-2025-68121"
+   ],
+   "debt": "DEBT-B80",
+   "high_at_baseline": 90
+  },
+  "nginx:alpine": {
+   "critical": [],
+   "debt": "DEBT-B81",
+   "high_at_baseline": 0
+  },
+  "postgres:16-alpine": {
+   "critical": [
+    "stdlib:CVE-2025-68121"
+   ],
+   "debt": "DEBT-B81",
+   "high_at_baseline": 25
+  }
+ }
+}
