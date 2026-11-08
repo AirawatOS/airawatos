@@ -30,10 +30,23 @@ def secrets():
     known = base.get("findings", {}); found = {}; new = []
     with tempfile.TemporaryDirectory() as td:
         for name, src in REPOS.items():
-            sh(["docker", "run", "--rm", "-v", f"{os.path.join(ROOT, src)}:/repo:ro", "-v", f"{td}:/out", GITLEAKS, "detect",
-                "--source", "/repo", "--no-banner", "--redact", "--report-format", "json", "--report-path", f"/out/{name}.json",
-                "--log-level", "error"])
-            for f in json.load(open(os.path.join(td, f"{name}.json"))) if os.path.exists(os.path.join(td, f"{name}.json")) else []:
+            r = sh(["docker", "run", "--rm", "-v", f"{os.path.join(ROOT, src)}:/repo:ro", "-v", f"{td}:/out", GITLEAKS, "detect",
+                    "--source", "/repo", "--no-banner", "--redact", "--report-format", "json", "--report-path", f"/out/{name}.json",
+                    "--log-level", "error"])
+            rep = os.path.join(td, f"{name}.json")
+            # slice-1g (DEBT-B92 / review N4): FAIL CLOSED — gitleaks exits 0 (clean) or 1 (leaks found); anything else, or
+            # no report, is a scan that did not run, never "zero findings".
+            try:
+                findings = json.load(open(rep)) if r.returncode in (0, 1) and os.path.exists(rep) else None
+            except Exception:
+                findings = None
+            if findings is None:
+                fp = f"{name}:SCAN-DID-NOT-RUN"
+                found[fp] = {"rule": "scan-error", "file": src, "line": 0, "commit": "",
+                             "debt": f"exit {r.returncode}: {(r.stderr or r.stdout).strip()[:120]}"}
+                new.append(fp)
+                continue
+            for f in findings:
                 fp = f"{name}:{f['Fingerprint']}"
                 found[fp] = {"rule": f["RuleID"], "file": f"{src}/{f['File']}".lstrip("./"), "line": f.get("StartLine"),
                              "commit": f.get("Commit", "")[:10], "debt": known.get(fp, {}).get("debt", "UNTRIAGED")}
@@ -113,6 +126,15 @@ def main():
     update = "--update-baseline" in sys.argv
     cases, failed = [], 0
     if what in ("secrets", "all"):
+        # slice-1g (DEBT-B92 / N4) self-test: a scanner that CANNOT run must surface as a failure, not as zero findings.
+        global GITLEAKS, REPOS
+        _g, _r = GITLEAKS, REPOS
+        GITLEAKS, REPOS = "zricethezav/gitleaks:does-not-exist-selftest", dict(list(_r.items())[:1])
+        _f, _n = secrets()
+        GITLEAKS, REPOS = _g, _r
+        if not any(fp.endswith("SCAN-DID-NOT-RUN") for fp in _n):
+            print("✗ secret-scan self-test: a scanner that did not run was counted as zero findings (fail-open)"); sys.exit(2)
+        print("✓ secret-scan self-test: a scanner that did not run is a failure (fail-closed)")
         found, new = secrets()
         if update:
             old = (json.load(open(os.path.join(BASE, "gitleaks.json"))) if os.path.exists(os.path.join(BASE, "gitleaks.json")) else {}).get("findings", {})

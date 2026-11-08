@@ -48,7 +48,8 @@ def files(exts):
         if not any(f == t or f.startswith(t + "/") for t in SCOPE) or f.startswith(SKIP_PATHS):
             continue
         parts = f.split("/")
-        if any(p in SKIP_DIRS for p in parts) or parts[-1].startswith("test_") or not f.endswith(exts):
+        docker = parts[-1].startswith("Dockerfile") and ".sh" in exts           # Dockerfiles join the shell-like checks
+        if any(p in SKIP_DIRS for p in parts) or parts[-1].startswith("test_") or not (f.endswith(exts) or docker):
             continue
         yield f
 
@@ -65,12 +66,30 @@ def norm(s):
 
 
 # ── the checks ────────────────────────────────────────────────────────────────────────────────────────────────
-TOKEN_ROLES = re.compile(r"""(claims|_cl|cl|c|tok|token|payload|_claims|me)\s*(\.get\(\s*["']roles["']|\[\s*["']roles["']\s*\])""")
+# slice-1g (DEBT-B92 / review N2): EVERY form of reading `roles` — the old pattern required a token-ish receiver NAME and
+# missed the dominant `(claims or {}).get("roles")` idiom (≈52 uncounted reads). Any read of the "roles" key counts;
+# reads of recorded state are BASELINED with the rest and retired by the DEBT-B1 thread (an over-count is reviewable, an
+# under-count is a silent hole).
+TOKEN_ROLES = re.compile(r"""(?x)
+    \.get\(\s*["']roles["']                                   # x.get("roles") — any receiver: (claims or {}).get, chained .get(...).get
+  | \[\s*["']roles["']\s*\]                                  # x["roles"]
+  | \bgetattr\(\s*[^,()]+,\s*["']roles["']                     # getattr(x, "roles")
+  | ["']roles["']\s+(?:not\s+)?in\b                             # "roles" in claims
+  | \.(?:pop|setdefault)\(\s*["']roles["']                      # x.pop("roles") / x.setdefault("roles", …)
+  | \b(?:claims|_claims|cl|_cl|tok|token|payload|me|principal|ident|identity|session|jwt|bearer)\.roles\b   # attribute form
+  | \bitemgetter\(\s*["']roles["']                               # operator.itemgetter("roles")
+    """)
 LITERAL_GATE = re.compile(r"""X-Internal-Token|_INTERNAL["']\s*,\s*["'][^"']+["']|INTERNAL_TOKEN\s*=\s*["'][^"']+["']"""
                           r"""|-H\s*["'](X-[A-Za-z-]*Token|Authorization):\s*(Bearer\s+)?[A-Za-z0-9][^"'$\s]*["']""")   # literal token header
 # a secret-bearing NAME (not an audience / URL / path / Vault key-name / file reference) with a literal default value
-_SECRET_NAME = r"[A-Z0-9_]*(PASSWORD|PASSWD|SECRET|TOKEN|API_KEY)(?!_(AUDIENCE|AUD|URL|FILE|PATH|VAULT_PATH|TTL|NAME|REQUIRED|HEADER)\b)(?![A-Z0-9_]*(AUDIENCE|_URL|_FILE|_PATH|KEY_SECRET))[A-Z0-9_]*"
-DEFAULT_SECRET_PY = re.compile(r"""os\.environ\.get\(\s*["'](""" + _SECRET_NAME + r""")["']\s*,\s*["']([^"'/][^"']*)["']""")
+_SECRET_NAME = r"[A-Z0-9_]*(PASSWORD|PASSWD|SECRET|TOKEN|API_KEY)(?!_(AUDIENCE|AUD|URL|FILE|PATH|VAULT_PATH|TTL|NAME|REQUIRED|HEADER)\b)(?![A-Z0-9_]*(AUDIENCE|_AUD\b|_URL|_FILE|_PATH|KEY_SECRET|_MOUNT|_READERS|_CALLERS))[A-Z0-9_]*"
+DEFAULT_SECRET_PY = re.compile(r"""os\.(?:environ\.get|getenv)\(\s*["'](""" + _SECRET_NAME + r""")["']\s*,\s*["']([^"'/][^"']*)["']""")
+# slice-1g (DEBT-B92 / review N3) — the forms that evaded the literal checks:
+OR_LITERAL_PY = re.compile(r"""os\.(?:environ\.get|getenv)\(\s*["'](""" + _SECRET_NAME + r""")["'][^)]*\)\s*or\s*["']([^"'/\s][^"']*)["']""")   # env or "lit"
+SHELL_DEFAULT = re.compile(r"""\$\{(""" + _SECRET_NAME + r"""):?[-=]([^}$:?][^}]*)\}""")                                   # ${X_TOKEN:-lit}
+SHELL_ASSIGN = re.compile(r"""^\s*(?:export\s+)?(""" + _SECRET_NAME + r""")=["']?([^"'\s$`(][^"'\s]*)""")                  # export X_PASSWORD=lit
+DOCKER_ENV = re.compile(r"""^\s*(?:ENV|ARG)\s+(""" + _SECRET_NAME + r""")[=\s]+["']?([^"'\s$][^"'\s]*)""")                  # Dockerfile ENV/ARG
+DSN_CRED = re.compile(r"""\b[a-z][a-z0-9+.-]*://[^:/\s"'@${}]+:([^@\s"'${}<>]+)@""")                                         # scheme://user:pass@
 SECRET_ASSIGN_YAML = re.compile(r"""(?:^|(?<!\$)[{,]\s*)-?\s*["']?(""" + _SECRET_NAME + r""")["']?\s*[:=]\s*["']?([^"'\s#${},*\-][^"'\s#},]*)""")
 WEBHOOK_LITERAL = re.compile(r"""(WEBHOOK_SECRET|GATEWAY_TOKEN|SMS_GATEWAY|TELEGRAM_WEBHOOK)[A-Z_]*["']?\s*[:=,]\s*["']([^"'${}\s][^"'\s]*)["']""")
 FAIL_OPEN = re.compile(r"""except\b[^:]*:\s*(return\s+(True|\(True|ok\b)|pass\s*#.*(allow|admit|open))""", re.I)
@@ -106,6 +125,17 @@ def check_literal_gates():
             m = DEFAULT_SECRET_PY.search(l)
             if m and not m.group(1).endswith(("KEY_SECRET", "SECRET_NAME")):   # names of Vault keys, not values
                 hits.append((f, i, l, f"hardcoded default for a secret: {m.group(1)}"))
+            m = OR_LITERAL_PY.search(l)
+            if m:
+                hits.append((f, i, l, f"literal fallback for a secret (`or \"…\"`): {m.group(1)}"))
+            if f.endswith(".sh") or f.split("/")[-1].startswith("Dockerfile"):
+                for rx, what in ((SHELL_DEFAULT, "shell default"), (SHELL_ASSIGN, "shell assignment"), (DOCKER_ENV, "Dockerfile ENV/ARG")):
+                    m = rx.search(l)
+                    if m:
+                        hits.append((f, i, l, f"literal secret in {what}: {m.group(1)}"))
+            m = DSN_CRED.search(l)
+            if m and m.group(1) not in ("password", "PASSWORD", "pass", "***", "…"):
+                hits.append((f, i, l, "credential in a connection URL"))
             if f.endswith(".py"):
                 m = PASSWORD_KWARG.search(l)
                 if m and m.group(2) not in ("", "Bearer ") and not re.fullmatch(r"[A-Z0-9_]+", m.group(2)) \
@@ -220,6 +250,25 @@ CHECKS = [  # name, rule protected, fn, baselined?
 
 SELFTEST = [  # (pattern, a line it MUST catch) — proves no check passes vacuously
     (TOKEN_ROLES, 'roles = set(claims.get("roles", []))'),
+    # slice-1g (DEBT-B92): one self-test per token-role READ FORM
+    (TOKEN_ROLES, 'if "admin" in (claims or {}).get("roles", []):'),
+    (TOKEN_ROLES, 'r = (self._claims() or {}).get("roles") or []'),
+    (TOKEN_ROLES, 'roles = cl.get("realm_access", {}).get("roles", [])'),
+    (TOKEN_ROLES, 'roles = set((_current_session().get("claims") or {}).get( "roles" , []))'),
+    (TOKEN_ROLES, "ok = 'platform.steward' in user['roles']"),
+    (TOKEN_ROLES, 'rs = decoded [ "roles" ]'),
+    (TOKEN_ROLES, 'rs = getattr(principal_obj, "roles", ())'),
+    (TOKEN_ROLES, 'if "roles" in claims and claims_ok:'),
+    (TOKEN_ROLES, 'rs = c.pop("roles", [])'),
+    (TOKEN_ROLES, 'payload.setdefault("roles", [])'),
+    (TOKEN_ROLES, 'if "steward" in principal.roles:'),
+    (TOKEN_ROLES, 'get_roles = operator.itemgetter("roles")'),
+    (DEFAULT_SECRET_PY, 'PW = os.getenv("DB_PASSWORD", "kernel")'),
+    (OR_LITERAL_PY, '_login = {"password": os.environ.get("AIRAWAT_PASSWORD") or "Airawat@123"}'),
+    (SHELL_DEFAULT, 'VAULT_TOKEN=${VAULT_TOKEN:-airawat-dev-root} python3 x.py'),
+    (SHELL_ASSIGN, 'export ADMIN_PASSWORD=hunter2'),
+    (DOCKER_ENV, 'ENV VAULT_TOKEN=airawat-dev-root'),
+    (DSN_CRED, 'DATABASE_URL = "postgresql://kernel:kernel@postgres:5432/airawat"'),
     (LITERAL_GATE, 'if self.headers.get("X-Internal-Token") != SECRET:'),
     (LITERAL_GATE, 'curl -H "X-Run-Token: dev-run-air" "$K/v1/write"'),
     (DEFAULT_SECRET_PY, 'PW = os.environ.get("DB_PASSWORD", "kernel")'),
@@ -233,9 +282,24 @@ SELFTEST = [  # (pattern, a line it MUST catch) — proves no check passes vacuo
 ]
 
 
+SELFTEST_NEG = [  # (pattern, a line it must NOT catch) — the broadened patterns stay precise
+    (TOKEN_ROLES, 'role = rec.get("role")'),
+    (TOKEN_ROLES, '# roles come from the decision function, never claims.get("x")'),
+    (SHELL_DEFAULT, 'VAULT_TOKEN=${VAULT_TOKEN:?set VAULT_TOKEN}'),
+    (SHELL_ASSIGN, 'export VAULT_TOKEN="$(cat /vault/token)"'),
+    (DSN_CRED, 'DSN = f"postgresql://{user}:{pw}@{host}/db"'),
+    (OR_LITERAL_PY, 'tok = os.environ.get("VAULT_TOKEN") or ""'),
+    (DEFAULT_SECRET_PY, 'CMOUNT = os.environ.get("COMPONENT_SECRETS_MOUNT", "components")'),   # a mount NAME, not a secret
+    (OR_LITERAL_PY, 'R = (os.environ.get("RUN_TOKEN_READERS") or "scheduler")'),                   # a caller list
+    (OR_LITERAL_PY, 'A = (os.environ.get("SECRETS_ACCEPT_AUD") or "svc:secrets")'),               # an audience
+]
+
+
 def selftest():
-    bad = [p.pattern[:50] for p, line in SELFTEST if not p.search(line)]
-    print(("✓" if not bad else "✗") + f" banned-pattern self-test: {len(SELFTEST) - len(bad)}/{len(SELFTEST)} patterns catch their positive")
+    bad = [p.pattern[:50] + " ⟵ " + line for p, line in SELFTEST if not p.search(line)]
+    bad += ["FALSE POSITIVE " + p.pattern[:40] + " ⟵ " + line for p, line in SELFTEST_NEG if p.search(line)]
+    print(("✓" if not bad else "✗") + f" banned-pattern self-test: {len(SELFTEST) + len(SELFTEST_NEG) - len(bad)}/{len(SELFTEST) + len(SELFTEST_NEG)} "
+          "(every positive caught, every negative left alone)")
     for b in bad:
         print("    MISSES:", b)
     return not bad
