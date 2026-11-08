@@ -202,10 +202,12 @@ Order: **Layer 1 independent review → MERGE → repository restructure → Lay
   enforcement between them. In order of risk:
   - **Messaging:** email moves out of the Network into the messaging gateway (SES/SMTP become south adapters),
     with rate limit, consent and a decision record per send; notify is the north door; outbound SMS is
-    build-to-contract; federated mail keeps the federation door as its south side.
+    build-to-contract. Federated mail is NOT in this gateway: it stays a core Network operation on the federation
+    door (ADR-0130 § Resolved 4).
   - **AI models:** **DEBT-B71** (consent / lawful basis, tenant cost ceiling, rate limit, decision record before
     any prompt leaves) and **DEBT-B72** (STT providers only from governed records; no env fallback).
-  - **Conversation channels (with DEBT-B46):** **DEBT-B64**, per-provider per-tenant signed webhooks with the
+  - **Conversation channels (with DEBT-B46):** **DEBT-B64**, tenant-chosen SMS/USSD and channel providers under an
+    operator floor (ADR-0130 § Resolved 5); inbound secrets per tenant in Vault, per-provider signed webhooks, the
     tenant bound by provider registration, behind the B46 rate-limited, route-separated front door; WhatsApp and IVR
     land as channel adapters.
   - **Data sources:** **DEBT-B65** (SDK egress), **DEBT-B66** (RTSP), **DEBT-B67** (in-process path). All three

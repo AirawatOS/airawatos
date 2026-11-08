@@ -139,21 +139,26 @@ Each profile: the north operations, the south contract, who chooses, current sta
 
 ### Messaging
 - **North:** `send(channel_kind, recipient, template|body, purpose)` → receipt; `status(receipt)`. Kinds: email,
-  inbox, sms, federated, telegram.
+  inbox, sms, telegram. **Not federated mail:** that is traffic between installations, and it stays a core Network
+  operation on the federation door (ADR-0130 § Resolved questions, 4).
 - **South:** `deliver(minimised message, provider credential)` → provider id / error, per kind.
 - **Chooser:** tenant (per-tenant sender credentials); platform mail (e.g. join verification) uses the authority
   tenant's sender.
 - **Status:** email [3] working via SES/SMTP or dev-echo **inside the Network**, no rate limit, consent or audit;
-  inbox/notify [4] internal only (the gateway's built-in internal provider); SMS outbound **not built**; federated
-  mail [7] working — its south side is the **federation door (core)**, not an adapter, and envelope body sealing is
-  pending (#234); Telegram outbound [5] sent by the `telegram-concierge` adapter.
-- **Debt:** none registered for email (gap recorded here: no rate limit, consent or audit); #234.
+  inbox/notify [4] internal only (the gateway's built-in internal provider); SMS outbound **not built**; Telegram
+  outbound [5] sent by the `telegram-concierge` adapter. (Federated mail [7] is outside this gateway; see above.)
+- **Debt:** none registered for email (gap recorded here: no rate limit, consent or audit).
 
 ### Conversation channels (inbound)
 - **North:** delivers `message(tenant, channel, sender_ref, text|media, received_at, verification)` to the
   tenant's handler (agent, case intake).
 - **South:** `receive(raw callback)` → verified, normalised message or reject; one adapter per provider.
-- **Chooser:** tenant for Telegram; **operator** for the SMS/USSD gateway today. Target: tenant per provider.
+- **Chooser:** the **tenant**, for Telegram and the SMS/USSD gateway alike; the **operator sets the floor** with
+  infrastructure policy only (residency, security baseline, public-door rate ceilings — no per-provider approval),
+  as for messaging and identity providers (ADR-0130 § Resolved questions, 5). **Inbound secrets are held per tenant
+  in Vault:** each tenant's provider registration has its own webhook secret or signing key, and the tenant is bound
+  by that registration (GTW-14). This is the DEBT-B64 target. **Today** the SMS gateway is operator-configured with
+  one secret.
 - **Status:** Telegram inbound [5] working (optional webhook secret); SMS/USSD/message intake [6] partial, one
   operator secret in Vault; WhatsApp (the Meta HMAC check exists in `_bridge_whatsapp`) and IVR future.
 - **Debt:** **DEBT-B46** (public door unthrottled, not route-separated), **DEBT-B64** (one shared secret; target

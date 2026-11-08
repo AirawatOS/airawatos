@@ -189,8 +189,8 @@ hands it for that call. The detailed rules are in [GATEWAY-v0.1](../specs/GATEWA
 
 | Gateway | Capabilities | Provider chosen by | Status today (inventory) |
 |---|---|---|---|
-| **Messaging** | email [3], inbox / notify [4], SMS/USSD outbound, federated mail [7], Telegram outbound [5] | tenant (email: per-tenant sender secret; platform mail such as join verification uses the authority tenant's sender) | email working (SES/SMTP or dev-echo) but **no rate limit, consent or audit**; notify internal only; **outbound SMS not built**; federated mail working over the federation door; Telegram reply sent by the `telegram-concierge` adapter |
-| **Conversation channels (inbound)** | Telegram inbound [5], SMS/USSD/message intake [6] incl. **DEBT-B64**; future WhatsApp, IVR | tenant (Telegram); **operator** for the SMS gateway today | the south side receives provider callbacks; the north side delivers **authenticated, tenant-bound** messages. Telegram works without a rate limit on the public door (**DEBT-B46**); the SMS gateway uses one operator secret in Vault (**DEBT-B64**, target per-provider per-tenant signed webhooks) |
+| **Messaging** | email [3], inbox / notify [4], SMS/USSD outbound, Telegram outbound [5] — **not** federated mail [7], which stays core on the federation door (§ Resolved questions, 4) | tenant (email: per-tenant sender secret; platform mail such as join verification uses the authority tenant's sender) | email working (SES/SMTP or dev-echo) but **no rate limit, consent or audit**; notify internal only; **outbound SMS not built**; Telegram reply sent by the `telegram-concierge` adapter |
+| **Conversation channels (inbound)** | Telegram inbound [5], SMS/USSD/message intake [6] incl. **DEBT-B64**; future WhatsApp, IVR | **tenant**, with the **operator setting the floor** — Telegram and the SMS/USSD gateway alike (§ Resolved questions, 5); the SMS gateway is operator-configured **today** | the south side receives provider callbacks; the north side delivers **authenticated, tenant-bound** messages. Telegram works without a rate limit on the public door (**DEBT-B46**); the SMS gateway uses one operator secret in Vault (**DEBT-B64**, target per-provider per-tenant signed webhooks) |
 | **AI models** | chat / completion + embeddings [1], speech-to-text [2] | tenant (sets key) over governance-recorded `intelligence.provider` records | working; **no consent, cost cap or rate limit** (inventory C-1 → **DEBT-B71**); STT falls back to an ungoverned bootstrap env provider (inventory C-2 → **DEBT-B72**) |
 | **Data sources** | drivers [8], cameras / RTSP [9], Earth observation [8] | tenant (installs the driver, sets the key) | working in the confined path; **DEBT-B65** (Earth Engine SDK opens its own sockets), **DEBT-B66** (RTSP dialled directly by ffmpeg), **DEBT-B67** (in-process runtime skips `broker.egress()`); B51/B52 |
 | **Identity** | external identity providers [10], verifiable credentials [11] | **tenant** registers its own external identity provider; the **operator sets the floor** (infrastructure policy only — decided 2026-11-08, see § Resolved questions); VC issuance by the issuer tenant | working (reference IdP + Keycloak; native Ed25519 VCs). Today the operator configures issuers (inventory §10) — the tenant-registration path is to build. The **home issuer stays core** — only *external* issuers are providers |
@@ -217,8 +217,8 @@ Git hosting is **not** operator infrastructure. It stays chosen **per tenant/pro
 2. **Outbound SMS is not built.** The inventory's SMS row is inbound only. The messaging gateway's SMS operation
    is build-to-contract.
 3. **Federated mail is not a third-party provider.** Its peers are other AirawatOS participants over the Network's
-   signed relay (inventory §7). The messaging north contract can address a federated recipient, but the south
-   side is the **federation door (core)**, not an installable adapter.
+   signed relay (inventory §7). **Resolved 2026-11-08:** it stays a **core** Network operation on the federation
+   door, outside the messaging gateway (§ Resolved questions, 4).
 4. **External identity providers are operator-configured today** (inventory §10, ADR-0068). The target is
    tenant-chosen with an operator floor. **Resolved 2026-11-08** (§ Resolved questions, 1); the inventory remains
    the record of the current state.
@@ -283,10 +283,7 @@ Git hosting is **not** operator infrastructure. It stays chosen **per tenant/pro
 
 ## Open questions
 
-1. **Federated mail placement.** Its south side is the core federation door. Should the messaging north contract
-   cover federated recipients, or should federated mail stay a Network operation?
-2. **SMS/USSD gateway chooser.** Operator today (one gateway per installation). Target per-tenant providers
-   (DEBT-B64) — is an operator-level default kept as a convenience (allowed by ADR-0129)?
+None remain. All five questions raised while writing this ADR are resolved below.
 
 ## Resolved questions
 
@@ -317,6 +314,23 @@ Git hosting is **not** operator infrastructure. It stays chosen **per tenant/pro
    directory records, audit/erasure/key-use events, and certificates/listing attestations may be written only by
    the core. No grant, declaration, install approval or delegation lets a component write them. The list is
    governed and changed only by platform-authority ChangeRequest.
+4. **Federated mail stays core, on the federation door** *(decided 2026-11-08)*. Federated mail is traffic between
+   AirawatOS installations, not an external provider. Its peers are other installations' participants, verified
+   by their registered keys, so it fails the §6 gateway shape: there is no third-party provider to plug in behind
+   a south contract. It remains a Network operation on the federation door: the signed relay, with envelope body
+   sealing pending (#234). The messaging gateway does not carry it, and no adapter can stand in for it.
+5. **The SMS/USSD gateway is tenant-chosen, and the operator sets the floor** *(decided 2026-11-08)*. It follows
+   the same model as messaging providers and identity providers (§ Resolved questions, 1).
+   - A tenant chooses its own SMS/USSD provider (an adapter, §8).
+   - The operator sets only infrastructure policy, applied equally with no per-provider approval: residency, an
+     outbound and inbound security baseline, and rate ceilings at the public door (DEBT-B46). An installation may
+     offer a convenience default (ADR-0129), never exclusively.
+   - **Inbound SMS secrets are held per tenant in Vault.** This replaces the single operator-wide secret, and is the
+     target for **DEBT-B64**: each tenant's provider registration carries its own webhook secret or signing key at a
+     per-tenant Vault path. The south side verifies the provider's signature over the raw body. The tenant is bound
+     by the registration that matched, never by the message body (GTW-14).
+   - Today the gateway is operator-configured with one secret (inventory §6). That is the interim state, tracked in
+     B64.
 
 ## Spec changes if accepted
 
