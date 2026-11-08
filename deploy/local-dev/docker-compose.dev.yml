@@ -21,7 +21,7 @@ x-devenv: &devenv
   AIRAWAT_ALLOW_PASSWORDLESS: "1"     # reference IdP passwordless dev auth (gated: prod-guard blocks under production)
 
 x-ref: &ref                          # one source-built reference image; many services (per-service command)
-  image: manishsv/airawatos-reference:dev-hard22   # + slice-1e (user-create/reset name the tenant) + 1c-iv-c (svc:identity) + step 2 (runtime-manager) + step 3 (scheduler-owned pipelines) + step 4 (gateway secret in Vault) + step 5 (launcher attests svc:network)
+  image: manishsv/airawatos-reference:dev-hard23   # + slice-1e (user-create/reset name the tenant) + 1c-iv-c (svc:identity) + step 2 (runtime-manager) + step 3 (scheduler-owned pipelines) + step 4 (gateway secret in Vault) + step 5 (launcher attests svc:network)
   restart: unless-stopped
   entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]     # production guard (effective-settings check)
   volumes: [ ./prod-guard.sh:/local-dev/prod-guard.sh:ro ]
@@ -46,7 +46,7 @@ services:
     image: postgres:16-alpine
     container_name: airawat-ld-postgres
     networks: [aos-data-facts]
-    environment: { POSTGRES_DB: kernel, POSTGRES_USER: kernel, POSTGRES_PASSWORD: kernel }
+    environment: { POSTGRES_DB: kernel, POSTGRES_USER: kernel, POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-}" }   # slice-1d: no literal superuser password
     volumes: [ localdev_pg:/var/lib/postgresql/data ]     # DURABLE (AIRAWAT_EPHEMERAL_OK unset)
     healthcheck: { test: ["CMD-SHELL","pg_isready -U kernel"], interval: 5s, timeout: 5s, retries: 10 }
     restart: unless-stopped
@@ -67,7 +67,7 @@ services:
 
   # ── platform core ─────────────────────────────────────────────────────────────────────────────────
   kernel:
-    image: manishsv/airawatos-kernel:dev-hard9   # + slice-1c-iv step 3: scheduler-only /v1/components/run-token + slice-1e: steward-key miss not cached
+    image: manishsv/airawatos-kernel:dev-hard11   # + slice-1c-iv step 3: scheduler-only /v1/components/run-token + slice-1e: steward-key miss not cached
     container_name: airawat-ld-kernel
     env_file: [ ./vault/approle/kernel.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
     networks: [aos-svc, aos-data-facts, aos-data-secrets, aos-component]  # aos-component: the broker is the ONLY door a placed component can reach (step 3)
@@ -119,7 +119,7 @@ services:
     restart: unless-stopped
 
   network:
-    image: manishsv/airawatos-network:dev-a80   # slice-1e: installer-signed tenants register ds:<t>:steward (B62); 1c-iv-c: join→provision mints svc:identity; step 5: /v1/runtime/attest → svc:network (literal retired)
+    image: manishsv/airawatos-network:dev-a81   # slice-1e: installer-signed tenants register ds:<t>:steward (B62); 1c-iv-c: join→provision mints svc:identity; step 5: /v1/runtime/attest → svc:network (literal retired)
     container_name: airawat-ld-network
     env_file: [ ./vault/approle/network.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
     networks: [aos-edge, aos-svc, aos-data-facts, aos-data-secrets]

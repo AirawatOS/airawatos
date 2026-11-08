@@ -37,7 +37,8 @@ roles = {"migrator": (f"secret/data/{INST}/migrator/password", "mg"),
          "network_app": (f"secret/data/{INST}/network-app/password", "na")}
 pw = {r: vault_pw(p, pre) for r, (p, pre) in roles.items()}
 
-c = psycopg2.connect(host=os.environ.get("DB_HOST", "postgres"), port=5432, dbname="kernel", user="kernel", password="kernel")
+c = psycopg2.connect(host=os.environ.get("DB_HOST", "postgres"), port=5432, dbname="kernel", user="kernel",
+                     password=os.environ["POSTGRES_PASSWORD"])   # slice-1d: generated per install into the gitignored .env (no literal)
 c.autocommit = True
 cur = c.cursor()
 

@@ -165,6 +165,21 @@ _verify_arc_networks() {
 # cannot start until their tables + roles exist, so a from-empty install MUST order the bring-up. On an
 # already-up stack every step is a no-op/converge, so this prelude is safe to re-run.
 echo "▶ bring-up: postgres + vault"
+# slice-1d (banned pattern LITERAL_SECRET, FND-16) — the Postgres SUPERUSER password is generated ONCE per install
+# into the gitignored deploy/local-dev/.env (compose reads it; never committed, never a literal). It is used only at
+# install time (the split-role step); every service connects as its own least-privilege role with a Vault password.
+touch "$LOCALDEV/.env"
+POSTGRES_PASSWORD="$(sed -n 's/^POSTGRES_PASSWORD=//p' "$LOCALDEV/.env" | tail -1)"
+if [ -z "$POSTGRES_PASSWORD" ]; then
+  if docker volume inspect "${P}_localdev_pg" >/dev/null 2>&1; then
+    echo "✗ a database volume exists but deploy/local-dev/.env has no POSTGRES_PASSWORD — restore it, or wipe the stack"
+    echo "  (docker compose ... down -v) for a fresh install"; exit 1
+  fi
+  POSTGRES_PASSWORD="$(head -c 32 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 32)"
+  printf 'POSTGRES_PASSWORD=%s\n' "$POSTGRES_PASSWORD" >> "$LOCALDEV/.env"
+  echo "  · generated the Postgres superuser password into deploy/local-dev/.env (gitignored; not printed)"
+fi
+export POSTGRES_PASSWORD
 COMPOSE up -d postgres vault >/dev/null 2>&1 || COMPOSE up -d postgres vault
 for i in $(seq 1 45); do
   COMPOSE exec -T postgres pg_isready -U kernel >/dev/null 2>&1 \
@@ -232,12 +247,12 @@ VROOT "vault kv get -mount=secret ${INSTANCE}-operator/provisioner/password >/de
 echo "▶ bring-up: signing + audit keys (Vault)"
 XRUNNET env INSTANCE="$INSTANCE" python3 - < "$SCRIPT_DIR/_keys.py" || { echo "✗ bring-up keys failed"; exit 1; }
 echo "▶ bring-up: split roles (create migrator/kernel_app/network_app; grant CREATE to migrator)"
-XRUNNET env INSTANCE="$INSTANCE" DB_HOST=postgres python3 - < "$SCRIPT_DIR/_split_roles.py" || { echo "✗ bring-up roles failed"; exit 1; }
+XRUNNET env INSTANCE="$INSTANCE" DB_HOST=postgres POSTGRES_PASSWORD="$POSTGRES_PASSWORD" python3 - < "$SCRIPT_DIR/_split_roles.py" || { echo "✗ bring-up roles failed"; exit 1; }
 echo "▶ bring-up: migrator DDL (create all tables owned by migrator)"
 XRUNKERN env DB_USER=migrator DB_PASSWORD_VAULT_PATH="secret/data/$INSTANCE/migrator/password" \
   python -m tools.db_migrate || { echo "✗ bring-up migrator failed"; exit 1; }
 echo "▶ bring-up: table ownership + least-privilege DML grants"
-XRUNNET env INSTANCE="$INSTANCE" DB_HOST=postgres python3 - < "$SCRIPT_DIR/_split_roles.py" || { echo "✗ bring-up grants failed"; exit 1; }
+XRUNNET env INSTANCE="$INSTANCE" DB_HOST=postgres POSTGRES_PASSWORD="$POSTGRES_PASSWORD" python3 - < "$SCRIPT_DIR/_split_roles.py" || { echo "✗ bring-up grants failed"; exit 1; }
 echo "▶ bring-up: all services"
 COMPOSE up -d >/dev/null 2>&1 || COMPOSE up -d
 for i in $(seq 1 60); do
@@ -812,7 +827,7 @@ echo "── Phase 11b · split-role least-privilege DB (4b: migrator + kernel_a
 # (`docker compose run --rm -e DB_USER=migrator -e DB_PASSWORD_VAULT_PATH=… kernel python -m tools.db_migrate`
 # after this phase has created the roles), then `docker compose up -d`. This installer currently runs AGAINST
 # an already-up stack (preflight health-checks kernel+network), so the converge path below is what it exercises.
-XNET env INSTANCE="$INSTANCE" DB_HOST=postgres python3 - < "$SCRIPT_DIR/_split_roles.py" || { echo "✗ Phase 11b failed"; exit 1; }
+XNET env INSTANCE="$INSTANCE" DB_HOST=postgres POSTGRES_PASSWORD="$POSTGRES_PASSWORD" python3 - < "$SCRIPT_DIR/_split_roles.py" || { echo "✗ Phase 11b failed"; exit 1; }
 
 if [ "$RUN_PERF_SEED" = 1 ]; then
   echo "── Phase 12 · synthetic perf dataset (~1M rows) · DEV-ONLY ─────────────────────────────────────"

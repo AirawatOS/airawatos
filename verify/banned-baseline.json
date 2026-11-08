@@ -1,0 +1,47 @@
+{
+ "FAIL_OPEN_GATE": {
+  "platform-spec/reference/app_host.py::except Exception:": 1
+ },
+ "PROD_SHADOW_OR_INPROCESS": {},
+ "TOKEN_ROLES": {
+  "kernel/api/app.py::ok = (_is_platform_service(claims) and \"platform.scheduler\" in set(claims.get(\"roles\") or [])": 1,
+  "kernel/api/app.py::roles = set(claims.get(\"roles\", []))": 3,
+  "network/api.py::and _home_issued(claims) and bool(set(claims.get(\"roles\", [])) & {\"platform.tenant-admin\", \"platform.steward\"}))": 1,
+  "network/api.py::if set(claims.get(\"roles\") or []) & {\"participant\", \"civic.resident\"}:": 1,
+  "network/api.py::is_net_admin = caller == network and _home_issued(claims) and bool({\"network.admin\", \"network.steward\", \"platform.steward\"} & set(claims.get(\"roles\", [])))": 1,
+  "network/api.py::is_net_admin = me == network and _home_issued(claims) and bool({\"network.admin\", \"network.steward\", \"platform.steward\"} & set(claims.get(\"roles\", [])))": 1,
+  "network/api.py::return claims.get(\"tenant\") == \"airawat\" or bool(set(claims.get(\"roles\", [])) & _OPERATOR_ROLES)": 1,
+  "network/api.py::roles = set(claims.get(\"roles\", []))": 3,
+  "network/authn.py::if claims.get(\"roles\"):": 1,
+  "network/trust/governance.py::roles = claims.get(\"roles\", [])": 1,
+  "platform-spec/reference/app_host.py::\"roles\": claims.get(\"roles\"),": 1,
+  "platform-spec/reference/app_host.py::\"tenant\": claims.get(\"tenant\"), \"roles\": claims.get(\"roles\") or []}": 2,
+  "platform-spec/reference/app_host.py::if \"participant\" in set(_claims.get(\"roles\") or []): # ADR-0116: a network PARTICIPANT (member org) lands on its": 1,
+  "platform-spec/reference/app_host.py::if not (\"civic.resident\" in set(cl.get(\"roles\") or []) or \"participant\" in set(cl.get(\"roles\") or [])):": 1,
+  "platform-spec/reference/app_host.py::if not (self._NET_ADMIN_ROLES & set(cl.get(\"roles\", []))):": 1,
+  "platform-spec/reference/app_host.py::if not (set(claims.get(\"roles\") or []) & _EMBED_CLIENT_ADMIN_ROLES):": 1,
+  "platform-spec/reference/app_host.py::info.update(sub=claims[\"sub\"], tenant=claims.get(\"tenant\"), roles=claims.get(\"roles\"))": 1,
+  "platform-spec/reference/app_host.py::me = ((cl.get(\"sub\", \"\").rsplit(\"/\", 1)[-1] if (set(cl.get(\"roles\") or []) & {\"participant\", \"civic.resident\"}) else cl.get(\"tenant\")) or \"\")": 1,
+  "platform-spec/reference/app_host.py::out = [{\"role\": r, \"scope\": None, \"via\": \"identity\"} for r in claims.get(\"roles\", [])]": 1,
+  "platform-spec/reference/app_host.py::res[\"is_admin\"] = bool(ADMIN_ROLES & set(claims.get(\"roles\", [])))": 1,
+  "platform-spec/reference/app_host.py::roles = claims.get(\"roles\") or []; apps = sorted({t[\"app\"] for t in catalog})": 1,
+  "platform-spec/reference/app_host.py::roles = set(claims.get(\"roles\") or [])": 1,
+  "platform-spec/reference/app_host.py::roles = set(claims.get(\"roles\", []))": 2,
+  "platform-spec/reference/app_host.py::roles = sorted(set(cl.get(\"roles\", [])) & self._NET_ADMIN_ROLES) or [\"network.admin\"]": 1,
+  "platform-spec/reference/app_host.py::tok = _current_session().get(\"token\"); tenant = (claims or {}).get(\"tenant\"); roles = set(claims.get(\"roles\") or [])": 1,
+  "platform-spec/reference/app_host.py::who = (claims.get(\"sub\") or \"you\").split(\"/\")[-1]; roles = \", \".join(claims.get(\"roles\") or []) or \"\u2014\"": 1,
+  "platform-spec/reference/hostcore.py::roles = set(claims.get(\"roles\", []))": 1,
+  "platform-spec/reference/identity.py::rec[\"roles\"] = []": 1,
+  "platform-spec/reference/identity.py::rec[\"roles\"] = body[\"roles\"]": 1,
+  "platform-spec/reference/identity.py::return rec[\"roles\"]": 1,
+  "platform-spec/reference/routes/civic_routes.py::out = {\"ok\": True, \"sub\": claims.get(\"sub\"), \"tenant\": claims.get(\"tenant\"), \"roles\": claims.get(\"roles\")}": 1,
+  "platform-spec/reference/routes/marketplace_routes.py::if not (ADMIN_ROLES & set(claims.get(\"roles\", []))):": 1,
+  "platform-spec/reference/routes/service_routes.py::my_roles = set(claims.get(\"roles\", []))": 1,
+  "platform-spec/reference/routes/studio_routes.py::if not (ADMIN_ROLES & set(claims.get(\"roles\", []))):": 1,
+  "platform-spec/reference/secrets.py::if claims.get(\"tenant\") != tenant or not ({\"platform.tenant-admin\", \"platform.steward\", \"admin\"} & set(claims.get(\"roles\", []))):": 1
+ },
+ "_meta": {
+  "note": "TOKEN_ROLES = existing token-role reads, retired by the DEBT-B1 thread layer by layer; FAIL_OPEN_GATE = DEBT-B47; PROD_SHADOW_OR_INPROCESS = RELEASE-PLAN \u00a75",
+  "updated": "2026-11-08T07:32:03Z"
+ }
+}
