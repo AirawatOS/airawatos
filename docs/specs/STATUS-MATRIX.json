@@ -23,7 +23,7 @@
         "local-dev": "PARTIAL"
       },
       "FND-2": {
-        "local-dev": "HELD"
+        "local-dev": "PLANNED(needs-build)"
       },
       "FND-3": {
         "local-dev": "PARTIAL"
@@ -44,13 +44,13 @@
         "local-dev": "PARTIAL"
       },
       "FND-9": {
-        "local-dev": "HELD"
+        "local-dev": "PLANNED(needs-build)"
       },
       "FND-10": {
-        "local-dev": "HELD"
+        "local-dev": "PLANNED(needs-build)"
       },
       "FND-11": {
-        "local-dev": "HELD"
+        "local-dev": "PLANNED(needs-build)"
       },
       "FND-12": {
         "local-dev": "PLANNED(needs-build)"
@@ -191,7 +191,7 @@
         "local-dev": "PLANNED(needs-build)"
       },
       "NET-9": {
-        "local-dev": "HELD"
+        "local-dev": "PLANNED(needs-build)"
       },
       "NET-10": {
         "local-dev": "PLANNED(needs-build)"
@@ -200,7 +200,7 @@
         "local-dev": "PLANNED(needs-build)"
       },
       "NET-12": {
-        "local-dev": "HELD"
+        "local-dev": "PLANNED(needs-build)"
       }
     },
     "ACCOUNT": {
@@ -246,7 +246,7 @@
     },
     "CLIENT": {
       "CLI-1": {
-        "local-dev": "HELD"
+        "local-dev": "PLANNED(needs-build)"
       },
       "CLI-2": {
         "local-dev": "PLANNED(needs-build)"
@@ -258,7 +258,7 @@
         "local-dev": "PLANNED(needs-build)"
       },
       "CLI-5": {
-        "local-dev": "HELD"
+        "local-dev": "PLANNED(needs-build)"
       },
       "CLI-6": {
         "local-dev": "PLANNED(needs-build)"
@@ -513,7 +513,7 @@
         "local-dev": "PLANNED(needs-build)"
       },
       "FED7": {
-        "local-dev": "HELD"
+        "local-dev": "PLANNED(needs-build)"
       },
       "FED8": {
         "local-dev": "PLANNED(needs-build)"

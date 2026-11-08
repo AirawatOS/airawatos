@@ -52,11 +52,11 @@ A rule can be cited by several cases; reduce **worst-first** so a single failing
 | conformance (worst case for the rule, that env) | derived spec status |
 |---|---|
 | any **FAIL** | **REGRESSION** (contradicts spec — must be red; not a normal status) |
-| all cited cases **PASS** | **HELD / IN PLACE** |
+| all cited cases **PASS** (no SKIP_BUILD) | **HELD / IN PLACE** |
 | mix of PASS + **XFAIL** | **PARTIAL** (held in some surfaces, known-violation in others) |
 | only **XFAIL** (known violation reproduced) | **VIOLATED** (tracked as debt; cite the debt ID) |
 | **XPASS** (violation looks fixed) | **REVIEW** (raise the status — the spec lags the code) |
-| only **SKIP_BUILD** (not reachable black-box) | **PLANNED / NEEDS-BUILD** |
+| any **SKIP_BUILD** (part of the rule not built / not reachable black-box), with no FAIL/XPASS/XFAIL | **PLANNED / NEEDS-BUILD** — never HELD, even when the other cited cases PASS (slice-1e) |
 | only **SKIP_CREDS** | **UNVERIFIED (creds)** — status not asserted; fix the fixture |
 
 The reducer records *which* cases drove the cell (provenance), so a status is always explainable.

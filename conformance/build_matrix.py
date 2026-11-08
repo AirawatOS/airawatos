@@ -5,8 +5,9 @@ Reads every conformance/results/<env>-<mode>.json (written by `run.py --matrix`)
 spec rule they cite, reduces each rule×env to one derived status (worst-first), and writes a rule×environment
 status matrix. The conformance results are the single source of truth; the specs reference this file.
 
-Reduction (STATUS-MATRIX-DESIGN.md): FAIL→REGRESSION; XPASS→REVIEW; PASS+XFAIL→PARTIAL; only PASS→HELD;
-only XFAIL→VIOLATED; only SKIP_CREDS→UNVERIFIED(creds); only SKIP_BUILD→PLANNED(needs-build); no case→NO TEST.
+Reduction (STATUS-MATRIX-DESIGN.md): FAIL→REGRESSION; XPASS→REVIEW; PASS+XFAIL→PARTIAL; XFAIL (no PASS)→VIOLATED;
+any SKIP_BUILD→PLANNED(needs-build) (never HELD — slice-1e); only PASS→HELD; only SKIP_CREDS→UNVERIFIED(creds);
+no case→NO TEST.
 Environments with no results file are shown PROJECTED (never asserted) per the design's environment-truth limit.
 
 Usage: python3 conformance/build_matrix.py   (run from the repo; reads conformance/results/, writes docs/specs/)
@@ -61,10 +62,12 @@ def reduce_status(results):
     if "XPASS" in kinds:                            return "REVIEW"
     has_pass = "PASS" in kinds; has_xfail = "XFAIL" in kinds
     if has_pass and has_xfail:                      return "PARTIAL"
-    if has_pass:                                    return "HELD"
     if has_xfail:                                   return "VIOLATED"
-    if "SKIP_CREDS" in kinds:                       return "UNVERIFIED(creds)"
+    # slice-1e: a needs-build case means part of the rule is NOT built — the rule is PLANNED, never HELD,
+    # even when its other cases PASS (HELD requires every cited case to PASS).
     if "SKIP_BUILD" in kinds:                       return "PLANNED(needs-build)"
+    if has_pass:                                    return "HELD"
+    if "SKIP_CREDS" in kinds:                       return "UNVERIFIED(creds)"
     return "NO TEST"
 
 matrix = {}   # spec -> rule -> {env: {status, cases:[...]}, projected:[...]}
@@ -103,7 +106,7 @@ for env in PROJECTED:
              "(stand up per docs/operator/FRESH-INSTALL-TEST.md §Step 3, then run the suite with AOS_ENV=production)." % env)
 L.append("")
 L.append("**Derived status:** HELD (all cited cases PASS) · PARTIAL (PASS + known-violation XFAIL) · "
-         "VIOLATED (only XFAIL — tracked as debt) · PLANNED(needs-build) (only SKIP_BUILD, not black-box reachable) · "
+         "VIOLATED (only XFAIL — tracked as debt) · PLANNED(needs-build) (any SKIP_BUILD case: part of the rule is unbuilt — never HELD) · "
          "UNVERIFIED(creds) (only SKIP_CREDS — fix the fixture) · REVIEW (XPASS — spec lags code) · "
          "REGRESSION (a FAIL — contradicts spec) · NO TEST (no case cites the rule yet).")
 L.append("")
