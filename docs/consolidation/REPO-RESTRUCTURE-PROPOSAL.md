@@ -211,8 +211,10 @@ file keeps its full `git log`/`git blame`. Never copy files in with a flat "impo
    `core/{identity,app-host,scheduler,model-gateway,secrets,runtime-manager,filestore,authz}`.
 4. **`sdk/` + `components/`** — subtree-merge `components`; promote `_common` → `sdk/`; regroup the 16 tiers
    into `{system,apps,pipelines,drivers,adapters,solutions}`.
-5. **`gateways/`** — move `services/{service-gateway,mospi-gateway}` once ADR-0130 is written (it defines the
-   north/south-per-gateway shape this tier assumes; **ADR-0130 does not exist yet** — author it before this step).
+5. **`gateways/`** — the gateway **cores** per [ADR-0130](../decisions/ADR-0130-trusted-core-gateways-components.md)
+   (Proposed; north/south contracts per [GATEWAY-v0.1](../specs/GATEWAY-v0.1.md)). Note ADR-0130 §2:
+   `services/service-gateway` is a core **read-scaling tier**, not a provider gateway, and `services/mospi-gateway`
+   is a **provider adapter** (a component). They do not both belong in `gateways/`.
 6. **`conformance/`** — merge `kernel/conformance` and `tests-repo` into the one suite; retire the force-track hack.
 
 **What must change (and be re-pointed) at each step:**
@@ -236,6 +238,10 @@ file keeps its full `git log`/`git blame`. Never copy files in with a flat "impo
 - `flow_map_test.py` and `vault_scope_test.py` → PASS.
 - No step merges until the previous step is green on all five checks.
 
+**Starting point (FIX-PLAN, between Layer 1 and Layer 2):** the restructure starts from the **merged `main`
+of every repository**, tagged **`layer1-complete`** in all five, after each feature branch has been reviewed and
+merged. It never starts from feature branches; the in-flight-branches risk below is closed by that MERGE step.
+
 **Proposed timing:** **after the Layer 1 (inbound-gate / identity) review closes, before Layer 2 begins.** The
 restructure is a path-and-history change, not a behaviour change — doing it between layers avoids reshuffling
 files mid-review and gives Layer 2 the single-repo, single-tag, single-CI benefits from its first slice.
@@ -250,7 +256,7 @@ files mid-review and gives Layer 2 the single-repo, single-tag, single-CI benefi
 | **Installer / compose path drift** → broken fresh install | Gate every step on a fresh install + conformance; change paths in the same commit as the move | `git revert` the step's single commit (atomic now — the whole point); source repos still buildable. |
 | **Image build breakage** from moved build contexts | Build + boot all images on the branch before merge; keep old tags published so a rollback compose still pulls | Point compose back at the last-known-good pinned tags (the current hand-pins, preserved). |
 | **Secrets accidentally committed** during the move | The merged `.gitignore` excludes `*.env`, `init.json`, `*.pem`/`*.key`, `.filestore-data/`, conformance `.creds.json`/`results/` **before** the first move; run `git status` + a secret-scan pre-commit on each step | n/a — prevention, not recovery. |
-| **ADR-0130 not yet written** → `gateways/` tier undefined | Author ADR-0130 (north/south-per-gateway) **before** step 5; until then leave `services/` in place | Skip step 5; the rest of the restructure does not depend on it. |
+| **ADR-0130 still Proposed** → `gateways/` tier not final | ADR-0130 is written (Proposed); accept it **before** step 5; until then leave `services/` in place | Skip step 5; the rest of the restructure does not depend on it. |
 | **In-flight branches on the old repos** collide with the move | Freeze feature work on the source repos during the window; land or shelve the five open branches first | The source repos remain the fallback; resume there if the monorepo is abandoned. |
 | **CODEOWNERS too strict** blocks routine work | Start permissive (stewards as reviewers, not hard blocks); tighten `core/authz`, `core/identity`, `constitution` after the team adjusts | Loosen or remove `CODEOWNERS` entries — config-only, instant. |
 

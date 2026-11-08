@@ -272,6 +272,15 @@ Prod Vault must be **unsealed without a human-held root token in compose**:
 - [ ] **Verified:** `conformance/vault_scope_test.py` is green (each service reads only its own paths; foreign
       refused; root absent) and `conformance/flow_map_test.py` ARC-7 holds. Vault image is a current supported
       release pinned by digest (off the EOL Alpine 3.18 base; slice-1b step 8 → Vault 1.20.x / Alpine 3.22).
+- [ ] **No Vault role-id / secret-id in plain env files on production services.** Local-dev and today's
+      installer write each service's `VAULT_ROLE_ID` + `VAULT_SECRET_ID` to `deploy/local-dev/vault/approle/<svc>.env`
+      (bind-mounted `env_file`). A static secret-id at rest on the host is a long-lived credential. Production
+      uses one of two methods:
+      **(a) AWS instance-identity auth** (Vault `aws` auth method, IAM or EC2 role bound per service), so no secret
+      sits on disk; or **(b) response-wrapped, one-time secret-ids**: the installer or orchestrator hands each
+      service a single-use wrapping token with a short TTL, which the service unwraps once at boot. A replayed
+      or stolen wrapping token is then detectable and useless. Verified by: no `VAULT_SECRET_ID` value in any
+      file or `docker inspect` env on the production host; a service restart re-authenticates without one.
 A Vault Agent sidecar for continuous token renewal is a recorded follow-up (the AppRole tokens are renewable
 with a bounded TTL and re-minted on restart).
 
@@ -452,6 +461,14 @@ Vault credentials, generated admin passwords) and are inert when the old images 
 - [ ] trust-reader / trust-writer / audit HMAC provisioned (PRODUCTION-READINESS §4/§5).
 - [ ] `governance.role_assignment@0.2.0` governed + kernel reloaded; reseed migration run (no-op).
 - [ ] **A60 — every October hot-patch is in the new images, not re-`docker cp`-ed** (see §9).
+- [ ] **Rehearsal-profile functional smoke test passed before ANY production deployment.** Startup and
+      conformance are not enough: on the rehearsal copy (`install.sh --profile rehearsal`), prove function end to
+      end: (A) a user is onboarded through the App Host (admin creates a login, the user signs in, rotates the
+      admin-set password, has a live session), and (B) an installed component writes a record within its grant
+      and is refused outside it. The dev installer's Phase 15 (`deploy/installer/functional_check.py`) does
+      exactly this, but **only under the dev profile** (it needs the dev data tenant and the fixture component). A
+      rehearsal variant must first create a throwaway tenant through onboarding and clean it up afterwards.
+      **Not built yet**; it is a gate, not an option.
 
 ---
 

@@ -79,6 +79,23 @@ edge crosses a declared door — ARC §c) is the capstone net that proves nets 1
 
 ---
 
+## Between Layer 1 and Layer 2 — MERGE, then the repository restructure
+
+Order: **Layer 1 independent review → MERGE → repository restructure → Layer 2.**
+
+1. **MERGE.** After the Layer 1 review passes, each repository's feature branch is reviewed and **merged into its
+   `main`**: root (`docs/trusted-network-platform-adr-0119-0120`), platform-spec and components
+   (`feat/network-console-multinetwork`), kernel (`feat/admin-issuer-scope`), network (`feat/trust-plane-phase1`).
+   Gate after the merges: a fresh install of the merged mains + conformance both modes (0 FAIL / 0 XPASS) +
+   flow-map + vault-scope + the installer's functional proof (Phase 15). Then tag **`layer1-complete`** on `main`
+   in **all five repositories** at the same point. The tag is the restructure's starting point and the rollback
+   point for everything after it.
+2. **Repository restructure** ([REPO-RESTRUCTURE-PROPOSAL](REPO-RESTRUCTURE-PROPOSAL.md)) starts **from the merged
+   mains at `layer1-complete`**, never from feature branches. Layer 2 begins only after the restructure's own gates
+   are green.
+
+---
+
 ## Layer 2 — Kernel
 
 - **Owned rules:** FND-2 (authority from recorded state), FND-6 (domain-blind), FND-7 + **ADR-0123** (self-
