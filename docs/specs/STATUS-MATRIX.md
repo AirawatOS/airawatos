@@ -2,7 +2,7 @@
 
 **Generated** by `conformance/build_matrix.py` from `conformance/results/*.json` (written by `conformance/run.py --matrix`). **Do not hand-edit** — regenerate after a conformance run. This is the conformance-derived single source of truth for per-rule status; the specs reference it (ADR: STATUS-MATRIX-DESIGN.md).
 
-- **local-dev** — measured: modes banned+external+flowmap+functional+gtwstatic+internal+knownviolations+listen+netdoors+routes+scans+vaultscope, git ``, 2026-11-08T15:34:32Z
+- **local-dev** — measured: modes banned+external+flowmap+functional+gtwstatic+internal+knownviolations+listen+netdoors+routes+scans+vaultscope, git ``, 2026-11-08T16:39:08Z
 - **production** — *PROJECTED*: no production conformance run yet; not asserted (stand up per docs/operator/FRESH-INSTALL-TEST.md §Step 3, then run the suite with AOS_ENV=production).
 
 **Derived status:** HELD (all cited cases PASS) · PARTIAL (PASS + known-violation XFAIL) · VIOLATED (only XFAIL — tracked as debt) · PLANNED(needs-build) (any SKIP_BUILD case: part of the rule is unbuilt — never HELD) · UNVERIFIED(creds) (any SKIP_CREDS case: not verified — never HELD; fix the fixture) · REVIEW (XPASS — spec lags code) · REGRESSION (a FAIL — contradicts spec) · NO TEST (no case cites the rule yet).
@@ -26,7 +26,7 @@
 | `FND-13` | NO TEST | projected | — |
 | `FND-14` | PLANNED(needs-build) | projected | role assignment names its grantor (granted_by); role assignments carry grantor + governance provenance |
 | `FND-15` | PARTIAL | projected | external issuers are bound to a recorded tenant AND network; authority never widens by issuer; forged role+foreign-iss token rejected (internal, abuse); human ( |
-| `FND-16` | PLANNED(needs-build) | projected | banned pattern LITERAL_SECRET_OR_GATE: no occurrence; banned pattern PROD_SHADOW_OR_INPROCESS: no occurrence; missing config stops startup; no new secret in any |
+| `FND-16` | PARTIAL | projected | banned pattern LITERAL_SECRET_OR_GATE: no occurrence; banned pattern PROD_SHADOW_OR_INPROCESS: no occurrence; gates refuse shadow under production themselves, n |
 | `FND-17` | PLANNED(needs-build) | projected | agent delegation; no self-widen |
 | `FND-18` | NO TEST | projected | — |
 | `FND-19` | HELD | projected | nothing was stored under the reserved kind; tenant admin installs the reserved-kind probe (declares governance.role_assignment); the kernel REFUSES the granted  |
@@ -238,7 +238,7 @@
 | `ARC-4` | PLANNED(needs-build) | projected | per-service micro-segmentation within the service mesh |
 | `ARC-5` | HELD | projected | no Airawat service listens on a non-loopback address (compose + live); only the edge (nginx) sits on the public network |
 | `ARC-6` | NO TEST | projected | — |
-| `ARC-7` | HELD | projected | Vault is reachable only from its declared clients; app-host CANNOT read or write platform credential localdev-network/platauth/password; app-host CANNOT read or |
+| `ARC-7` | PARTIAL | projected | Vault is reachable only from its declared clients; a placed/in-process component cannot reach the host service's Vault credential (re-review R3-1, DEBT-B105); a |
 
 ## GATEWAY
 
@@ -263,6 +263,6 @@
 
 | environment | HELD | PARTIAL | VIOLATED | PLANNED(needs-build) | UNVERIFIED(creds) | REVIEW | REGRESSION | NO TEST | projected |
 |---|---|---|---|---|---|---|---|---|---|
-| local-dev | 6 | 14 | 5 | 87 | 0 | 0 | 0 | 70 | 0 |
+| local-dev | 5 | 16 | 5 | 86 | 0 | 0 | 0 | 70 | 0 |
 | production | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 182 |
 

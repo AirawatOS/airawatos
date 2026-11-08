@@ -58,6 +58,18 @@ xfail(["FND-15"], "external issuers are bound to a recorded tenant AND network; 
       bool(m) and "network" not in m.group(1),
       "network authn.register_issuer(%s) has no network binding; the kernel grants admin from issuer + token role "
       "(DEBT-B1/B13)" % (m.group(1) if m else "?"))
+# Layer 1 RE-REVIEW (DEBT-B103) — over-claims the re-review found:
+# PLT-5 (re-review R2-2): local-dev ENFORCES the recorded role (compose PLATFORM_AUTHORITY_MODE: enforce) — the spec's
+# PARTIAL text is stale for local-dev; the code default 'shadow' is fail-open and is recorded on DEBT-B110, not here.
+rm = read("platform-spec/reference/runtime_manager.py") + read("components/_common/launcher.py")
+xfail(["ARC-7"], "a placed/in-process component cannot reach the host service's Vault credential (re-review R3-1, DEBT-B105)",
+      "/proc/1/environ" not in rm and "hidepid" not in read("deploy/local-dev/docker-compose.dev.yml"),
+      "in-process components run as root in the runtime-manager container; PID 1's environ (VAULT_TOKEN) is readable — "
+      "a scrubbed env does not isolate them (live: launcher password read, 200)")
+gate = read("platform-spec/reference/svc_gate.py")
+xfail(["FND-16"], "gates refuse shadow under production themselves, not only via the compose entrypoint (re-review R1-1, DEBT-B97)",
+      "is_production" not in gate,
+      "svc_gate.require() never consults gateflags.is_production(); the shipped images have no prod-guard entrypoint")
 # slice-1g: review K1 (shared transit/*, B88) and K2 (brokers read platform credentials, B89) are FIXED and proven LIVE by
 # conformance/vault_scope_test.py (actual sign / read attempts → 403); review W1 (no default-deny egress, B87) is FIXED and
 # proven LIVE by conformance/flow_map_test.py (actual connection attempts). Their static evidence cases were removed.

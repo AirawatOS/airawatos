@@ -8,7 +8,7 @@
   "provenance": {
     "local-dev": {
       "git_sha": "",
-      "ts": "2026-11-08T15:34:32Z",
+      "ts": "2026-11-08T16:39:08Z",
       "modes": [
         "banned",
         "external",
@@ -73,7 +73,7 @@
         "local-dev": "PARTIAL"
       },
       "FND-16": {
-        "local-dev": "PLANNED(needs-build)"
+        "local-dev": "PARTIAL"
       },
       "FND-17": {
         "local-dev": "PLANNED(needs-build)"
@@ -553,7 +553,7 @@
         "local-dev": "NO TEST"
       },
       "ARC-7": {
-        "local-dev": "HELD"
+        "local-dev": "PARTIAL"
       }
     },
     "GATEWAY": {
