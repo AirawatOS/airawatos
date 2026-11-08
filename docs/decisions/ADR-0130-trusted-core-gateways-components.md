@@ -134,3 +134,33 @@ intakes) leaves the core until these are **closed** (not deferred):
 
 The moves are added to **FIX-PLAN Layer 7** as one item ("ADR-0130 core → component moves") whose exit is
 gated on these four. Until then the code stays where it is; this ADR changes placement, not deployment.
+
+### 5. Effect on the trusted computing base
+
+**What stays in the TCB:** kernel; identity; network (authority, directory, federation door); App Host (front
+door, sessions, output sanitisation); the decision function and its record writer; Vault + secrets; the filestore
+door; the edge; the fact store; the internal plumbing (scheduler, runtime manager, event relay, automation); the
+**gateway cores** (the north/south enforcement points — §6), and the service-gateway read tier.
+
+**What leaves, and the burden that goes with it.** Leaving the TCB does not make code unaccountable; the burden
+moves from "reviewed as part of the core" to "proven as a component":
+
+| Leaves the core | Today it runs as | After the move it needs | Review burden moves to |
+|---|---|---|---|
+| workflow engine | its own service with a service principal | its own **run token** (per install), declared reads/writes, a grant; **no** decision/order writes (§3) | listing conformance + the tenant's install grant; the decision function's review stays core |
+| docrender | an in-process module of the App Host | a confined component with **no** network and no secrets (pure transform) | listing conformance; the App Host's sanitisation + CSP is still core-reviewed (B50) |
+| templates, workflow definitions, scheduled jobs | baked into images / seeded | **signed packs** (B23) installed per tenant | the pack's publisher signature and the governed-vocabulary check |
+| SES/SMTP sender (network) | inside the Network authority — with its keys in the same process | a **messaging provider adapter**: own run identity, Vault credential delivered per call, egress to named provider hosts only | south-side conformance (GTW) + the tenant's choice; the Network loses an outbound mail client from its TCB |
+| `_openai` / `_anthropic` / `_stt` wires | inside the model-gateway | **AI provider adapters** | south-side conformance; the gateway core keeps consent/cost/audit |
+| Telegram webhook parsing, SMS/message intake | inside the App Host | **channel provider adapters** (south receive side) | per-provider signature verification moves into the adapter; tenant binding and the rate-limited door stay core |
+| `mospi-gateway` | a standalone service with a relaxed TLS option | a **data-source provider adapter** | the TLS exception becomes a declared, reviewed adapter property, not a service setting |
+
+**What the core gains** (and must be reviewed as core): the gateway north/south contracts and their enforcement
+(§6), **network-enforced declared egress** for adapters (§8), verification of adapter signatures at launch, and
+the core-reserved-schema check (§3).
+
+**Net effect.** The TCB loses every piece of provider-specific code and every authority-free interpreter. It gains
+a small number of uniform enforcement points. Each departing piece pays with its own identity (a run token, not a
+service principal), a signature (B23) and confinement (B51/B52). The **identity burden** is the main cost: the
+platform goes from about a dozen service principals to one run identity per installed component per tenant. That
+is why run-token expiry and audience (DEBT-B53) belong with the move, not after it.
