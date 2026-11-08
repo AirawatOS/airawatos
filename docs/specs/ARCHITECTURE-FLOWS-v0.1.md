@@ -304,12 +304,47 @@ production cannot run with a gate open.
 | runtime-manager `/v1/invoke`,`/v1/ensure-connector` | svc_authz **(1c-iii; runs in local-dev since 1c-iv step 2)** | `svc:runtime-manager` | **scheduler** (installed runs), **kernel** (warm-connector ensure), launcher | ENFORCE (literal `RUNTIME_MANAGER_INTERNAL`) | **ENFORCE, always** — anon **401**, wrong-aud/undeclared **403** (conformance live). Scheduler never executes itself; in-process only via explicit dev flag `AIRAWAT_INPROCESS_COMPONENTS` (prod-guard refuses) |
 | identity `/users` (POST+GET), `/set-password`, `/prefs`, `/realms`, `/realms/<t>/users` | svc_authz **(1c-iv-c)** + operator-realm check | `svc:identity` (verified against identity's **own** JWKS) | **provisioner** (installer phases, network join→provision) + **app-host** (own principal) — both `@<operator>` | ENFORCE (literal `IDENTITY_INTERNAL`; B29) | **ENFORCE, always** — literal retired (A71 closed, ADR-0131); unseeded provisioner ⇒ fail-closed + prod refuses boot (B29) |
 | kernel `/v1/components/run-token` **(1c-iv step 3)** | kernel admin gate variant (home-issued platform service) + principal check | home-issued token, role `platform.scheduler`, principal on `RUN_TOKEN_READERS` | **scheduler** only | — (did not exist; the list read leaked no token, so runs broke — B61) | **ENFORCE, always**, audited allow/deny; returns ONE install's run-token |
-| network **internal lookups** (13: `tenants/resolve`, `directory/resolve`, `grants/resolve`, `schemas/resolve`, `store/resolve`, `certificates/resolve`, `keys/resolve`, `interfaces/resolve`, `jurisdictions/resolve`, `packs/resolve`, `service-offerings/resolve`, `/v1/resolve`, `receipts/data-read`) **(1f)** | network `_require_internal_lookup` (`authn.verify(audience=svc:network)` + operator realm + caller allow-list) | `svc:network` | **kernel**, **app-host** (+ engines it hosts), **identity** (self-issued, its own issuer key), **scheduler**, **launcher** (runtime manager), **decision** + **workflow** (`keys/resolve`) | none — answered any caller | **ENFORCE, always** — anon 401; wrong audience / other realm / undeclared caller 403 |
-| network **lists** with personal / institutional data (`join`, `credentials`, `data-requests`, `file-shares`, `service/transactions`, `participants`, `tenants`, request queues, `runtime/attestations`, `interfaces/bindings`) **(1f)** | network `_list_access` | `svc:network` (declared services) **or** a user token | **app-host** (session-gated consoles; its own svc:network when it reads without a user bearer), **kernel** (`tenants`), **automation** (`interfaces/bindings`), users (scoped to their own rows) | none — answered any caller | **ENFORCE** — anon 401; a user sees only its own tenant's/subject's rows; `join` = authority only; `interfaces/bindings` = services only; offerings: anon sees `visibility=public` only |
+| network **internal lookups** (13: `tenants/resolve`, `directory/resolve`, `grants/resolve`, `schemas/resolve`, `store/resolve`, `certificates/resolve`, `keys/resolve`, `interfaces/resolve`, `jurisdictions/resolve`, `packs/resolve`, `service-offerings/resolve`, `/v1/resolve`, `receipts/data-read`) **(1f)** | network `_require_internal_lookup` (`authn.verify(audience=svc:network)` + operator realm + caller allow-list) | `svc:network` | **per door** — see *Network internal doors — declared callers* below (slice-1g B86; was one set for all 13) | none — answered any caller | **ENFORCE, always** — anon 401; wrong audience / other realm / undeclared caller 403 |
+| network **lists** with personal / institutional data (`join`, `credentials`, `data-requests`, `file-shares`, `service/transactions`, `participants`, `tenants`, request queues, `runtime/attestations`, `interfaces/bindings`) **(1f)** | network `_list_access` | `svc:network` (declared services) **or** a user token | service mode **per list** — see the table below; users (scoped to their own rows) | none — answered any caller | **ENFORCE** — anon 401; a user sees only its own tenant's/subject's rows; `join` = authority only; `interfaces/bindings` = services only; offerings: anon sees `visibility=public` only |
 | network `/v1/runtime/attest` **(1c-iv step 5)** | network `authn.verify(audience=svc:network)` + caller allow-list | `svc:network` | **launcher** (the runtime manager attesting its certified images) | ENFORCE (literal `RUNTIME_ATTEST_INTERNAL`, code default `airawat-attest-internal`) | **ENFORCE, always** — literal retired; anon **401**, literal/wrong-aud/undeclared **403**, launcher admitted (conformance) |
 | decision `/decide` | user-token authn (`tokens.verify`) | user bearer (AUTHORITY) | authenticated **users** | authn-only (no svc gate) | authn-only — **user-facing door**, not a service gate |
 | workflow `/instantiate`,`/complete-task` | user-token authn (`tokens.verify`) | user bearer | authenticated **users** | authn-only | authn-only — user-facing door |
 | decision/workflow `/verify`, model-gateway/embed `/healthz` | **none (public by design)** | — | anyone | none (intended) | none (public verify / liveness — documented, not debt) |
+
+#### Network internal doors — declared callers (slice-1g, DEBT-B86)
+
+The authoritative caller set for every Network internal door and for the service mode of every gated list. Each door
+admits an operator-realm `svc:network` token ONLY from the services named here (the realm check is mandatory; an
+unconfigured realm admits no service). `conformance/net_doors_test.py` parses THIS table and proves, live, that each
+door admits exactly these callers and refuses every other service — any difference fails. Callers were derived from
+the code that calls each door (kernel, app-host + engines it hosts, scheduler, runtime manager `launcher`, identity,
+decision/workflow `signing.py`).
+
+<!-- net-doors:begin -->
+| door | declared callers |
+|---|---|
+| `/v1/certificates/resolve` | launcher, scheduler |
+| `/v1/directory/resolve` | kernel, app-host, scheduler |
+| `/v1/grants/resolve` | kernel, app-host |
+| `/v1/interfaces/resolve` | kernel, app-host |
+| `/v1/jurisdictions/resolve` | app-host |
+| `/v1/keys/resolve` | decision, workflow |
+| `/v1/packs/resolve` | — |
+| `/v1/receipts/data-read` | kernel |
+| `/v1/resolve` | kernel |
+| `/v1/schemas/resolve` | kernel, app-host |
+| `/v1/service-offerings/resolve` | app-host |
+| `/v1/store/resolve` | kernel, app-host, launcher, scheduler |
+| `/v1/tenants/resolve` | kernel, app-host, identity |
+| list `/v1/tenants` | kernel, app-host |
+| list `/v1/interfaces/bindings` | scheduler, app-host |
+| list `/v1/join` | app-host |
+<!-- net-doors:end -->
+
+`scheduler` on `certificates/resolve` and `store/resolve` is the in-process component path (development only; the
+production guard refuses it, DEBT-B51). `packs/resolve` has no internal caller and admits none. `scheduler` on
+`interfaces/bindings` is the automation daemon's principal (A68). Every other gated list's service mode is app-host only.
+
 
 *(`embed.py` on :8104 is **not deployed** in local-dev — `EMBED_URL` points at the model-gateway, which serves
 `/embed` on :8104 behind the model-gateway gate; the standalone embed service carries no gate of its own but

@@ -4,12 +4,12 @@
 #   make verify-fast   everything except the fresh install (runs against the stack that is up)
 #   make <target>      any single net below
 # Needs: docker (with compose v2), python3, git. The fresh install WIPES the local-dev stack's volumes.
-.PHONY: listen verify verify-fast banned gtw-static known-violations fresh-install conformance flowmap vaultscope routes scans matrix decide-unit secret-names gateflags
+.PHONY: listen verify verify-fast banned gtw-static known-violations fresh-install conformance flowmap vaultscope routes scans matrix decide-unit secret-names gateflags netdoors
 
-verify: banned gtw-static known-violations decide-unit secret-names gateflags fresh-install conformance flowmap vaultscope routes listen scans matrix
+verify: banned gtw-static known-violations decide-unit secret-names gateflags fresh-install conformance flowmap vaultscope netdoors routes listen scans matrix
 	@echo "✓ make verify: all assurance nets green"
 
-verify-fast: banned gtw-static known-violations decide-unit secret-names gateflags conformance flowmap vaultscope routes listen scans matrix
+verify-fast: banned gtw-static known-violations decide-unit secret-names gateflags conformance flowmap vaultscope netdoors routes listen scans matrix
 	@echo "✓ make verify-fast: all assurance nets green (no fresh install)"
 
 banned:          ## net 6 — banned patterns (static), each mapped to its rule
@@ -42,6 +42,9 @@ flowmap:         ## ARC — flow-map test (network membership + live probes)
 
 vaultscope:      ## ARC-7 — each service reads only its own Vault paths
 	python3 conformance/vault_scope_test.py
+
+netdoors:        ## B86 — every Network internal door admits EXACTLY its declared callers (ARCHITECTURE-FLOWS table, live)
+	python3 conformance/net_doors_test.py
 
 routes:          ## net 4 — route inventory: every route declared; every non-public route refuses anonymous
 	python3 verify/route_inventory_test.py
