@@ -1,0 +1,35 @@
+{
+ "_meta": {
+  "note": "slice-1g (DEBT-B80/B94): images built from the repositories with --no-cache. image_id = the local image config digest (no registry digest until pushed). verify/images_test.py checks the local tag and every running container against these ids. Rebuild: see each Dockerfile header.",
+  "amd64": "platform-spec/Dockerfile.reference resolves and installs every locked dependency for linux/amd64 (buildx, QEMU on an arm64 host); the import smoke test then segfaults under QEMU emulation (signal 11 in a native extension) \u2014 a NATIVE amd64 build (CI runner) is still required to record an amd64 digest. Open on DEBT-B94."
+ },
+ "images": {
+  "manishsv/airawatos-reference:1g": {
+   "dockerfile": "platform-spec/Dockerfile.reference",
+   "context": ".",
+   "git_revision": "674af9d0f77c64f97be22cc6d332b1a6418081a9",
+   "image_id": "sha256:86a920db4e90b7fde0c50e5882e0242ef5be79025fd4dbc927a49208cdc03daf",
+   "platform": "linux/arm64",
+   "base": "python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535",
+   "built": "2026-11-08"
+  },
+  "manishsv/airawatos-kernel:1g": {
+   "dockerfile": "kernel/deploy/Dockerfile",
+   "context": "kernel",
+   "git_revision": "cfe00e9ddf3a6215edc72c65240bb82c855cf457",
+   "image_id": "sha256:94d75d9c828c4cfdf8c9c5a8e1f19d57723c683cfbfea990b44ef3753abccb46",
+   "platform": "linux/arm64",
+   "base": "python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535",
+   "built": "2026-11-08"
+  },
+  "manishsv/airawatos-network:1g": {
+   "dockerfile": "network/deploy/Dockerfile",
+   "context": "network",
+   "git_revision": "05fef4a44e1b94041d35e0ea488975788118c7b7",
+   "image_id": "sha256:cdb541d8aac36fa121b78fc2e88f171d05db967402ac8a58ecea715d7598b41e",
+   "platform": "linux/arm64",
+   "base": "python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535",
+   "built": "2026-11-08"
+  }
+ }
+}

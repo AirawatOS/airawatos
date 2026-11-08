@@ -4,12 +4,12 @@
 #   make verify-fast   everything except the fresh install (runs against the stack that is up)
 #   make <target>      any single net below
 # Needs: docker (with compose v2), python3, git. The fresh install WIPES the local-dev stack's volumes.
-.PHONY: listen verify verify-fast banned gtw-static known-violations fresh-install conformance flowmap vaultscope routes scans matrix decide-unit secret-names gateflags netdoors
+.PHONY: listen verify verify-fast banned gtw-static known-violations fresh-install conformance flowmap vaultscope routes scans matrix decide-unit secret-names gateflags netdoors build-context images
 
-verify: banned gtw-static known-violations decide-unit secret-names gateflags fresh-install conformance flowmap vaultscope netdoors routes listen scans matrix
+verify: banned gtw-static known-violations decide-unit secret-names gateflags build-context images fresh-install conformance flowmap vaultscope netdoors routes listen scans matrix
 	@echo "✓ make verify: all assurance nets green"
 
-verify-fast: banned gtw-static known-violations decide-unit secret-names gateflags conformance flowmap vaultscope netdoors routes listen scans matrix
+verify-fast: banned gtw-static known-violations decide-unit secret-names gateflags build-context images conformance flowmap vaultscope netdoors routes listen scans matrix
 	@echo "✓ make verify-fast: all assurance nets green (no fresh install)"
 
 banned:          ## net 6 — banned patterns (static), each mapped to its rule
@@ -27,6 +27,12 @@ secret-names:    ## B90 — the secrets broker + model-gateway refuse traversal 
 
 gateflags:       ## B83 — one flag parser for gates + prod guard; production refuses any shadow flag set at all (throwaway containers)
 	python3 verify/gateflags_test.py
+
+build-context:   ## B94 — no env file, credential or runtime data reaches any image build context (probe builds + canaries)
+	python3 verify/build_context_test.py
+
+images:          ## B80/B94 — Dockerfiles digest-pinned + locked; every stack image recorded in IMAGES.lock.json and running as recorded
+	python3 verify/images_test.py
 
 decide-unit:     ## net 5 — unit tests of the one decision function
 	cd kernel && python3 services/authz/test_decide.py
