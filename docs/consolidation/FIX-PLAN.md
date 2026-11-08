@@ -61,6 +61,7 @@ edge crosses a declared door — ARC §c) is the capstone net that proves nets 1
 
 > **Exit review 2026-11-08: FAIL** — see [LAYER1-EXIT-REVIEW](../reviews/LAYER1-EXIT-REVIEW.md). Ten blocking findings
 > (DEBT-B83, B85–B90, B92, B93 M3, B95 + the B57 decision); remediation slice **1g** lists the conditions to PASS on re-review.
+> **B57 decision (slice-1g):** moved to **Layer 2** — see the exit gate below and Layer 2's debt list.
 
 **Foundational.** Everything above assumes these hold; they must land first.
 
@@ -69,18 +70,25 @@ edge crosses a declared door — ARC §c) is the capstone net that proves nets 1
   Then build the eight assurance nets of §0 and wire nets 4–8 into CI + the installer.
 - **Owned rules:** ARC-1..ARC-7; FND-16 (enforce-by-default / fail-loud); FND-8 at the infra layer (nothing
   privileged reachable unauthenticated); the §0 nets themselves.
-- **Open findings & debt:** **DEBT-B52** (flat docker network — no per-layer separation), **DEBT-B57** (fact
-  store reached by `network_app`/`identity_lockout`, not Kernel-only), **DEBT-B58** (shared `VAULT_TOKEN`, no
+- **Open findings & debt:** **DEBT-B52** (flat docker network — no per-layer separation), ~~DEBT-B57~~ (**moved to Layer 2**, slice-1g decision — see below), **DEBT-B58** (shared `VAULT_TOKEN`, no
   per-service policy), **DEBT-A72** (service ingress gates default-off/shadow), **DEBT-B5** (unauthenticated
   privileged endpoints), **DEBT-A61** (sibling `deploy/local` binds nginx `0.0.0.0`), **DEBT-A71/A37/A36/A29**
   (shared static internal-token literals → audience-bound tokens), the **EC2 host-iptables** and
   **disk-full/log-rotation** operational notes (memory) folded into installer hardening.
 - **Missing tests:** the route-inventory test (net 4); the flow-map test; the DB-grant audit; the Vault-policy
   audit; the banned-pattern CI gate; the fresh-install-in-CI job. None exist yet — this layer builds them.
-- **Exit gate:** networks separated and proven by the flow-map test; every service on its own DB role + Vault
-  policy (B57/B58 closed); every ingress gate armed-by-default with fail-loud on missing config (A72 closed, B5
+- **Exit gate:** networks separated and proven by the flow-map test; every service that touches the fact store on its
+  OWN least-privilege DB role, and only kernel / network / identity able to reach it at all (flow-map ARC-3 check);
+  every Vault-using service on its own Vault policy (B58 closed); every ingress gate armed-by-default with fail-loud on missing config (A72 closed, B5
   closed); route inventory + banned-pattern + fresh-install + conformance + secret/dep scans green in CI;
   independent review; fresh install + conformance both modes pass.
+- **Not in this gate — DEBT-B57 (Kernel-only fact store), moved to Layer 2 (slice-1g decision).** The earlier wording
+  ("B57/B58 closed") contradicted ARCHITECTURE-FLOWS §d, which places B57 in Layer 2 (exit review W4). Reason: Layer 1
+  owns *reachability and credentials* — and both hold (only kernel/network/identity reach 5432; `network_app` and
+  `identity_lockout` are least-privilege roles with per-role grants). Making the store **Kernel-only** means the
+  Network's registry state and identity's lockout state are read and written THROUGH the Kernel door instead of
+  their own roles — a Kernel API and authorization change, which belongs to the layer that owns the single P0 gate
+  and ADR-0123 (Layer 2). Doing it here would build Kernel doors before the Kernel layer fixes its own gate.
 
 ---
 
@@ -113,7 +121,9 @@ Order: **Layer 1 independent review → MERGE → repository restructure → Lay
   every read to the caller's recorded reach; the anonymous route probe then proves it (they move off the review list).
   Also this layer's share of DEBT-B74 (validate before authenticate): `registry/schemas/provision`,
   `registry/schemas/local`, `registry/resolve-by-identifier`.
-- **Open findings & debt:** **DEBT-A1** (anonymous kernel read succeeds; also ARC-5 — the `/kernel/` edge route
+- **Open findings & debt:** **DEBT-B57** (fact store reached directly by `network_app`/`identity_lockout`, not
+  Kernel-only — ARC-3 residual; moved here from Layer 1 by the slice-1g decision: give the Network and identity
+  Kernel doors for their state, then revoke their DB roles), **DEBT-A1** (anonymous kernel read succeeds; also ARC-5 — the `/kernel/` edge route
   must become internal-only), **DEBT-B9** (Kernel calls the Network for authority key/schemas/grants/tenant-dev —
   ADR-0123), **DEBT-B8** (not domain-blind: `_NAT_KEYS`/dataplane vocab baked in — FND-6), **DEBT-B23** (committed
   versions carry no Kernel/participant signature; no hash chain — REG-8), **DEBT-B20** (run-token serialized at
@@ -126,7 +136,8 @@ Order: **Layer 1 independent review → MERGE → repository restructure → Lay
   installation; shared object storage is also the FND-18 HA fix).
 - **Missing tests:** anon-read-denied as a PASS (currently XFAIL under A1); a Kernel-calls-upward banned-pattern
   check (ADR-0123); registry-signature + hash-chain conformance (B23); run-token expiry/replay test (B53).
-- **Exit gate:** ADR-0123 closed (Kernel self-contained; `/kernel/` internal-only); anon reads denied; registry
+- **Exit gate:** ADR-0123 closed (Kernel self-contained; `/kernel/` internal-only); the fact store Kernel-only (B57:
+  only the kernel reaches 5432, flow-map-proven); anon reads denied; registry
   versions signed + chained; run-tokens short-lived/audience-bound and not stored cleartext; owned REG/FND rows
   HELD or deferred-with-reason; nets green; independent review; fresh install + conformance pass.
 
