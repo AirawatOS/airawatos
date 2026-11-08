@@ -16,6 +16,7 @@ for retirement — the root docker-compose.yml, deploy/local/, platform-spec/dep
 Usage: python3 verify/banned_patterns.py [--update-baseline] [--json out.json]
 """
 import json, os, re, sys, subprocess, time
+import sys as _s_ev, os as _o_ev; _s_ev.path.insert(0, _o_ev.path.join(_o_ev.path.dirname(_o_ev.path.dirname(_o_ev.path.abspath(__file__))), "verify")); import evidence as _ev  # slice-1h B99
 
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 BASELINE = os.path.join(HERE, "banned-baseline.json")
@@ -328,6 +329,17 @@ def main():
                   f"NEW {sum(n for _, n in new)}, removed since baseline {fixed}   [{rule}]")
             for fp, n in new[:20]:
                 print(f"      NEW ×{n}: {fp[:150]}")
+            if name == "TOKEN_ROLES":     # slice-1h (exit condition 6, DEBT-B103): every baselined file has an OWNING debt id
+                owners = base.get("TOKEN_ROLES_DEBTS", {})
+                unowned = sorted({h[0] for h in hits} - set(owners))
+                if unowned:
+                    ok = False
+                    print(f"      ✗ token-role reads in files with NO owning debt id (add to TOKEN_ROLES_DEBTS): {unowned}")
+                else:
+                    print(f"      every file with a known token-role read has an owning debt id ({len(owners)} files: "
+                          + ", ".join(sorted({v.split(' · ')[1].split(' (')[0] for v in owners.values()})) + ")")
+                if update:
+                    new_base["TOKEN_ROLES_DEBTS"] = {f: owners[f] for f in sorted({h[0] for h in hits}) if f in owners}
             if name == "PROD_SHADOW_OR_INPROCESS":
                 print(f"      production config files found: {len(PROD_FILES)} {PROD_FILES or '(none in the tree yet — RELEASE-PLAN Stage 0c; the check is armed for when one lands)'}")
         else:
@@ -350,6 +362,7 @@ def main():
     if "--json" in sys.argv:
         json.dump({"env": "local-dev", "mode": "banned", "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                    "git_sha": "", "cases": cases}, open(sys.argv[sys.argv.index("--json") + 1], "w"), indent=1)
+        _ev.seal(sys.argv[sys.argv.index("--json") + 1])
     print(("✓" if not failed else "✗") + f" banned patterns: {failed} check(s) failing")
     sys.exit(1 if failed else 0)
 

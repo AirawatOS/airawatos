@@ -106,6 +106,25 @@
   "platform-spec/reference/secrets.py::if claims.get(\"tenant\") != tenant or not ({\"platform.tenant-admin\", \"platform.steward\", \"admin\"} & set(claims.get(\"roles\", []))):": 1,
   "platform-spec/reference/workflow.py::sub = (claims or {}).get(\"sub\", \"\"); tenant = (claims or {}).get(\"tenant\", \"\"); roles = (claims or {}).get(\"roles\", [])": 1
  },
+ "TOKEN_ROLES_DEBTS": {
+  "components/_common/aos/solution.py": "DEBT-B1 \u00b7 L7 components (SDK reads token roles)",
+  "kernel/api/app.py": "DEBT-B1 \u00b7 L2 kernel (kernel authority from token roles \u2192 recorded grants)",
+  "kernel/api/kernelcore.py": "DEBT-B1 \u00b7 L2 kernel (kernel authority from token roles \u2192 recorded grants)",
+  "network/api.py": "DEBT-B1/B2 \u00b7 L4 network+trust (role/tenant authority \u2192 recorded roles, ADR-0122)",
+  "network/authn.py": "DEBT-B1/B2 \u00b7 L4 network+trust (role/tenant authority \u2192 recorded roles, ADR-0122)",
+  "network/conformance.py": "DEBT-B1/B2 \u00b7 L4 network+trust (role/tenant authority \u2192 recorded roles, ADR-0122)",
+  "network/trust/governance.py": "DEBT-B1/B2 \u00b7 L4 network+trust (role/tenant authority \u2192 recorded roles, ADR-0122)",
+  "platform-spec/reference/app_host.py": "DEBT-B1 \u00b7 L5 app host (session/admin gating from token roles)",
+  "platform-spec/reference/hostcore.py": "DEBT-B1 \u00b7 L5 app host (session/admin gating from token roles)",
+  "platform-spec/reference/identity.py": "DEBT-B1 \u00b7 L3 identity (roles issued into tokens \u2192 identity carries no authority)",
+  "platform-spec/reference/routes/civic_routes.py": "DEBT-B1 \u00b7 L5 app host (session/admin gating from token roles)",
+  "platform-spec/reference/routes/governance_routes.py": "DEBT-B1 \u00b7 L5 app host (session/admin gating from token roles)",
+  "platform-spec/reference/routes/marketplace_routes.py": "DEBT-B1 \u00b7 L5 app host (session/admin gating from token roles)",
+  "platform-spec/reference/routes/service_routes.py": "DEBT-B1 \u00b7 L5 app host (session/admin gating from token roles)",
+  "platform-spec/reference/routes/studio_routes.py": "DEBT-B1 \u00b7 L5 app host (session/admin gating from token roles)",
+  "platform-spec/reference/secrets.py": "DEBT-B1 \u00b7 L6 internal services (admin checks from token roles)",
+  "platform-spec/reference/workflow.py": "DEBT-B1 \u00b7 L6 internal services (admin checks from token roles)"
+ },
  "_meta": {
   "note": "TOKEN_ROLES = existing token-role reads, retired by the DEBT-B1 thread layer by layer; FAIL_OPEN_GATE = DEBT-B47; PROD_SHADOW_OR_INPROCESS = RELEASE-PLAN \u00a75",
   "updated": "2026-11-08T13:42:27Z"

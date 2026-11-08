@@ -86,8 +86,12 @@ for r in ("kernel_app", "network_app"):
         cur.execute(f"REVOKE ALL ON {t} FROM {r}")
     for s in [x for x in SEQS if seq_exists(x)]:
         cur.execute(f"REVOKE ALL ON SEQUENCE {s} FROM {r}")
+# slice-1h (re-review R5-3/R4-7, DEBT-B112 L1 part): the AUDIT tables are APPEND-ONLY for the runtime role — the kernel
+# only INSERTs/reads them; a compromised kernel must not rewrite or erase FND-12 records. (registry_version keeps
+# UPDATE for tx_to closure and DELETE for admin reclaim.) Audited by verify/db_grant_audit.py.
+AUDIT_TABLES = ("kernel_admin_audit", "kernel_authz_decision")
 for t in [x for x in KERNEL_TABLES if table_exists(x)]:
-    cur.execute(f"GRANT SELECT, INSERT, UPDATE, DELETE ON {t} TO kernel_app")
+    cur.execute(f"GRANT SELECT, INSERT{'' if t in AUDIT_TABLES else ', UPDATE, DELETE'} ON {t} TO kernel_app")
 for s in [x for x in SEQS if seq_exists(x)]:
     cur.execute(f"GRANT USAGE, SELECT, UPDATE ON SEQUENCE {s} TO kernel_app")
 if table_exists("network_kv"):
