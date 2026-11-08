@@ -57,6 +57,25 @@ for img in sorted(set(re.findall(r"^\s*image:\s*([^\s#]+)", compose, re.M))):
                          capture_output=True, text=True).stdout.strip()
     check(iid == r["image_id"], f"{img}: local image id {iid[:19]} == recorded {r['image_id'][:19]}")
     check(lab == r["git_revision"], f"{img}: OCI revision label {lab[:10]} == recorded {r['git_revision'][:10]}")
+# slice-1h (DEBT-B101, re-review R2-5): the reference image's /app is EXACTLY the git tree at the recorded commits —
+# no untracked file (the gitignored identity-users.json, local dist/ and egg-info used to ride in)
+STRIP = ("apps", "drivers", "engines", "skills", "experts", "pipelines", "providers", "solutions", "diagnostics", "runtimes")
+for img, r in rec["images"].items():
+    if "airawatos-reference" not in img:
+        continue
+    srcs = r.get("sources") or {}
+    check(all(k in srcs for k in ("root", "platform-spec", "components")), f"{img}: every source repository SHA recorded ({sorted(srcs)})")
+    if not all(k in srcs for k in ("platform-spec", "components")):
+        continue
+    def tree(repo, sha, sub, dest):
+        out = subprocess.run(["git", "-C", os.path.join(ROOT, repo), "ls-tree", "-r", "--name-only", sha, sub], capture_output=True, text=True).stdout.split()
+        return {dest + f[len(sub):] for f in out}
+    want = tree("platform-spec", srcs["platform-spec"], "reference", "reference") | {
+        f for f in tree("components", srcs["components"], "", "components/") if not f.split("/")[1] in STRIP}
+    got = set(subprocess.run(["docker", "run", "--rm", "--network", "none", "--entrypoint", "sh", img, "-c",
+                              "cd /app && find reference components -type f -not -path '*/__pycache__/*'"], capture_output=True, text=True).stdout.split())
+    extra, missing = sorted(got - want), sorted(want - got)
+    check(bool(got) and not extra and not missing, f"{img}: /app equals the git tree ({len(got)} files; untracked in image: {extra[:6]}; missing: {missing[:6]})")
 ps = subprocess.run(["docker", "ps", "--filter", "name=airawat-ld-", "--format", "{{.Names}}\t{{.Image}}"], capture_output=True, text=True).stdout
 for line in ps.splitlines():
     name, img = line.split("\t")
