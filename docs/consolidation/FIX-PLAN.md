@@ -103,6 +103,13 @@ Order: **Layer 1 independent review → MERGE → repository restructure → Lay
 - **Owned rules:** FND-2 (authority from recorded state), FND-6 (domain-blind), FND-7 + **ADR-0123** (self-
   contained for authz inputs — never calls upward, ARC-2), REG-1..REG-18 (registry correctness, signatures,
   Kernel-mediated files), the single P0 registry authorization gate.
+- **FIRST ITEM — DEBT-A1 (anonymous kernel registry reads).** The slice-1f route review left exactly these kernel
+  routes answering an anonymous caller (declared `public` + `review`, owner = this layer, in
+  `verify/route-inventory.json`): `POST /v1/registry/query`, `/count`, `/aggregate`, `/exists`, `/resolve`,
+  `/datasets`, `/schemas-present`, and `POST /v1/resolve-ref`. Fix: refuse an unauthenticated read (401) and scope
+  every read to the caller's recorded reach; the anonymous route probe then proves it (they move off the review list).
+  Also this layer's share of DEBT-B74 (validate before authenticate): `registry/schemas/provision`,
+  `registry/schemas/local`, `registry/resolve-by-identifier`.
 - **Open findings & debt:** **DEBT-A1** (anonymous kernel read succeeds; also ARC-5 — the `/kernel/` edge route
   must become internal-only), **DEBT-B9** (Kernel calls the Network for authority key/schemas/grants/tenant-dev —
   ADR-0123), **DEBT-B8** (not domain-blind: `_NAT_KEYS`/dataplane vocab baked in — FND-6), **DEBT-B23** (committed
@@ -127,6 +134,8 @@ Order: **Layer 1 independent review → MERGE → repository restructure → Lay
 - **Owned rules:** FND-1 (tokens carry identity only), FND-9 (service-to-service = audience-bound Vault-minted
   tokens; no passwordless principals), FND-15 (external issuers scoped), CLI-3 (short-lived, app-addressed,
   consent-referencing tokens), PTC-2 (authentication = identity only).
+- **From the slice-1f route review:** DEBT-B74 (validate before authenticate) — identity `GET /realms/<t>/users`
+  answers 404 for an unknown realm before checking the svc:identity token; authenticate first.
 - **Open findings & debt:** **DEBT-B14** (`IDENTITY_PASSWORD_REQUIRED` shadow default) / **DEBT-A30**
   (passwordless bare-login for steward/service principals — task #282), **DEBT-B31** (human/citizen tokens are
   platform-audienced with no consent-reference claim), **DEBT-A68** (three daemons share one `scheduler`
@@ -145,6 +154,12 @@ Order: **Layer 1 independent review → MERGE → repository restructure → Lay
 
 - **Owned rules:** NET-1..NET-12, PTC-1..PTC-12, FED-1..FED-8, FND-11 (separation of duties + last-holder floor),
   FND-14 (authority traceable to bootstrap), the Trust-plane decision function (ADR-0119).
+- **From the slice-1f route review:** the 13 internal lookups are now internal-only (svc:network, declared callers)
+  and the personal/institutional lists require a caller (`_list_access`) — done. Remaining: DEBT-B74 (validate
+  before authenticate) on `participants`, `participation/decide`, `network/services`, `keys`, `grants`,
+  `grants/revoke`, `credentials/issue`; and the lists' authority-admin check still reads token roles (DEBT-B1 thread).
+  **DEBT-B82:** the authority-admin gate is bound to the literal tenant `airawat` — derive it from the recorded
+  network authority (FND-16).
 - **Open findings & debt:** **DEBT-B36/B42** (federation/offerings directory leakage to anon — gated in slice-5
   hotfix B42; confirm the federation subset), **DEBT-B11** (slug / `net:`id / tenant conflated — FND-4),
   **DEBT-B18** (granting `platform.authority` not separation-of-duties / last-holder protected — FND-11),
