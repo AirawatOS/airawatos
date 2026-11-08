@@ -24,7 +24,7 @@ through it. A gateway is never installable; the **provider adapters** behind it 
 Each capability class (messaging, conversation channels, AI models, data sources, identity providers, payments,
 outbound webhooks, geo) has exactly one gateway. A gateway is part of the core: it is not installable, not
 replaceable by a tenant, and runs under its own service identity (ADR-0124). Vault/secrets is core, not a gateway.
-Operator infrastructure (file storage, git hosting — Part C) follows the same two-contract shape but is chosen
+Operator infrastructure (file storage — Part C) follows the same two-contract shape but is chosen
 once per installation.
 - **Status:** PARTIAL — model-gateway (AI), notify (messaging, internal) and the broker egress (data sources) exist;
   messaging email, channels, identity, geo, payments and webhooks have no gateway (inventory).
@@ -212,6 +212,13 @@ Each profile: the north operations, the south contract, who chooses, current sta
   geocoding [18] partial (local OSM gazetteer + PIN centroids).
 - **Debt:** **DEBT-B68**.
 
+### Git hosting
+- **North:** publish / pull of a project's source.
+- **South:** a git host (GitHub today) through the `git-publisher` engine, which is the provider adapter.
+- **Chooser:** **tenant / project**, as ADR-0083 decided (per-project `credential_ref` to a Vault-held token,
+  never in meta, argv or logs). Not operator infrastructure (corrected 2026-11-08).
+- **Status:** working [14].
+
 ---
 
 ## Part C — Operator infrastructure (chosen once per installation)
@@ -223,9 +230,4 @@ Each profile: the north operations, the south contract, who chooses, current sta
   DEBT-B49) and **encrypted** (per-blob data key, ADR-0126 next slice).
 - **Status:** working on one local volume, not HA [12]. **Debt:** **DEBT-B49**, REG-18.
 
-### Git hosting
-- **North:** publish / pull of a project's source by `git-publisher`.
-- **South:** a git host (GitHub today).
-- **Chooser:** per the inventory [14], **tenant/project** (ADR-0083, per-project `credential_ref`). ADR-0130 open
-  question 1 asks whether this becomes operator infrastructure.
-- **Status:** working.
+*Git hosting was listed here until 2026-11-08; it is tenant/project-chosen (ADR-0083) and now a Part B profile.*

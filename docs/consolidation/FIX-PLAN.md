@@ -248,8 +248,8 @@ Order: **Layer 1 independent review → MERGE → repository restructure → Lay
   (ADR-0129). Each adapter **declares its provider destinations**; the runtime enforces them as a per-container
   **network egress allow-list** (GTW-11). That closes DEBT-B65/B66/B67, which code-level egress checks cannot.
   Preconditions: **B23**, **B51 + B52**, **network-enforced declared egress**, the **GTW conformance suite**.
-  Tenant-chosen: messaging, AI, payments, identity, channels, data-source drivers, geo. Operator-chosen: file
-  storage, git hosting (both choosers are open questions in ADR-0130 against the inventory).
+  Tenant-chosen: messaging, AI, payments, identity (under an operator floor), channels, data-source drivers, geo,
+  git hosting (per tenant/project, ADR-0083). Operator-chosen: file storage.
 - **ADR-0130 core → component moves** (after B51 + B52 + B23 are CLOSED, plus the core-reserved-schema list):
   the **workflow engine** (decision records + order signing stay core — ADR-0130 §3), **docrender** (out of the
   App Host process; the door keeps output sanitisation + CSP, B50), **templates**, **workflow definitions** and

@@ -196,13 +196,16 @@ hands it for that call. The detailed rules are in [GATEWAY-v0.1](../specs/GATEWA
 | **Payments** | — [16] | tenant | **not built**: build to the contract (north: quote / authorise / capture / refund / status; south: provider adapter). ADR-0067 fee-quote + consent stays a declarative record |
 | **Outbound webhooks** | delivery to tenant-supplied URLs [17] | tenant | **not built** (event-relay is internal only): build to the contract. The automation raw-URL action (DEBT-A43) is moved behind it |
 | **Geo** | maps / basemap / 3D tiles [15], geocoding [18] | tenant | tiles and JS load **browser-direct from CDNs** (**DEBT-B68**); geocoding is local-first. Target: assets self-hosted or **proxied through the edge**, never browser-direct; a content security policy enforces it |
+| **Git hosting** | publish / pull of a project's source [14] | **tenant / project** (ADR-0083: per-project `credential_ref`) | working — GitHub via the `git-publisher` engine, which is the provider adapter; the token comes from Vault and never appears in meta, argv or logs |
 
 **Operator infrastructure — chosen once per installation, not per tenant:**
 
 | Infrastructure | Status today (inventory) |
 |---|---|
 | **File storage** (behind the core filestore door) — encrypted, **tenant-scoped** blobs | local disk volume; S3 backlog (REG-18); **DEBT-B49** (no owning-tenant scope on the blob key); blob encryption is the ADR-0126 next slice |
-| **Git hosting** | GitHub via the `git-publisher` engine. **Inventory: chosen per tenant/project** (ADR-0083, per-project `credential_ref`), not per installation. Flagged; kept per the inventory (open question 1) |
+
+Git hosting is **not** operator infrastructure. It stays chosen **per tenant/project** as ADR-0083 decided
+(corrected 2026-11-08; it is the tenant-chosen gateway row above).
 
 **Vault / secrets is core, not a gateway** (inventory row 13: hardcoded backend).
 
@@ -218,8 +221,9 @@ hands it for that call. The detailed rules are in [GATEWAY-v0.1](../specs/GATEWA
 4. **External identity providers are operator-configured today** (inventory §10, ADR-0068). The target is
    tenant-chosen with an operator floor. **Resolved 2026-11-08** (§ Resolved questions, 1); the inventory remains
    the record of the current state.
-5. **Git hosting is chosen per tenant/project** (inventory §14), not per installation as the brief stated. Kept
-   per the inventory (open question 1).
+5. **Git hosting is chosen per tenant/project** (inventory §14, ADR-0083), not per installation as the brief
+   stated. **Resolved 2026-11-08:** it stays per tenant/project, and the operator-infrastructure placement was
+   corrected (§ Resolved questions, 2).
 6. **Inventory summary rows 6 and 13 were stale.** Row 6 still said the SMS gateway uses an env literal (it
    moved to Vault in slice-1c-iv step 4, B64). Row 13 cited the `SECRETS_INTERNAL` literal, retired in
    slice-1c-iii. Both corrected in the inventory with this ADR.
@@ -253,7 +257,7 @@ hands it for that call. The detailed rules are in [GATEWAY-v0.1](../specs/GATEWA
 
   | Chosen by the **tenant** | Chosen by the **operator** (once per installation) |
   |---|---|
-  | messaging, AI models, payments, identity, conversation channels, data-source drivers, geo | file storage, git hosting |
+  | messaging, AI models, payments, identity, conversation channels, data-source drivers, geo, git hosting (per tenant/project, ADR-0083) | file storage |
 
   **Identity providers** are tenant-chosen with an operator floor. Today they are operator-configured (inventory
   §10); the change is decided, not yet built (§ Resolved questions, 1).
@@ -278,14 +282,11 @@ hands it for that call. The detailed rules are in [GATEWAY-v0.1](../specs/GATEWA
 
 ## Open questions
 
-1. **Git hosting: operator infrastructure or tenant/project choice?** The inventory shows per-project choice
-   (ADR-0083). The brief proposed operator infrastructure. Per-project credentials favour tenant choice, while a
-   single audited egress point favours the operator.
-3. **Federated mail placement.** Its south side is the core federation door. Should the messaging north contract
+1. **Federated mail placement.** Its south side is the core federation door. Should the messaging north contract
    cover federated recipients, or should federated mail stay a Network operation?
-4. **SMS/USSD gateway chooser.** Operator today (one gateway per installation). Target per-tenant providers
+2. **SMS/USSD gateway chooser.** Operator today (one gateway per installation). Target per-tenant providers
    (DEBT-B64) — is an operator-level default kept as a convenience (allowed by ADR-0129)?
-5. **Core-reserved schemas.** Which schemas are on the list beyond `governance.decision` and `governance.order`
+3. **Core-reserved schemas.** Which schemas are on the list beyond `governance.decision` and `governance.order`
    (e.g. `governance.role_assignment`, `governance.access_grant`)?
 
 ## Resolved questions
@@ -306,6 +307,11 @@ hands it for that call. The detailed rules are in [GATEWAY-v0.1](../specs/GATEWA
      identity gateway.
    - Today the operator configures issuers (inventory §10). Tenant self-registration under the operator floor is
      the change, tracked in FIX-PLAN Layer 6.
+
+2. **Git hosting — per tenant/project, as ADR-0083 decided** *(decided 2026-11-08)*. Git hosting is not operator
+   infrastructure; the earlier operator placement in §6 and §8 is corrected. The `git-publisher` engine is the
+   provider adapter, using a per-project credential from Vault (`credential_ref`). The only operator infrastructure
+   chosen once per installation is **file storage**.
 
 ## Spec changes if accepted
 
