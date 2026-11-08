@@ -6,8 +6,8 @@ spec rule they cite, reduces each rule×env to one derived status (worst-first),
 status matrix. The conformance results are the single source of truth; the specs reference this file.
 
 Reduction (STATUS-MATRIX-DESIGN.md): FAIL→REGRESSION; XPASS→REVIEW; PASS+XFAIL→PARTIAL; XFAIL (no PASS)→VIOLATED;
-any SKIP_BUILD→PLANNED(needs-build) (never HELD — slice-1e); only PASS→HELD; only SKIP_CREDS→UNVERIFIED(creds);
-no case→NO TEST.
+any SKIP_BUILD→PLANNED(needs-build) (never HELD — slice-1e); any SKIP_CREDS→UNVERIFIED(creds) (never HELD —
+slice-1d); only PASS→HELD; no case→NO TEST.
 Environments with no results file are shown PROJECTED (never asserted) per the design's environment-truth limit.
 
 Usage: python3 conformance/build_matrix.py   (run from the repo; reads conformance/results/, writes docs/specs/)
@@ -66,8 +66,9 @@ def reduce_status(results):
     # slice-1e: a needs-build case means part of the rule is NOT built — the rule is PLANNED, never HELD,
     # even when its other cases PASS (HELD requires every cited case to PASS).
     if "SKIP_BUILD" in kinds:                       return "PLANNED(needs-build)"
-    if has_pass:                                    return "HELD"
+    # slice-1d: a case skipped for missing credentials means part of the rule was NOT verified — never HELD.
     if "SKIP_CREDS" in kinds:                       return "UNVERIFIED(creds)"
+    if has_pass:                                    return "HELD"
     return "NO TEST"
 
 matrix = {}   # spec -> rule -> {env: {status, cases:[...]}, projected:[...]}
@@ -107,7 +108,7 @@ for env in PROJECTED:
 L.append("")
 L.append("**Derived status:** HELD (all cited cases PASS) · PARTIAL (PASS + known-violation XFAIL) · "
          "VIOLATED (only XFAIL — tracked as debt) · PLANNED(needs-build) (any SKIP_BUILD case: part of the rule is unbuilt — never HELD) · "
-         "UNVERIFIED(creds) (only SKIP_CREDS — fix the fixture) · REVIEW (XPASS — spec lags code) · "
+         "UNVERIFIED(creds) (any SKIP_CREDS case: not verified — never HELD; fix the fixture) · REVIEW (XPASS — spec lags code) · "
          "REGRESSION (a FAIL — contradicts spec) · NO TEST (no case cites the rule yet).")
 L.append("")
 cols = ENVS + PROJECTED
