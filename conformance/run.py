@@ -18,7 +18,7 @@ Each value is either "password" (default realm = AOS_REALM) or {"password":.., "
 Result kinds: PASS / XFAIL (known violation reproduced; green) / XPASS (violation looks fixed; flagged) /
 FAIL (contradicts spec; fails run) / SKIP_CREDS / SKIP_BUILD. Exit non-zero only on FAIL.
 """
-import json, os, sys, time, base64, urllib.request, urllib.error
+import json, os, re, sys, time, uuid, base64, urllib.request, urllib.error
 
 MODE  = os.environ.get("AOS_MODE", "external")
 BASE  = os.environ.get("AOS_BASE", "http://127.0.0.1:8080").rstrip("/")
@@ -92,6 +92,15 @@ def run_no_cred_cases():
         st, _, _ = http("POST", p, {"filter": {"schema": "network.network"}})
         expect("FOUNDATIONS", "ARC-5/FND-8", "edge does not expose the Kernel door: %s (abuse)" % p,
                st in (403, 404) or st == 0, "edge %s -> %s (want 404/403/unreachable, never 2xx)" % (p, st))
+
+    # slice-1h (re-review R4-6, DEBT-B109) — the public join endpoint never returns the email verification code (it was
+    # echoed as `dev_code` whenever no email provider was configured: anyone could "verify" any address).
+    _em = "conf-%s@example.invalid" % uuid.uuid4().hex[:10]
+    st, b, _ = http("POST", "/network/v1/join/request-code", {"email": _em})
+    _txt = b.decode("utf-8", "replace") if isinstance(b, (bytes, bytearray)) else str(b)
+    expect("NETWORK", "NET-6/DEBT-B109", "join request-code never returns the verification code (abuse)",
+           st != 0 and "dev_code" not in _txt and not re.search(r"\b\d{6}\b", _txt),
+           "POST /network/v1/join/request-code -> %s, body %s" % (st, _txt[:120]))
 
     st, _, _ = http("POST", "/network/v1/governance/roles", {})
     expect("NETWORK", "NET-3", "anonymous governance role-write denied (abuse)", st in (401, 403),
@@ -1030,6 +1039,32 @@ def run_identity_review_cases():
        "label note: PLT-3 is 'operator holds no governance role', not realm modelling. The login-namespace-as-tenant concern is DEBT-B21 (realms are tenant records; realm==tenant id — identity.py:620-628). Both are modelling/architecture, not a black-box runtime case. Internal test (B21): a person authenticates once and belongs to >1 org without a tenant-per-realm (blocked today).")
 
 
+def case_citizen_rows_isolated():
+    """slice-1h (re-review R1-4, DEBT-B98 — interim, owned by L4): in a Network list, a citizen sees ONLY the rows it
+    owns — not every row of the shared `citizens` tenant. Two citizens self-register (public sign-up); A offers a
+    file share; B lists file shares and must not see A's row; A must see it."""
+    I, N = INTERNAL["identity"], INTERNAL["network"]
+    name = "two citizens: one citizen's Network list rows are invisible to another citizen"
+    toks = {}
+    for who in ("a", "b"):
+        st, b, _ = _req("POST", I + "/register", {"username": "conf%s%s" % (who, uuid.uuid4().hex[:8]), "name": "conformance citizen"})
+        d = json.loads(b or b"{}") if st == 200 else {}
+        toks[who] = d.get("access_token") or d.get("token")
+        if not toks[who]:
+            record("NETWORK", "NET-12/DEBT-B98", name, "expected-fail", "SKIP_BUILD", "citizen self-registration -> %s" % st); return
+    st, b, _ = _req("POST", N + "/v1/file-shares", {"from_tenant": "citizens", "to_tenant": "localdev",
+                                                     "files": [{"file_id": "conf-probe", "name": "probe.txt"}]}, token=toks["a"])
+    sid = (json.loads(b or b"{}") if st == 200 else {}).get("offered")
+    if not sid:
+        expect("NETWORK", "NET-12/DEBT-B98", name, False, "citizen A could not create a file share: %s" % st); return
+    rows = {}
+    for who in ("a", "b"):
+        st, b, _ = _req("GET", N + "/v1/file-shares", token=toks[who])
+        rows[who] = [r.get("id") for r in (json.loads(b or b"{}").get("shares") or [])] if st == 200 else None
+    expect("NETWORK", "NET-12/DEBT-B98", name, rows["b"] is not None and sid not in rows["b"] and sid in (rows["a"] or []),
+           "A's share %s — visible to A: %s, visible to B: %s" % (sid, sid in (rows["a"] or []), sid in (rows["b"] or [])))
+
+
 def run_network_review_cases():
     """Consolidation phase-5 NETWORK+TRUST review (slice 3): tests for the NETWORK / PARTICIPANT / FEDERATION
     rules and the TRUST-plane FOUNDATIONS rules the network service enforces. Internal mode (network reachable).
@@ -1260,7 +1295,7 @@ def main():
         # preflight on kernel
         st, _, _ = _req("GET", INTERNAL["kernel"]+"/healthz")
         if st != 200: print("PREFLIGHT: kernel:8080/healthz -> %s" % st)
-        run_internal_cases(); run_kernel_review_cases(); run_identity_review_cases(); run_network_review_cases(); run_apphost_review_cases(); run_internal_services_review_cases(); run_components_review_cases()
+        run_internal_cases(); run_kernel_review_cases(); run_identity_review_cases(); run_network_review_cases(); case_citizen_rows_isolated(); run_apphost_review_cases(); run_internal_services_review_cases(); run_components_review_cases()
     else:
         print("target %s (realm %s); credentials: %s" % (BASE, REALM, "supplied (%d)"%len(CREDS) if CREDS else "none"))
         st, _, _ = http("GET", "/healthz")
