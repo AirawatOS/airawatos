@@ -141,6 +141,7 @@ Order: **Layer 1 independent review → MERGE → repository restructure → Lay
   versions signed + chained; run-tokens short-lived/audience-bound and not stored cleartext; owned REG/FND rows
   HELD or deferred-with-reason; nets green; independent review; fresh install + conformance pass.
 
+- **From the Layer 1 re-review (routed here, slice-1h):** **DEBT-B112** run-tokens never expire, are reused on re-install and stored in plaintext in `kernel_kv` (a pg_dump is a bearer-secret store; R4-3) — hash at rest + TTL + rotate on install; kernel audit tables carry no hash chain (R4-7; the append-only grant itself landed in slice-1h); **DEBT-B106** kernel `/v1/fetch` checks the host BEFORE the `template` placeholder substitution (R2-1); **DEBT-B110** kernel switches weakening by absence (`KERNEL_REQUIRE_AUTH` default off, `CONNECTOR_PINNED_ENDPOINT_OK` fail-open parse, `IDENTITY_JWKS` unset ⇒ any bearer satisfies require-auth; R5 item 2, R5-4, R5-5). [LAYER1-EXIT-REREVIEW](../reviews/LAYER1-EXIT-REREVIEW.md).
 ---
 
 ## Layer 3 — Identity
@@ -162,6 +163,7 @@ Order: **Layer 1 independent review → MERGE → repository restructure → Lay
   identity-only + consent-referenced (B31); failed auth logged (A9); owned rows HELD or deferred; nets green;
   independent review; fresh install + conformance pass.
 
+- **From the Layer 1 re-review (routed here, slice-1h):** **DEBT-B108** — lockout keyed on app-host's IP at the edge (anyone can lock any user out) and `X-Forwarded-For` trusted from internal callers (R4-4); user enumeration by message and timing, unlimited because unknown users are not counted (R4-5); JWKS cached forever / refetched without limit (R4-13); `nbf`/`iat`/skew inconsistent, no `jti` revocation (R4-14); list-valued `aud` crashes `/login` (R1-10); ephemeral signing-key fallback when Vault is absent (R5-9); identity logs no login-failure / lockout / password-change events (R4-7). [LAYER1-EXIT-REREVIEW](../reviews/LAYER1-EXIT-REREVIEW.md).
 ---
 
 ## Layer 4 — Network + Trust
@@ -185,6 +187,7 @@ Order: **Layer 1 independent review → MERGE → repository restructure → Lay
   durable (FND-5); owned NET/PTC/FED rows HELD or deferred; nets green; independent review; fresh install +
   conformance pass.
 
+- **From the Layer 1 re-review (routed here, slice-1h):** **DEBT-B98** citizen rows — the interim subject-scoping landed in slice-1h; the model question is recorded for an ADR in the account/wallet work: *is a single shared `citizens` tenant the right model, or does each person need their own data boundary (wallet)?*; **DEBT-B107** federated delivery sends launcher bearer tokens to participant-chosen URLs and trusts a self-served certificate (R3-3); anonymous catalog routes overlap gated doors (R1-11); network API docs public at the edge (R4-9); missing body keys → 500 with tracebacks (R4-11). [LAYER1-EXIT-REREVIEW](../reviews/LAYER1-EXIT-REREVIEW.md).
 ---
 
 ## Layer 5 — App Host
@@ -212,6 +215,7 @@ Order: **Layer 1 independent review → MERGE → repository restructure → Lay
   versioned public protocol defined so `/bridge` is no longer the contract (CLI-6/PTC-12 — see cross-cutting);
   owned CLI/PLT rows HELD or deferred; nets green; independent review; fresh install + conformance pass.
 
+- **From the Layer 1 re-review (routed here, slice-1h):** **DEBT-B106** `/bridge/fetch-file` and `/bridge/fetch` follow redirects with the SSRF check on the first hop only (R1-5); **DEBT-B107** tar extracted before the digest check (tar-slip as root) and a vacuous digest gate (R3-2), placed containers without user/caps/limits and a caller-named `docker rm -f` (R3-4), placement falls open to the default bridge when `RUNTIME_NETWORK` is unset (R1-8); anonymous tile proxy with an unbounded cache (R1-9); raw exception text returned to the browser (R4-10); sessions never pruned (R4-15). [LAYER1-EXIT-REREVIEW](../reviews/LAYER1-EXIT-REREVIEW.md).
 ---
 
 ## Layer 6 — Internal services + gateways
@@ -259,6 +263,7 @@ Order: **Layer 1 independent review → MERGE → repository restructure → Lay
 (GTW-3–GTW-7) for messaging, AI and channels; owned FND rows HELD or deferred; nets green; independent review;
   fresh install + conformance pass.
 
+- **From the Layer 1 re-review (routed here, slice-1h):** **DEBT-B106** `/fetch` `template` placeholder can rewrite the authority so a component's key reaches an undeclared host while the audit records the declared one (R2-1); the broker's auth-login still follows 301–303 (R2-11); model-gateway takes the key path and `base_url` from registry records (R2-13); **DEBT-B113** decision/workflow per-actor signing fails OPEN (no transit grant; R2-8); **DEBT-B105** the event-relay shares the `scheduler` principal with scheduler and automation (R1-7/R2-14); no request-size limit or socket timeout on the stdlib services (R4-12); scheduler/automation start before their Vault passwords are seeded (R4-17). [LAYER1-EXIT-REREVIEW](../reviews/LAYER1-EXIT-REREVIEW.md).
 ---
 
 ## Layer 7 — Components + SDKs
@@ -302,6 +307,7 @@ Order: **Layer 1 independent review → MERGE → repository restructure → Lay
   versioned public protocol so SDKs no longer ship `/bridge` (CLI-6/PTC-12); owned CMP rows HELD or deferred; nets
   green; independent review; fresh install + conformance pass.
 
+- **From the Layer 1 re-review (routed here, slice-1h):** **DEBT-B105** in-process components read the runtime manager's Vault token from `/proc/1/environ` → the launcher password → `/materialize` any tenant's secret (R3-1, High) — confined containers only (B51) and `/materialize` bound to the run token. [LAYER1-EXIT-REREVIEW](../reviews/LAYER1-EXIT-REREVIEW.md).
 ---
 
 ## Cross-cutting threads
@@ -357,3 +363,5 @@ layer's exit gate, two things are required before that install serves real data/
 
 > **Sequencing reminder:** do not start a layer's fixes before the layer below has passed its exit gate. The nets
 > in §0 are Layer-1 deliverables precisely because every higher layer's exit gate depends on them.
+
+- **From the Layer 1 re-review (slice-1h routing):** **DEBT-B114** a NATIVE amd64 build recording digests for all three images (only `pyarrow` crashes, under QEMU) and dropping the ~850 MB of unused data-science deps (R5-7); **DEBT-B110** every weakening switch in gateflags incl. weakening-by-absence (`IDENTITY_PASSWORD_REQUIRED`, `PLATFORM_AUTHORITY_MODE` default shadow, `SCHEMA_VALIDATE=off`, `NETWORK_ADMIN_AUTHZ=legacy`, `*_ALLOWED_CALLERS` widening); **DEBT-B111** no secrets on argv during install, `OPERATOR_PASSWORD` quoting, prod installer vs its own guard, re-runs resetting trust-reader/writer passwords, `.contract_seed` in build contexts, docker CLI checksum, `--require-hashes`, non-root images; a CI pipeline (R5-8 — the L1 exit gate's "green in CI" is a local `make verify` until then); **DEBT-B115** the remaining Low items. [LAYER1-EXIT-REREVIEW](../reviews/LAYER1-EXIT-REREVIEW.md).
