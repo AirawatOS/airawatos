@@ -2,7 +2,7 @@
 
 **Generated** by `conformance/build_matrix.py` from `conformance/results/*.json` (written by `conformance/run.py --matrix`). **Do not hand-edit** — regenerate after a conformance run. This is the conformance-derived single source of truth for per-rule status; the specs reference it (ADR: STATUS-MATRIX-DESIGN.md).
 
-- **local-dev** — measured: modes external+flowmap+internal+vaultscope, git `2796174`, 2026-11-07T08:21:02Z
+- **local-dev** — measured: modes external+flowmap+internal+vaultscope, git `5922759`, 2026-11-08T02:34:03Z
 - **production** — *PROJECTED*: no production conformance run yet; not asserted (stand up per docs/operator/FRESH-INSTALL-TEST.md §Step 3, then run the suite with AOS_ENV=production).
 
 **Derived status:** HELD (all cited cases PASS) · PARTIAL (PASS + known-violation XFAIL) · VIOLATED (only XFAIL — tracked as debt) · PLANNED(needs-build) (any SKIP_BUILD case: part of the rule is unbuilt — never HELD) · UNVERIFIED(creds) (only SKIP_CREDS — fix the fixture) · REVIEW (XPASS — spec lags code) · REGRESSION (a FAIL — contradicts spec) · NO TEST (no case cites the rule yet).

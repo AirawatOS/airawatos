@@ -864,4 +864,22 @@ else
   echo "✗ bootstrap NOT confirmed — refusing to scrub (and refusing to report success)"; exit 1
 fi
 
+# slice-1e — the fresh install proves FUNCTION, not just startup. DEV profile (it delivers a conformance fixture
+# component and creates a throwaway login in the dev data tenant); production carries no fixtures. Both checks must
+# pass or the install FAILS: (A) a user is onboarded through the App Host; (B) an installed component writes a record
+# within its grant (and is refused outside it). See deploy/installer/functional_check.py.
+if [ "$PROFILE" = dev ] && [ "$SEED_DATA_TENANT" = 1 ]; then
+  echo "── Phase 15 · functional proof (onboard a user via the App Host; installed component writes within its grant) · DEV-ONLY ──"
+  XAPP sh -lc 'rm -rf /app/_seed3 && mkdir -p /app/_seed3/engines'
+  COMPOSE cp ../../components/engines/pipeline-probe-step app-host:/app/_seed3/engines/pipeline-probe-step >/dev/null \
+    || { echo "✗ Phase 15: fixture engines/pipeline-probe-step not found in components/"; exit 1; }
+  XAPP env INSTANCE="$INSTANCE" OPERATOR_PASSWORD="$OPERATOR_PASSWORD" COMPS=engines/pipeline-probe-step python3 - < "$SCRIPT_DIR/_deliver_fixture.py" \
+    || { echo "✗ Phase 15: could not deliver the fixture component"; exit 1; }
+  XNET env INSTANCE="$INSTANCE" python3 /app/mint_base_listings.py >/dev/null || { echo "✗ Phase 15: listing mint failed"; exit 1; }
+  XNET env INSTANCE="$INSTANCE" OPERATOR_PASSWORD="$OPERATOR_PASSWORD" python3 - < "$SCRIPT_DIR/functional_check.py" \
+    || { echo "✗ Phase 15: functional proof FAILED — the install starts but does not work end to end"; exit 1; }
+else
+  echo "── Phase 15 · functional proof SKIPPED (profile=$PROFILE — needs the dev data tenant + fixture) ──"
+fi
+
 echo "✓ install complete — profile=$PROFILE"

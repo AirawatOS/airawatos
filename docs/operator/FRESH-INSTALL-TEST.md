@@ -114,3 +114,25 @@ fresh install): `registry_version` ≈ 1,000,000 rows (perf seed + content), `ne
 split roles present. `.env` VAULT_TOKEN re-synced to the restored vault's root token. Kernel + network both
 **Up (healthy)**; edge `/kernel/v1/health` + `/network/v1/health` OK. The two throwaway fresh-install DBs were
 discarded by the final restore (the restore wipes + untars each volume).
+
+## Functional proof — the install must WORK, not just start (slice-1e)
+
+`install.sh --profile dev` ends with **Phase 15** (`deploy/installer/functional_check.py`, run in the network
+container; fixture delivery by `deploy/installer/_deliver_fixture.py` in app-host). The install **fails** unless
+both checks pass. Production carries no fixtures, so Phase 15 is skipped there — run the OPERATOR-GUIDE §2.6
+checks by hand.
+
+| check | what it proves | steps |
+|---|---|---|
+| **A · onboard a user through the App Host** | identity cutover works end to end for a human, through the edge | tenant admin signs in at `nginx` `/login` → `/bridge/user-create` (app-host → identity with its own `svc:identity`) → the new user signs in with the admin-set password (`must_reset:true`) → `/auth/change-password` → live `/session` in the tenant → new password works, old refused |
+| **B · an installed component writes within its grant** | install-as-grant + the steward trust root (DEBT-B62) + scheduler → runtime manager placement | the tenant record names `ds:<t>:steward` and it resolves in the directory with a key → tenant admin installs `engine/pipeline-probe-step` → the scheduler runs it via the runtime manager under its own install token → its declared `platform.inbox_item` write is **accepted** and readable by the tenant; an undeclared `platform.schedule` write is **refused 403** (`write not authorized by the tenant steward`) |
+
+**Result (2026-11-08, fresh `install.sh --profile dev` on empty volumes, EXIT 0):** A 7/7, B 8/8. Check A found
+DEBT-B69 (user-create never named the tenant — fixed in the same slice). Re-runnable against a live stack:
+
+```sh
+VR=<install-time root token>; APW=<admin password>
+docker exec -i -e VAULT_TOKEN="$VR" -e INSTANCE=localdev -e OPERATOR_PASSWORD="$APW" airawat-ld-network \
+  python3 - < deploy/installer/functional_check.py
+```
+

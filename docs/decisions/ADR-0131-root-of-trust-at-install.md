@@ -110,6 +110,21 @@ The cutover ships in three fresh-install-gated commits so the one irreversible s
     refused); network minter (own AppRole token) writes through the door. Conformance external 13/0, internal 44
     PASS / 6 XFAIL / 0 XPASS / 0 FAIL. Rollback was **not** needed.
 
+## Slice-1e follow-up (as built)
+
+- **Steward registration** (Decision 7, DEBT-B62 closed) — network `dev-a79`, kernel `dev-hard9`.
+- **The fresh install proves function** — installer **Phase 15** (dev profile; the install FAILS if either check
+  fails): (A) a user is onboarded through the App Host (tenant admin signs in at the edge → `/bridge/user-create`
+  → the new user signs in with the admin-set password, `must_reset` → rotates via `/auth/change-password` → live
+  session); (B) an installed component writes a record within its grant (install-as-grant → the steward resolves
+  in the directory → the scheduler runs it via the runtime manager under its own install token → the declared
+  `platform.inbox_item` write is accepted and readable by the tenant; an undeclared `platform.schedule` write is
+  refused 403). Check (A) found that App Host user-create/reset never named the tenant, so every created user
+  was unreachable (`404 unknown user`) — fixed in reference `dev-hard21` (the admin-set password is now also
+  `must_reset`, per ADR-0115).
+- **Re-install after bootstrap:** once Phase 14 has scrubbed the bootstrap password, a re-install over the same
+  volumes must be run with `OPERATOR_PASSWORD=<the current admin password>` (see OPERATOR-GUIDE §2).
+
 ## Rollback procedure for the 1c-iv-c cutover
 
 If the gate flip (1c-iv-c) breaks login or a service-principal mint and the fix is not immediately clear, roll
