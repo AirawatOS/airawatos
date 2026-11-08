@@ -10,7 +10,13 @@ install.sh with the install-time root VAULT_TOKEN. Two end-to-end checks, both m
       `engine/pipeline-probe-step` fixture (install-as-grant — the tenant steward signs a grant for its declared
       writes), the steward resolves in the Network directory (DEBT-B62), the scheduler runs it through the runtime
       manager under its own install token, its declared write (platform.inbox_item) is ACCEPTED and readable by the
-      tenant, and an UNDECLARED write (platform.schedule) is REFUSED.
+      tenant, and an UNDECLARED write (platform.schedule) is REFUSED. Both verdicts come from the ONE decision
+      function (slice-1d), whose decision ids are printed for the host to check the durable decision records.
+  C · CORE-RESERVED KINDS (FOUNDATIONS FND-19): the `engine/reserved-kind-probe` fixture DECLARES a
+      governance.role_assignment write and is installed, so the steward's grant COVERS it — the kernel must still REFUSE
+      the write (no grant or declaration lets a component write a core-reserved kind), and nothing is stored.
+
+Prints `MATRIX_RESULTS <json>` (cases tagged with the rules they prove) and `DECISION_IDS <allow> <deny>`.
 
 Env: INSTANCE, OPERATOR_PASSWORD (the install's admin password, held by the installer shell), VAULT_ADDR, VAULT_TOKEN.
 """
@@ -24,11 +30,13 @@ OPERATOR = f"{INSTANCE}-operator"
 CID = f"ds:{INSTANCE}-developer:engine/pipeline-probe-step"
 RUN = "fn" + secrets.token_hex(3)
 ok = True
+CASES = []; _RULES = []
 
 
 def res(name, cond, detail=""):
     global ok
     ok &= bool(cond)
+    CASES.append({"case": name, "rules": list(_RULES), "result": "PASS" if cond else "FAIL"})
     print(("  ✓ " if cond else "  ✗ FAIL ") + name + (("  — " + str(detail)) if detail and not cond else ""))
 
 
@@ -55,6 +63,7 @@ def vpw(path):
 
 # ── A · onboard a user through the App Host ─────────────────────────────────────────────────────────────────
 print(f"▶ A · onboard a user through the App Host (tenant {TENANT})")
+_RULES[:] = ["ACC-4"]          # login + first-login rotation through the App Host (not PLT-11: tenant.admin floor is not exercised)
 adm = browser()
 s, d = req("POST", f"{EDGE}/login", {"realm": TENANT, "username": "admin", "password": APW}, opener=adm)
 res(f"tenant admin admin@{TENANT} signs in at the App Host", s == 200 and d.get("ok"), f"{s} {d}")
@@ -78,6 +87,7 @@ res("the admin-set password no longer works", s == 401, s)
 
 # ── B · an installed component writes a record within its grant ────────────────────────────────────────────
 print(f"▶ B · installed component writes within its grant ({CID} in {TENANT})")
+_RULES[:] = ["CMP-3", "CMP-6", "FND-3"]
 s, d = req("POST", f"{IDN}/realms/{TENANT}/login", {"username": "admin", "password": APW})
 atok = (d or {}).get("access_token") if s == 200 else None
 res(f"tenant admin token for {TENANT}", bool(atok), s)
@@ -110,5 +120,31 @@ s, d = req("GET", f"{KRN}/v1/registry/objects/{oid}/history", headers=H)
 hist = (d.get("history") or []) if isinstance(d, dict) else []
 res("the record is readable by the tenant (history has the committed version)", s == 200 and len(hist) >= 1, f"{s} {str(d)[:200]}")
 
+import re as _re
+_m = _re.search(r"decision (dec-[0-9a-f]+)", ol[0] if ol else "")
+DENY_ID = _m.group(1) if _m else None
+
+# ── C · core-reserved record kinds (FND-19) ─────────────────────────────────────────────────────────────────
+CID2 = f"ds:{INSTANCE}-developer:engine/reserved-kind-probe"
+print(f"▶ C · a component GRANTED a core-reserved write is still refused ({CID2})")
+_RULES[:] = ["FND-19"]
+s, d = req("POST", f"{KRN}/v1/components/install", {"component_id": CID2}, headers=H, timeout=60)
+res("tenant admin installs the reserved-kind probe (declares governance.role_assignment)", s == 200, f"{s} {str(d)[:200]}")
+s, d = req("POST", f"{NET}/v1/grants/resolve", {"tenant": TENANT, "component_id": CID2})
+gr = [g for g in ((d or {}).get("grants") or []) if "governance.role_assignment" in (g.get("writes") or [])] if isinstance(d, dict) else []
+res("the tenant steward's grant COVERS the declared governance.role_assignment write", bool(gr), f"{s} {str(d)[:240]}")
+s, out2 = req("POST", f"{SCH}/run", {"component": CID2, "tenant": TENANT, "reason": "install-functional-check",
+                                      "env": {"PROBE_RUN": RUN}}, headers={"Authorization": "Bearer " + stok}, timeout=600)
+log2 = (out2.get("log") or "") if isinstance(out2, dict) else ""
+rl = [l for l in log2.splitlines() if l.startswith("RESERVED_RESULT")]
+res("the kernel REFUSES the granted governance.role_assignment write (core-reserved, FND-19)",
+    bool(rl) and rl[0].startswith("RESERVED_RESULT refused 403") and "core-reserved" in rl[0], rl[:1] or log2[-300:])
+s, d = req("GET", f"{KRN}/v1/registry/objects/ds:{TENANT}:governance/role_assignment/reserved-probe-{RUN}/history", headers=H)
+hist2 = (d.get("history") or []) if isinstance(d, dict) else []
+res("nothing was stored under the reserved kind", not hist2, f"{s} {str(d)[:160]}")
+
+print("MATRIX_RESULTS " + json.dumps({"env": "local-dev", "mode": "functional",
+      "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "git_sha": "", "cases": CASES}))
+print(f"DECISION_IDS {RUN} {DENY_ID or '-'}")
 print("✓ functional proof PASSED" if ok else "✗ functional proof FAILED")
 sys.exit(0 if ok else 1)

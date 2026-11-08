@@ -891,13 +891,29 @@ fi
 if [ "$PROFILE" = dev ] && [ "$SEED_DATA_TENANT" = 1 ]; then
   echo "── Phase 15 · functional proof (onboard a user via the App Host; installed component writes within its grant) · DEV-ONLY ──"
   XAPP sh -lc 'rm -rf /app/_seed3 && mkdir -p /app/_seed3/engines'
-  COMPOSE cp ../../components/engines/pipeline-probe-step app-host:/app/_seed3/engines/pipeline-probe-step >/dev/null \
-    || { echo "✗ Phase 15: fixture engines/pipeline-probe-step not found in components/"; exit 1; }
-  XAPP env INSTANCE="$INSTANCE" OPERATOR_PASSWORD="$OPERATOR_PASSWORD" COMPS=engines/pipeline-probe-step python3 - < "$SCRIPT_DIR/_deliver_fixture.py" \
-    || { echo "✗ Phase 15: could not deliver the fixture component"; exit 1; }
+  for fx in pipeline-probe-step reserved-kind-probe; do      # B: within-grant write · C: FND-19 core-reserved kinds
+    COMPOSE cp ../../components/engines/$fx app-host:/app/_seed3/engines/$fx >/dev/null \
+      || { echo "✗ Phase 15: fixture engines/$fx not found in components/"; exit 1; }
+  done
+  XAPP env INSTANCE="$INSTANCE" OPERATOR_PASSWORD="$OPERATOR_PASSWORD" COMPS=engines/pipeline-probe-step,engines/reserved-kind-probe python3 - < "$SCRIPT_DIR/_deliver_fixture.py" \
+    || { echo "✗ Phase 15: could not deliver the fixture components"; exit 1; }
   XNET env INSTANCE="$INSTANCE" python3 /app/mint_base_listings.py >/dev/null || { echo "✗ Phase 15: listing mint failed"; exit 1; }
-  XNET env INSTANCE="$INSTANCE" OPERATOR_PASSWORD="$OPERATOR_PASSWORD" python3 - < "$SCRIPT_DIR/functional_check.py" \
-    || { echo "✗ Phase 15: functional proof FAILED — the install starts but does not work end to end"; exit 1; }
+  _FC_RC=0; _FC_OUT="$(XNET env INSTANCE="$INSTANCE" OPERATOR_PASSWORD="$OPERATOR_PASSWORD" python3 - < "$SCRIPT_DIR/functional_check.py")" || _FC_RC=$?
+  printf '%s\n' "$_FC_OUT" | grep -vE '^(MATRIX_RESULTS|DECISION_IDS) '
+  mkdir -p "$SCRIPT_DIR/../../conformance/results"
+  printf '%s\n' "$_FC_OUT" | sed -n 's/^MATRIX_RESULTS //p' > "$SCRIPT_DIR/../../conformance/results/local-dev-functional.json"
+  [ "$_FC_RC" = 0 ] || { echo "✗ Phase 15: functional proof FAILED — the install starts but does not work end to end"; exit 1; }
+  # slice-1d — the ONE decision function left DURABLE records for this run: the allow (declared write) and the deny
+  # (undeclared write) are both in kernel_authz_decision (allow AND deny recorded — FND-12 / DEC-1).
+  read -r _ _FC_RUN _FC_DENY <<<"$(printf '%s\n' "$_FC_OUT" | grep '^DECISION_IDS ' || true)"
+  _DQ() { COMPOSE exec -T postgres sh -c "psql -U \$POSTGRES_USER -d kernel -tAc \"$1\""; }
+  _ALLOWS="$(_DQ "select count(*) from kernel_authz_decision where outcome='allow' and action='component.write' and resource->>'id'='platform.inbox_item'")"
+  _DENIES="$(_DQ "select count(*) from kernel_authz_decision where outcome='deny' and action='component.write' and resource->>'id'='platform.schedule'")"
+  if [ "${_ALLOWS:-0}" -ge 1 ] && [ "${_DENIES:-0}" -ge 1 ]; then
+    echo "  ✓ decision records durable in kernel_authz_decision: allow (declared write) ×$_ALLOWS, deny (undeclared write) ×$_DENIES${_FC_DENY:+ — e.g. $_FC_DENY}"
+  else
+    echo "✗ Phase 15: decision records missing (allows=$_ALLOWS denies=$_DENIES)"; exit 1
+  fi
 else
   echo "── Phase 15 · functional proof SKIPPED (profile=$PROFILE — needs the dev data tenant + fixture) ──"
 fi
