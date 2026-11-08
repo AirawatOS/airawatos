@@ -44,7 +44,9 @@ for name, ctx, ign in BUILDS:
             df = os.path.join(td, "probe.Dockerfile")
             open(df, "w").write(PROBE)
             shutil.copy(ign, df + ".dockerignore")            # BuildKit: <Dockerfile>.dockerignore governs the context
-            r = subprocess.run(["docker", "buildx", "build", "--no-cache", "--progress=plain", "-f", df, "--output", "type=cacheonly", ctxp],
+            # the docker-driver builder of the current context: no separate builder container on the host (slice-1h, B99)
+            _b = os.environ.get("AOS_BUILDER") or subprocess.run(["docker", "context", "show"], capture_output=True, text=True).stdout.strip() or "default"
+            r = subprocess.run(["docker", "buildx", "build", "--builder", _b, "--no-cache", "--progress=plain", "-f", df, "--output", "type=cacheonly", ctxp],
                                capture_output=True, text=True, env={**os.environ, "DOCKER_BUILDKIT": "1"})
         out = r.stdout + r.stderr
         leaks = sorted(set(re.findall(r"LEAK \./(\S+)", out)))
