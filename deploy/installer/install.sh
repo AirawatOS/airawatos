@@ -12,7 +12,16 @@
 #      This records EXACTLY network.admin on the Network — it is NOT platform authority and not a proxy for it.
 #      platform.authority is not yet representable (governance.role_assignment@0.1.0 has no platform scope/role);
 #      see PLAN.md "platform.authority is not yet representable" (next slice, design required).
-set -euo pipefail
+set -Eeuo pipefail
+# slice-1h (re-review R7-1/R3-8, DEBT-B100): the install NEVER fails silently. Every phase sets _PHASE; any non-zero exit
+# (a failed command under set -e, an explicit `exit 1`, a Python phase that recorded a failed write) prints the failing
+# phase and line; "install complete" is printed only after the last phase.
+_PHASE="start"; _ERRLINE=""; _INSTALL_DONE=0
+trap '_ERRLINE=$LINENO' ERR
+# test hook (dev profile only): AOS_INSTALL_FAULT=<phase prefix> makes that phase fail, so verify/installer_test.py can
+# prove a mid-install failure is reported with its phase and never ends in "install complete".
+_fault() { if [ -n "${AOS_INSTALL_FAULT:-}" ] && [ "${PROFILE:-}" = dev ]; then case "$_PHASE" in "$AOS_INSTALL_FAULT"*) echo "  (test fault injected at: $_PHASE)"; return 1;; esac; fi; return 0; }
+trap '_rc=$?; if [ "$_INSTALL_DONE" != 1 ]; then echo "✗ install FAILED in phase: ${_PHASE} (exit ${_rc}${_ERRLINE:+, line ${_ERRLINE}}) — the install is NOT complete" >&2; [ "$_rc" = 0 ] && exit 1; fi' EXIT
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"                     # absolute, captured before any cd
 cd "$SCRIPT_DIR"
 
@@ -103,7 +112,7 @@ PYIDT
 # must exist) and before the all-services bring-up.
 VROOT() { COMPOSE exec -T -e VAULT_TOKEN="$VAULT_TOKEN" vault sh -lc "$1"; }
 _setup_vault_approle() {
-  echo "▶ bring-up: per-service Vault AppRoles + least-privilege policies (L1-1b)"
+  _PHASE="bring-up: per-service Vault AppRoles + least-privilege policies (L1-1b)"; _fault; echo "▶ bring-up: per-service Vault AppRoles + least-privilege policies (L1-1b)"
   VROOT 'vault auth list -format=json 2>/dev/null | grep -q "approle/" || vault auth enable approle' >/dev/null 2>&1 || true
   mkdir -p "$LOCALDEV/vault/approle"
   # policy name : service(s) that use it : role name(s)
@@ -137,7 +146,7 @@ KHEALTH() { COMPOSE exec -T kernel python -c "import urllib.request,sys; sys.exi
 # would silently reintroduce the flat-net exposure). Deterministic: docker membership ⇒ reachability.
 _net_members() { docker network inspect "$1" --format '{{range .Containers}}{{.Name}} {{end}}' 2>/dev/null; }
 _verify_arc_networks() {
-  echo "▶ verify: ARC per-boundary networks (edge/svc/data-facts/data-secrets/component)"
+  _PHASE="verify: ARC per-boundary networks (edge/svc/data-facts/data-secrets/component)"; _fault; echo "▶ verify: ARC per-boundary networks (edge/svc/data-facts/data-secrets/component)"
   local ok=1 n
   for n in aos-edge aos-svc aos-data-facts aos-data-secrets aos-component; do
     docker network inspect "$n" >/dev/null 2>&1 && echo "  ✓ network $n exists" || { echo "  ✗ network $n MISSING"; ok=0; }
@@ -164,7 +173,7 @@ _verify_arc_networks() {
 # 4b: the app-role services (kernel_app/network_app boot with REGISTRY_SKIP_DDL/KV_SKIP_DDL and are NON-owners)
 # cannot start until their tables + roles exist, so a from-empty install MUST order the bring-up. On an
 # already-up stack every step is a no-op/converge, so this prelude is safe to re-run.
-echo "▶ bring-up: postgres + vault"
+_PHASE="bring-up: postgres + vault"; _fault; echo "▶ bring-up: postgres + vault"
 # slice-1d (banned pattern LITERAL_SECRET, FND-16) — the Postgres SUPERUSER password is generated ONCE per install
 # into the gitignored deploy/local-dev/.env (compose reads it; never committed, never a literal). It is used only at
 # install time (the split-role step); every service connects as its own least-privilege role with a Vault password.
@@ -208,7 +217,7 @@ _setup_vault_approle
 # can self-seed the admin + provisioner from this config (slice-1c-iv-b). CREATE-ONLY: never overwrite an
 # existing password (idempotent re-install; matches ensure_install's reuse of the admin password). The admin
 # path is the SAME one ensure_install reads back, so the human-admin password is unchanged.
-echo "▶ bring-up: operator install config (admin + provisioner passwords) → Vault (ADR-0131)"
+_PHASE="bring-up: operator install config (admin + provisioner passwords) → Vault (ADR-0131)"; _fault; echo "▶ bring-up: operator install config (admin + provisioner passwords) → Vault (ADR-0131)"
 # admin: an operator MAY pass OPERATOR_PASSWORD (interactive install); else a strong password is generated.
 # CREATE-ONLY either way — a re-install never overwrites an existing credential.
 # ADR-0131 constraint 4 — after a CONFIRMED bootstrap the installer scrubs the admin bootstrap password and leaves a
@@ -244,16 +253,16 @@ VROOT "vault kv get -mount=secret ${INSTANCE}-operator/provisioner/password >/de
   || vault kv put -mount=secret ${INSTANCE}-operator/provisioner/password password=\"\$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 32)\" >/dev/null" \
   && echo "  · provisioner: password present at secret/${INSTANCE}-operator/provisioner/password (create-only)" \
   || { echo "✗ could not write provisioner install-config password to Vault"; exit 1; }
-echo "▶ bring-up: signing + audit keys (Vault)"
+_PHASE="bring-up: signing + audit keys (Vault)"; _fault; echo "▶ bring-up: signing + audit keys (Vault)"
 XRUNNET env INSTANCE="$INSTANCE" python3 - < "$SCRIPT_DIR/_keys.py" || { echo "✗ bring-up keys failed"; exit 1; }
-echo "▶ bring-up: split roles (create migrator/kernel_app/network_app; grant CREATE to migrator)"
+_PHASE="bring-up: split roles (create migrator/kernel_app/network_app; grant CREATE to migrator)"; _fault; echo "▶ bring-up: split roles (create migrator/kernel_app/network_app; grant CREATE to migrator)"
 XRUNNET env INSTANCE="$INSTANCE" DB_HOST=postgres POSTGRES_PASSWORD="$POSTGRES_PASSWORD" python3 - < "$SCRIPT_DIR/_split_roles.py" || { echo "✗ bring-up roles failed"; exit 1; }
-echo "▶ bring-up: migrator DDL (create all tables owned by migrator)"
+_PHASE="bring-up: migrator DDL (create all tables owned by migrator)"; _fault; echo "▶ bring-up: migrator DDL (create all tables owned by migrator)"
 XRUNKERN env DB_USER=migrator DB_PASSWORD_VAULT_PATH="secret/data/$INSTANCE/migrator/password" \
   python -m tools.db_migrate || { echo "✗ bring-up migrator failed"; exit 1; }
-echo "▶ bring-up: table ownership + least-privilege DML grants"
+_PHASE="bring-up: table ownership + least-privilege DML grants"; _fault; echo "▶ bring-up: table ownership + least-privilege DML grants"
 XRUNNET env INSTANCE="$INSTANCE" DB_HOST=postgres POSTGRES_PASSWORD="$POSTGRES_PASSWORD" python3 - < "$SCRIPT_DIR/_split_roles.py" || { echo "✗ bring-up grants failed"; exit 1; }
-echo "▶ bring-up: all services"
+_PHASE="bring-up: all services"; _fault; echo "▶ bring-up: all services"
 COMPOSE up -d >/dev/null 2>&1 || COMPOSE up -d
 for i in $(seq 1 60); do
   curl -fsS http://127.0.0.1:8080/network/v1/health >/dev/null 2>&1 && KHEALTH && break
@@ -284,7 +293,7 @@ _pf() {  # _pf <severity pass|warn|fail> <label> <fix>
           else echo "  ⚠ WARN: $label"; echo "       FIX: $fix"; fi ;;
   esac
 }
-echo "▶ pre-flight: host posture (profile=$PROFILE — production stops on FAIL, dev warns)"
+_PHASE="pre-flight: host posture (profile=$PROFILE — production stops on FAIL, dev warns)"; _fault; echo "▶ pre-flight: host posture (profile=$PROFILE — production stops on FAIL, dev warns)"
 # 1) resources
 _cores=$( (command -v nproc >/dev/null && nproc) || sysctl -n hw.ncpu 2>/dev/null || echo 0 )
 [ "${_cores:-0}" -ge 2 ] && _pf pass "CPU cores: $_cores (>=2)" || _pf fail "only ${_cores} CPU core(s)" "provision a host with >=2 vCPUs"
@@ -299,12 +308,12 @@ else
   _pf note "disk encryption not detectable on this host" "confirm the data volume is encrypted at rest (LUKS / cloud-provider volume encryption)"
 fi
 # 3) only 80/443 exposed publicly — flag any 0.0.0.0 published container port that is not 80/443
-_bad_ports=$(docker ps --format '{{.Ports}}' 2>/dev/null | tr ',' '\n' | grep -oE '0\.0\.0\.0:[0-9]+' | sed 's/.*://' | sort -un | grep -vE '^(80|443)$' | tr '\n' ' ')
+_bad_ports=$(docker ps --format '{{.Ports}}' 2>/dev/null | tr ',' '\n' | grep -oE '0\.0\.0\.0:[0-9]+' | sed 's/.*://' | sort -un | grep -vE '^(80|443)$' | tr '\n' ' ') || true   # slice-1h R7-1: no 0.0.0.0 publisher is the GOOD case
 if [ -n "${_bad_ports// /}" ]; then _pf fail "public (0.0.0.0) ports other than 80/443: $_bad_ports" "bind these to 127.0.0.1 (local) or remove the port publish; expose only 80/443 at the host"
 else _pf pass "no public ports other than 80/443 (local-dev binds 127.0.0.1)"; fi
 # 4) Vault not in dev/root mode
 _vstatus=$(COMPOSE exec -T vault sh -lc 'VAULT_ADDR=http://127.0.0.1:8200 vault status -format=json 2>/dev/null' 2>/dev/null || true)
-_vstorage=$(printf '%s' "$_vstatus" | grep -oE '"storage_type":[^,}]*' | head -1)
+_vstorage=$(printf '%s' "$_vstatus" | grep -oE '"storage_type":[^,}]*' | head -1) || true
 if printf '%s' "$_vstorage" | grep -qi inmem; then _pf fail "Vault is in dev/in-memory mode (storage=inmem)" "run Vault with durable storage, unsealed, and NO root token in VAULT_TOKEN (use a scoped policy token)"
 elif [ -n "$_vstatus" ]; then _pf pass "Vault storage is durable (not in-memory)"
 else _pf note "Vault mode not detectable" "confirm Vault runs in production mode (durable storage, unsealed, non-root scoped token)"; fi
@@ -312,11 +321,11 @@ else _pf note "Vault mode not detectable" "confirm Vault runs in production mode
 _pf note "dedicated host" "confirm this host runs ONLY AirawatOS (no co-tenant workloads sharing the kernel/Docker engine)"
 if [ "$_PF_FAIL" = 1 ]; then echo "✗ pre-flight FAILED (production) — fix the items above and re-run."; exit 1; fi
 
-echo "▶ preflight: network + kernel health"
+_PHASE="preflight: network + kernel health"; _fault; echo "▶ preflight: network + kernel health"
 curl -fsS http://127.0.0.1:8080/network/v1/health >/dev/null || { echo "✗ network not up"; exit 1; }
 KHEALTH || { echo "✗ kernel not up";  exit 1; }
 
-echo "── Phase 0 · signing + audit keys in Vault (generate-or-verify BEFORE anything else) ───────────"
+_PHASE="Phase 0 · signing + audit keys in Vault (generate-or-verify BEFORE anything else)"; _fault; echo "── Phase 0 · signing + audit keys in Vault (generate-or-verify BEFORE anything else) ──"
 # The platform's trust roots live in Vault and must exist + be valid before any governed write: the identity
 # issuer key (EdDSA, signs login tokens), the Network authority key (EdDSA, signs certificates/directory/tenant
 # records), and the trust-plane audit HMAC (signs the governance audit log). Services create the transit keys
@@ -324,7 +333,7 @@ echo "── Phase 0 · signing + audit keys in Vault (generate-or-verify BEFORE
 # missing/invalid — so an install never silently proceeds on absent trust roots. Idempotent.
 XNET env INSTANCE="$INSTANCE" python3 - < "$SCRIPT_DIR/_keys.py" || { echo "✗ STEP 0 failed — fix Vault/keys above, then re-run"; exit 1; }
 
-echo "── Phase 1 · base-OS install (instance=$INSTANCE) ─────────────────────────────────────────────"
+_PHASE="Phase 1 · base-OS install (instance=$INSTANCE)"; _fault; echo "── Phase 1 · base-OS install (instance=$INSTANCE) ──"
 XNET env INSTANCE="$INSTANCE" OPERATOR_PASSWORD="$OPERATOR_PASSWORD" SEED_DATA_TENANT="$SEED_DATA_TENANT" python3 /app/ensure_install.py
 # #282 — ensure_install generated the admin password into Vault (no committed literal). Read it back so the
 # remaining phases (seed_base_os, the network-admin login, the kernel steward bootstrap) can authenticate.
@@ -340,7 +349,7 @@ PY
   [ -n "$OPERATOR_PASSWORD" ] && echo "  · admin password read from Vault (generated at install; not printed)" \
                              || { echo "✗ could not read generated admin password from Vault"; exit 1; }
 fi
-echo "── Phase 1a · confirm identity self-bootstrap (ADR-0131) — provisioner mint + admin login ───────"
+_PHASE="Phase 1a · confirm identity self-bootstrap (ADR-0131) — provisioner mint + admin login"; _fault; echo "── Phase 1a · confirm identity self-bootstrap (ADR-0131) — provisioner mint + admin login ──"
 # The door is svc:identity-only from day one, so nothing below works unless identity seeded the provisioner (and
 # the admin) from the install config. Confirm BOTH before any identity write; the admin confirmation also gates
 # the end-of-install scrub of the bootstrap password (constraint 4).
@@ -368,7 +377,7 @@ esac
 echo "  · govern base domains/roles/schemas"
 XNET python3 /app/seed_base.py
 
-echo "── Phase 1b-svc · role-bearing service principals (scheduler/component-publisher/dev-sandbox/embed-service) — ADR-0131 ──"
+_PHASE="Phase 1b-svc · role-bearing service principals (scheduler/component-publisher/dev-sandbox/embed-service) — ADR-0131"; _fault; echo "── Phase 1b-svc · role-bearing service principals (scheduler/component-publisher/dev-sandbox/embed-service) — ADR-0131 ──"
 # ADR-0131 — these moved OUT of ensure_install (which now only signs tenant records). Each is a dedicated SERVICE
 # principal with a random Vault-backed password (never compose/human) at the SAME path its consumer reads via
 # svc_token.py. Production minimum: scheduler + component-publisher always; dev-sandbox dev-only; embed-service
@@ -386,11 +395,19 @@ PRINCIPALS = [
     ("dev-sandbox",         developer, ["platform.developer"],  None,              PROFILE == "dev"), # dev-token mint (DEV ONLY)
     ("embed-service",       operator,  ["embed.client-admin"],  None,              EMBED),            # citizen-embed OIDC (if enabled)
 ]
+_FAILS=[]
+import atexit as _ax, os as _os
+if "IDT" in _os.environ and not _os.environ["IDT"]: raise SystemExit("✗ no svc:identity token (provisioner mint failed)")
+def _done():
+    if _FAILS: print("✗ phase writes FAILED: " + "; ".join(_FAILS)); _os._exit(1)
+_ax.register(_done)
 def _req(url, data=None, headers=None, method="GET"):
     r=urllib.request.Request(url, data=(json.dumps(data).encode() if data is not None else None),
                              headers=headers or {}, method=method)
     try: return urllib.request.urlopen(r, timeout=10).read()
-    except urllib.error.HTTPError as e: return e
+    except urllib.error.HTTPError as e:
+        if method != "GET": _FAILS.append("%s %s -> %s" % (method, url.split("://",1)[-1].split("/",1)[-1], e.code))
+        return e
 for USER, TENANT, ROLES, AUDS, INCLUDE in PRINCIPALS:
     if not INCLUDE:
         print(f"[1b-svc] {USER}@{TENANT}: SKIPPED (not in this profile's minimum)"); continue
@@ -414,7 +431,7 @@ for USER, TENANT, ROLES, AUDS, INCLUDE in PRINCIPALS:
           "OK" if not isinstance(s, urllib.error.HTTPError) else f"set-pw {s.code}")
 PY
 
-echo "── Phase 1c · service principals (app-host/kernel/decision/workflow/launcher) — ADR-0124 slice-1c-ii ──"
+_PHASE="Phase 1c · service principals (app-host/kernel/decision/workflow/launcher) — ADR-0124 slice-1c-ii"; _fault; echo "── Phase 1c · service principals (app-host/kernel/decision/workflow/launcher) — ADR-0124 slice-1c-ii ──"
 # MUST run BEFORE base-app delivery: the filestore / model-gateway / notify gates ENFORCE, so every edge caller
 # needs its Vault-backed audience-bound credential in place when delivery first writes/reads the filestore.
 # Each is role [] (no platform reach — authority rides the run/dev token), pw in Vault (never compose), with a
@@ -430,11 +447,19 @@ PRINCIPALS = {
     "workflow": ["svc:notify", "svc:network"],                             # +1f: keys/resolve (signature verify)
     "launcher": ["svc:filestore", "svc:secrets", "svc:network"],           # (runtime manager) source fetch + /materialize + runtime attest (step 5)
 }
+_FAILS=[]
+import atexit as _ax, os as _os
+if "IDT" in _os.environ and not _os.environ["IDT"]: raise SystemExit("✗ no svc:identity token (provisioner mint failed)")
+def _done():
+    if _FAILS: print("✗ phase writes FAILED: " + "; ".join(_FAILS)); _os._exit(1)
+_ax.register(_done)
 def _req(url, data=None, headers=None, method="GET"):
     r=urllib.request.Request(url, data=(json.dumps(data).encode() if data is not None else None),
                              headers=headers or {}, method=method)
     try: return urllib.request.urlopen(r, timeout=10).read()
-    except urllib.error.HTTPError as e: return e
+    except urllib.error.HTTPError as e:
+        if method != "GET": _FAILS.append("%s %s -> %s" % (method, url.split("://",1)[-1].split("/",1)[-1], e.code))
+        return e
 for USER, AUDS in PRINCIPALS.items():
     VPATH=f"secret/data/{TENANT}/{USER}/password"
     b=_req(f"{VADDR}/v1/{VPATH}", headers={"X-Vault-Token":VTOK})
@@ -473,13 +498,13 @@ if [ "$SEED_DATA_TENANT" = 1 ]; then SHELF_TENANTS="$INSTANCE,$INSTANCE-develope
 else SHELF_TENANTS="$INSTANCE-developer,$INSTANCE-operator,$INSTANCE-network"; fi
 XAPP env INSTANCE="$INSTANCE" OPERATOR_PASSWORD="$OPERATOR_PASSWORD" MODE=shelf SHELF_TENANTS="$SHELF_TENANTS" python3 /app/reference/seed_base_os.py
 
-echo "── Phase 2 · Trust-plane schemas (dry-run → apply → dry-run; prod's own tool + behaviour) ──────"
+_PHASE="Phase 2 · Trust-plane schemas (dry-run → apply → dry-run; prod's own tool + behaviour)"; _fault; echo "── Phase 2 · Trust-plane schemas (dry-run → apply → dry-run; prod's own tool + behaviour) ──"
 XNET env NET_FILES_DIR=/data/netfiles python3 -m trust.migration.seed_trust_schemas --dry-run
 XNET env NET_FILES_DIR=/data/netfiles python3 -m trust.migration.seed_trust_schemas
 echo "  · idempotency re-run (expect 0 to govern):"
 XNET env NET_FILES_DIR=/data/netfiles python3 -m trust.migration.seed_trust_schemas --dry-run
 
-echo "── Phases 3+4 · local Network (ULID, slug localdev) + authority role_assignment ──────────────"
+_PHASE="Phases 3+4 · local Network (ULID, slug localdev) + authority role_assignment"; _fault; echo "── Phases 3+4 · local Network (ULID, slug localdev) + authority role_assignment ──"
 XNET env INSTANCE="$INSTANCE" OPERATOR_PASSWORD="$OPERATOR_PASSWORD" SELF_MEMBERSHIP="$SELF_MEMBERSHIP" python3 - <<'PY'
 import os, time, secrets, json, urllib.request, urllib.error
 inst = os.environ["INSTANCE"]; pw = os.environ["OPERATOR_PASSWORD"]
@@ -491,6 +516,7 @@ def _post(url, body, tok=None):
     try:
         return json.loads(urllib.request.urlopen(r, timeout=20).read() or b"{}")
     except urllib.error.HTTPError as e:
+        if "/registry/objects" in url: raise SystemExit(f"✗ registry write {url} -> {e.code}: {(e.read() or b'').decode()[:200]}")
         return {"__err__": e.code, "body": (e.read() or b"").decode()[:200]}
 # login as the network-realm admin → HOME-issued token (iss=ds:localdev:identity)
 lg = _post(f"{IDN}/realms/{inst}-network/login", {"username": "admin", "password": pw})
@@ -551,7 +577,7 @@ else:
     print("[phase4] self-membership NOT created (set SELF_MEMBERSHIP=1 to opt in)")
 PY
 
-echo "── Phase 5 · trust-reader service principal (role-mode mint-on-demand reader) ──────────────────"
+_PHASE="Phase 5 · trust-reader service principal (role-mode mint-on-demand reader)"; _fault; echo "── Phase 5 · trust-reader service principal (role-mode mint-on-demand reader) ──"
 # Role mode (NETWORK_ADMIN_AUTHZ=role) mints its kernel-read token on demand for a DEDICATED read-only
 # principal, password in Vault (never compose). Provision both here so role mode works with NO manual token.
 # Idempotent: if the Vault password + identity user already exist, reuse them (no rotation, no write).
@@ -560,11 +586,19 @@ XNET env IDT="$(_idt)" TENANT="${INSTANCE}-network" USER="trust-reader" \
 import os, json, secrets, urllib.request, urllib.error
 IDN="http://identity:8093"; VADDR=os.environ.get("VAULT_ADDR","http://vault:8200"); VTOK=os.environ["VAULT_TOKEN"]
 IDT=os.environ["IDT"]; TENANT=os.environ["TENANT"]; USER=os.environ["USER"]; VPATH=os.environ["VPATH"]
+_FAILS=[]
+import atexit as _ax, os as _os
+if "IDT" in _os.environ and not _os.environ["IDT"]: raise SystemExit("✗ no svc:identity token (provisioner mint failed)")
+def _done():
+    if _FAILS: print("✗ phase writes FAILED: " + "; ".join(_FAILS)); _os._exit(1)
+_ax.register(_done)
 def _req(url, data=None, headers=None, method="GET"):
     r=urllib.request.Request(url, data=(json.dumps(data).encode() if data is not None else None),
                              headers=headers or {}, method=method)
     try: return urllib.request.urlopen(r, timeout=10).read()
-    except urllib.error.HTTPError as e: return e
+    except urllib.error.HTTPError as e:
+        if method != "GET": _FAILS.append("%s %s -> %s" % (method, url.split("://",1)[-1].split("/",1)[-1], e.code))
+        return e
 def vault_get():
     b=_req(f"{VADDR}/v1/{VPATH}", headers={"X-Vault-Token":VTOK})
     if isinstance(b, urllib.error.HTTPError): return None
@@ -589,7 +623,7 @@ s=_req(f"{IDN}/set-password", data={"username":USER,"tenant":TENANT,"password":p
 print("[phase5] trust-reader login password set:", "OK" if not isinstance(s, urllib.error.HTTPError) else f"{s.code}")
 PY
 
-echo "── Phase 6 · Trust-plane audit HMAC → Vault (ADR-0119 console/governance endpoints) ────────────"
+_PHASE="Phase 6 · Trust-plane audit HMAC → Vault (ADR-0119 console/governance endpoints)"; _fault; echo "── Phase 6 · Trust-plane audit HMAC → Vault (ADR-0119 console/governance endpoints) ──"
 # The Trust plane (networks/mine + governance reads the console bridge uses) needs an audit HMAC base
 # secret. Held in VAULT (never compose); the network reads it at boot via TRUST_AUDIT_HMAC_VAULT_PATH.
 # The Trust store's kernel-read token is mint-on-demand (reuses the Phase-5 trust-reader credential) —
@@ -597,11 +631,19 @@ echo "── Phase 6 · Trust-plane audit HMAC → Vault (ADR-0119 console/gover
 XNET env VPATH="secret/data/${INSTANCE}-network/trust-plane/audit_hmac" python3 - <<'PY'
 import os, json, secrets, urllib.request, urllib.error
 VADDR=os.environ.get("VAULT_ADDR","http://vault:8200"); VTOK=os.environ["VAULT_TOKEN"]; VPATH=os.environ["VPATH"]
+_FAILS=[]
+import atexit as _ax, os as _os
+if "IDT" in _os.environ and not _os.environ["IDT"]: raise SystemExit("✗ no svc:identity token (provisioner mint failed)")
+def _done():
+    if _FAILS: print("✗ phase writes FAILED: " + "; ".join(_FAILS)); _os._exit(1)
+_ax.register(_done)
 def _req(url, data=None, method="GET"):
     r=urllib.request.Request(url, data=(json.dumps(data).encode() if data is not None else None),
                              headers={"X-Vault-Token":VTOK,"Content-Type":"application/json"}, method=method)
     try: return urllib.request.urlopen(r, timeout=10).read()
-    except urllib.error.HTTPError as e: return e
+    except urllib.error.HTTPError as e:
+        if method != "GET": _FAILS.append("%s %s -> %s" % (method, url.split("://",1)[-1].split("/",1)[-1], e.code))
+        return e
 b=_req(f"{VADDR}/v1/{VPATH}")
 cur = None if isinstance(b, urllib.error.HTTPError) else (((json.loads(b) or {}).get("data") or {}).get("data") or {}).get("value")
 if cur:
@@ -612,7 +654,7 @@ else:
           else f"[phase6] VAULT WRITE FAILED: {w.code}")
 PY
 
-echo "── Phase 7 · trust-writer service principal (Trust-plane governance WRITES) ─────────────────────"
+_PHASE="Phase 7 · trust-writer service principal (Trust-plane governance WRITES)"; _fault; echo "── Phase 7 · trust-writer service principal (Trust-plane governance WRITES) ──"
 # Governance writes (role assign, capability define, grant issue/revoke) persist via a DEDICATED write
 # principal — own-tenant write to the Trust steward (ds:<inst>-network:), role [], NEVER platform.service;
 # password in Vault, minted on demand. Separate from the read-only trust-reader. Idempotent (reuse).
@@ -621,10 +663,18 @@ XNET env IDT="$(_idt)" TENANT="${INSTANCE}-network" USER="trust-writer" \
 import os, json, secrets, urllib.request, urllib.error
 IDN="http://identity:8093"; VADDR=os.environ.get("VAULT_ADDR","http://vault:8200"); VTOK=os.environ["VAULT_TOKEN"]
 IDT=os.environ["IDT"]; TENANT=os.environ["TENANT"]; USER=os.environ["USER"]; VPATH=os.environ["VPATH"]
+_FAILS=[]
+import atexit as _ax, os as _os
+if "IDT" in _os.environ and not _os.environ["IDT"]: raise SystemExit("✗ no svc:identity token (provisioner mint failed)")
+def _done():
+    if _FAILS: print("✗ phase writes FAILED: " + "; ".join(_FAILS)); _os._exit(1)
+_ax.register(_done)
 def _req(url, data=None, headers=None, method="GET"):
     r=urllib.request.Request(url, data=(json.dumps(data).encode() if data is not None else None), headers=headers or {}, method=method)
     try: return urllib.request.urlopen(r, timeout=10).read()
-    except urllib.error.HTTPError as e: return e
+    except urllib.error.HTTPError as e:
+        if method != "GET": _FAILS.append("%s %s -> %s" % (method, url.split("://",1)[-1].split("/",1)[-1], e.code))
+        return e
 def vault_get():
     b=_req(f"{VADDR}/v1/{VPATH}", headers={"X-Vault-Token":VTOK})
     return None if isinstance(b, urllib.error.HTTPError) else (((json.loads(b) or {}).get("data") or {}).get("data") or {}).get("value")
@@ -646,11 +696,11 @@ PY
 # needs), so the first governed kernel write below would validate against the stale 0.1.0 def (missing
 # platform.authority + requiring `network`). Drop the kernel's schema cache so it re-reads the freshly-seeded
 # catalog (latest version) before Phase 7b's write. A restart is the simplest cache-clear (kernel is stateless).
-echo "▶ refresh kernel schema cache (pick up Phase-2 schema versions before the first governed write)"
+_PHASE="refresh kernel schema cache (pick up Phase-2 schema versions before the first governed write)"; _fault; echo "▶ refresh kernel schema cache (pick up Phase-2 schema versions before the first governed write)"
 COMPOSE restart kernel >/dev/null 2>&1 || true
 for i in $(seq 1 30); do KHEALTH && break; sleep 2; done
 
-echo "── Phase 7b · platform.authority FIRST-HOLDER seed via the governance path (ADR-0122) ───────────"
+_PHASE="Phase 7b · platform.authority FIRST-HOLDER seed via the governance path (ADR-0122)"; _fault; echo "── Phase 7b · platform.authority FIRST-HOLDER seed via the governance path (ADR-0122) ──"
 # Seed platform.authority ONLY when there are ZERO live holders, through GovernanceService.assign_role (the
 # first-holder-only rule) — NEVER a direct registry write, and NEVER a second grant when a holder already
 # exists (that needs a different-holder ChangeRequest). Runs after the trust-writer + audit key (phases 6-7)
@@ -682,7 +732,7 @@ else:
     print(f"[phase7b] seeded FIRST platform.authority holder (admin@{inst}-operator) via governance — id={rec.get('id')}")
 PY
 
-echo "── Phase 8 · network capability_catalog (Trust-plane governance needs it for grants) ────────────"
+_PHASE="Phase 8 · network capability_catalog (Trust-plane governance needs it for grants)"; _fault; echo "── Phase 8 · network capability_catalog (Trust-plane governance needs it for grants) ──"
 # define_capability/issue_grant require the network.network to carry a capability_catalog ref. The minimal
 # Phase-3 network record has none; create an empty catalog + link it (own-tenant writes by the network admin).
 XNET env INSTANCE="$INSTANCE" OPERATOR_PASSWORD="$OPERATOR_PASSWORD" python3 - <<'PY'
@@ -694,13 +744,13 @@ tok=lg.get("token") or lg.get("access_token")
 def post(path,body):
     rr=urllib.request.Request(KRN+path,data=json.dumps(body).encode(),headers={"Content-Type":"application/json","Authorization":"Bearer "+tok},method="POST")
     try: return urllib.request.urlopen(rr,timeout=20).getcode()
-    except urllib.error.HTTPError as e: return e.code
+    except urllib.error.HTTPError as e: raise SystemExit(f"✗ [phase8] {path} -> {e.code}")
 q=post  # alias
 cur=json.loads(urllib.request.urlopen(urllib.request.Request(KRN+"/v1/registry/resolve",
     data=json.dumps({"filter":{"schema":"network.network"},"id_prefix":[f"ds:{inst}-network:"]}).encode(),
     headers={"Content-Type":"application/json","Authorization":"Bearer "+tok},method="POST"),timeout=20).read())
 net=next((o for r in (cur.get("results") or []) for o in [r.get("object") or r] if isinstance(o,dict) and o.get("slug")=="localdev"), None)
-if not net: print("[phase8] localdev network not found — skip"); raise SystemExit(0)
+if not net: raise SystemExit("✗ [phase8] localdev network record not found (Phase 3 did not create it)")
 ulid=net["id"].split(":",1)[1]; net_oid=f"ds:{inst}-network:network/network/{ulid}"; cat_oid=f"ds:{inst}-network:network/capability_catalog/localdev"
 if net.get("capability_catalog")==cat_oid:
     print("[phase8] capability_catalog already linked — idempotent"); raise SystemExit(0)
@@ -710,7 +760,7 @@ print("[phase8] link into network.network:", post("/v1/registry/objects",{"id":n
 PY
 
 if [ "$RUN_TEST_USERS" = 1 ]; then
-echo "── Phase 9 · ADR-0122 platform test users (platauth, platnone) · DEV-ONLY ──────────────────────"
+_PHASE="Phase 9 · ADR-0122 platform test users (platauth, platnone) · DEV-ONLY"; _fault; echo "── Phase 9 · ADR-0122 platform test users (platauth, platnone) · DEV-ONLY ──"
 # Two users in the platform/governance tenant (<inst>-network) for ADR-0122 conformance: `platauth` (will
 # RECEIVE platform.authority — via a ChangeRequest approved by a different holder, NOT granted here) and
 # `platnone` (same tenant, no recorded role). Passwords generated + stored in Vault; usernames printed,
@@ -719,11 +769,19 @@ XNET env IDT="$(_idt)" TENANT="${INSTANCE}-network" INST="${INSTANCE}" python3 -
 import os, json, secrets, urllib.request, urllib.error
 IDN="http://identity:8093"; VADDR=os.environ.get("VAULT_ADDR","http://vault:8200"); VTOK=os.environ["VAULT_TOKEN"]
 IDT=os.environ["IDT"]; TENANT=os.environ["TENANT"]; INST=os.environ["INST"]
+_FAILS=[]
+import atexit as _ax, os as _os
+if "IDT" in _os.environ and not _os.environ["IDT"]: raise SystemExit("✗ no svc:identity token (provisioner mint failed)")
+def _done():
+    if _FAILS: print("✗ phase writes FAILED: " + "; ".join(_FAILS)); _os._exit(1)
+_ax.register(_done)
 def _req(url, data=None, headers=None, method="GET"):
     r=urllib.request.Request(url, data=(json.dumps(data).encode() if data is not None else None),
                              headers=headers or {}, method=method)
     try: return urllib.request.urlopen(r, timeout=10).read()
-    except urllib.error.HTTPError as e: return e
+    except urllib.error.HTTPError as e:
+        if method != "GET": _FAILS.append("%s %s -> %s" % (method, url.split("://",1)[-1].split("/",1)[-1], e.code))
+        return e
 for USER, _roles in (("platauth", []), ("platnone", []), ("rolesteward", ["platform.tenant-admin"])):   # (svcprobe below)
     # rolesteward (phase-5 FND-1/FND-3 test honesty): a HOME-issued account whose TOKEN carries an admin
     # role CLAIM (platform.tenant-admin) but which holds NO recorded governance grant — the negative case proving
@@ -771,22 +829,30 @@ print("[phase9] ADR-0122 test users ready: platauth, platnone — passwords in V
       "platauth SEPARATELY via a ChangeRequest approved by a different holder (ADR-0122 step 2b), never here.")
 PY
 else
-  echo "── Phase 9 · platform test users SKIPPED (profile=$PROFILE — production carries no test fixtures) ──"
+  _PHASE="Phase 9 · platform test users SKIPPED (profile=$PROFILE — production carries no test fixtures)"; _fault; echo "── Phase 9 · platform test users SKIPPED (profile=$PROFILE — production carries no test fixtures) ──"
 fi
 
 if [ "$SEED_DATA_TENANT" = 1 ]; then
-echo "── Phase 9b · conformance non-admin test user (outsider) · DEV-ONLY ─────────────────────────────"
+_PHASE="Phase 9b · conformance non-admin test user (outsider) · DEV-ONLY"; _fault; echo "── Phase 9b · conformance non-admin test user (outsider) · DEV-ONLY ──"
 # `outsider`: a NON-admin login in the data tenant, for the conformance F2 case (a valid non-admin session is
 # denied a governance write). Password generated into Vault (same convention), not read from any file.
 XNET env IDT="$(_idt)" TENANT="${INSTANCE}" INST="${INSTANCE}" python3 - <<'PY'
 import os, json, secrets, urllib.request, urllib.error
 IDN="http://identity:8093"; VADDR=os.environ.get("VAULT_ADDR","http://vault:8200"); VTOK=os.environ["VAULT_TOKEN"]
 IDT=os.environ["IDT"]; TENANT=os.environ["TENANT"]; INST=os.environ["INST"]
+_FAILS=[]
+import atexit as _ax, os as _os
+if "IDT" in _os.environ and not _os.environ["IDT"]: raise SystemExit("✗ no svc:identity token (provisioner mint failed)")
+def _done():
+    if _FAILS: print("✗ phase writes FAILED: " + "; ".join(_FAILS)); _os._exit(1)
+_ax.register(_done)
 def _req(url, data=None, headers=None, method="GET"):
     r=urllib.request.Request(url, data=(json.dumps(data).encode() if data is not None else None),
                              headers=headers or {}, method=method)
     try: return urllib.request.urlopen(r, timeout=10).read()
-    except urllib.error.HTTPError as e: return e
+    except urllib.error.HTTPError as e:
+        if method != "GET": _FAILS.append("%s %s -> %s" % (method, url.split("://",1)[-1].split("/",1)[-1], e.code))
+        return e
 VPATH=f"secret/data/{INST}/outsider/password"
 b=_req(f"{VADDR}/v1/{VPATH}", headers={"X-Vault-Token":VTOK})
 pw = None if isinstance(b, urllib.error.HTTPError) else (((json.loads(b) or {}).get("data") or {}).get("data") or {}).get("password")
@@ -804,14 +870,14 @@ print(f"[phase9b] outsider ready (non-admin, tenant={TENANT})")
 PY
 fi
 
-echo "── Phase 11 · identity_lockout least-privilege DB role (ADR-0121 hardening) ─────────────────────"
+_PHASE="Phase 11 · identity_lockout least-privilege DB role (ADR-0121 hardening)"; _fault; echo "── Phase 11 · identity_lockout least-privilege DB role (ADR-0121 hardening) ──"
 # Provisioned by the split-role step (_split_roles.py, Phase 11b / bring-up): single source of truth so
 # ONE step re-syncs EVERY DB-role password from Vault (migrator / kernel_app / network_app / identity_lockout).
 # identity_lockout gets access ONLY to identity_login_fails, never the registry/audit tables
 # (docs/security/IDENTITY-DB-LEAST-PRIVILEGE.md). Password in Vault, generated once + reused. Idempotent.
 echo "  · identity_lockout provisioned by the split-role step (see Phase 11b)"
 
-echo "── Phase 11b · split-role least-privilege DB (4b: migrator + kernel_app + network_app) ───────────"
+_PHASE="Phase 11b · split-role least-privilege DB (4b: migrator + kernel_app + network_app)"; _fault; echo "── Phase 11b · split-role least-privilege DB (4b: migrator + kernel_app + network_app) ──"
 # 4b hardening — no service is a Postgres superuser:
 #   migrator    owns every kernel-side table + runs ALL DDL (the ONLY role with CREATE on schema public)
 #   kernel_app  DML only on registry_version / registry_schema_meta / kernel_admin_audit / kernel_kv (+ seqs)
@@ -830,12 +896,12 @@ echo "── Phase 11b · split-role least-privilege DB (4b: migrator + kernel_a
 XNET env INSTANCE="$INSTANCE" DB_HOST=postgres POSTGRES_PASSWORD="$POSTGRES_PASSWORD" python3 - < "$SCRIPT_DIR/_split_roles.py" || { echo "✗ Phase 11b failed"; exit 1; }
 
 if [ "$RUN_PERF_SEED" = 1 ]; then
-  echo "── Phase 12 · synthetic perf dataset (~1M rows) · DEV-ONLY ─────────────────────────────────────"
+  _PHASE="Phase 12 · synthetic perf dataset (~1M rows) · DEV-ONLY"; _fault; echo "── Phase 12 · synthetic perf dataset (~1M rows) · DEV-ONLY ──"
   ( cd ../.. && python3 perf/seed.py --confirm-dev ) || echo "  · (perf seed skipped/failed — non-fatal)"
 fi
 
 if [ "$SEED_DATA_TENANT" = 1 ]; then
-echo "── Phase 13 · generate conformance/.creds.json FROM Vault · DEV-ONLY ────────────────────────────"
+_PHASE="Phase 13 · generate conformance/.creds.json FROM Vault · DEV-ONLY"; _fault; echo "── Phase 13 · generate conformance/.creds.json FROM Vault · DEV-ONLY ──"
 # E3: the conformance fixture is DERIVED from the live Vault secrets after install, never a committed input.
 # One entry per conformance login user; each password is read from its Vault path (field `password`). admin +
 # opadmin share the operator-admin credential (same account, two realms). Written to the gitignored file; the
@@ -862,10 +928,10 @@ if pn: creds["platnone"] = {"password": pn, "tenant": f"{INST}-network"}
 print(json.dumps(creds, indent=2))
 PY
 if [ -s "$CREDS_OUT" ]; then echo "  · wrote $(python3 -c "import json;print(len(json.load(open('$CREDS_OUT'))))" 2>/dev/null) conformance creds from Vault (passwords not printed)"
-else echo "  ⚠ conformance creds generation produced no output"; fi
+else echo "✗ conformance creds generation produced no output"; exit 1; fi
 fi
 
-echo "── Phase 14 · scrub the admin BOOTSTRAP password from Vault (ADR-0131 constraint 4) ─────────────"
+_PHASE="Phase 14 · scrub the admin BOOTSTRAP password from Vault (ADR-0131 constraint 4)"; _fault; echo "── Phase 14 · scrub the admin BOOTSTRAP password from Vault (ADR-0131 constraint 4) ──"
 # Only after identity CONFIRMED the bootstrap (Phase 1a admin login) and every phase that logs in as admin has run
 # (and, in dev, Phase 13 has derived the gitignored conformance fixture). `kv metadata delete` destroys ALL versions
 # (a plain `kv delete` is a recoverable soft-delete). A marker records the scrub so a re-install asks for the
@@ -889,7 +955,7 @@ fi
 # pass or the install FAILS: (A) a user is onboarded through the App Host; (B) an installed component writes a record
 # within its grant (and is refused outside it). See deploy/installer/functional_check.py.
 if [ "$PROFILE" = dev ] && [ "$SEED_DATA_TENANT" = 1 ]; then
-  echo "── Phase 15 · functional proof (onboard a user via the App Host; installed component writes within its grant) · DEV-ONLY ──"
+  _PHASE="Phase 15 · functional proof (onboard a user via the App Host; installed component writes within its grant) · DEV-ONLY"; _fault; echo "── Phase 15 · functional proof (onboard a user via the App Host; installed component writes within its grant) · DEV-ONLY ──"
   XAPP sh -lc 'rm -rf /app/_seed3 && mkdir -p /app/_seed3/engines'
   for fx in pipeline-probe-step reserved-kind-probe; do      # B: within-grant write · C: FND-19 core-reserved kinds
     COMPOSE cp ../../components/engines/$fx app-host:/app/_seed3/engines/$fx >/dev/null \
@@ -915,7 +981,8 @@ if [ "$PROFILE" = dev ] && [ "$SEED_DATA_TENANT" = 1 ]; then
     echo "✗ Phase 15: decision records missing (allows=$_ALLOWS denies=$_DENIES)"; exit 1
   fi
 else
-  echo "── Phase 15 · functional proof SKIPPED (profile=$PROFILE — needs the dev data tenant + fixture) ──"
+  _PHASE="Phase 15 · functional proof SKIPPED (profile=$PROFILE — needs the dev data tenant + fixture)"; _fault; echo "── Phase 15 · functional proof SKIPPED (profile=$PROFILE — needs the dev data tenant + fixture) ──"
 fi
 
-echo "✓ install complete — profile=$PROFILE"
+_INSTALL_DONE=1
+echo "✓ install complete — profile=$PROFILE (every phase succeeded)"

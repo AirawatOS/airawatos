@@ -4,9 +4,9 @@
 #   make verify-fast   everything except the fresh install (runs against the stack that is up)
 #   make <target>      any single net below
 # Needs: docker (with compose v2), python3, git. The fresh install WIPES the local-dev stack's volumes.
-.PHONY: listen verify verify-fast banned gtw-static known-violations fresh-install conformance flowmap vaultscope routes scans matrix decide-unit secret-names gateflags netdoors build-context images
+.PHONY: listen verify verify-fast banned gtw-static known-violations fresh-install conformance flowmap vaultscope routes scans matrix decide-unit secret-names gateflags netdoors build-context images installer
 
-verify: banned gtw-static known-violations decide-unit secret-names gateflags build-context images fresh-install conformance flowmap vaultscope netdoors routes listen scans matrix
+verify: banned gtw-static known-violations decide-unit secret-names gateflags build-context images installer fresh-install conformance flowmap vaultscope netdoors routes listen scans matrix
 	@echo "✓ make verify: all assurance nets green"
 
 verify-fast: banned gtw-static known-violations decide-unit secret-names gateflags build-context images conformance flowmap vaultscope netdoors routes listen scans matrix
@@ -33,6 +33,9 @@ build-context:   ## B94 — no env file, credential or runtime data reaches any 
 
 images:          ## B80/B94 — Dockerfiles digest-pinned + locked; every stack image recorded in IMAGES.lock.json and running as recorded
 	python3 verify/images_test.py
+
+installer:       ## B100/R7-1 — installer survives a clean host and names any failing phase (live fault injection)
+	python3 verify/installer_test.py --live
 
 decide-unit:     ## net 5 — unit tests of the one decision function
 	cd kernel && python3 services/authz/test_decide.py
