@@ -2,7 +2,7 @@
 
 **Generated** by `conformance/build_matrix.py` from `conformance/results/*.json` (written by `conformance/run.py --matrix`). **Do not hand-edit** — regenerate after a conformance run. This is the conformance-derived single source of truth for per-rule status; the specs reference it (ADR: STATUS-MATRIX-DESIGN.md).
 
-- **local-dev** — measured: modes banned+external+flowmap+functional+gtwstatic+internal+knownviolations+listen+netdoors+routes+scans+vaultscope, git ``, 2026-11-08T16:39:08Z
+- **local-dev** — measured: modes banned+dbgrants+external+flowmap+functional+gtwstatic+internal+knownviolations+listen+netdoors+ops+restoredrill+routes+scans+vaultrenewal+vaultscope, git `ba2d7643f75bd956c790cb779bfb279070cdf9b0`, 2026-11-08T18:57:31Z
 - **production** — *PROJECTED*: no production conformance run yet; not asserted (stand up per docs/operator/FRESH-INSTALL-TEST.md §Step 3, then run the suite with AOS_ENV=production).
 
 **Derived status:** HELD (all cited cases PASS) · PARTIAL (PASS + known-violation XFAIL) · VIOLATED (only XFAIL — tracked as debt) · PLANNED(needs-build) (any SKIP_BUILD case: part of the rule is unbuilt — never HELD) · UNVERIFIED(creds) (any SKIP_CREDS case: not verified — never HELD; fix the fixture) · REVIEW (XPASS — spec lags code) · REGRESSION (a FAIL — contradicts spec) · NO TEST (no case cites the rule yet).
@@ -18,15 +18,15 @@
 | `FND-5` | PLANNED(needs-build) | projected | durable authority survives restart; session cookie is Secure + CSRF/Origin-checked on state-changing bridge POSTs |
 | `FND-6` | PARTIAL | projected | kernel is domain-blind (no domain vocabulary baked in) — DEBT-B8; unknown schema handled opaquely (internal, pos) |
 | `FND-7` | PLANNED(needs-build) | projected | kernel authorizes with Network down |
-| `FND-8` | PARTIAL | projected | /bridge/component-publish refuses an unverified bearer (not presence-only); /v1/certificates/resolve admits exactly ['launcher', 'scheduler']; /v1/directory/res |
+| `FND-8` | PARTIAL | projected | /bridge/component-publish refuses an unverified bearer (not presence-only); /v1/certificates/resolve admits exactly ['launcher', 'scheduler']; /v1/certificates/ |
 | `FND-9` | PLANNED(needs-build) | projected | automation /events admits its declared caller (event-relay principal, svc:automation); automation /events refuses an anonymous call; automation /events refuses  |
-| `FND-10` | PLANNED(needs-build) | projected | /v1/certificates/resolve admits exactly ['launcher', 'scheduler']; /v1/directory/resolve admits exactly ['app-host', 'kernel', 'scheduler']; /v1/grants/resolve  |
+| `FND-10` | PLANNED(needs-build) | projected | /v1/certificates/resolve admits exactly ['launcher', 'scheduler']; /v1/certificates/resolve answers its declared callers without a server error; /v1/directory/r |
 | `FND-11` | PLANNED(needs-build) | projected | SoD for floor roles enforces approver != proposer; component.publisher refused at kernel admin (registry.usage); dev-sandbox refused at kernel admin (registry.u |
-| `FND-12` | PLANNED(needs-build) | projected | every authz decision audited (allow+deny); failed-auth logged |
+| `FND-12` | PLANNED(needs-build) | projected | Vault has a file audit device on its own volume; a Vault request is recorded in the audit log; every authz decision audited (allow+deny); failed-auth logged; th |
 | `FND-13` | NO TEST | projected | — |
 | `FND-14` | PLANNED(needs-build) | projected | role assignment names its grantor (granted_by); role assignments carry grantor + governance provenance |
 | `FND-15` | PARTIAL | projected | external issuers are bound to a recorded tenant AND network; authority never widens by issuer; forged role+foreign-iss token rejected (internal, abuse); human ( |
-| `FND-16` | PARTIAL | projected | banned pattern LITERAL_SECRET_OR_GATE: no occurrence; banned pattern PROD_SHADOW_OR_INPROCESS: no occurrence; gates refuse shadow under production themselves, n |
+| `FND-16` | PLANNED(needs-build) | projected | a revoked token is reported LOUDLY in decision's log (renewer: VAULT TOKEN INVALID); a revoked token makes decision UNHEALTHY (docker health); after 5 lifetimes |
 | `FND-17` | PLANNED(needs-build) | projected | agent delegation; no self-widen |
 | `FND-18` | NO TEST | projected | — |
 | `FND-19` | HELD | projected | nothing was stored under the reserved kind; tenant admin installs the reserved-kind probe (declares governance.role_assignment); the kernel REFUSES the granted  |
@@ -80,7 +80,7 @@
 | `NET-3` | PARTIAL | projected | admin is a plain network.admin (network.admin role, not platform authority) (pos); anonymous governance role-write denied (abuse); component.publisher refused a |
 | `NET-4` | PLANNED(needs-build) | projected | suspended net refuses exchange, allows reads |
 | `NET-5` | PLANNED(needs-build) | projected | membership supports invite->accept and suspend |
-| `NET-6` | PLANNED(needs-build) | projected | join never creates a login [debt DEBT-B9] |
+| `NET-6` | PLANNED(needs-build) | projected | join never creates a login [debt DEBT-B9]; join request-code never returns the verification code (abuse) |
 | `NET-7` | PLANNED(needs-build) | projected | issuer trust admin-only + scoped; issuer trust is network.admin-only and scoped to (member-tenant, net:id) |
 | `NET-8` | PLANNED(needs-build) | projected | classifications are descriptive only (never gate exchange) |
 | `NET-9` | PLANNED(needs-build) | projected | capability-grant store POST /v1/grants refuses anonymous (grant.steward, fail closed); wildcard/unversioned capability grant rejected [debt DEBT-B12] |
@@ -95,7 +95,7 @@
 | `ACC-1` | NO TEST | projected | — |
 | `ACC-2` | VIOLATED | projected | account id is permanent + distinct from the login handle [debt DEBT-B30]; id/handle/binding distinct; handle reserved |
 | `ACC-3` | VIOLATED | projected | assurance reflects the real auth method (AL-vocabulary, >=AL1 after password) [debt DEBT-B13]; identity-binding uniqueness via a keyed blind index (HMAC), not a |
-| `ACC-4` | PLANNED(needs-build) | projected | admin creates fnuser018901 in its own tenant (/bridge/user-create → identity, app-host svc:identity); admin puts fnuser018901 on hold (/bridge/user-disable); fn |
+| `ACC-4` | PLANNED(needs-build) | projected | admin creates fnuser7d9c13 in its own tenant (/bridge/user-create → identity, app-host svc:identity); admin puts fnuser7d9c13 on hold (/bridge/user-disable); fn |
 | `ACC-5` | PLANNED(needs-build) | projected | provider connections (consent + confirmation; revocable) |
 | `ACC-6` | NO TEST | projected | — |
 | `ACC-7` | PLANNED(needs-build) | projected | consent by holder; withdraw->erase |
@@ -234,11 +234,11 @@
 |---|---|---|---|
 | `ARC-1` | HELD | projected | every container of the project is declared; every container was probed; every declared container is running; every non-egress network is internal (default-deny  |
 | `ARC-2` | NO TEST | projected | — |
-| `ARC-3` | HELD | projected | banned pattern SUPERUSER_DB: no occurrence; the fact store is reachable only from kernel / network / identity |
+| `ARC-3` | HELD | projected | PUBLIC holds no privilege on any public-schema table; after the restore every service reads its own Vault paths (AppRole logins intact); backup.sh took a consis |
 | `ARC-4` | PLANNED(needs-build) | projected | per-service micro-segmentation within the service mesh |
 | `ARC-5` | HELD | projected | no Airawat service listens on a non-loopback address (compose + live); only the edge (nginx) sits on the public network |
 | `ARC-6` | NO TEST | projected | — |
-| `ARC-7` | PARTIAL | projected | Vault is reachable only from its declared clients; a placed/in-process component cannot reach the host service's Vault credential (re-review R3-1, DEBT-B105); a |
+| `ARC-7` | PARTIAL | projected | Vault has a file audit device on its own volume; Vault is reachable only from its declared clients; a Vault request is recorded in the audit log; a placed/in-pr |
 
 ## GATEWAY
 
@@ -263,6 +263,6 @@
 
 | environment | HELD | PARTIAL | VIOLATED | PLANNED(needs-build) | UNVERIFIED(creds) | REVIEW | REGRESSION | NO TEST | projected |
 |---|---|---|---|---|---|---|---|---|---|
-| local-dev | 5 | 16 | 5 | 86 | 0 | 0 | 0 | 70 | 0 |
+| local-dev | 5 | 15 | 5 | 87 | 0 | 0 | 0 | 70 | 0 |
 | production | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 182 |
 
