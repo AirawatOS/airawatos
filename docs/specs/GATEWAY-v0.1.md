@@ -179,9 +179,17 @@ Each profile: the north operations, the south contract, who chooses, current sta
 - **North:** `verify(external token)` → identity claims only (FND-1/FND-15); `issue_credential`,
   `verify_presentation` (VCs).
 - **South:** an external issuer's JWKS / OIDC endpoints; VC issuer keys via the governed directory.
-- **Chooser:** **operator** configures trusted external issuers (ADR-0068, inventory [10]); VC issuance by the
-  issuer tenant [11]. The home issuer is core and not a provider.
-- **Status:** working (reference IdP EdDSA + Keycloak RS256; Ed25519 VCs, wallet live).
+- **Chooser:** the **tenant** registers its own external identity provider; the **operator sets the floor**
+  (decided 2026-11-08, ADR-0130 § Resolved questions 1). VC issuance by the issuer tenant [11]. The home issuer is
+  core and not a provider.
+- **Rules for a tenant-registered provider:** the issuer is **pinned to that tenant only**; a token naming another
+  tenant is rejected; it **can never confer platform roles** (asserted roles are stripped; authority only from
+  recorded grants — FND-1/FND-3/FND-15). The operator's floor is **infrastructure policy only**: minimum assurance
+  level, protocol and algorithm requirements (signed OIDC ID tokens, alg↔kty match, no `alg:none`), JWKS pinning and
+  key rotation, residency. It is applied equally, with no per-provider approval or veto (ADR-0128, ADR-0129).
+- **Status:** working (reference IdP EdDSA + Keycloak RS256; Ed25519 VCs, wallet live). **Today the operator
+  configures trusted issuers** (ADR-0068, inventory [10]); tenant self-registration under the operator floor is
+  **not built**. The tenant pin and role stripping already hold (`network/authn.py`).
 
 ### Payments — build to contract
 - **North:** `quote`, `authorise`, `capture`, `refund`, `status`; every call cites the consent record from the

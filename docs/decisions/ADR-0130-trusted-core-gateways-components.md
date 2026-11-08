@@ -192,7 +192,7 @@ hands it for that call. The detailed rules are in [GATEWAY-v0.1](../specs/GATEWA
 | **Conversation channels (inbound)** | Telegram inbound [5], SMS/USSD/message intake [6] incl. **DEBT-B64**; future WhatsApp, IVR | tenant (Telegram); **operator** for the SMS gateway today | the south side receives provider callbacks; the north side delivers **authenticated, tenant-bound** messages. Telegram works without a rate limit on the public door (**DEBT-B46**); the SMS gateway uses one operator secret in Vault (**DEBT-B64**, target per-provider per-tenant signed webhooks) |
 | **AI models** | chat / completion + embeddings [1], speech-to-text [2] | tenant (sets key) over governance-recorded `intelligence.provider` records | working; **no consent, cost cap or rate limit** (inventory C-1 → **DEBT-B71**); STT falls back to an ungoverned bootstrap env provider (inventory C-2 → **DEBT-B72**) |
 | **Data sources** | drivers [8], cameras / RTSP [9], Earth observation [8] | tenant (installs the driver, sets the key) | working in the confined path; **DEBT-B65** (Earth Engine SDK opens its own sockets), **DEBT-B66** (RTSP dialled directly by ffmpeg), **DEBT-B67** (in-process runtime skips `broker.egress()`); B51/B52 |
-| **Identity** | external identity providers [10], verifiable credentials [11] | **operator** configures trusted external issuers (ADR-0068); VC issuance by the issuer tenant | working (reference IdP + Keycloak; native Ed25519 VCs). The **home issuer stays core** — only *external* issuers are providers |
+| **Identity** | external identity providers [10], verifiable credentials [11] | **tenant** registers its own external identity provider; the **operator sets the floor** (infrastructure policy only — decided 2026-11-08, see § Resolved questions); VC issuance by the issuer tenant | working (reference IdP + Keycloak; native Ed25519 VCs). Today the operator configures issuers (inventory §10) — the tenant-registration path is to build. The **home issuer stays core** — only *external* issuers are providers |
 | **Payments** | — [16] | tenant | **not built**: build to the contract (north: quote / authorise / capture / refund / status; south: provider adapter). ADR-0067 fee-quote + consent stays a declarative record |
 | **Outbound webhooks** | delivery to tenant-supplied URLs [17] | tenant | **not built** (event-relay is internal only): build to the contract. The automation raw-URL action (DEBT-A43) is moved behind it |
 | **Geo** | maps / basemap / 3D tiles [15], geocoding [18] | tenant | tiles and JS load **browser-direct from CDNs** (**DEBT-B68**); geocoding is local-first. Target: assets self-hosted or **proxied through the edge**, never browser-direct; a content security policy enforces it |
@@ -215,9 +215,9 @@ hands it for that call. The detailed rules are in [GATEWAY-v0.1](../specs/GATEWA
 3. **Federated mail is not a third-party provider.** Its peers are other AirawatOS participants over the Network's
    signed relay (inventory §7). The messaging north contract can address a federated recipient, but the south
    side is the **federation door (core)**, not an installable adapter.
-4. **External identity providers are operator-configured** (inventory §10, ADR-0068). The brief listed identity
-   as tenant-chosen. Kept per the inventory; a tenant's own login system as a scoped external issuer (FND-15) is
-   the path to tenant choice (open question 2).
+4. **External identity providers are operator-configured today** (inventory §10, ADR-0068). The target is
+   tenant-chosen with an operator floor. **Resolved 2026-11-08** (§ Resolved questions, 1); the inventory remains
+   the record of the current state.
 5. **Git hosting is chosen per tenant/project** (inventory §14), not per installation as the brief stated. Kept
    per the inventory (open question 1).
 6. **Inventory summary rows 6 and 13 were stale.** Row 6 still said the SMS gateway uses an env literal (it
@@ -255,10 +255,8 @@ hands it for that call. The detailed rules are in [GATEWAY-v0.1](../specs/GATEWA
   |---|---|
   | messaging, AI models, payments, identity, conversation channels, data-source drivers, geo | file storage, git hosting |
 
-  **Flagged against the inventory:** today external identity providers are **operator-configured**
-  (inventory §10) and git hosting is chosen **per tenant/project** (inventory §14). The inventory is followed as the
-  current state. Moving identity to tenant choice and git hosting to operator choice are changes this ADR proposes,
-  not facts (open questions 1 and 2).
+  **Identity providers** are tenant-chosen with an operator floor. Today they are operator-configured (inventory
+  §10); the change is decided, not yet built (§ Resolved questions, 1).
 - **Preconditions** before any adapter is installable from the marketplace: **B23** (signing/provenance), **B51 +
   B52** (confinement), **network-enforced declared egress** (GTW-11), and the **GTW conformance suite** (GTW-12).
   These go into **FIX-PLAN Layer 7**.
@@ -283,16 +281,31 @@ hands it for that call. The detailed rules are in [GATEWAY-v0.1](../specs/GATEWA
 1. **Git hosting: operator infrastructure or tenant/project choice?** The inventory shows per-project choice
    (ADR-0083). The brief proposed operator infrastructure. Per-project credentials favour tenant choice, while a
    single audited egress point favours the operator.
-2. **External identity providers: operator-configured or tenant-chosen?** Today the operator configures them
-   (ADR-0068). Tenant choice would make a tenant's own login system a scoped external issuer (FND-15). The open
-   point is whether the operator keeps a veto for the shared installation's infrastructure policy (ADR-0129 allows
-   policy, not approval).
 3. **Federated mail placement.** Its south side is the core federation door. Should the messaging north contract
    cover federated recipients, or should federated mail stay a Network operation?
 4. **SMS/USSD gateway chooser.** Operator today (one gateway per installation). Target per-tenant providers
    (DEBT-B64) — is an operator-level default kept as a convenience (allowed by ADR-0129)?
 5. **Core-reserved schemas.** Which schemas are on the list beyond `governance.decision` and `governance.order`
    (e.g. `governance.role_assignment`, `governance.access_grant`)?
+
+## Resolved questions
+
+1. **External identity providers — tenant-chosen; the operator sets the floor** *(decided 2026-11-08)*.
+   - A **tenant may register its own identity provider** (its login system, an OIDC provider, a state identity
+     service). Registration is a tenant-admin act, recorded as a governed binding.
+   - The provider's **issuer is pinned to that tenant only**. A token from it that names another tenant is
+     rejected, and **it can never confer platform roles**: any roles it asserts are stripped. That is FND-15 as
+     enforced today (`authn.register_issuer` pins the tenant; `verify` rejects a mismatch and strips roles). Authority
+     still comes only from recorded grants (FND-1/FND-3).
+   - The **operator sets infrastructure policy only**: for example a minimum assurance level, protocol and
+     algorithm requirements (OIDC with signed ID tokens, no `alg:none`, the alg↔kty match), key-rotation and JWKS
+     pinning rules, and residency. The policy is applied equally to every tenant. There is **no per-provider approval
+     or veto**, consistent with ADR-0128 (each home issuer trusted only for its own participants) and ADR-0129
+     Decision 6 (tenants choose; the platform sets infrastructure policy).
+   - The **home issuer stays core** and is not swappable. A tenant's provider is an *external* issuer behind the
+     identity gateway.
+   - Today the operator configures issuers (inventory §10). Tenant self-registration under the operator floor is
+     the change, tracked in FIX-PLAN Layer 6.
 
 ## Spec changes if accepted
 

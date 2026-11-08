@@ -208,7 +208,10 @@ Order: **Layer 1 independent review → MERGE → repository restructure → Lay
     land as channel adapters.
   - **Data sources:** **DEBT-B65** (SDK egress), **DEBT-B66** (RTSP), **DEBT-B67** (in-process path). All three
     close on network-enforced declared egress (GTW-11, with B51/B52 in Layer 7). `mospi-gateway` becomes an adapter.
-  - **Identity providers:** external issuers behind the identity gateway's north `verify` (FND-15 scoping); the
+  - **Identity providers:** tenant self-registration of its own external identity provider (decided, ADR-0130
+    § Resolved 1): issuer pinned to that tenant, never confers platform roles, under an operator floor of
+    infrastructure policy (minimum assurance, protocol/alg requirements, JWKS pinning, residency); external issuers
+    behind the identity gateway's north `verify` (FND-15 scoping); the
     home issuer stays core.
   - **Build to contract (not built today):** **payments** (quote/authorise/capture/refund/status, consent-cited)
     and **outbound webhooks** (registered + verified targets, signed deliveries; the automation raw-URL action,
