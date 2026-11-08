@@ -1,10 +1,12 @@
 # GATEWAY-v0.1 — Gateways: one door per class of outside party, north and south contracts
 
-> **Per-rule status is generated, not hand-written** — see **[STATUS-MATRIX.md](STATUS-MATRIX.md)**. **GTW rules
-> are not yet in the matrix inventory** (`conformance/build_matrix.py` `INVENTORY`) and no conformance case cites
-> them, so the matrix does not list them yet. The **Status** lines below come from
-> [PROVIDER-INVENTORY](../consolidation/PROVIDER-INVENTORY.md) and are hand-written until the GTW conformance suite
-> exists (GTW-12).
+> **Per-rule status is generated, not hand-written** — see **[STATUS-MATRIX.md](STATUS-MATRIX.md)** (GATEWAY section,
+> slice-1d). Every GTW rule appears there; a rule with no case shows **NO TEST**, never HELD. Cases today: GTW-14
+> (black-box: anonymous / retired-literal intake refused; tenant-from-body reproduced, XFAIL B64), GTW-13 (App Host
+> pages carry a self-only CSP; a bundle loading a third-party origin, XFAIL B68), GTW-4 (model-gateway refuses
+> anonymous; no consent/cost/rate check, XFAIL B71), GTW-3 (provider SDK egress B65 and the automation raw-URL action
+> A43, XFAIL) — static evidence from `verify/gtw_static.py`. The **Status** lines below are prose from
+> [PROVIDER-INVENTORY](../consolidation/PROVIDER-INVENTORY.md); the matrix is authoritative.
 
 **Status:** Draft v0.1 · **Date:** 2026-11-08 · **Decision:** [ADR-0130](../decisions/ADR-0130-trusted-core-gateways-components.md) (Proposed)
 **Builds on:** [[FOUNDATIONS-v0.1]] (FND-3 recorded grants, FND-8 fail-closed, FND-10 least privilege, FND-12

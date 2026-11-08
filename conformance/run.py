@@ -103,8 +103,41 @@ def run_no_cred_cases():
         _gb = {"tenant": "localdev", "from": "+0000", "text": "conformance probe"}
         st_a, _, _ = http("POST", _gp, _gb)
         st_l, _, _ = http("POST", _gp, _gb, headers={"X-Gateway-Token": "sms-gw-" + "demo-2026"})
-        expect("FOUNDATIONS", "FND-8/DEBT-B64", "channel gateway %s refuses anon + the retired baked literal (abuse)" % _gp,
+        expect("FOUNDATIONS", "FND-8/GTW-14/DEBT-B64", "channel gateway %s refuses anon + the retired baked literal (abuse)" % _gp,
                st_a == 403 and st_l == 403, "anon -> %s, retired literal -> %s (want 403/403)" % (st_a, st_l))
+
+    # slice-1d GTW-14 — the tenant must come from the PROVIDER REGISTRATION, never the body. With the (one, operator-
+    # wide) gateway secret set in Vault, an intake naming an ARBITRARY tenant in its body is accepted past the gate =
+    # the violation (DEBT-B64 target: per-provider, per-tenant signed webhooks). The test secret is removed after.
+    _va = (os.environ.get("VAULT_ADDR") or "").rstrip("/"); _vt = os.environ.get("VAULT_TOKEN") or ""
+    _gwpath = "secret/data/%s-operator/sms-gateway/token" % (REALM.rsplit("-", 1)[0] if REALM.endswith("-network") else REALM)
+    if _va and _vt:
+        _gsec = "conformance-gw-" + base64.urlsafe_b64encode(os.urandom(9)).decode().rstrip("=")
+        _req("POST", _va + "/v1/" + _gwpath, body={"data": {"token": _gsec}}, headers={"X-Vault-Token": _vt})
+        # app-host caches a FOUND secret for 60s (an absent one for 5s): a secret left by an earlier run can still be
+        # cached, so poll up to 70s until the App Host has re-read Vault, rather than one fixed wait.
+        _deadline = time.time() + 70; st_t = 403
+        while time.time() < _deadline:
+            time.sleep(5)
+            st_t, _, _ = http("POST", "/bridge/message-intake", {"tenant": "conformance-arbitrary-tenant", "channel": "test",
+                                                                 "from": "+0000", "text": "probe"}, headers={"X-Gateway-Token": _gsec})
+            if st_t != 403:
+                break
+        _req("DELETE", _va + "/v1/" + _gwpath.replace("/data/", "/metadata/", 1), headers={"X-Vault-Token": _vt})
+        xfail("FOUNDATIONS", "GTW-14/DEBT-B64", "inbound channel binds the tenant from the provider registration, not the body",
+              st_t != 403, "valid gateway secret + body tenant 'conformance-arbitrary-tenant' -> %s (not refused = tenant taken "
+              "from the body; DEBT-B64)" % st_t)
+    else:
+        record("FOUNDATIONS", "GTW-14/DEBT-B64", "inbound channel binds the tenant from the provider registration, not the body",
+               "expected-fail", "SKIP_CREDS", "no VAULT_ADDR/VAULT_TOKEN to set the gateway secret")
+
+    # slice-1d GTW-13 — App Host pages restrict script/connect origins with a content security policy (black-box).
+    _stl, _, _hl = http("GET", "/login")
+    _csp = {k.lower(): v for k, v in (_hl or {}).items()}.get("content-security-policy", "")
+    expect("FOUNDATIONS", "GTW-13", "App Host page carries a self-only content security policy (no third-party script origin)",
+           _stl == 200 and "default-src 'self'" in _csp and "https:" not in _csp.split("script-src")[-1].split(";")[0]
+           if "script-src" in _csp else _stl == 200 and "default-src 'self'" in _csp,
+           "GET /login -> %s CSP=%r" % (_stl, _csp[:120]))
 
     st, _, _ = http("POST", "/login", {"realm": REALM, "username": "admin", "password": "admin"})
     expect("ACCOUNT", "DEBT-A4", "handle/username is not a credential (abuse)", st in (401, 403),
@@ -588,7 +621,7 @@ def run_internal_cases():
     if _m_anon == 0:
         record("FOUNDATIONS","FND-10/DEBT-B5","model-gateway /complete refuses an anonymous call (abuse)","expected-fail","SKIP_BUILD","model-gateway unreachable")
     else:
-        expect("FOUNDATIONS","FND-10/DEBT-B5","model-gateway /complete refuses an anonymous call (abuse)", _m_anon in (401,403),
+        expect("FOUNDATIONS","FND-10/GTW-4/DEBT-B5","model-gateway /complete refuses an anonymous call (abuse)", _m_anon in (401,403),
                "anon /complete -> %s (ENFORCE — slice-1c-ii)" % _m_anon)
     if _fs_wrong:
         _stmw, _bmw, _ = _req("POST", T["model-gateway"]+"/complete", body={"messages":[{"role":"user","content":"x"}]}, token=_fs_wrong)
@@ -1143,7 +1176,7 @@ def run_apphost_review_cases():
 
 # ============================ runner ============================
 import re as _re
-_SPEC_RULE_RE = _re.compile(r"\b(?:FND|REG|DEC|NET|CLI|PLT|CMP|OFF|POL|PTC)-\d+[a-z]?\b|\bACC-W?\d+\b|\bFED\d+\b")
+_SPEC_RULE_RE = _re.compile(r"\b(?:FND|REG|DEC|NET|CLI|PLT|CMP|OFF|POL|PTC|GTW)-\d+[a-z]?\b|\bACC-W?\d+\b|\bFED\d+\b")
 def _rules_of(rule_field):
     """Spec-rule IDs a case cites (from its slash-tagged rule label); excludes DEBT-*/FIND-*/ADR-* refs."""
     return sorted(set(_SPEC_RULE_RE.findall(rule_field or "")))

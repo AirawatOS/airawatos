@@ -22,7 +22,7 @@ OUT_JSON = os.path.join(REPO, "docs", "specs", "STATUS-MATRIX.json")
 
 # Full rule inventory per spec (so rules with no test show NO TEST, not silently absent). Numbers per README.
 INVENTORY = [
-    ("FOUNDATIONS", "FND", [str(i) for i in range(1, 18)]),
+    ("FOUNDATIONS", "FND", [str(i) for i in range(1, 20)]),   # FND-1..FND-19 (FND-18 horizontal safety, FND-19 core-reserved kinds)
     ("REGISTRY",    "REG", [str(i) for i in range(1, 19)]),
     ("DECISION",    "DEC", [str(i) for i in range(1, 13)]),
     ("NETWORK",     "NET", [str(i) for i in range(1, 13)]),
@@ -35,6 +35,7 @@ INVENTORY = [
     ("PARTICIPANT", "PTC", [str(i) for i in range(1, 13)]),
     ("FEDERATION",  "FED", [str(i) for i in range(1, 9)]),
     ("ARCHITECTURE","ARC", [str(i) for i in range(1, 8)]),   # ARC-1..ARC-7 (ARCHITECTURE-FLOWS; flow-map test)
+    ("GATEWAY",     "GTW", [str(i) for i in range(1, 15)]),  # GTW-1..GTW-14 (GATEWAY-v0.1, ADR-0130) — slice-1d
 ]
 def rid(prefix, n):  # FND + "8" -> FND-8 ; FED + "3" -> FED3 (FED carries no hyphen)
     return ("%s%s" if prefix == "FED" else "%s-%s") % (prefix, n)
