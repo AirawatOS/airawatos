@@ -1,32 +1,47 @@
 {
  "_meta": {
-  "note": "slice-1g (DEBT-B80/B94): images built from the repositories with --no-cache. image_id = the local image config digest (no registry digest until pushed). verify/images_test.py checks the local tag and every running container against these ids. Rebuild: see each Dockerfile header.",
-  "amd64": "platform-spec/Dockerfile.reference resolves and installs every locked dependency for linux/amd64 (buildx, QEMU on an arm64 host); the import smoke test then segfaults under QEMU emulation (signal 11 in a native extension) \u2014 a NATIVE amd64 build (CI runner) is still required to record an amd64 digest. Open on DEBT-B94."
+  "note": "slice-1h (DEBT-B101): built FROM GIT ONLY by deploy/build-images.sh (git archive of each repo's committed HEAD; nothing untracked can enter). image_id = local image config digest. verify/images_test.py checks the tag, the running containers and that /app equals the git tree.",
+  "amd64": "native amd64 build still required (DEBT-B114, pre-production)."
  },
  "images": {
-  "manishsv/airawatos-reference:1g": {
+  "manishsv/airawatos-reference:1h": {
    "dockerfile": "platform-spec/Dockerfile.reference",
-   "context": ".",
-   "git_revision": "674af9d0f77c64f97be22cc6d332b1a6418081a9",
-   "image_id": "sha256:86a920db4e90b7fde0c50e5882e0242ef5be79025fd4dbc927a49208cdc03daf",
+   "context": "git archive (workspace)",
+   "git_revision": "98b0e7230f6a99b5d7f469eec6caa6e730258143",
+   "sources": {
+    "root": "52d3983d60cca0155d1ff858a7d2eb6a7509f9f5",
+    "platform-spec": "98b0e7230f6a99b5d7f469eec6caa6e730258143",
+    "components": "8cef04a15c2ac31ea42d4a6a5e1cdcc617e56f94"
+   },
+   "image_id": "sha256:c47eacdff0678cd9451602be4ca7dbebe0e3a1d7277a2c14e484c3cdea4cef25",
    "platform": "linux/arm64",
    "base": "python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535",
    "built": "2026-11-08"
   },
-  "manishsv/airawatos-kernel:1g": {
+  "manishsv/airawatos-kernel:1h": {
    "dockerfile": "kernel/deploy/Dockerfile",
-   "context": "kernel",
-   "git_revision": "cfe00e9ddf3a6215edc72c65240bb82c855cf457",
-   "image_id": "sha256:94d75d9c828c4cfdf8c9c5a8e1f19d57723c683cfbfea990b44ef3753abccb46",
+   "context": "git archive (kernel)",
+   "git_revision": "b3b6373477bf09f22ed64528b69b04b0ed8ef5fc",
+   "sources": {
+    "root": "52d3983d60cca0155d1ff858a7d2eb6a7509f9f5",
+    "platform-spec": "98b0e7230f6a99b5d7f469eec6caa6e730258143",
+    "kernel": "b3b6373477bf09f22ed64528b69b04b0ed8ef5fc"
+   },
+   "image_id": "sha256:26363761f0aeba5cbceddd7ed3435de4dfd162c16771806c3bd1cfa498af28d0",
    "platform": "linux/arm64",
    "base": "python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535",
    "built": "2026-11-08"
   },
-  "manishsv/airawatos-network:1g": {
+  "manishsv/airawatos-network:1h": {
    "dockerfile": "network/deploy/Dockerfile",
-   "context": "network",
-   "git_revision": "05fef4a44e1b94041d35e0ea488975788118c7b7",
-   "image_id": "sha256:cdb541d8aac36fa121b78fc2e88f171d05db967402ac8a58ecea715d7598b41e",
+   "context": "git archive (network)",
+   "git_revision": "0c9b094a3573a2febf97757db23083c1112507d5",
+   "sources": {
+    "root": "52d3983d60cca0155d1ff858a7d2eb6a7509f9f5",
+    "platform-spec": "98b0e7230f6a99b5d7f469eec6caa6e730258143",
+    "network": "0c9b094a3573a2febf97757db23083c1112507d5"
+   },
+   "image_id": "sha256:3f9657baf578d9d48eb21f399c6f5ab4c10cca55be19bbe2a1986f7f7871e4a9",
    "platform": "linux/arm64",
    "base": "python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535",
    "built": "2026-11-08"

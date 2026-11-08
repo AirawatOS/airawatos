@@ -68,7 +68,8 @@ for img, r in rec["images"].items():
     if not all(k in srcs for k in ("platform-spec", "components")):
         continue
     def tree(repo, sha, sub, dest):
-        out = subprocess.run(["git", "-C", os.path.join(ROOT, repo), "ls-tree", "-r", "--name-only", sha, sub], capture_output=True, text=True).stdout.split()
+        out = subprocess.run(["git", "-C", os.path.join(ROOT, repo), "ls-tree", "-r", "--name-only", sha] + ([sub] if sub else []),
+                             capture_output=True, text=True).stdout.split()
         return {dest + f[len(sub):] for f in out}
     want = tree("platform-spec", srcs["platform-spec"], "reference", "reference") | {
         f for f in tree("components", srcs["components"], "", "components/") if not f.split("/")[1] in STRIP}
