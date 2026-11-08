@@ -181,6 +181,46 @@ to shadow.
 
 ---
 
+### 4.1 Governing schemas and calling the Network from operator scripts (slice-1d / slice-1f)
+
+**What changed.** The Network no longer signs anything for an anonymous caller, and its internal doors are internal:
+
+| Call | Now requires | Since |
+|---|---|---|
+| `POST /v1/schemas` (direct, authority-signed schema) | a bearer for an **admin of the network authority** | slice-1d (DEBT-B73) |
+| `POST /v1/solutions` | the **publisher** of the solution id (its steward, or `component.publisher` on-behalf-of) | slice-1d |
+| `POST /v1/tenants/rehost` | an admin of the network authority | slice-1d |
+| the 13 internal lookups (`tenants/resolve`, `directory/resolve`, `grants/resolve`, `schemas/resolve`, `store/resolve`, `certificates/resolve`, `keys/resolve`, …) | an `svc:network` **service** token from a declared platform service — **not callable by operator scripts** | slice-1f |
+| lists with personal / institutional data (`join`, `credentials`, `tenants`, `participants`, request queues, …) | any bearer; rows are scoped to the caller's tenant, full lists to authority admins | slice-1f |
+
+An anonymous call now gets **401**; a wrong caller **403**.
+
+**The governed path for a schema (use this, not a direct publish):**
+1. Get a bearer: `TOKEN=$(curl -s -XPOST $IDENTITY/realms/<tenant>/login -H 'Content-Type: application/json' -d '{"username":"admin","password":"…"}' | jq -r .access_token)`.
+2. **Propose:** `POST /v1/schema-requests` `{schema_id, version, definition, sensitivity}` with the proposer's bearer
+   (a developer / publisher of the tenant that will own it).
+3. **Decide:** `POST /v1/schema-requests/decide` `{schema_id, version, decision: "approve"}` with an
+   **authority-admin** bearer. The Network lints the definition, signs it, and publishes it. The approval is
+   recorded (`decided_by`).
+4. **Read** it back from the public catalogue `GET /v1/schemas` (not `schemas/resolve`, which is internal now).
+
+**Known limitation:** the authority-admin gate (and therefore steps 3 above and the direct publish) is bound to
+the hardcoded authority tenant `airawat` (`network/api.py` `AUTHORITY_TENANT`). On an installation whose authority
+tenant has another name (e.g. local-dev's `localdev-network`) no bearer satisfies it, so schemas are governed
+**in-process at install** (`seed_base`, Trust-plane schema seeding). That is a production-pointing default
+(FND-16), tracked in FIX-PLAN Layer 4.
+
+**Scripts that must change** (they post or read without a token, or read an internal lookup):
+
+| Script | What it does today | Change |
+|---|---|---|
+| `platform-spec/reference/govern_fsnode.py`, `platform-spec/reference/seeds/govern_verb_binding_schema.py` | anonymous `POST /v1/schemas` | governed path above, or run in-process at install |
+| `platform-spec/deploy/ec2/govern_metering.py`, `vision_govern.py`, `vms_govern.py` | `schema-requests` + `decide`, list `GET /v1/schemas` | pass the proposer / authority-admin bearers (steps 2–3) |
+| `platform-spec/deploy/ec2/recert.py` | `certificates/resolve` (internal) | read certificates through `GET /v1/store` / the certify response, or run inside the Network container |
+| `platform-spec/reference/tools/wire_subscriptions.py` | `GET /v1/interfaces/bindings` (internal) | run as a platform service or inside the Network container |
+| `components/tools/govern_*.py`, `seed_archetype_presence.py`, `components/solutions/*/govern_*.py`, `fix_works_payment.py`, `basic-apps/register.py`, `components/demos/worker-career-passport/run.py` | direct `POST /v1/schemas` / `/v1/solutions`, `schemas/resolve` | governed path with bearers; read via `GET /v1/schemas`; register solutions with the publisher's bearer |
+| `network/demo_portability.py` | `tenants/rehost`, `tenants/resolve`, `directory/resolve` (demo) | demo only — needs an authority-admin bearer and in-container execution |
+
 ## 5. Standing rules (always)
 
 From `docs/OPERATING-RULES.md` and the 2026-11-03 incident:
