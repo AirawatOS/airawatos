@@ -83,7 +83,7 @@ TOKEN_ROLES = re.compile(r"""(?x)
 LITERAL_GATE = re.compile(r"""X-Internal-Token|_INTERNAL["']\s*,\s*["'][^"']+["']|INTERNAL_TOKEN\s*=\s*["'][^"']+["']"""
                           r"""|-H\s*["'](X-[A-Za-z-]*Token|Authorization):\s*(Bearer\s+)?[A-Za-z0-9][^"'$\s]*["']""")   # literal token header
 # a secret-bearing NAME (not an audience / URL / path / Vault key-name / file reference) with a literal default value
-_SECRET_NAME = r"[A-Z0-9_]*(PASSWORD|PASSWD|SECRET|TOKEN|API_KEY)(?!_(AUDIENCE|AUD|URL|FILE|PATH|VAULT_PATH|TTL|NAME|REQUIRED|HEADER)\b)(?![A-Z0-9_]*(AUDIENCE|_AUD\b|_URL|_FILE|_PATH|KEY_SECRET|_MOUNT|_READERS|_CALLERS))[A-Z0-9_]*"
+_SECRET_NAME = r"[A-Z0-9_]*(PASSWORD|PASSWD|SECRET|TOKEN|API_KEY)(?!_(AUDIENCE|AUD|URL|FILE|PATH|VAULT_PATH|TTL|NAME|REQUIRED|HEADER)\b)(?![A-Z0-9_]*(AUDIENCE|_AUD\b|_URL|_FILE|_PATH|KEY_SECRET|_MOUNT|_READERS|_CALLERS|_PERIOD|_TTL))[A-Z0-9_]*"
 DEFAULT_SECRET_PY = re.compile(r"""os\.(?:environ\.get|getenv)\(\s*["'](""" + _SECRET_NAME + r""")["']\s*,\s*["']([^"'/][^"']*)["']""")
 # slice-1g (DEBT-B92 / review N3) — the forms that evaded the literal checks:
 OR_LITERAL_PY = re.compile(r"""os\.(?:environ\.get|getenv)\(\s*["'](""" + _SECRET_NAME + r""")["'][^)]*\)\s*or\s*["']([^"'/\s][^"']*)["']""")   # env or "lit"
@@ -290,7 +290,8 @@ SELFTEST_NEG = [  # (pattern, a line it must NOT catch) — the broadened patter
     (SHELL_ASSIGN, 'export VAULT_TOKEN="$(cat /vault/token)"'),
     (DSN_CRED, 'DSN = f"postgresql://{user}:{pw}@{host}/db"'),
     (OR_LITERAL_PY, 'tok = os.environ.get("VAULT_TOKEN") or ""'),
-    (DEFAULT_SECRET_PY, 'CMOUNT = os.environ.get("COMPONENT_SECRETS_MOUNT", "components")'),   # a mount NAME, not a secret
+    (DEFAULT_SECRET_PY, 'CMOUNT = os.environ.get("COMPONENT_SECRETS_MOUNT", "components")'),
+    (SHELL_DEFAULT, 'token_period=${AOS_VAULT_TOKEN_PERIOD:-1h}'),                                   # a duration, not a secret (R7-6)   # a mount NAME, not a secret
     (OR_LITERAL_PY, 'R = (os.environ.get("RUN_TOKEN_READERS") or "scheduler")'),                   # a caller list
     (OR_LITERAL_PY, 'A = (os.environ.get("SECRETS_ACCEPT_AUD") or "svc:secrets")'),               # an audience
 ]

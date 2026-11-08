@@ -48,7 +48,12 @@ check("a missing Phase-8 network record fails the phase", "localdev network not 
 
 # 3. live fault injection
 if "--live" in sys.argv:
+    # slice-1h (R7-6): fault runs start from an EMPTY slate — an installed stack has scrubbed its admin bootstrap password,
+    # so a re-install would stop before the phase under test. The fresh-install net that follows rebuilds the stack.
+    _C = ["docker", "compose", "-p", "airawatos-localdev", "--project-directory", os.path.join(ROOT, "deploy/local-dev"),
+          "-f", os.path.join(ROOT, "deploy/local-dev/docker-compose.dev.yml")]
     for phase in ("Phase 1a", "Phase 8"):
+        subprocess.run(_C + ["down", "-v", "--remove-orphans"], capture_output=True)
         r = subprocess.run(["bash", INSTALL, "--profile", "dev"], capture_output=True, text=True,
                            env={**os.environ, "AOS_INSTALL_FAULT": phase}, cwd=os.path.dirname(INSTALL), timeout=1800)
         out = r.stdout + r.stderr

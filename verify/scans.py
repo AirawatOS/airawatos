@@ -105,20 +105,39 @@ def vulns():
             new += [f"{key}:{c}" for c in fresh]
             res["images"][key] = {**r, "debt": (bimg.get(key) or {}).get("debt", "UNTRIAGED")}
             print(f"  {'✗' if fresh else '·'} {key:48} CRITICAL {len(r['critical'])} ({len(fresh)} NEW)  HIGH {r['high']}  [{res['images'][key]['debt']}]")
-        print("▶ vulnerabilities (trivy fs) — repository dependency manifests (HIGH+CRITICAL fail)")
+        print("▶ vulnerabilities (trivy fs) — every tracked Python dependency manifest (HIGH+CRITICAL fail)")
+        # slice-1h (re-review R7-1): trivy does not read `requirements.lock`, so the old repo-wide fs scan found NO language
+        # file and passed vacuously. Every tracked requirements*.txt / *.lock is now STAGED as a requirements.txt trivy
+        # recognises, and each scan must list as many packages as the manifest pins — or the case fails.
+        import shutil
+        stage = os.path.join(td, "manifests")
         for name, src in REPOS.items():
-            sh(["docker", "run", "--rm", "-v", f"{os.path.join(ROOT, src)}:/src:ro", "-v", f"{CACHE}:/root/.cache", "-v", f"{td}:/out",
-                TRIVY, "fs", "--quiet", "--scanners", "vuln", "--skip-dirs", "/src/.venv", "--skip-dirs", "/src/kernel",
-                "--skip-dirs", "/src/network", "--skip-dirs", "/src/platform-spec", "--skip-dirs", "/src/components",
-                "--severity", "HIGH,CRITICAL", "--format", "json", "-o", f"/out/fs-{name}.json", "/src"])
-            try:
-                d = json.load(open(os.path.join(td, f"fs-{name}.json")))
-                items = sorted({f"{v['PkgName']}@{v['InstalledVersion']}:{v['VulnerabilityID']}" for x in d.get("Results", [])
-                                for v in x.get("Vulnerabilities") or []})
-            except Exception:
-                items = ["scan-failed"]
+            ls = sh(["git", "-C", os.path.join(ROOT, src), "ls-files"]).stdout.split()
+            mans = [f for f in ls if re.search(r"(^|/)requirements[^/]*\.(txt|lock)$", f) and "node_modules" not in f]
+            items, scanned, expected = [], 0, 0
+            for i, f in enumerate(mans):
+                pins = [l for l in open(os.path.join(ROOT, src, f)) if re.match(r"^[A-Za-z0-9_.\[\]-]+==", l.strip())]
+                if not pins:
+                    continue
+                d = os.path.join(stage, name, str(i)); os.makedirs(d, exist_ok=True)
+                shutil.copy(os.path.join(ROOT, src, f), os.path.join(d, "requirements.txt"))
+                expected += len(pins)
+            if expected:
+                sh(["docker", "run", "--rm", "-v", f"{os.path.join(stage, name)}:/src:ro", "-v", f"{CACHE}:/root/.cache", "-v", f"{td}:/out",
+                    TRIVY, "fs", "--quiet", "--scanners", "vuln", "--list-all-pkgs", "--severity", "HIGH,CRITICAL",
+                    "--format", "json", "-o", f"/out/fs-{name}.json", "/src"])
+                try:
+                    d = json.load(open(os.path.join(td, f"fs-{name}.json")))
+                    scanned = sum(len(x.get("Packages") or []) for x in d.get("Results", []))
+                    items = sorted({f"{v['PkgName']}@{v['InstalledVersion']}:{v['VulnerabilityID']}" for x in d.get("Results", [])
+                                    for v in x.get("Vulnerabilities") or []})
+                except Exception:
+                    items = ["scan-failed"]
+                if scanned < expected:
+                    items = items + ["scan-incomplete: %d of %d pinned packages scanned" % (scanned, expected)]
             res["manifests"][name] = items; new += [f"{name}:{i}" for i in items]
-            print(f"  {'✗' if items else '·'} {name:14} {len(items)} HIGH/CRITICAL in dependency manifests")
+            print(f"  {'✗' if items else '·'} {name:14} {len(mans)} manifest(s), {scanned}/{expected} pinned packages scanned, "
+                  f"{len([i for i in items if not i.startswith('scan-')])} HIGH/CRITICAL")
     return res, new
 
 
@@ -158,7 +177,7 @@ def main():
         res, new = vulns()
         # slice-1h (B99): every image the stack runs and every repository manifest must have produced a scan
         _exp_img, _got_img = len(images()), len(res["images"])
-        _failed_fs = [k for k, v in res["manifests"].items() if v == ["scan-failed"]]
+        _failed_fs = [k for k, v in res["manifests"].items() if any(str(i).startswith("scan-") for i in v)]
         cases.append({"case": "trivy scanned every stack image (%d/%d) and every repository manifest (%d/%d)" % (
                           _got_img, _exp_img, len(res["manifests"]) - len(_failed_fs), len(REPOS)),
                       "rules": ["FND-16"], "result": "PASS" if (_got_img == _exp_img and _exp_img > 0 and not _failed_fs

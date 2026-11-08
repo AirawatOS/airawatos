@@ -62,8 +62,14 @@ for s in json.loads(os.environ["SVCS"]):
     st, b = req("POST", "http://identity:8093/login", {"username": s, "tenant": "localdev-operator", "password": pw, "aud": "svc:network"})
     toks[s] = json.loads(b).get("access_token", "") if st == 200 else ""
 out = {"tokens": {k: bool(v) for k, v in toks.items()}, "doors": {}, "lists": {}}
+BODY = {"/v1/keys/resolve": {"id": "ds:localdev-network:authority"}, "/v1/certificates/resolve": {"subject_id": "ds:localdev:probe"},
+        "/v1/directory/resolve": {"participant_id": "ds:localdev:steward"}, "/v1/tenants/resolve": {"tenant_id": "localdev"},
+        "/v1/grants/resolve": {"tenant": "localdev", "component_id": "ds:localdev:probe"}, "/v1/schemas/resolve": {"schema_id": "platform.inbox_item"},
+        "/v1/interfaces/resolve": {"interface_id": "probe"}, "/v1/jurisdictions/resolve": {"code": "IN"}, "/v1/packs/resolve": {"pack_id": "probe"},
+        "/v1/receipts/data-read": {"receipt": {}}, "/v1/resolve": {"ref": "ds:localdev:probe"},
+        "/v1/service-offerings/resolve": {"service_id": "probe"}, "/v1/store/resolve": {"component_id": "ds:localdev:probe"}}
 for d in json.loads(os.environ["DOORS"]):
-    out["doors"][d] = {s: (req("POST", "http://localhost:8090" + d, {}, toks[s])[0] if toks[s] else None) for s in toks}
+    out["doors"][d] = {s: (req("POST", "http://localhost:8090" + d, BODY.get(d, {}), toks[s])[0] if toks[s] else None) for s in toks}
 for l in json.loads(os.environ["LISTS"]):
     res = {}
     for s in toks:
@@ -101,6 +107,9 @@ rec("the declared table covers every internal door in the Network code (and no o
 for d in doors:
     acc = {s for s, st in O["doors"][d].items() if st not in (None, 0, 401, 403)}
     dec = DECLARED[("door", d)]
+    # slice-1h (re-review R6-8): a 5xx for a DECLARED caller is a broken door, not an admission
+    crashed = sorted(x for x, st in O["doors"][d].items() if x in dec and isinstance(st, int) and st >= 500)
+    rec("%s answers its declared callers without a server error" % d, not crashed, "5xx for %s" % (crashed or "none"))
     rec("%s admits exactly %s" % (d, sorted(dec) or "nobody"), acc == dec,
         "accepted %s; undeclared admitted %s; declared refused %s; statuses %s"
         % (sorted(acc), sorted(acc - dec), sorted(dec - acc), O["doors"][d]))

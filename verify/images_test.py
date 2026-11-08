@@ -42,6 +42,21 @@ for df, lock in DOCKERFILES.items():
     tools = [(m.group(1), m.group(2) or "") for g in segs for m in
              re.finditer(r"(?<![\w./-])(pip|setuptools|wheel)(==[^\s]+)?(?=\s|$)", g.split("pip install", 1)[1])]
     check(all(v.startswith("==") for _, v in tools), f"{df}: pip tooling pinned ({tools})")
+    # slice-1h (R7-3): EVERY pip install installs only pinned `name==ver` or `-r <the lock>` — an extra unpinned install fails
+    loose = []
+    for g in segs:
+        toks = g.split("pip install", 1)[1].split()
+        i = 0
+        while i < len(toks):
+            t = toks[i]
+            if t in ("-r", "--requirement"):
+                if not toks[i + 1:i + 2] or not toks[i + 1].endswith(".lock"):
+                    loose.append("-r " + "".join(toks[i + 1:i + 2]))
+                i += 2; continue
+            if not t.startswith("-") and t not in ("&&", "\\") and not re.match(r"^[A-Za-z0-9_.\[\]-]+==\S+$", t):
+                loose.append(t)
+            i += 1
+    check(not loose, f"{df}: every pip install is pinned or from the lock (unpinned: {loose[:5]})")
 
 rec = json.load(open(LOCK)) if os.path.exists(LOCK) else {"images": {}}
 compose = open(os.path.join(ROOT, "deploy/local-dev/docker-compose.dev.yml")).read()
@@ -67,16 +82,24 @@ for img, r in rec["images"].items():
     check(all(k in srcs for k in ("root", "platform-spec", "components")), f"{img}: every source repository SHA recorded ({sorted(srcs)})")
     if not all(k in srcs for k in ("platform-spec", "components")):
         continue
-    def tree(repo, sha, sub, dest):
-        out = subprocess.run(["git", "-C", os.path.join(ROOT, repo), "ls-tree", "-r", "--name-only", sha] + ([sub] if sub else []),
-                             capture_output=True, text=True).stdout.split()
-        return {dest + f[len(sub):] for f in out}
-    want = tree("platform-spec", srcs["platform-spec"], "reference", "reference") | {
-        f for f in tree("components", srcs["components"], "", "components/") if not f.split("/")[1] in STRIP}
-    got = set(subprocess.run(["docker", "run", "--rm", "--network", "none", "--entrypoint", "sh", img, "-c",
-                              "cd /app && find reference components -type f -not -path '*/__pycache__/*'"], capture_output=True, text=True).stdout.split())
-    extra, missing = sorted(got - want), sorted(want - got)
-    check(bool(got) and not extra and not missing, f"{img}: /app equals the git tree ({len(got)} files; untracked in image: {extra[:6]}; missing: {missing[:6]})")
+    def tree(repo, sha, sub, dest):   # path -> git blob id (content identity)
+        out = subprocess.run(["git", "-C", os.path.join(ROOT, repo), "ls-tree", "-r", sha] + ([sub] if sub else []),
+                             capture_output=True, text=True).stdout.splitlines()
+        res = {}
+        for l in out:
+            meta, path = l.split("\t", 1)
+            res[dest + path[len(sub):]] = meta.split()[2]
+        return res
+    want = tree("platform-spec", srcs["platform-spec"], "reference", "reference")
+    want.update({f: h for f, h in tree("components", srcs["components"], "", "components/").items() if f.split("/")[1] not in STRIP})
+    _H = ("import hashlib,os\nfor d in ('reference','components'):\n for r,_,fs in os.walk('/app/'+d):\n  if '__pycache__' in r: continue\n"
+          "  for f in fs:\n   p=os.path.join(r,f); b=open(p,'rb').read()\n   print(hashlib.sha1(b'blob %d\\0'%len(b)+b).hexdigest(), os.path.relpath(p,'/app'))")
+    got = dict(reversed(l.split(" ", 1)) for l in subprocess.run(["docker", "run", "--rm", "--network", "none", "--entrypoint", "python3", img, "-c", _H],
+                                                                  capture_output=True, text=True).stdout.splitlines() if " " in l)
+    extra, missing = sorted(set(got) - set(want)), sorted(set(want) - set(got))
+    changed = sorted(f for f in set(got) & set(want) if got[f] != want[f])
+    check(bool(got) and not extra and not missing and not changed,
+          f"{img}: /app equals the git tree BY CONTENT ({len(got)} files; untracked: {extra[:4]}; missing: {missing[:4]}; content differs: {changed[:4]})")
 ps = subprocess.run(["docker", "ps", "--filter", "name=airawat-ld-", "--format", "{{.Names}}\t{{.Image}}"], capture_output=True, text=True).stdout
 for line in ps.splitlines():
     name, img = line.split("\t")

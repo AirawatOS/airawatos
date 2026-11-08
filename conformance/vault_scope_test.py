@@ -179,6 +179,26 @@ def main():
         ok_all &= rec("ARC-7", "network: CANNOT read another operator-realm secret (grant is exact)",
                       o.get("FOREIGN") == "403", "%s -> %s (want 403)" % (foreign, o.get("FOREIGN")))
 
+    # slice-1h (re-review R7-5): EVERY service is checked against EVERY platform credential (not one sample foreign path)
+    # — it may read ONLY its documented own set; widening a policy to any other credential fails here.
+    OWN = {
+        "kernel": {"localdev/kernel-app", "localdev-operator/kernel"},
+        "network": {"localdev/network-app", "localdev-network/trust-reader", "localdev-network/trust-writer",
+                    "localdev-network/trust-plane", "localdev-operator/provisioner"},
+        "identity": {"localdev/identity-lockout", "localdev-operator/admin", "localdev-operator/provisioner"},
+        "scheduler": {"localdev-operator/scheduler"}, "automation": {"localdev-operator/scheduler"},
+        "event-relay": {"localdev-operator/scheduler"},
+        "app-host": {"localdev-operator/app-host", "localdev-network/component-publisher"},
+        "decision": {"localdev-operator/decision"}, "workflow": {"localdev-operator/workflow"},
+        "runtime-manager": {"localdev-operator/launcher"},
+    }
+    for svc, own in OWN.items():
+        cp = caps(svc, PLATFORM_CREDS)["CAP"]
+        readable = sorted(c.split("secret/data/", 1)[1].rsplit("/", 1)[0] for c in PLATFORM_CREDS if granted(cp.get(c)))
+        extra = sorted(set(readable) - own)
+        ok_all &= rec("ARC-7", "%s reads ONLY its own platform credentials (all %d checked)" % (svc, len(PLATFORM_CREDS)),
+                      not extra, ("reads foreign: %s" % extra) if extra else ("readable: %s" % (readable or "none")))
+
     # slice-1g (DEBT-B89): brokers refused on EVERY platform credential (read and write, data and metadata), and an
     # ACTUAL read attempt on each must return 403. Positive: each broker can still write+read its component mount.
     for svc, comp in list(BROKERS.items()) + [("app-host", None)]:

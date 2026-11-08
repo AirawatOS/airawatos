@@ -44,8 +44,25 @@ def vroot(*args):
     return sh("docker", "exec", "-e", "VAULT_TOKEN=" + vr, "-e", "VAULT_ADDR=http://127.0.0.1:8200", "airawat-ld-vault", *args)
 
 
+def _volumes():
+    cfg = json.loads(sh(*C, "config", "--format", "json").stdout)
+    return sorted(cfg.get("volumes", {}))
+
+
+_TAR_IMG = None
+
+
+def _volmark(v, write=False):
+    """slice-1h (R7-2): EVERY durable volume carries a marker file — a volume left out of the backup set loses it."""
+    global _TAR_IMG
+    if not _TAR_IMG:
+        _TAR_IMG = json.loads(sh(*C, "config", "--format", "json").stdout)["services"]["vault"]["image"]
+    cmd = ("echo %s > /v/.drill-%s" % (TAG, TAG)) if write else ("cat /v/.drill-%s 2>/dev/null" % TAG)
+    return sh("docker", "run", "--rm", "--user", "0:0", "--entrypoint", "sh", "-v", "%s_%s:/v" % (P, v), _TAR_IMG, "-c", cmd).stdout.strip()
+
+
 def marks():
-    m = {}
+    m = {"vol:" + v: _volmark(v) for v in _volumes()}
     m["citizen"] = TAG in sh("docker", "exec", "airawat-ld-identity", "sh", "-c", "cat /data/identity/identity-users.json").stdout
     m["vault_secret"] = vroot("vault", "kv", "get", "-field=value", "components/drill/" + TAG).stdout.strip()
     m["registry_rows"] = sh("docker", "exec", "airawat-ld-postgres", "sh", "-c",
@@ -62,8 +79,11 @@ reg = net_py("import json,urllib.request;r=urllib.request.Request('http://identi
 vroot("vault", "kv", "put", "components/drill/" + TAG, "value=" + TAG)
 sh("docker", "exec", "--user", "0:0", "airawat-ld-filestore", "sh", "-c", "echo %s > /data/filestore/%s" % (TAG, TAG))
 sh("docker", "exec", "--user", "0:0", "airawat-ld-app-host", "sh", "-c", "echo %s > /data/app-bundles/%s" % (TAG, TAG))
+for _v in _volumes():
+    _volmark(_v, write=True)
 before = marks()
-check("marks written before the backup", reg == "200" and all(before.values()) and before["citizen"],
+check("marks written before the backup (incl. a marker on every one of %d volumes)" % len([k for k in before if k.startswith("vol:")]),
+      reg == "200" and all(before.values()) and before["citizen"],
       "citizen %s, secret %s, rows %s, jwks %d bytes, filestore %s, appbundles %s" % (
           before["citizen"], bool(before["vault_secret"]), before["registry_rows"], len(before["jwks"]), bool(before["filestore"]), bool(before["appbundles"])))
 with tempfile.TemporaryDirectory(prefix="aos-drill-") as td:
@@ -76,7 +96,7 @@ with tempfile.TemporaryDirectory(prefix="aos-drill-") as td:
     r = sh(os.path.join(LD, "restore.sh"), os.path.join(td, "bk"))
     check("restore.sh restored every volume and the stack is healthy", r.returncode == 0, (r.stdout + r.stderr).strip().splitlines()[-1][:200])
 after = marks()
-for k in ("citizen", "vault_secret", "registry_rows", "filestore", "appbundles"):
+for k in ["citizen", "vault_secret", "registry_rows", "filestore", "appbundles"] + sorted(x for x in before if x.startswith("vol:")):
     check("restored: %s identical" % k, after[k] == before[k] and bool(after[k]), "before %r / after %r" % (str(before[k])[:40], str(after[k])[:40]))
 check("restored: identity's signing keys identical (JWKS) — tokens issued before the restore still verify",
       after["jwks"] == before["jwks"] and bool(after["jwks"]), "%d bytes" % len(after["jwks"]))

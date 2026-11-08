@@ -133,8 +133,9 @@ for spec, prefix, nums in INVENTORY:
             cell[env] = {"status": reduce_status(res), "cases": sorted({c for _, c in res})}
         matrix[spec][r] = cell
 
+OPTIONAL = set(sys.argv[sys.argv.index("--optional") + 1].split(",")) if "--optional" in sys.argv else set()
 if STRICT:
-    for m in REQUIRED:
+    for m in [x for x in REQUIRED if x not in OPTIONAL]:
         if m not in seen_modes:
             problems.append("MISSING evidence: no results file for the required net %r" % m)
 

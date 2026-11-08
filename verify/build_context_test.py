@@ -19,11 +19,15 @@ BUILDS = [  # name, context, ignore file
     ("network", "network", "network/.dockerignore"),
 ]
 CANARY = ["zz-b94-canary/.env", "zz-b94-canary/svc.env", "zz-b94-canary/.env.local", "zz-b94-canary/.creds.json",
-          "zz-b94-canary/approle/x.env", "zz-b94-canary/results/r.json", "zz-b94-canary/vault/init.json", "zz-b94-canary/t.jsonl"]
+          "zz-b94-canary/approle/x.env", "zz-b94-canary/results/r.json", "zz-b94-canary/vault/init.json", "zz-b94-canary/t.jsonl",
+          # slice-1h (R7-4): keys, credential files and runtime data dirs too
+          "zz-b94-canary/tls.pem", "zz-b94-canary/id.key", "zz-b94-canary/svc-creds.json", "zz-b94-canary/pgdata/PG_VERSION",
+          "zz-b94-canary/vault-data/core.json"]
 PROBE = """# syntax=docker/dockerfile:1
 FROM busybox:1.36.1
 RUN --mount=type=bind,target=/ctx cd /ctx && find . \\( -name .env -o -name '.env.*' -o -name '*.env' -o -name .creds.json \
-    -o -name init.json -o -path '*/approle/*' -o -path '*/results/*' -o -name '*.jsonl' \\) -type f > /tmp/l; \
+    -o -name init.json -o -path '*/approle/*' -o -path '*/results/*' -o -name '*.jsonl' -o -name '*.pem' -o -name '*.key' \
+    -o -name '*creds*.json' -o -path '*/pgdata/*' -o -path '*/vault-data/*' \\) -type f > /tmp/l; \
     sed 's/^/LEAK /' /tmp/l; echo "COUNT $(wc -l < /tmp/l)"
 """
 leaks_total = 0

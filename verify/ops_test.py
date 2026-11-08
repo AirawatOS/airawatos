@@ -56,6 +56,8 @@ s1 = size("/vault/audit/audit.log")
 check("a Vault request is recorded in the audit log", s1 > s0, "audit.log %d → %d bytes" % (s0, s1))
 # rotation: push the log past the limit (as root, out of band) and wait for the rotation loop + a fresh log
 limit = int(os.environ.get("AUDIT_MAX_MB", "50")) * 1024 * 1024
+# slice-1h (R7-7): start from a known state — an earlier run's rotated file must not decide this run's result
+sh("docker", "exec", "--user", "0:0", "airawat-ld-vault", "sh", "-c", "rm -f /vault/audit/audit.log.[1-9]")
 sh("docker", "exec", "--user", "0:0", "airawat-ld-vault", "sh", "-c",
    "head -c %d /dev/zero | tr '\\0' 'x' >> /vault/audit/audit.log && echo >> /vault/audit/audit.log" % (limit + 1024))
 rotated, deadline = False, time.time() + 90
@@ -66,7 +68,7 @@ sh(*V, "vault", "token", "lookup")
 fresh = 0 < size("/vault/audit/audit.log") < limit
 check("the audit log is rotated past its limit and Vault reopens a fresh one", rotated and fresh,
       "audit.log.1 %s; fresh audit.log %s" % ("present" if rotated else "MISSING", "written" if fresh else "not reopened"))
-sh("docker", "exec", "--user", "0:0", "airawat-ld-vault", "sh", "-c", "rm -f /vault/audit/audit.log.[2-9]")   # keep the drill small
+sh("docker", "exec", "--user", "0:0", "airawat-ld-vault", "sh", "-c", "rm -f /vault/audit/audit.log.[1-9]")   # leave no test artefact behind
 vols = {k for k in cfg.get("volumes", {})}
 bk = open(os.path.join(ROOT, "deploy/local-dev/backup.sh")).read()
 m = re.search(r'^VOLS="([^"]+)"', bk, re.M)
