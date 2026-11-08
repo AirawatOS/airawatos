@@ -11,12 +11,12 @@ AOS_RUN_ID := $(shell python3 verify/evidence.py new-run-id)
 endif
 export AOS_RUN_ID
 
-.PHONY: clean-results vault-renewal dbgrants listen verify verify-fast banned gtw-static known-violations fresh-install conformance flowmap vaultscope routes scans matrix decide-unit secret-names gateflags netdoors build-context images installer
+.PHONY: clean-results vault-renewal dbgrants ops restore-drill listen verify verify-fast banned gtw-static known-violations fresh-install conformance flowmap vaultscope routes scans matrix decide-unit secret-names gateflags netdoors build-context images installer
 
-verify: clean-results banned gtw-static known-violations decide-unit secret-names gateflags build-context images installer fresh-install conformance flowmap vaultscope vault-renewal netdoors dbgrants routes listen scans matrix
+verify: clean-results banned gtw-static known-violations decide-unit secret-names gateflags build-context images installer fresh-install conformance flowmap vaultscope vault-renewal netdoors dbgrants routes listen ops scans restore-drill matrix
 	@echo "✓ make verify: all assurance nets green"
 
-verify-fast: clean-results banned gtw-static known-violations decide-unit secret-names gateflags build-context images conformance flowmap vaultscope vault-renewal netdoors dbgrants routes listen scans matrix
+verify-fast: clean-results banned gtw-static known-violations decide-unit secret-names gateflags build-context images conformance flowmap vaultscope vault-renewal netdoors dbgrants routes listen ops scans restore-drill matrix
 	@echo "✓ make verify-fast: all assurance nets green (no fresh install)"
 
 clean-results:   ## slice-1h B99 — delete the previous run's evidence so only THIS run's can reach the matrix
@@ -80,6 +80,12 @@ matrix:          ## the status matrix — STRICT: fresh, complete, passing evide
 
 vault-renewal:   ## B96 — every service keeps Vault access across several short token lifetimes; a lost token is loud + unhealthy
 	python3 verify/vault_renewal_test.py
+
+ops:             ## B102 — log rotation everywhere, a rotated Vault audit device, the backup set covers every volume
+	python3 verify/ops_test.py
+
+restore-drill:   ## B102 — back up, DESTROY (down -v), restore, prove every store came back (identity, Vault, Postgres, files)
+	python3 verify/restore_drill.py
 
 dbgrants:        ## B93/ARC-3 — DB-grant audit: least-privilege roles, only kernel/network/identity reach the fact store
 	python3 verify/db_grant_audit.py

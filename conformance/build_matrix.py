@@ -12,7 +12,7 @@ Environments with no results file are shown PROJECTED (never asserted) per the d
 
 Usage: python3 conformance/build_matrix.py   (run from the repo; reads conformance/results/, writes docs/specs/)
 """
-import os, json, glob, collections
+import os, json, glob, collections, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
@@ -70,8 +70,32 @@ if _DRIFT:
 env_rule = collections.defaultdict(lambda: collections.defaultdict(list))
 provenance = {}   # env -> {git_sha, ts, modes:set}
 files = sorted(glob.glob(os.path.join(RESULTS_DIR, "*.json")))
+# slice-1h (DEBT-B99, re-review R3-7/R6-2): `--strict` (make verify) accepts ONLY fresh, complete, passing evidence of THIS
+# run: every file must carry the current AOS_RUN_ID, at least one case and known result kinds; every REQUIRED net must have
+# written its file; any FAIL or XPASS fails the build. The matrix is still written, then the build exits non-zero.
+STRICT = "--strict" in sys.argv
+RUN_ID = os.environ.get("AOS_RUN_ID", "")
+REQUIRED = ["banned", "gtwstatic", "knownviolations", "functional", "external", "internal", "flowmap", "vaultscope",
+            "netdoors", "routes", "listen", "scans", "vaultrenewal", "dbgrants", "ops", "restoredrill"]
+KINDS = {"PASS", "FAIL", "XFAIL", "XPASS", "SKIP_BUILD", "SKIP_CREDS", "needs-build", "needs-creds"}
+problems, seen_modes = [], set()
+if STRICT and not RUN_ID:
+    problems.append("no AOS_RUN_ID — strict mode needs the run id of this make verify")
 for f in files:
     d = json.load(open(f))
+    seen_modes.add(d.get("mode"))
+    if STRICT:
+        name = os.path.basename(f)
+        if d.get("run_id") != RUN_ID:
+            problems.append("%s: STALE evidence (run_id %r, this run %r)" % (name, d.get("run_id"), RUN_ID))
+        if not d.get("cases"):
+            problems.append("%s: EMPTY evidence (0 cases)" % name)
+        bad = sorted({c.get("result") for c in d.get("cases", [])} - KINDS)
+        if bad:
+            problems.append("%s: unknown result kind(s) %s" % (name, bad))
+        for c in d.get("cases", []):
+            if c.get("result") in ("FAIL", "XPASS"):
+                problems.append("%s: %s — %s" % (name, c.get("result"), c.get("case", "")[:120]))
     env = d.get("env", "unknown")
     pr = provenance.setdefault(env, {"git_sha": d.get("git_sha", ""), "ts": d.get("ts", ""), "modes": set()})
     pr["modes"].add(d.get("mode", "?"))
@@ -108,6 +132,11 @@ for spec, prefix, nums in INVENTORY:
             res = env_rule[env].get(r, [])
             cell[env] = {"status": reduce_status(res), "cases": sorted({c for _, c in res})}
         matrix[spec][r] = cell
+
+if STRICT:
+    for m in REQUIRED:
+        if m not in seen_modes:
+            problems.append("MISSING evidence: no results file for the required net %r" % m)
 
 # ---- write JSON ----
 json_out = {"envs": ENVS, "projected": PROJECTED, "provenance": {e: {"git_sha": p["git_sha"], "ts": p["ts"],
@@ -169,3 +198,11 @@ L.append("")
 open(OUT_MD, "w").write("\n".join(L) + "\n")
 print("[build_matrix] wrote %s and %s from %d result file(s): envs=%s" %
       (os.path.relpath(OUT_MD, REPO), os.path.relpath(OUT_JSON, REPO), len(files), ", ".join(ENVS)))
+
+if STRICT:
+    if problems:
+        print("[build_matrix] ✗ STRICT: %d evidence problem(s) — the matrix is NOT trustworthy:" % len(problems))
+        for p_ in problems[:60]:
+            print("    ✗ " + p_)
+        sys.exit(1)
+    print("[build_matrix] ✓ STRICT: every required net wrote fresh, non-empty, passing evidence for run %s" % RUN_ID)

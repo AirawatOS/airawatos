@@ -26,3 +26,6 @@ deploy/ec2/seed/*.sql
 deploy/ec2/.env
 deploy/**/init.json
 .DS_Store
+
+# slice-1h (DEBT-B102): backups hold the full credential set (Vault root token + unseal key) — never committed
+deploy/local-dev/backups/

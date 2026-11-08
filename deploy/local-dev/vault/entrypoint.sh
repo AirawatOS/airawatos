@@ -7,7 +7,7 @@ set -e
 # slice-1f (DEBT-B79): Vault 2.x runs as the non-root `vault` user, but the data volume mounts root-owned. Start as
 # root ONLY to hand the data directory to `vault`, then re-exec this script as `vault` (su-exec ships in the image).
 if [ "$(id -u)" = 0 ]; then
-  mkdir -p /vault/data && chown -R vault:vault /vault/data
+  mkdir -p /vault/data /vault/audit && chown -R vault:vault /vault/data /vault/audit
   exec su-exec vault /bin/sh "$0" "$@"
 fi
 export VAULT_ADDR=http://127.0.0.1:8200
@@ -33,4 +33,18 @@ vault secrets enable -version=2 -path=secret kv >/dev/null 2>&1 || true
 # slice-1g (DEBT-B89): component secrets in their OWN mount — the brokers' policies cover this mount only, never the
 # platform credentials in secret/ (DB passwords, service principals, the audit HMAC key).
 vault secrets enable -version=2 -path=components kv >/dev/null 2>&1 || true
+# slice-1h (DEBT-B102 / re-review R4-7): a FILE AUDIT DEVICE on its own volume — every Vault request and response is
+# recorded (secret values HMAC'd, never in clear). Idempotent. ROTATION: when audit.log passes AUDIT_MAX_MB it is
+# renamed (keeping AUDIT_KEEP generations) and Vault is sent SIGHUP, which reopens the audit file.
+vault audit list 2>/dev/null | grep -q '^file/' || vault audit enable file file_path=/vault/audit/audit.log >/dev/null \
+  || echo "[vault] ✗ could not enable the file audit device"
+vault audit list 2>/dev/null | grep -q '^file/' && echo "[vault] audit device: file → /vault/audit/audit.log"
+unset VAULT_TOKEN
+( MAX=$(( ${AUDIT_MAX_MB:-50} * 1024 * 1024 )); KEEP=${AUDIT_KEEP:-5}
+  while sleep ${AUDIT_ROTATE_CHECK_S:-60}; do
+    f=/vault/audit/audit.log
+    [ -f "$f" ] && [ "$(wc -c < "$f")" -gt "$MAX" ] || continue
+    i=$KEEP; while [ "$i" -gt 1 ]; do [ -f "$f.$((i-1))" ] && mv "$f.$((i-1))" "$f.$i"; i=$((i-1)); done
+    mv "$f" "$f.1" && kill -HUP "$VPID" && echo "[vault] audit log rotated"
+  done ) &
 wait $VPID

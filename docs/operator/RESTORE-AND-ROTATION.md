@@ -13,11 +13,28 @@ changes what "restore" must keep consistent and adds a per-service rotation proc
 | **Postgres volume** (`localdev_pg` / RDS) | the registry + the DB **roles** `kernel_app`/`network_app`/`identity_lockout`/`migrator` and their passwords (which must match the values in Vault) | `pg_dump -Fc` + volume snapshot (RELEASE-PLAN Stage 0) |
 | **Host** `deploy/local-dev/vault/approle/<svc>.env` | each service's **role-id + secret-id** (must match the Vault AppRole roles) — gitignored, per-service | file backup alongside the vault snapshot, OR regenerate (below) |
 | **Host** `deploy/local-dev/.env` | `POSTGRES_PASSWORD` (Postgres superuser, generated once per install) | back up with the Postgres snapshot — without it the installer refuses a restored DB volume and `_split_roles.py` cannot run |
+| **Identity volume** (`localdev_identity`) | EVERY account and every ROTATED password (the installer scrubs the admin bootstrap password from Vault — after that the identity volume is the ONLY copy of the admin credential), recorded audiences, lockout state | part of the same snapshot set (`deploy/local-dev/backup.sh`) — losing it loses every login |
+| **Filestore volume** (`localdev_filestore`) | blobs (component bundles, uploaded files) referenced by registry records | same snapshot set — a registry restored without it points at missing blobs |
+| **App-bundles volume** (`localdev_appbundles`) | the App Host's delivered app overlay | same snapshot set |
+| **Network files** (`localdev_netfiles`) | the Network's governed file store | same snapshot set |
+| **Vault audit volume** (`localdev_vault_audit`) | the Vault file audit device (rotated `audit.log`, `audit.log.1…5`) | same snapshot set (evidence — keep it with the data it describes) |
 
-**Consistency rule:** the DB passwords live in Vault and the DB roles live in Postgres — a restore must bring
-Vault and Postgres to the **same point in time**, or a service's AppRole-read password will not match the DB role
+**Consistency rule:** the DB passwords live in Vault and the DB roles live in Postgres; identity's accounts live only in the
+identity volume; registry records point at filestore blobs — a restore must bring **every** volume above to the **same point in time**, or a service's AppRole-read password will not match the DB role
 and it will fail to connect. Restore both volumes from the same snapshot set, or restore Postgres and then
 re-seed the passwords into Vault (installer, below).
+
+## Backup and restore — the scripted path (slice-1h, DEBT-B102)
+
+```
+deploy/local-dev/backup.sh  [dir]   # quiesces the stack, tars ALL 7 durable volumes + .env + approle env files, sha256 manifest, restarts
+deploy/local-dev/restore.sh <dir>   # verifies the manifest, removes the stack + volumes, recreates every volume, restarts, waits healthy
+```
+The backup directory is created 0700 and is gitignored (`deploy/local-dev/backups/`): it holds the Vault root token and
+unseal key — store it as a secret. **Drill** (`python3 verify/restore_drill.py`, 2026-11-08): marks in identity, Vault KV,
+Postgres, filestore and app-bundles → backup (48 s, stack stopped) → `down -v` (0 containers, 0 volumes) → restore →
+every mark identical, identity JWKS identical (pre-restore tokens still verify), every service reads its own Vault paths.
+**RTO 22 s** on local-dev. The manual steps below remain for single-volume recoveries.
 
 ## Restore
 
@@ -40,7 +57,7 @@ logins intact.)*
    installer (`deploy/installer/install.sh --profile <profile>`; idempotent) — it rewrites policies and roles, issues a
    fresh secret-id per service and rewrites every `<svc>.env`. (`_setup_vault_approle` is a function inside
    install.sh, not a standalone command.) Afterwards destroy the superseded secret-ids (see rotation below).
-4. **Bring the stack up.** Each service's `prod-guard.sh` performs its AppRole login and reads its scoped
+4. **Bring the stack up.** Each service's baked entrypoint (`/opt/airawat/airawat-entrypoint.sh`) performs its AppRole login and reads its scoped
    secrets. Verify with the two gates: `conformance/flow_map_test.py` (networks) and
    `conformance/vault_scope_test.py` (each service reads only its own Vault paths).
 5. **Smoke-test** per RELEASE-PLAN Stage 0: a kernel read resolves, a login succeeds, the filestore serves a
@@ -73,8 +90,11 @@ a re-run, list `auth/approle/role/<svc>/secret-id`, look up each accessor (`secr
 and destroy all but the one in `<svc>.env`.
 
 ### Rotate a service's scoped token
-Just `--force-recreate` the service — `prod-guard.sh` logs in afresh and gets a new token. (Tokens also renew
-within their TTL; a restart is the simplest rotation.)
+Just `--force-recreate` the service — its entrypoint logs in afresh and gets a new token. Tokens are PERIODIC
+(AppRole `token_period`, default 1h): the baked renewer (`vault_renew.py`) renews each one before its period ends, so a
+token never hits a fixed lifetime; a renewal failure is logged loudly (`[vault-renew …] ✗`) and turns the container
+UNHEALTHY (`svc_health.py`). (Corrected in slice-1h: the earlier "tokens also renew within their TTL" was not true —
+nothing renewed them and every service lost Vault access 24 h after start, re-review R4-1.)
 
 ### Rotate (or re-sync) a DB-role password
 Vault path (KV v2, field `password`) ↔ Postgres role:
@@ -120,7 +140,7 @@ Signers use the latest version automatically; verifiers accept prior versions, s
 
 - **Vault unseal**: local-dev auto-unseals from a single key on the vault volume (demo). Production uses **KMS
   auto-unseal** (a RELEASE-PLAN gate — see step 8 of the slice / RELEASE-PLAN) and keeps unseal keys off-box.
-- **Secret-id TTL + auto-renew**: local-dev AppRole tokens are renewable with a bounded TTL (24h/168h) and are
-  re-minted on restart; a production **Vault Agent** sidecar should renew them continuously (recorded follow-up).
+- **Token renewal**: periodic AppRole tokens renewed by the in-image renewer (slice-1h, verified for 5 short lifetimes by
+  `verify/vault_renewal_test.py`). Secret-ids are still permanent (K4, recorded) — rotate them per the procedure above.
 - **Snapshots**: schedule EBS snapshots (vault + postgres together) and test the restore drill (RELEASE-PLAN
   Stage 0) on a copy before every production change.
