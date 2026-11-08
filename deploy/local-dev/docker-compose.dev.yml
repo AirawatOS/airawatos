@@ -21,7 +21,7 @@ x-devenv: &devenv
   AIRAWAT_ALLOW_PASSWORDLESS: "1"     # reference IdP passwordless dev auth (gated: prod-guard blocks under production)
 
 x-ref: &ref                          # one source-built reference image; many services (per-service command)
-  image: manishsv/airawatos-reference:dev-hard23   # + slice-1e (user-create/reset name the tenant) + 1c-iv-c (svc:identity) + step 2 (runtime-manager) + step 3 (scheduler-owned pipelines) + step 4 (gateway secret in Vault) + step 5 (launcher attests svc:network)
+  image: manishsv/airawatos-reference:dev-hard24   # + slice-1e (user-create/reset name the tenant) + 1c-iv-c (svc:identity) + step 2 (runtime-manager) + step 3 (scheduler-owned pipelines) + step 4 (gateway secret in Vault) + step 5 (launcher attests svc:network)
   restart: unless-stopped
   entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]     # production guard (effective-settings check)
   volumes: [ ./prod-guard.sh:/local-dev/prod-guard.sh:ro ]
@@ -43,7 +43,7 @@ x-svc-identity: &svcid
 services:
   # ── infrastructure ────────────────────────────────────────────────────────────────────────────────
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139   # slice-1f (DEBT-B81): digest-pinned, 16.15
     container_name: airawat-ld-postgres
     networks: [aos-data-facts]
     environment: { POSTGRES_DB: kernel, POSTGRES_USER: kernel, POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-}" }   # slice-1d: no literal superuser password
@@ -52,8 +52,9 @@ services:
     restart: unless-stopped
 
   vault:
-    image: hashicorp/vault:1.20@sha256:268bb80aa9c6d13d65fcfa05c0c268caca068952240a8087291a6ce0b66e3a10   # L1-1b step8: off EOL Alpine 3.18 → Vault 1.20.4 / Alpine 3.22, pinned by digest
+    image: hashicorp/vault:2.2.1@sha256:962a92876e168d68eaaa24b0b8b49bbce1cb63024060a67bba95cd158a366fc2   # slice-1f (DEBT-B79): latest release, digest-pinned (was 1.20.4)
     container_name: airawat-ld-vault
+    user: "0:0"            # the entrypoint chowns the data volume, then drops to the non-root `vault` user (su-exec)
     networks: [aos-data-secrets]
     cap_add: [ IPC_LOCK ]
     environment: { VAULT_ADDR: http://127.0.0.1:8200 }
@@ -67,7 +68,7 @@ services:
 
   # ── platform core ─────────────────────────────────────────────────────────────────────────────────
   kernel:
-    image: manishsv/airawatos-kernel:dev-hard11   # + slice-1c-iv step 3: scheduler-only /v1/components/run-token + slice-1e: steward-key miss not cached
+    image: manishsv/airawatos-kernel:dev-hard12   # + slice-1c-iv step 3: scheduler-only /v1/components/run-token + slice-1e: steward-key miss not cached
     container_name: airawat-ld-kernel
     env_file: [ ./vault/approle/kernel.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
     networks: [aos-svc, aos-data-facts, aos-data-secrets, aos-component]  # aos-component: the broker is the ONLY door a placed component can reach (step 3)
@@ -119,7 +120,7 @@ services:
     restart: unless-stopped
 
   network:
-    image: manishsv/airawatos-network:dev-a81   # slice-1e: installer-signed tenants register ds:<t>:steward (B62); 1c-iv-c: join→provision mints svc:identity; step 5: /v1/runtime/attest → svc:network (literal retired)
+    image: manishsv/airawatos-network:dev-a82   # slice-1e: installer-signed tenants register ds:<t>:steward (B62); 1c-iv-c: join→provision mints svc:identity; step 5: /v1/runtime/attest → svc:network (literal retired)
     container_name: airawat-ld-network
     env_file: [ ./vault/approle/network.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
     networks: [aos-edge, aos-svc, aos-data-facts, aos-data-secrets]
@@ -390,7 +391,7 @@ services:
 
   # ── edge: front door on 127.0.0.1:8080 → http://localhost:8080 ───────────────────────────────────────
   nginx:
-    image: nginx:alpine
+    image: nginx:alpine@sha256:713fc2ebfd92e8217db451477182ee91944b123d2b1ee9fd5a8c6e91ca6c3a11   # slice-1f (DEBT-B81): digest-pinned, 1.31.8
     container_name: airawat-ld-nginx
     networks: [aos-edge]
     ports: [ "127.0.0.1:8080:80" ]

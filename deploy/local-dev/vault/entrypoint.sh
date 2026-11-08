@@ -4,6 +4,12 @@
 # DEMO convenience (single unseal key on the same volume) — a real deployment uses auto-unseal (KMS/HSM) and
 # keeps the unseal keys off-box.
 set -e
+# slice-1f (DEBT-B79): Vault 2.x runs as the non-root `vault` user, but the data volume mounts root-owned. Start as
+# root ONLY to hand the data directory to `vault`, then re-exec this script as `vault` (su-exec ships in the image).
+if [ "$(id -u)" = 0 ]; then
+  mkdir -p /vault/data && chown -R vault:vault /vault/data
+  exec su-exec vault /bin/sh "$0" "$@"
+fi
 export VAULT_ADDR=http://127.0.0.1:8200
 vault server -config=/vault/config/vault.hcl &
 VPID=$!
