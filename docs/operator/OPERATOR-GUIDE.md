@@ -61,6 +61,27 @@ Minimal, idempotent, operator-first (PLATFORM P1–P3, ADR-0115/0122).
    custodian roster and procedure now even where the mechanism is manual.)
 6. **Verify.** Site 200 over 443; a known record resolves; a human login succeeds; the filestore serves a
    known blob; daemons authenticate with their Vault-backed tokens.
+7. **First admin rotates; the bootstrap password is then gone (ADR-0131).** The installer writes the first
+   administrator's initial password to Vault, confirms identity bootstrapped it, and at the end of the install
+   (Phase 14) **deletes it from Vault — all versions**. The admin's first login carries `must_reset` and the
+   admin sets their own password. Record that password in your secrets custody; nothing else holds it.
+8. **Re-installing after the bootstrap (same volumes).** A re-run of the installer over an existing install
+   finds the scrub marker (`secret/<op>/install-state`) and **refuses to proceed unless
+   `OPERATOR_PASSWORD` is set to the CURRENT admin password** — the password the admin set at first login (or,
+   if they have not logged in yet, the bootstrap password from the original install output). It is used in the
+   installer shell only and never written back to Vault:
+   ```sh
+   OPERATOR_PASSWORD='<current admin password>' deploy/installer/install.sh --profile <dev|production>
+   ```
+   Without it the installer stops with an explicit error rather than minting a new bootstrap password that
+   could never log in (identity seeds create-only and never resets an existing admin). On a **fresh** install on
+   empty volumes, **production requires `OPERATOR_PASSWORD`** (the initial admin password you choose). The
+   installer refuses to generate one in production: a generated password is never printed and is scrubbed at the
+   end, so nobody could ever use it. Dev/rehearsal may omit it (generated, and captured in the gitignored
+   conformance fixture).
+9. **Functional proof (dev profile).** The installer's last phase (Phase 15) onboards a throwaway user through
+   the App Host and has an installed fixture component write a record within its grant (refused outside it);
+   the install fails if either does not work. Production carries no fixtures — run the §2.6 checks by hand.
 
 ---
 

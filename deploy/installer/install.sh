@@ -214,6 +214,11 @@ elif [ -n "$OPERATOR_PASSWORD" ]; then
     || vault kv put -mount=secret ${INSTANCE}-operator/admin/password password='$OPERATOR_PASSWORD' >/dev/null" \
     && echo "  · admin: operator-supplied password stored (create-only)" \
     || { echo "✗ could not write admin install-config password to Vault"; exit 1; }
+elif [ "$PROFILE" = production ] && ! VROOT "vault kv get -mount=secret ${INSTANCE}-operator/admin/password >/dev/null 2>&1"; then
+  # slice-1e: a GENERATED bootstrap password is never printed and Phase 14 scrubs it — in production (no
+  # conformance fixture captures it) the first admin could then never sign in. Production must supply it.
+  echo "✗ production install: set OPERATOR_PASSWORD=<initial admin password> (you rotate it at first login;"
+  echo "  the installer removes it from Vault at the end — a generated one would be unrecoverable)"; exit 1
 else
   VROOT "vault kv get -mount=secret ${INSTANCE}-operator/admin/password >/dev/null 2>&1 \
     || vault kv put -mount=secret ${INSTANCE}-operator/admin/password password=\"\$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 32)\" >/dev/null" \

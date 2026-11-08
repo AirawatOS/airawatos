@@ -42,7 +42,6 @@ no bootstrap channel on the internal door.**
    from the network registry (`/v1/tenants/resolve`). "Identity owns realm/principal **creation**" means the IdP
    **user/principal** records, not the authority-signed tenant records. `ensure_install` stops writing to
    identity entirely.
-
 7. **The founding act registers each tenant's steward (slice-1e, DEBT-B62).** For every tenant record the
    installer signs (`<op>`, `<op>-network`, `<op>-developer`, `<op>-participant`, `citizens`, and the dev data
    tenant), `ensure_install` names the steward participant **`ds:<tenant>:steward`** — whose key is the tenant's
@@ -129,15 +128,31 @@ The cutover ships in three fresh-install-gated commits so the one irreversible s
 
 If the gate flip (1c-iv-c) breaks login or a service-principal mint and the fix is not immediately clear, roll
 back to the **`pre-identity-cutover`** tag (the 1c-iv-b state, where the door is still `IDENTITY_INTERNAL` and
-every caller still presents it):
+every caller still presents it). The rollback covers **all five repositories** — the 1c-iv slice changed every
+one of them (kernel: the scheduler-only run-token door; components: the launcher's svc tokens, clean in-process
+env and the scheduler-owned city-baseline):
 
-1. **Revert the code** in all three repos to the tag:
-   `git -C platform-spec checkout pre-identity-cutover -- reference/identity.py reference/… ` (or reset the
-   branch), likewise `network` (`ensure_install.py`, `api.py`) and root (`deploy/`). The tag is applied to all
-   three repos at the same slice so they revert as a consistent set.
-2. **Revert the compose image tags** to the b-state: reference `dev-hard15`, network `dev-a76` (the c images
-   `dev-hard16`/`dev-a77` are the forward tags). `docker compose up -d --force-recreate identity network app-host`
-   — or a full fresh install for a clean environment.
+| repo | `pre-identity-cutover` → commit | what reverting it undoes |
+|---|---|---|
+| root | `5837c67` | installer (`_idt`, Phase 1a/14/15, AppRoles), compose, Vault policies, conformance, docs |
+| platform-spec | `2c08b2f` | identity door, app-host ×8 sites + gateway secret, scheduler/runtime-manager, hostcore |
+| network | `1c2eacd` | join→provision minter, `/v1/runtime/attest` gate, `ensure_install` steward registration |
+| kernel | `8767c02` *(tagged retroactively in slice-1e at the commit that was HEAD at the cutover)* | `/v1/components/run-token`, steward-key negative cache |
+| components | `72039fc` *(tagged retroactively in slice-1e, same rule)* | launcher svc:network attest + clean env, city-baseline phases, pipeline-probe fixtures, demos' svc:identity bearer |
+
+1. **Revert the code** in all five repos to the tag, as one consistent set (never a subset — e.g. a reverted
+   platform-spec scheduler with a forward kernel still works, but a reverted kernel with the forward scheduler
+   loses the run-token door and every installed run fails, DEBT-B61):
+   ```sh
+   for r in . platform-spec network kernel components; do
+     git -C "$r" switch -c rollback/identity-cutover pre-identity-cutover   # or: git -C "$r" reset --hard pre-identity-cutover
+   done
+   ```
+2. **Revert the compose image tags** to the b-state: reference `dev-hard15`, network `dev-a76`, kernel
+   `dev-hard7` (the forward tags are reference `dev-hard16+`, network `dev-a77+`, kernel `dev-hard8+`;
+   components ship inside the reference image's `/app/components/_common` layer and the filestore, so reverting
+   the reference image reverts the launcher). Then a **full fresh install** (`install.sh --profile dev`) for a
+   clean environment — the b-state installer does not know the c-state AppRoles (`runtime-manager`) or Phase 15.
 3. **Vault: no restore needed.** The install config (`secret/data/<op>/{admin,provisioner}/password`) is written
    create-only and is read identically by the b and c identity images, so it is forward/backward compatible. The
    c step scrubs the admin password only *after* identity confirms the bootstrap; if c failed before that scrub
