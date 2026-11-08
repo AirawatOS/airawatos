@@ -164,3 +164,68 @@ a small number of uniform enforcement points. Each departing piece pays with its
 service principal), a signature (B23) and confinement (B51/B52). The **identity burden** is the main cost: the
 platform goes from about a dozen service principals to one run identity per installed component per tenant. That
 is why run-token expiry and audience (DEBT-B53) belong with the move, not after it.
+
+### 6. Gateways: two versioned contracts, checks enforced between them
+
+Every gateway exposes **two contracts, versioned independently**:
+
+- **NORTH** — the provider-neutral contract callers use (components through the kernel broker, the App Host, core
+  services). Callers name a **capability and an operation**, never a vendor.
+- **SOUTH** — the contract a **provider adapter** implements (§8), or that a remote provider participant speaks
+  over the federation door.
+
+**Between them the gateway core enforces, on every call, in order:** caller authentication (an audience-bound token
+or run token); the **grant** (recorded, FND-3); **consent or lawful basis** when personal data crosses (the
+two-key rule, PLT-20); **rate and cost limits** (tenant-set ceilings, operator ceilings for shared
+installations); then the adapter call; then **audit, metering with provider and version** (PLT-21) and a
+**decision record** for allow and deny (DEC-1). **Data minimisation:** the south payload carries only the fields
+that operation's south schema names. **Providers cannot bypass the checks:** an adapter has no route to anything
+but the gateway's south endpoint and its declared provider destinations, which the network enforces (§8). It never
+receives the caller's token, other tenants' data, or any Vault access beyond the provider credential the gateway
+hands it for that call. The detailed rules are in [GATEWAY-v0.1](../specs/GATEWAY-v0.1.md) (GTW).
+
+**Every inventoried capability, placed** (inventory row numbers in brackets):
+
+| Gateway | Capabilities | Provider chosen by | Status today (inventory) |
+|---|---|---|---|
+| **Messaging** | email [3], inbox / notify [4], SMS/USSD outbound, federated mail [7], Telegram outbound [5] | tenant (email: per-tenant sender secret; platform mail such as join verification uses the authority tenant's sender) | email working (SES/SMTP or dev-echo) but **no rate limit, consent or audit**; notify internal only; **outbound SMS not built**; federated mail working over the federation door; Telegram reply sent by the `telegram-concierge` adapter |
+| **Conversation channels (inbound)** | Telegram inbound [5], SMS/USSD/message intake [6] incl. **DEBT-B64**; future WhatsApp, IVR | tenant (Telegram); **operator** for the SMS gateway today | the south side receives provider callbacks; the north side delivers **authenticated, tenant-bound** messages. Telegram works without a rate limit on the public door (**DEBT-B46**); the SMS gateway uses one operator secret in Vault (**DEBT-B64**, target per-provider per-tenant signed webhooks) |
+| **AI models** | chat / completion + embeddings [1], speech-to-text [2] | tenant (sets key) over governance-recorded `intelligence.provider` records | working; **no consent, cost cap or rate limit** (inventory C-1 → **DEBT-B71**); STT falls back to an ungoverned bootstrap env provider (inventory C-2 → **DEBT-B72**) |
+| **Data sources** | drivers [8], cameras / RTSP [9], Earth observation [8] | tenant (installs the driver, sets the key) | working in the confined path; **DEBT-B65** (Earth Engine SDK opens its own sockets), **DEBT-B66** (RTSP dialled directly by ffmpeg), **DEBT-B67** (in-process runtime skips `broker.egress()`); B51/B52 |
+| **Identity** | external identity providers [10], verifiable credentials [11] | **operator** configures trusted external issuers (ADR-0068); VC issuance by the issuer tenant | working (reference IdP + Keycloak; native Ed25519 VCs). The **home issuer stays core** — only *external* issuers are providers |
+| **Payments** | — [16] | tenant | **not built**: build to the contract (north: quote / authorise / capture / refund / status; south: provider adapter). ADR-0067 fee-quote + consent stays a declarative record |
+| **Outbound webhooks** | delivery to tenant-supplied URLs [17] | tenant | **not built** (event-relay is internal only): build to the contract. The automation raw-URL action (DEBT-A43) is moved behind it |
+| **Geo** | maps / basemap / 3D tiles [15], geocoding [18] | tenant | tiles and JS load **browser-direct from CDNs** (**DEBT-B68**); geocoding is local-first. Target: assets self-hosted or **proxied through the edge**, never browser-direct; a content security policy enforces it |
+
+**Operator infrastructure — chosen once per installation, not per tenant:**
+
+| Infrastructure | Status today (inventory) |
+|---|---|
+| **File storage** (behind the core filestore door) — encrypted, **tenant-scoped** blobs | local disk volume; S3 backlog (REG-18); **DEBT-B49** (no owning-tenant scope on the blob key); blob encryption is the ADR-0126 next slice |
+| **Git hosting** | GitHub via the `git-publisher` engine. **Inventory: chosen per tenant/project** (ADR-0083, per-project `credential_ref`), not per installation. Flagged; kept per the inventory (open question 1) |
+
+**Vault / secrets is core, not a gateway** (inventory row 13: hardcoded backend).
+
+### Inventory reconciliation (where the brief and the inventory differ — the inventory is followed)
+
+1. **Inbox / notify is not an external provider** (inventory §4: internal only). It is the messaging gateway's
+   north door with a built-in internal provider.
+2. **Outbound SMS is not built.** The inventory's SMS row is inbound only. The messaging gateway's SMS operation
+   is build-to-contract.
+3. **Federated mail is not a third-party provider.** Its peers are other AirawatOS participants over the Network's
+   signed relay (inventory §7). The messaging north contract can address a federated recipient, but the south
+   side is the **federation door (core)**, not an installable adapter.
+4. **External identity providers are operator-configured** (inventory §10, ADR-0068). The brief listed identity
+   as tenant-chosen. Kept per the inventory; a tenant's own login system as a scoped external issuer (FND-15) is
+   the path to tenant choice (open question 2).
+5. **Git hosting is chosen per tenant/project** (inventory §14), not per installation as the brief stated. Kept
+   per the inventory (open question 1).
+6. **Inventory summary rows 6 and 13 were stale.** Row 6 still said the SMS gateway uses an env literal (it
+   moved to Vault in slice-1c-iv step 4, B64). Row 13 cited the `SECRETS_INTERNAL` literal, retired in
+   slice-1c-iii. Both corrected in the inventory with this ADR.
+7. **Inventory C-1 / C-2 were never in the DEBT-REGISTER,** although the inventory said they had been folded in.
+   A bare `C-#` also collides with the `DEBT-C#` family (ID-SCHEME). They are registered as **DEBT-B71** (AI: no
+   consent, cost or rate limit) and **DEBT-B72** (ungoverned STT bootstrap provider).
+8. **The inventory omits three things the placement needs:** the automation raw-URL action (an unmediated outbound
+   call, DEBT-A43), `services/service-gateway` (a read-scaling tier, core), and `services/mospi-gateway` (a
+   provider adapter).

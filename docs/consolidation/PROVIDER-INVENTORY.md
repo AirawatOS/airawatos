@@ -12,26 +12,26 @@ Shorthand: **N** = north / caller-facing interface, **S** = south / provider-fac
 
 | # | Capability | Owning service (file) | Providers today | Dir | Provider chosen by | Creds (where / scope) | Pre-call checks | Status | Debt |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | AI chat/completion + embeddings | model-gateway (`model_gateway.py`) | OpenAI-compatible (`_openai`), Anthropic (`_anthropic`) | out | tenant (sets key) + governance (`intelligence.provider` records) | Vault `secret/<tenant>/<component>/<key>`, **per-tenant** | svc:model-gateway gate + run-token; metering.usage; **no consent / cost / rate limit** | working | A71, B5(closed), C-1 |
-| 2 | Speech-to-text | model-gateway `/transcribe` (`_stt`) | Bodhan STT (OpenAI-audio wire) | out | tenant key; **bootstrap env fallback** | Vault per-(tenant,component); `STT_PROVIDER_ID`/base env | svc:model-gateway gate; metering | partial (bootstrap provider not governed) | A71, C-2 |
+| 1 | AI chat/completion + embeddings | model-gateway (`model_gateway.py`) | OpenAI-compatible (`_openai`), Anthropic (`_anthropic`) | out | tenant (sets key) + governance (`intelligence.provider` records) | Vault `secret/<tenant>/<component>/<key>`, **per-tenant** | svc:model-gateway gate + run-token; metering.usage; **no consent / cost / rate limit** | working | B5(closed), C-1 → **B71** |
+| 2 | Speech-to-text | model-gateway `/transcribe` (`_stt`) | Bodhan STT (OpenAI-audio wire) | out | tenant key; **bootstrap env fallback** | Vault per-(tenant,component); `STT_PROVIDER_ID`/base env | svc:model-gateway gate; metering | partial (bootstrap provider not governed) | C-2 → **B72** |
 | 3 | Email (transactional) | network (`network/api.py` `_send_email`) | AWS SES, generic SMTP relay, dev-echo | out | operator/admin (email-sender component secret) | Vault `secret/<tenant>/email-sender/<FIELD>` or `SMTP_*` env, **per-tenant (join=authority tenant)** | none beyond send; no rate/consent/audit | working (else dev-echo) | — |
 | 4 | Inbox / notifications | notify (`notify.py`) | *internal only* (writes `platform.inbox_item` to kernel) | — | — | — | svc:notify gate (slice-1c-ii) | working | — |
 | 5 | Chat messaging — Telegram | app-host (`app_host.py` `_telegram_webhook`) + `telegram-concierge` adapter | Telegram Bot API | in+out | tenant (install adapter + set token) | Vault (bot token, confined in adapter); optional webhook secret | optional webhook secret; agent-grounded reply; **no rate limit on public door** | working | **B46** |
-| 6 | Chat messaging — SMS/USSD | app-host (`app_host.py` `_bridge_sms_intake`) | SMS/USSD gateway (shared-secret seam) | in | operator | `SMS_GATEWAY_TOKEN` env (shared literal, per-installation) | shared-secret match only | partial / seam | A71-class |
+| 6 | Chat messaging — SMS/USSD | app-host (`app_host.py` `_bridge_sms_intake`) | SMS/USSD gateway (shared-secret seam) | in | operator | Vault `secret/<op>/sms-gateway/token` (one operator secret; env no longer read — slice-1c-iv step 4) | constant-time shared-secret match, fail-closed | partial / seam | **B64** |
 | 7 | Federated mail (cross-tenant) | mail-engine + network signed-relay | AirawatOS peers (Ed25519 signed relay) | in+out | network (trust directory) | network authority key (Vault transit) | message signature (Ed25519); dev-steward fallback | working (2-tenant proven) | body-seal pending (#234) |
 | 8 | Data sources / drivers | broker + `components/drivers/*` (~48) | Open-Meteo, Google Earth Engine, OSM/Overpass+PBF, CPCB/CAMS/ERA5/MAIAC/FIRMS, Open Buildings, GHSL, eSankhyiki, GDELT/RSS, OpenAQ, … | out | tenant (install driver + set key) | Vault per-(tenant,component) (driver secrets); GEE key per tenant | run-token + capability (egress/secret/write) default-deny **in confined path**; metering; declared egress hosts in `meta.yaml` | working | **B51, B52, B65, B67**, #197 |
 | 9 | Cameras (video) | `rtsp-ingest` driver (`run.py`) | RTSP / RTMP / HLS cameras via ffmpeg | in (pull) | tenant (`device.camera` records) | Vault / `device.camera` stream creds, per-tenant | run-token; protocol allow-list | working | **B66** |
 | 10 | External identity providers | identity + `tokens.py` (`verify`) | reference IdP (EdDSA) + OIDC RS256 (Keycloak live; Google/Azure alg-supported) | in (verify) | operator (configures issuers, ADR-0068) | issuer JWKS (public); no secret held | alg↔kty match (no `alg:none`), iss/aud, JWKS pin | working (ref + Keycloak) | — |
 | 11 | Identity verification / VCs | credential service + network directory | native Ed25519 VCs; cross-issuer verify via directory pubkey | in+out | issuer tenant | Vault transit (issuer key), per-tenant | signature + issuer-pubkey from governed directory | working (wallet LIVE) | — |
 | 12 | File / blob storage | filestore (`filestore.py`) | local disk (`FILESTORE_DIR`); **S3 = backlog** | — | hardcoded (local volume) | — (no external creds yet) | svc:filestore gate (slice-1c-ii) | working (single volume; not HA) | **B49**, REG-18 |
-| 13 | Secrets backend | secrets (`secrets.py`) + Vault | HashiCorp Vault (KV v2 + transit) | out | hardcoded (Vault) | Vault AppRole per service (slice-1b) | per-service policy + internal gate | working (single-node; HA + KMS pending) | A71, RELEASE-PLAN §2c |
+| 13 | Secrets backend | secrets (`secrets.py`) + Vault | HashiCorp Vault (KV v2 + transit) | out | hardcoded (Vault) | Vault AppRole per service (slice-1b) | per-service policy + `svc:secrets` audience-bound gate (literal retired, slice-1c-iii) | working (single-node; HA + KMS pending) | RELEASE-PLAN §2c |
 | 14 | Git hosting | `git-publisher` engine (`run.py`) | GitHub (https push) | out | tenant/project (Studio Git, ADR-0083) | token via secrets/Vault `credential_ref`, **per-project** | credential_ref (token never in meta/argv/logs) | working | — |
 | 15 | Maps / basemap / 3D tiles | **client-side (app bundles)**; Cesium ion proxy *not built* | OSM/basemap tile CDNs, deck.gl/Cesium JS CDNs; Cesium ion (photoreal) | out (browser) | hardcoded (bundle) | none server-side; ion token proxy pending | **none — browser egress, unmediated** | partial | **B68**, #187 |
 | 16 | Payments | *not built* | — (ADR-0067 fee-quote + consent is a declarative record) | — | — | — | — | **not built** (platform starts without it) | — |
 | 17 | Events / webhooks (outbound) | event-relay (`event_relay.py`) | *internal only* (delivers to automation) | — | — | — | svc principal mint; at-least-once + deadletter | working (internal); **external webhook egress not built** | ADR-0089 |
 | 18 | Geocoding | layered geocoder (drivers: `gazetteer-builder`, `geocode-ledger`) | local OSM gazetteer + PIN-code centroids; external geocoder optional | out (optional) | tenant | local data (no external key by default) | broker egress if external | partial (local-first) | — |
 
-*New debt IDs B65–B68 and C-1/C-2 are defined in the findings sections below — **folded into the DEBT-REGISTER (slice-1e)**. These were first proposed here as B61–B64; slice-1c-iv independently used B61–B64 for other debts, so they were renumbered B61→B65, B62→B66, B63→B67, B64→B68 (mapping recorded in the DEBT-REGISTER id-mapping note).*
+*New debt IDs B65–B68 and C-1/C-2 are defined in the findings sections below. B65–B68 were folded into the DEBT-REGISTER in slice-1e; **C-1/C-2 were not** (corrected with ADR-0130: registered as **DEBT-B71 / DEBT-B72**, since a bare `C-#` collides with the `DEBT-C#` family). These were first proposed here as B61–B64; slice-1c-iv independently used B61–B64 for other debts, so they were renumbered B61→B65, B62→B66, B63→B67, B64→B68 (mapping recorded in the DEBT-REGISTER id-mapping note).*
 
 ---
 
@@ -149,7 +149,7 @@ Shorthand: **N** = north / caller-facing interface, **S** = south / provider-fac
 - **Direction:** outbound (to Vault).
 - **Credentials:** each service logs in to Vault via its **own AppRole** (slice-1b), scoped to a least-privilege policy; the shared root token is gone.
 - **Who chooses:** hardcoded (Vault is the backend).
-- **Pre-call checks:** per-service Vault policy; secrets-service internal gate (shared literal `SECRETS_INTERNAL` — A71, fail-closed).
+- **Pre-call checks:** per-service Vault policy; secrets-service `svc:secrets` audience-bound gate (the `SECRETS_INTERNAL` literal was retired in slice-1c-iii, A71 closed).
 - **Status:** working. Single-node file storage; **Raft HA + KMS auto-unseal** are a RELEASE-PLAN §2c gate.
 
 ### 14. Git hosting — `git-publisher` engine
@@ -198,12 +198,14 @@ broker's `egress(host)` gate for data, or the owning service for a transport). E
 
 ### Governance gaps (not bypasses, but recorded)
 
-- **C-1 — AI calls have no consent / cost / rate limit.** model-gateway meters usage (audit) but applies no per-call consent, spend ceiling, or rate limit before sending a prompt (which may carry citizen/case content) to an external LLM. The decision-function work is the natural home for a pre-call policy gate.
-- **C-2 — STT bootstrap provider is not governed.** `_stt_provider` falls back to an env-configured provider when no `intelligence.provider` (task `transcribe`) record exists — a `TODO(governed)`; the key is still Vault-held, but the provider is not a governed record.
+- **C-1 → DEBT-B71 — AI calls have no consent / cost / rate limit.** model-gateway meters usage (audit) but applies no per-call consent, spend ceiling, or rate limit before sending a prompt (which may carry citizen/case content) to an external LLM. The decision-function work is the natural home for a pre-call policy gate.
+- **C-2 → DEBT-B72 — STT bootstrap provider is not governed.** `_stt_provider` falls back to an env-configured provider when no `intelligence.provider` (task `transcribe`) record exists — a `TODO(governed)`; the key is still Vault-held, but the provider is not a governed record.
 
 ---
 
-*Survey only — no code or configuration changed. Debt IDs B65–B68 (originally proposed as B61–B64; renumbered slice-1e) and C-1/C-2 are folded into
+*Survey only — no code or configuration changed. Debt IDs B65–B68 (originally proposed as B61–B64; renumbered slice-1e) and C-1/C-2 (→ B71/B72, ADR-0130) are folded into
 [DEBT-REGISTER](DEBT-REGISTER.md); existing IDs referenced: B5 (unauth endpoints, closed by ADR-0124), B46
 (Telegram public-door rate limit), B49 (filestore tenant scope), B51 (in-process confinement), B52 (placed-container
 egress policy), A71 (shared-literal internal tokens), REG-18 (archival/S3).*
+
+> **Placement:** ADR-0130 places every capability above in a gateway (or operator infrastructure, or core) and records where this inventory and the ADR brief differed (ADR-0130 § Inventory reconciliation). Not surveyed here and added there: the automation raw-URL action (DEBT-A43), `services/service-gateway`, `services/mospi-gateway`.
