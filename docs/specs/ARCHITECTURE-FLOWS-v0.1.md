@@ -294,7 +294,7 @@ production cannot run with a gate open.
 | Door | Gate | Accept audience / token | Declared callers (the edge) | Default BEFORE 1c | Default AFTER 1c |
 |---|---|---|---|---|---|
 | scheduler `/run`,`/reload` | svc_authz | `svc:scheduler` | **app-host** | shadow (`SCHEDULER_REQUIRE_TOKEN`, armed=1 in compose) | **ENFORCE** (code default) |
-| automation `/events` | svc_authz (`_authz_event`) | `svc:automation`, platform | **event-relay** (platform aud) | shadow (armed=1 in compose) | **ENFORCE** (code default) |
+| automation `/events` | svc_authz (`_authz_event`) | `svc:automation` only (platform aud **refused**, slice-1g B85) | **event-relay** (as `localdev-operator/scheduler`, tenant-pinned) | shadow (armed=1 in compose) | **ENFORCE** (code default) |
 | notify `/notify` | svc_authz **(NEW)** | `svc:notify` | **decision, workflow** | **none** (DEBT-B5) | code default **ENFORCE**; local-dev **shadow via explicit `NOTIFY_SHADOW`** — decision/workflow have no service principal yet (recorded remaining wiring) |
 | model-gateway `/transcribe` | svc_authz **(NEW)** (shared service-wide gate) | `svc:model-gateway` | **app-host** | **none** (DEBT-B5) | code default **ENFORCE**; shares the model-gateway gate below (held shadow by the kernel edge) |
 | model-gateway `/admin/provider-key` | bespoke `X-Internal-Token` (`GW_INTERNAL_TOKEN`) | shared literal | **app-host** | enforce-when-set, **literal default `gw-internal`** (DEBT-A37) | **ENFORCE, fail-closed** (refuses when unset) |

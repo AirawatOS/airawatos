@@ -516,6 +516,30 @@ def case_login_audience_allowlist():
         expect("FOUNDATIONS", "FND-15/ADR-0124", "human (platauth) refused a service audience", h[0] == 403, "platauth svc:automation -> %s" % str(h))
 
 
+def case_automation_declared_callers():
+    """slice-1g (DEBT-B85, review B1) — automation /events admits svc:automation ONLY from its declared caller (the
+    event-relay, signing in as localdev-operator/scheduler). The review found svcprobe / app-host / decision admitted
+    with their platform-audience tokens; each must now be 403, as must the declared caller's own platform token."""
+    T = INTERNAL
+    st_anon, _, _ = _req("POST", T["automation"] + "/events", body={"subject_schema": "conformance.probe"})
+    if st_anon == 0:
+        record("FOUNDATIONS", "FND-9/DEBT-B85", "automation /events reachable", "expected-fail", "SKIP_BUILD", "unreachable"); return
+    expect("FOUNDATIONS", "FND-9/DEBT-B85", "automation /events refuses an anonymous call", st_anon == 401, "anon -> %s" % st_anon)
+    for who in ("svcprobe", "app-host", "decision", "scheduler"):
+        tok = _login_token(who, "localdev-operator", "secret/data/localdev-operator/%s/password" % who)   # platform audience
+        name = "automation /events refuses an undeclared platform-audience token (%s)" % who
+        if not tok:
+            record("FOUNDATIONS", "FND-9/DEBT-B85", name, "needs-creds", "SKIP_CREDS", "no %s token" % who); continue
+        st, _, _ = _req("POST", T["automation"] + "/events", body={"subject_schema": "conformance.probe"}, token=tok)
+        expect("FOUNDATIONS", "FND-9/DEBT-B85", name, st == 403, "%s platform-aud token -> %s (expect 403)" % (who, st))
+    tok = _login_token("scheduler", "localdev-operator", "secret/data/localdev-operator/scheduler/password", "svc:automation")
+    name = "automation /events admits its declared caller (event-relay principal, svc:automation)"
+    if not tok:
+        record("FOUNDATIONS", "FND-9/DEBT-B85", name, "needs-creds", "SKIP_CREDS", "no svc:automation token"); return
+    st, _, _ = _req("POST", T["automation"] + "/events", body={"subject_schema": "conformance.probe"}, token=tok)
+    expect("FOUNDATIONS", "FND-9/DEBT-B85", name, st == 200, "scheduler svc:automation -> %s (expect 200)" % st)
+
+
 def case_platform_authority_bootstrap_rule():
     """ADR-0122 — with a platform.authority holder already present, a NON-CR grant is REFUSED (403): re-running
     bootstrap's first-holder seed (phase 7b) grants nothing. Proven via the governance endpoint as trust-writer."""
@@ -551,6 +575,7 @@ def run_internal_cases():
     case_component_publisher_refused()
     case_dev_sandbox_confined()
     case_login_audience_allowlist()
+    case_automation_declared_callers()
     case_platform_authority_bootstrap_rule()
     def tokenless_accepted(spec, rule, name, method, url, body=None):
         st, b, _ = _req(method, url, body=body)
