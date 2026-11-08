@@ -33,20 +33,14 @@ n = read("network/api.py")
 xfail(["PLT-4"], "the platform tenant confers nothing — DEBT-B2/A17/B82",
       'claims.get("tenant") == "airawat"' in n or 'AUTHORITY_TENANT = "airawat"' in n,
       "network/api.py grants operator/authority power by the tenant NAME 'airawat'")
-pols = [p for p in glob.glob(os.path.join(ROOT, "deploy/local-dev/vault/policies/*.hcl")) if 'path "transit/*"' in read(os.path.relpath(p, ROOT))]
-xfail(["ARC-7"], "each service reaches only its own Vault keys — shared transit/* (review K1)", len(pols) > 1,
-      f"{len(pols)} policies grant transit/*: " + ", ".join(sorted(os.path.basename(p) for p in pols)))
+# slice-1g: review K1 (shared transit/*, B88) and K2 (brokers read platform credentials, B89) are FIXED and proven LIVE by
+# conformance/vault_scope_test.py (actual sign / read attempts → 403); review W1 (no default-deny egress, B87) is FIXED and
+# proven LIVE by conformance/flow_map_test.py (actual connection attempts). Their static evidence cases were removed.
 s = read("platform-spec/reference/secrets.py")
 m = re.search(r"def _path\(tenant, component, name=None\):\n(.*\n){1,3}", s)
 unquoted = bool(m) and 'quote(name' not in m.group(0)
 xfail(["ARC-7"], "a component injects only its own secrets — unquoted secret name allows ../ traversal (review N5)", unquoted,
       "secrets.py _path() quotes the component but not the secret name")
-mg = read("deploy/local-dev/vault/policies/svc-model-gateway.hcl") + read("deploy/local-dev/vault/policies/svc-secrets.hcl")
-xfail(["ARC-7"], "brokers cannot read platform credentials (review K2)", 'secret/data/+/+/*' in mg or 'secret/data/*' in mg,
-      "svc-model-gateway / svc-secrets policies cover the 3-segment platform credential paths")
-cmp = read("deploy/local-dev/docker-compose.dev.yml")
-xfail(["ARC-1"], "per-boundary networks deny outbound by default (review W1)", "internal: true" not in cmp,
-      "no aos-* network is declared internal: true — every container reaches the internet")
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 json.dump({"env": "local-dev", "mode": "knownviolations", "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
            "git_sha": "", "cases": cases}, open(OUT, "w"), indent=1)

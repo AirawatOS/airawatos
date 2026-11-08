@@ -31,17 +31,19 @@ TIGHT = {
     # slice-1c-iv step 2: the runtime manager reads ONLY the launcher password (moved off the scheduler).
     "runtime-manager": ("secret/data/localdev-operator/launcher/password", "secret/data/localdev-operator/scheduler/password"),
 }
-# broker service: svc-secrets is broad on secret/data/* BY DESIGN (it IS the KV broker; per-(tenant,component)
-# authz is its own gate — the decision-function follow-up). Assert scoped non-root token + can read a sample.
-BROAD = {
-    "secrets":       "secret/data/localdev/kernel-app/password",
-}
-# slice-1c step 4 — model-gateway NARROWED from secret/data/* to the per-(tenant,component) KV SHAPE
-# secret/data/+/+/*: (3-seg own path readable) AND (a 2-segment path now REFUSED 403, proving it is no longer
-# the whole tree). own = 3-seg component-secret shape; short = 2-seg path that the narrowed glob excludes.
-NARROWED = {
-    "model-gateway": ("secret/data/localdev/kernel-app/password", "secret/data/localdev-operator/scheduler"),
-}
+# slice-1g (DEBT-B89) — the two KV BROKERS (secrets broker, model-gateway) hold component secrets ONLY. Component
+# secrets live in their OWN KV mount (`components/`, per-(tenant, component)); platform credentials (DB passwords, the
+# provisioner and every service principal's password, the audit HMAC key) stay in `secret/`, where only each owner
+# reads its own path. Each broker: CAN read+write its component mount; has NO capability on any platform credential.
+COMPONENT_MOUNT = "components"
+BROKERS = {"secrets": "localdev/ds%3Aslice1g%3Aprobe/api_key", "model-gateway": "localdev/ds%3Aslice1g%3Aprobe/api_key"}
+PLATFORM_CREDS = (["secret/data/localdev/%s/password" % u for u in ("kernel-app", "migrator", "network-app", "identity-lockout")]
+                  + ["secret/data/localdev-operator/%s/password" % u for u in
+                     ("provisioner", "admin", "scheduler", "launcher", "kernel", "app-host", "decision", "workflow", "svcprobe")]
+                  + ["secret/data/localdev-network/%s/password" % u for u in ("trust-writer", "trust-reader", "component-publisher", "platauth")]
+                  + ["secret/data/localdev-network/trust-plane/audit_hmac"])
+# app-host is not a broker, but held localdev-operator/* (review K3): it may read only its OWN credentials.
+APP_HOST_OWN = {"secret/data/localdev-operator/app-host/password", "secret/data/localdev-network/component-publisher/password"}
 # services with no Vault door — must carry no Vault token at all (slice-1c-ii: decision + workflow moved to
 # TIGHT — they now mint svc:notify; notify VERIFIES tokens via JWKS, not Vault, so it stays here).
 NOVAULT = ["notify", "filestore"]
@@ -176,27 +178,30 @@ def main():
         ok_all &= rec("ARC-7", "network: CANNOT read another operator-realm secret (grant is exact)",
                       o.get("FOREIGN") == "403", "%s -> %s (want 403)" % (foreign, o.get("FOREIGN")))
 
-    for svc, sample in BROAD.items():
-        o = probe(svc, sample, "")
-        tok = o.get("TOKEN", "")
-        ok_all &= rec("ARC-7", "%s (KV broker): scoped non-root token, broad by design" % svc,
-                      bool(tok) and tok != ROOT and o.get("OWN") in ("200", "404"),
-                      "token present=%s non-root=%s read=%s (svc-%s is intentionally broad — recorded widening)"
-                      % (bool(tok), tok != ROOT, o.get("OWN"), svc))
-        ok_all &= rec("ARC-7", "%s: no static VAULT_TOKEN in container config" % svc,
-                      not config_has_static_vault_token(svc), "config static token present=%s" % config_has_static_vault_token(svc))
-
-    for svc, (own, short) in NARROWED.items():
-        o = probe(svc, own, short)
+    # slice-1g (DEBT-B89): brokers refused on EVERY platform credential (read and write, data and metadata), and an
+    # ACTUAL read attempt on each must return 403. Positive: each broker can still write+read its component mount.
+    for svc, comp in list(BROKERS.items()) + [("app-host", None)]:
+        o = probe(svc)
         tok = o.get("TOKEN", "")
         ok_all &= rec("ARC-7", "%s: holds a scoped (non-root) Vault token" % svc,
                       bool(tok) and tok != ROOT, "token present=%s, is-root=%s" % (bool(tok), tok == ROOT and bool(ROOT)))
-        ok_all &= rec("ARC-7", "%s: CAN read a per-(tenant,component) component-secret path (its shape)" % svc,
-                      o.get("OWN") in ("200", "404"), "%s -> %s" % (own, o.get("OWN")))
-        ok_all &= rec("ARC-7", "%s: NARROWED — a 2-segment path is now REFUSED (no longer secret/data/*)" % svc,
-                      o.get("FOREIGN") == "403", "%s -> %s (want 403; proves svc-model-gateway narrowed to +/+/*)" % (short, o.get("FOREIGN")))
         ok_all &= rec("ARC-7", "%s: no static VAULT_TOKEN in container config" % svc,
                       not config_has_static_vault_token(svc), "config static token present=%s" % config_has_static_vault_token(svc))
+        creds = [c for c in PLATFORM_CREDS if not (svc == "app-host" and c in APP_HOST_OWN)]
+        paths = creds + [c.replace("secret/data/", "secret/metadata/", 1) for c in creds]
+        cp = caps(svc, paths)["CAP"]
+        for c in creds:
+            m = c.replace("secret/data/", "secret/metadata/", 1)
+            bad = [x for x, w in ((c, False), (c, True), (m, False), (m, True)) if granted(cp.get(x), write=w) or cp.get(x) in ("list",)]
+            g = probe(svc, c, "")
+            ok_all &= rec("ARC-7", "%s CANNOT read or write platform credential %s" % (svc, c.split("secret/data/", 1)[1]),
+                          not bad and g.get("OWN") == "403",
+                          "caps data=%s metadata=%s; GET -> %s (want no capability, 403)" % (cp.get(c), cp.get(m), g.get("OWN")))
+        if comp:
+            cpath = "%s/data/%s" % (COMPONENT_MOUNT, comp)
+            cc = caps(svc, [cpath])["CAP"].get(cpath)
+            ok_all &= rec("ARC-7", "%s CAN read+write component secrets (its own mount)" % svc,
+                          granted(cc) and granted(cc, write=True), "%s caps=%s" % (cpath, cc))
 
     # slice-1g (DEBT-B88): transit keys are per service. ACTUAL sign attempts: kernel and network with identity's key.
     for svc in ("kernel", "network"):

@@ -24,4 +24,7 @@ if vault status 2>&1 | grep -qi 'Sealed *false'; then echo "[vault] UNSEALED"; e
 # the identity/network services themselves).
 export VAULT_TOKEN=$(tr -d '\n ' < /vault/data/init.json | sed 's/.*"root_token":"\([^"]*\)".*/\1/')
 vault secrets enable -version=2 -path=secret kv >/dev/null 2>&1 || true
+# slice-1g (DEBT-B89): component secrets in their OWN mount — the brokers' policies cover this mount only, never the
+# platform credentials in secret/ (DB passwords, service principals, the audit HMAC key).
+vault secrets enable -version=2 -path=components kv >/dev/null 2>&1 || true
 wait $VPID

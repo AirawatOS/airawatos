@@ -1,6 +1,9 @@
-# FIX-PLAN L1-1b — Vault policy for the SECRETS service.
-# WIDENED (recorded): the secrets service IS the Vault KV broker (ADR-0124) — it reads/writes per-(tenant,
-# component) secrets on behalf of components. Fine-grained per-(tenant,component) authorization is enforced in
-# secrets.py's OWN gate, not in this Vault policy, so this is deliberately broad on the KV data plane.
-path "secret/data/*"     { capabilities = ["create", "read", "update", "delete"] }
-path "secret/metadata/*" { capabilities = ["read", "list", "delete"] }
+# Vault policy for the SECRETS broker (ADR-0124).
+# slice-1g (DEBT-B89): NARROWED to the component-secrets mount ONLY. Component secrets live in their own KV-v2 mount
+# `components/` (components/data/<tenant>/<component>/<name>); platform credentials — DB passwords, every service
+# principal's password (provisioner, scheduler, launcher, …) and the trust-plane audit HMAC key — stay in `secret/`,
+# where each owner's policy grants only its own path. This broker has NO capability anywhere under `secret/`.
+# Per-(tenant, component) authorization (which caller may touch which component's secrets) remains secrets.py's own
+# gate — the decision-function follow-up.
+path "components/data/*"     { capabilities = ["create", "read", "update", "delete"] }
+path "components/metadata/*" { capabilities = ["read", "list", "delete"] }
