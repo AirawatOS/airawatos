@@ -37,8 +37,34 @@ INVENTORY = [
     ("ARCHITECTURE","ARC", [str(i) for i in range(1, 8)]),   # ARC-1..ARC-7 (ARCHITECTURE-FLOWS; flow-map test)
     ("GATEWAY",     "GTW", [str(i) for i in range(1, 15)]),  # GTW-1..GTW-14 (GATEWAY-v0.1, ADR-0130) — slice-1d
 ]
+# Inventory drift guard (slice-1d follow-up): every rule a spec DEFINES (a heading or a first-column table cell)
+# must be in INVENTORY, so a newly added rule can never be silently absent from the matrix. Fails the build.
+SPEC_FILES = {"FND": "FOUNDATIONS", "REG": "REGISTRY", "DEC": "DECISION", "NET": "NETWORK", "ACC": "ACCOUNT",
+              "CLI": "CLIENT", "PLT": "PLATFORM", "CMP": "COMPONENT", "OFF": "OFFERINGS", "POL": "POLICY",
+              "PTC": "PARTICIPANT", "FED": "FEDERATION", "ARC": "ARCHITECTURE-FLOWS", "GTW": "GATEWAY"}
+
+
+def _inventory_drift():
+    import re
+    have = {p: {rid(p, n) for n in nums} for _, p, nums in INVENTORY}
+    missing = []
+    for p, f in SPEC_FILES.items():
+        path = os.path.join(REPO, "docs", "specs", f + "-v0.1.md")
+        if not os.path.exists(path):
+            continue
+        txt = open(path).read()
+        core = r"FED\d+[a-z]?" if p == "FED" else (r"ACC-W?\d+[a-z]?" if p == "ACC" else p + r"-\d+[a-z]?")
+        defs = set(re.findall(r"^#+\s*\**(" + core + r")\b", txt, re.M)) | set(re.findall(r"^\|\s*\**(" + core + r")\**\s*\|", txt, re.M))
+        missing += sorted(defs - have.get(p, set()))
+    return missing
+
+
 def rid(prefix, n):  # FND + "8" -> FND-8 ; FED + "3" -> FED3 (FED carries no hyphen)
     return ("%s%s" if prefix == "FED" else "%s-%s") % (prefix, n)
+
+_DRIFT = _inventory_drift()
+if _DRIFT:
+    raise SystemExit("[build_matrix] ✗ rules defined in the specs but missing from INVENTORY (add them): " + ", ".join(_DRIFT))
 
 # env -> rule -> list of (result_kind, case_name)
 env_rule = collections.defaultdict(lambda: collections.defaultdict(list))
