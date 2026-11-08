@@ -100,11 +100,13 @@ s, d = req("POST", f"{IDN}/realms/{TENANT}/login", {"username": "admin", "passwo
 atok = (d or {}).get("access_token") if s == 200 else None
 res(f"tenant admin token for {TENANT}", bool(atok), s)
 H = {"Authorization": "Bearer " + (atok or "")}
-# slice-1f: the Network's lookups are internal-only — call them as a declared service principal (scheduler, svc:network)
-s, d = req("POST", f"{IDN}/login", {"username": "scheduler", "tenant": OPERATOR, "aud": "svc:network",
-                                   "password": vpw(f"secret/data/{OPERATOR}/scheduler/password")})
+# slice-1f: the Network's lookups are internal-only. slice-1g (DEBT-B86): each door admits only its DECLARED callers
+# (ARCHITECTURE-FLOWS §c table) — tenants/directory/grants resolve are the KERNEL's lookups, so the proof calls them as
+# the kernel principal (svc:network), exactly as the kernel broker does.
+s, d = req("POST", f"{IDN}/login", {"username": "kernel", "tenant": OPERATOR, "aud": "svc:network",
+                                   "password": vpw(f"secret/data/{OPERATOR}/kernel/password")})
 NH = {"Authorization": "Bearer " + ((d or {}).get("access_token") or "")} if s == 200 else {}
-res("a declared service principal (scheduler) mints svc:network for the internal lookups", bool(NH), s)
+res("a declared caller (kernel) mints svc:network for the internal lookups", bool(NH), s)
 s, _ = req("POST", f"{NET}/v1/tenants/resolve", {"tenant_id": TENANT})
 res("the Network's internal lookup refuses an anonymous caller (slice-1f)", s == 401, s)
 s, d = req("POST", f"{NET}/v1/tenants/resolve", {"tenant_id": TENANT}, headers=NH)
