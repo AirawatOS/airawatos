@@ -90,6 +90,11 @@ edge crosses a declared door — ARC §c) is the capstone net that proves nets 1
   versions carry no Kernel/participant signature; no hash chain — REG-8), **DEBT-B20** (run-token serialized at
   rest in cleartext), **DEBT-B53** (run-token has no expiry/audience). Confirmed fixed: B15 (list strips
   run_token), B22 (install admin-gated), P0#1 (high-entropy run-tokens).
+  **File storage (operator infrastructure, GATEWAY-v0.1 Part C — ADR-0130):** blobs are records (REG-18), so
+  their storage contract is owned here: **tenant-scoped** blob keys checked on read (**DEBT-B49** — moved here as the
+  owning layer; Layer 6 keeps the filestore *door* gate), **encrypted** blobs (per-blob data key, ADR-0126 next
+  slice), and a pluggable backend behind the door (local volume → S3-compatible object store, chosen once per
+  installation; shared object storage is also the FND-18 HA fix).
 - **Missing tests:** anon-read-denied as a PASS (currently XFAIL under A1); a Kernel-calls-upward banned-pattern
   check (ADR-0123); registry-signature + hash-chain conformance (B23); run-token expiry/replay test (B53).
 - **Exit gate:** ADR-0123 closed (Kernel self-contained; `/kernel/` internal-only); anon reads denied; registry
@@ -145,6 +150,12 @@ edge crosses a declared door — ARC §c) is the capstone net that proves nets 1
   stored XSS), **DEBT-B12** (embed consent scope not bound to registered client), **DEBT-A23 / CLI-6 / PTC-12**
   (`/bridge/*` used as the public protocol — cross-cutting with Layer 7). Confirmed fixed: **B41** (component-
   publish verifies token+role), **B42** (directory/provenance bridges require auth) — slice-5 hotfixes.
+  **Browser-side egress (DEBT-B68, GTW-13 — ADR-0130):** app bundles load scripts, fonts and tiles from
+  third-party CDNs straight from the viewer's browser. Fix: **self-host** scripts/styles/fonts in the bundle or the
+  installation's origin, **proxy** tiles and other remote data through the edge (the geo gateway; Cesium ion proxy
+  #187), and have the App Host set a **content security policy** (`script-src`/`connect-src`/`img-src` limited to
+  the origin and its declared proxies). Test: a CSP header on every app page, and no third-party origin in any
+  bundle (a static scan).
 - **Missing tests:** CSRF/Origin + `Secure` on cookie-auth POSTs; account-hold fail-closed; each anon bridge
   read → refusal; docrender sanitization unit test (B50); embed scope ≤ registered-client ∩ consent (B12,
   black-box via seeded demo-embed); rate-limit/route-separation on the public front door.
@@ -168,12 +179,31 @@ edge crosses a declared door — ARC §c) is the capstone net that proves nets 1
   gated), **DEBT-A40** (notify unattributed registry write), **DEBT-A65** (dual-audience migration acceptance),
   **DEBT-A11/B16** (connector/secrets `/fetch` SSRF). **Conversation-channel gateway (with DEBT-B46):** **DEBT-B64** — inbound SMS/USSD/message intake authenticated by one shared secret (interim: moved to Vault, slice-1c-iv step 4); **target:** per-provider, per-tenant signed webhooks, tenant bound by provider registration, behind the B46 rate-limited front door. Confirmed fixed: B4/A36 fail-closed-when-unset; B6/B28/B29
   identity directory; automation `/events` promoted to a PASS (slice-5).
+  **Gateways (ADR-0130, GATEWAY-v0.1):** each gateway gets a versioned NORTH and SOUTH contract with GTW-4/5
+  enforcement between them. In order of risk:
+  - **Messaging:** email moves out of the Network into the messaging gateway (SES/SMTP become south adapters),
+    with rate limit, consent and a decision record per send; notify is the north door; outbound SMS is
+    build-to-contract; federated mail keeps the federation door as its south side.
+  - **AI models:** **DEBT-B71** (consent / lawful basis, tenant cost ceiling, rate limit, decision record before
+    any prompt leaves) and **DEBT-B72** (STT providers only from governed records; no env fallback).
+  - **Conversation channels (with DEBT-B46):** **DEBT-B64**, per-provider per-tenant signed webhooks with the
+    tenant bound by provider registration, behind the B46 rate-limited, route-separated front door; WhatsApp and IVR
+    land as channel adapters.
+  - **Data sources:** **DEBT-B65** (SDK egress), **DEBT-B66** (RTSP), **DEBT-B67** (in-process path). All three
+    close on network-enforced declared egress (GTW-11, with B51/B52 in Layer 7). `mospi-gateway` becomes an adapter.
+  - **Identity providers:** external issuers behind the identity gateway's north `verify` (FND-15 scoping); the
+    home issuer stays core.
+  - **Build to contract (not built today):** **payments** (quote/authorise/capture/refund/status, consent-cited)
+    and **outbound webhooks** (registered + verified targets, signed deliveries; the automation raw-URL action,
+    DEBT-A43, moves behind it).
+  Missing tests: the GTW north-conformance suite per gateway (GTW-12).
 - **Missing tests:** anon→refusal on model-gateway/notify once gated (XFAIL until armed); cross-tenant filestore
   read once gated (B49); decide-authorization from a recorded grant (B3); workflow /instantiate authority (B1);
   dedup survives restart (B10); scheduler `/run` scoped to caller tenant (A28/A39).
 - **Exit gate:** every privileged endpoint armed-by-default + fail-closed (B5/A72 closed); shared literals retired
   to audience-bound tokens (A71/A37/A36); authority from recorded grants not token roles (B3/A66); dedup/receipts
-  durable (B10); filestore tenant-scoped (B49); owned FND rows HELD or deferred; nets green; independent review;
+  durable (B10); filestore door gated (tenant scope B49 now owned by Layer 2); gateway north contracts enforced
+(GTW-3–GTW-7) for messaging, AI and channels; owned FND rows HELD or deferred; nets green; independent review;
   fresh install + conformance pass.
 
 ---

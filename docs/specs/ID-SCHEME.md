@@ -39,6 +39,7 @@ pipeline findings become `FIND-#`.
 | POLICY | `PL#` | **`POL-`** | POL-1 … POL-8 |
 | PARTICIPANT | `PP#` | **`PTC-`** | PTC-1 … PTC-12 |
 | FEDERATION | `FED#` | **`FED-`** *(unchanged)* | FED1 … FED8 |
+| GATEWAY *(new, ADR-0130)* | — | **`GTW-`** | GTW-1 … GTW-14 |
 | Assurance levels | `A0`–`A3` | **`AL#`** | AL0 … AL3 |
 | Debt — transitional mechanisms | `A#` | **`DEBT-A#`** | DEBT-A1 … DEBT-A74 |
 | Debt — invariant violations | `B#` | **`DEBT-B#`** | DEBT-B1 … DEBT-B21 |
