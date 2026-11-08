@@ -4,12 +4,12 @@
 #   make verify-fast   everything except the fresh install (runs against the stack that is up)
 #   make <target>      any single net below
 # Needs: docker (with compose v2), python3, git. The fresh install WIPES the local-dev stack's volumes.
-.PHONY: verify verify-fast banned gtw-static fresh-install conformance flowmap vaultscope routes scans matrix decide-unit
+.PHONY: verify verify-fast banned gtw-static known-violations fresh-install conformance flowmap vaultscope routes scans matrix decide-unit
 
-verify: banned gtw-static decide-unit fresh-install conformance flowmap vaultscope routes scans matrix
+verify: banned gtw-static known-violations decide-unit fresh-install conformance flowmap vaultscope routes scans matrix
 	@echo "✓ make verify: all assurance nets green"
 
-verify-fast: banned gtw-static decide-unit conformance flowmap vaultscope routes scans matrix
+verify-fast: banned gtw-static known-violations decide-unit conformance flowmap vaultscope routes scans matrix
 	@echo "✓ make verify-fast: all assurance nets green (no fresh install)"
 
 banned:          ## net 6 — banned patterns (static), each mapped to its rule
@@ -17,6 +17,9 @@ banned:          ## net 6 — banned patterns (static), each mapped to its rule
 
 gtw-static:      ## GTW — static evidence for gateway rules no black-box case reaches (XFAIL = known violation)
 	python3 verify/gtw_static.py
+
+known-violations: ## matrix honesty — recorded violations of rules that narrow PASS cases would show HELD (XFAIL)
+	python3 verify/known_violations.py
 
 decide-unit:     ## net 5 — unit tests of the one decision function
 	cd kernel && python3 services/authz/test_decide.py

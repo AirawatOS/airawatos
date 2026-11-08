@@ -123,9 +123,14 @@ to shadow.
      handling; the secret never leaves the container):
 
      ```
-     docker compose exec -T network python3 - < deploy/installer/_split_roles.py
+     PGPW=$(sed -n 's/^POSTGRES_PASSWORD=//p' deploy/local-dev/.env | tail -1)
+     docker compose exec -T -e VAULT_TOKEN="$VT" network env INSTANCE=localdev DB_HOST=postgres POSTGRES_PASSWORD="$PGPW" \
+         python3 - < deploy/installer/_split_roles.py
      ```
-  2. **Recreate — don't just `restart` — every service** so it picks up the current Vault token from `.env`:
+     (`$VT` = the install-time root from `/vault/data/init.json`; see RESTORE-AND-ROTATION.md. The network container
+     holds neither the root token nor the superuser password since L1-1b / slice-1d, so both are passed in.)
+  2. **Recreate — don't just `restart` — every service** so it picks up its AppRole credentials from
+     `deploy/local-dev/vault/approle/<svc>.env` and logs in afresh (prod-guard):
      `docker compose up -d`. A bare `docker restart` keeps the container's original environment, so a service
      can come back holding a **stale Vault token** (symptom: `403 Forbidden` reading its Vault path → the
      service fails open to an empty DB password → `password authentication failed`). This is distinct from the

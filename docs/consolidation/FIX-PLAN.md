@@ -59,6 +59,9 @@ edge crosses a declared door — ARC §c) is the capstone net that proves nets 1
 
 ## Layer 1 — Installation + infrastructure
 
+> **Exit review 2026-11-08: FAIL** — see [LAYER1-EXIT-REVIEW](../reviews/LAYER1-EXIT-REVIEW.md). Ten blocking findings
+> (DEBT-B83, B85–B90, B92, B93 M3, B95 + the B57 decision); remediation slice **1g** lists the conditions to PASS on re-review.
+
 **Foundational.** Everything above assumes these hold; they must land first.
 
 - **Start here:** network separation per boundary (ARC-1/5/7); gates **on by default** on a fresh install, **no

@@ -8,7 +8,7 @@
   "provenance": {
     "local-dev": {
       "git_sha": "",
-      "ts": "2026-11-08T08:44:38Z",
+      "ts": "2026-11-08T10:19:47Z",
       "modes": [
         "banned",
         "external",
@@ -16,6 +16,7 @@
         "functional",
         "gtwstatic",
         "internal",
+        "knownviolations",
         "routes",
         "scans",
         "vaultscope"
@@ -40,7 +41,7 @@
         "local-dev": "PLANNED(needs-build)"
       },
       "FND-6": {
-        "local-dev": "HELD"
+        "local-dev": "PARTIAL"
       },
       "FND-7": {
         "local-dev": "PLANNED(needs-build)"
@@ -120,7 +121,7 @@
         "local-dev": "PLANNED(needs-build)"
       },
       "REG-13": {
-        "local-dev": "HELD"
+        "local-dev": "PARTIAL"
       },
       "REG-14": {
         "local-dev": "PLANNED(needs-build)"
@@ -286,7 +287,7 @@
         "local-dev": "PLANNED(needs-build)"
       },
       "PLT-4": {
-        "local-dev": "HELD"
+        "local-dev": "PARTIAL"
       },
       "PLT-5": {
         "local-dev": "HELD"
@@ -532,7 +533,7 @@
     },
     "ARCHITECTURE": {
       "ARC-1": {
-        "local-dev": "HELD"
+        "local-dev": "PARTIAL"
       },
       "ARC-2": {
         "local-dev": "NO TEST"
@@ -550,7 +551,7 @@
         "local-dev": "NO TEST"
       },
       "ARC-7": {
-        "local-dev": "HELD"
+        "local-dev": "PARTIAL"
       }
     },
     "GATEWAY": {

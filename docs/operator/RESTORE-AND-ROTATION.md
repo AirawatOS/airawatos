@@ -9,9 +9,10 @@ changes what "restore" must keep consistent and adds a per-service rotation proc
 
 | Store | Holds | Backup |
 |---|---|---|
-| **Vault volume** (`localdev_vault` / prod EBS) | root token (`/vault/data/init.json`), AppRole **auth** + per-service **roles** + **secret-ids**, **policies**, KV secrets (DB passwords, provider keys), **transit** keys (identity issuer, network authority) | EBS snapshot of the vault volume; or `vault operator raft snapshot` under HA |
+| **Vault volume** (`localdev_vault` / prod EBS) | `/vault/data/init.json` (root token **and the unseal key** — a backup of this volume is a full plaintext compromise; store it as a secret), AppRole **auth** + per-service **roles** + **secret-ids**, **policies**, KV secrets (DB passwords, provider keys), **transit** keys (identity issuer, network authority). **File storage, owned uid 100 / gid 1000** (Vault 2.x runs as `vault`) | Stop Vault, then copy the volume (EBS snapshot with the instance quiesced, or `docker run --rm --user 0:0 -v <proj>_localdev_vault:/src:ro -v "$PWD":/b <vault-image> tar czf /b/vault-$(date +%F).tgz -C /src .`). `vault operator raft snapshot` does **not** apply (no raft). |
 | **Postgres volume** (`localdev_pg` / RDS) | the registry + the DB **roles** `kernel_app`/`network_app`/`identity_lockout`/`migrator` and their passwords (which must match the values in Vault) | `pg_dump -Fc` + volume snapshot (RELEASE-PLAN Stage 0) |
 | **Host** `deploy/local-dev/vault/approle/<svc>.env` | each service's **role-id + secret-id** (must match the Vault AppRole roles) — gitignored, per-service | file backup alongside the vault snapshot, OR regenerate (below) |
+| **Host** `deploy/local-dev/.env` | `POSTGRES_PASSWORD` (Postgres superuser, generated once per install) | back up with the Postgres snapshot — without it the installer refuses a restored DB volume and `_split_roles.py` cannot run |
 
 **Consistency rule:** the DB passwords live in Vault and the DB roles live in Postgres — a restore must bring
 Vault and Postgres to the **same point in time**, or a service's AppRole-read password will not match the DB role
@@ -20,25 +21,33 @@ re-seed the passwords into Vault (installer, below).
 
 ## Restore
 
-1. **Stop the stack** (`docker compose … down`, no `-v`).
-2. **Restore the data volumes** — Vault and Postgres from the **same** snapshot set (EBS snapshot, or `pg_restore`
-   into a fresh DB + vault volume restore). Do not restore one without the other.
-3. **Restore (or regenerate) the AppRole env_files:**
-   - If `deploy/local-dev/vault/approle/*.env` was backed up with the vault snapshot and the roles/secret-ids in
-     the restored Vault still match → nothing to do.
-   - Otherwise, after Vault is unsealed, re-run the installer's AppRole provisioning (idempotent): it rewrites
-     the policies, recreates the roles, issues fresh secret-ids and rewrites every `<svc>.env`
-     (`_setup_vault_approle` in `deploy/installer/install.sh`). This is safe on a restored stack.
+*(Verified on Vault 2.2.1 in the Layer 1 exit review, 2026-11-08: backup → wipe → restore → unseal, data and AppRole
+logins intact.)*
+
+1. **Stop the stack** (`docker compose -p airawatos-localdev … down`, never `-v`).
+2. **Restore the data volumes** — Vault and Postgres from the **same** snapshot set, plus `deploy/local-dev/.env`.
+   Vault (file storage): recreate the volume and extract the copy as root:
+   ```
+   docker volume rm <proj>_localdev_vault && docker volume create <proj>_localdev_vault
+   docker run --rm --user 0:0 -v <proj>_localdev_vault:/dst -v "$PWD":/b:ro <vault-image> tar xzf /b/vault-<date>.tgz -C /dst
+   ```
+   Ownership does not need to be preserved: the vault service MUST start as root (`user: "0:0"` in compose) so
+   `entrypoint.sh` chowns `/vault/data` to `vault` (uid 100) and drops privileges. Starting it as the image default
+   user on a restored volume fails with `permission denied`, and the entrypoint then attempts a first-boot init.
+   Check: `docker compose … logs vault | grep '\[vault\]'` shows `UNSEALED`, and `vault status` shows
+   `Initialized true / Sealed false`. `STILL SEALED` means `init.json` is missing or does not belong to this data.
+3. **AppRole env_files:** if `vault/approle/*.env` came from the same snapshot set, nothing to do. Otherwise re-run the
+   installer (`deploy/installer/install.sh --profile <profile>`; idempotent) — it rewrites policies and roles, issues a
+   fresh secret-id per service and rewrites every `<svc>.env`. (`_setup_vault_approle` is a function inside
+   install.sh, not a standalone command.) Afterwards destroy the superseded secret-ids (see rotation below).
 4. **Bring the stack up.** Each service's `prod-guard.sh` performs its AppRole login and reads its scoped
    secrets. Verify with the two gates: `conformance/flow_map_test.py` (networks) and
    `conformance/vault_scope_test.py` (each service reads only its own Vault paths).
 5. **Smoke-test** per RELEASE-PLAN Stage 0: a kernel read resolves, a login succeeds, the filestore serves a
    known blob. Record RTO.
 
-> If Postgres is restored but Vault is **not** (e.g. a DB-only roll-back), the DB-role passwords in the restored
-> DB will not match Vault → re-set them: `ALTER ROLE <role> PASSWORD '<new>'` in Postgres AND write the same value
-> to the Vault path (`secret/data/localdev/<role>/password`), then restart the service. The installer's split-role
-> step does both and is the supported path.
+> If Postgres is restored but Vault is **not** (e.g. a DB-only roll-back), re-sync the DB-role passwords from Vault
+> with the supported path under "Rotate (or re-sync) a DB-role password" below (skip the `kv put` line).
 
 ## Credential rotation (per service)
 
@@ -47,36 +56,58 @@ most rotations are "update the source + restart the one service".
 
 ### Rotate a service's AppRole secret-id (the credential at rest)
 ```
-# as the install-time root (not a service):
-vault write -f auth/approle/role/<svc>/secret-id        # issues a NEW secret-id
-# write it to the per-service env_file and restart ONLY that service:
-#   VAULT_ROLE_ID=<same>  VAULT_SECRET_ID=<new>   → deploy/local-dev/vault/approle/<svc>.env
+# as install-time root (VAULT_TOKEN=$VT, exec in the vault container):
+OLD_ACC=$(vault write -field=secret_id_accessor auth/approle/role/<svc>/secret-id/lookup secret_id=<old secret-id from <svc>.env>)
+NEW=$(vault write -f -field=secret_id auth/approle/role/<svc>/secret-id)
+#   write VAULT_SECRET_ID=$NEW into deploy/local-dev/vault/approle/<svc>.env (role-id unchanged)
 docker compose … up -d --force-recreate --no-deps <svc>
-# optionally revoke the old secret-id accessor:
-vault list auth/approle/role/<svc>/secret-id        # find the old accessor
-vault write auth/approle/role/<svc>/secret-id-accessor/destroy secret_id_accessor=<old>
+vault write auth/approle/role/<svc>/secret-id-accessor/destroy secret_id_accessor=$OLD_ACC
+# Destroying a secret-id does NOT revoke tokens already issued with it (valid up to token_max_ttl=168h).
+# On suspected compromise also revoke the role's live tokens, then recreate the service:
+for a in $(vault list -format=json auth/token/accessors | tr -d '[]", '); do
+  vault token lookup -accessor -format=json "$a" 2>/dev/null | tr -d '\n ' | grep -q '"role_name":"<svc>"' \
+    && vault token revoke -accessor "$a"; done
 ```
-Prefer `_setup_vault_approle` (installer) to rotate **all** services' secret-ids at once; it regenerates every
-`<svc>.env` and is idempotent.
+Re-running the installer issues a new secret-id per role WITHOUT destroying old ones (`secret_id_ttl=0`, DEBT-B96): after
+a re-run, list `auth/approle/role/<svc>/secret-id`, look up each accessor (`secret-id-accessor/lookup` → creation_time)
+and destroy all but the one in `<svc>.env`.
 
 ### Rotate a service's scoped token
 Just `--force-recreate` the service — `prod-guard.sh` logs in afresh and gets a new token. (Tokens also renew
 within their TTL; a restart is the simplest rotation.)
 
-### Rotate a DB-role password
+### Rotate (or re-sync) a DB-role password
+Vault path (KV v2, field `password`) ↔ Postgres role:
+`secret/localdev/migrator/password` ↔ `migrator` · `secret/localdev/kernel-app/password` ↔ `kernel_app` ·
+`secret/localdev/network-app/password` ↔ `network_app` · `secret/localdev/identity-lockout/password` ↔ `identity_lockout`.
+
+Supported path (does Vault + Postgres together, reads the Vault value, never prints it):
 ```
-NEW=$(openssl rand -base64 24)
-vault kv put secret/localdev/<role> password="$NEW"      # e.g. kernel-app / network-app / identity-lockout
-#   (the service reads secret/data/localdev/<role>/password via its policy)
-docker compose exec -T -e VAULT_TOKEN=<root> postgres psql -U <owner> -c "ALTER ROLE <role> PASSWORD '$NEW'"
-docker compose … up -d --force-recreate --no-deps <service-that-uses-that-role>
+VT=$(docker compose … exec -T vault sh -c "tr -d '\n ' < /vault/data/init.json | sed 's/.*\"root_token\":\"\([^\"]*\)\".*/\1/'")
+PGPW=$(sed -n 's/^POSTGRES_PASSWORD=//p' deploy/local-dev/.env | tail -1)
+# to ROTATE, first write the new value (skip this line for a post-restore re-sync):
+docker compose … exec -T -e VAULT_TOKEN="$VT" vault vault kv put -mount=secret localdev/kernel-app/password password="$(openssl rand -hex 24)"
+docker compose … exec -T -e VAULT_TOKEN="$VT" network env INSTANCE=localdev DB_HOST=postgres POSTGRES_PASSWORD="$PGPW" \
+    python3 - < deploy/installer/_split_roles.py
+docker compose … up -d --force-recreate --no-deps <service-using-that-role>
 ```
-Do Vault and Postgres together (consistency rule). The installer's split-role step performs both.
+Use `-mount=secret localdev/<name>/password` — NOT `secret/localdev/<name>` (that writes a different path the service's
+policy cannot read: the service keeps the OLD password and fails once Postgres changes) and NOT `secret/data/...` with
+`vault kv` (that becomes `secret/data/data/...`). Only run `_split_roles.py` with a working root token on an unsealed
+Vault: it treats any Vault error as "missing" and would generate a new password.
 
 ### Rotate the Vault root token
-Root is install-time only (removed from every service). Rotate with `vault operator generate-root` (or issue a
-new root and revoke the old), update `/vault/data/init.json`, and keep it off every service. No service restart
-is needed because services do not hold root.
+Inside the vault container, with the current unseal key (`$UNSEAL`) and root (`$OLD`) from init.json:
+```
+OTP=$(vault operator generate-root -generate-otp)
+NONCE=$(vault operator generate-root -init -otp="$OTP" -format=json | tr -d '\n ' | sed 's/.*"nonce":"\([^"]*\)".*/\1/')
+ENC=$(echo "$UNSEAL" | vault operator generate-root -nonce="$NONCE" -format=json - | tr -d '\n ' | sed 's/.*"encoded_token":"\([^"]*\)".*/\1/')
+NEW=$(vault operator generate-root -decode="$ENC" -otp="$OTP")
+VAULT_TOKEN=$NEW vault token revoke "$OLD"
+sed "s/$OLD/$NEW/" /vault/data/init.json > /tmp/i && cat /tmp/i > /vault/data/init.json && rm /tmp/i   # keeps owner 100:1000
+```
+Verified on Vault 2.2.1: the new token has policies `[root]`, the old token gets 403, and a restart unseals using the
+new root. No service restart is needed (services do not hold root).
 
 ### Rotate a transit key (identity issuer / network authority)
 ```

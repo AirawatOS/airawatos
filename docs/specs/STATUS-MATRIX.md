@@ -2,7 +2,7 @@
 
 **Generated** by `conformance/build_matrix.py` from `conformance/results/*.json` (written by `conformance/run.py --matrix`). **Do not hand-edit** — regenerate after a conformance run. This is the conformance-derived single source of truth for per-rule status; the specs reference it (ADR: STATUS-MATRIX-DESIGN.md).
 
-- **local-dev** — measured: modes banned+external+flowmap+functional+gtwstatic+internal+routes+scans+vaultscope, git ``, 2026-11-08T08:44:38Z
+- **local-dev** — measured: modes banned+external+flowmap+functional+gtwstatic+internal+knownviolations+routes+scans+vaultscope, git ``, 2026-11-08T10:19:47Z
 - **production** — *PROJECTED*: no production conformance run yet; not asserted (stand up per docs/operator/FRESH-INSTALL-TEST.md §Step 3, then run the suite with AOS_ENV=production).
 
 **Derived status:** HELD (all cited cases PASS) · PARTIAL (PASS + known-violation XFAIL) · VIOLATED (only XFAIL — tracked as debt) · PLANNED(needs-build) (any SKIP_BUILD case: part of the rule is unbuilt — never HELD) · UNVERIFIED(creds) (any SKIP_CREDS case: not verified — never HELD; fix the fixture) · REVIEW (XPASS — spec lags code) · REGRESSION (a FAIL — contradicts spec) · NO TEST (no case cites the rule yet).
@@ -16,7 +16,7 @@
 | `FND-3` | PARTIAL | projected | a declared service principal (scheduler) mints svc:network for the internal lookups; authority only from a recorded grant, never tenant name (TRUST plane); decl |
 | `FND-4` | PLANNED(needs-build) | projected | tenant != network (authority keyed on net:id, not tenant/slug) |
 | `FND-5` | PLANNED(needs-build) | projected | durable authority survives restart; session cookie is Secure + CSRF/Origin-checked on state-changing bridge POSTs |
-| `FND-6` | HELD | projected | unknown schema handled opaquely (internal, pos) |
+| `FND-6` | PARTIAL | projected | kernel is domain-blind (no domain vocabulary baked in) — DEBT-B8; unknown schema handled opaquely (internal, pos) |
 | `FND-7` | PLANNED(needs-build) | projected | kernel authorizes with Network down |
 | `FND-8` | PARTIAL | projected | /bridge/component-publish refuses an unverified bearer (not presence-only); account-hold (admin-disable) check fails CLOSED on registry error; anon bridge reads |
 | `FND-9` | PLANNED(needs-build) | projected | banned pattern LITERAL_SECRET_OR_GATE: no occurrence; banned pattern WEBHOOK_SECRET_LITERAL: no occurrence; identity /login refuses svc:identity to an undeclare |
@@ -47,7 +47,7 @@
 | `REG-10` | PLANNED(needs-build) | projected | deterministic resolution over records (pos) |
 | `REG-11` | PLANNED(needs-build) | projected | schemas are records; owner != adopter |
 | `REG-12` | PLANNED(needs-build) | projected | trust-bearing write audited |
-| `REG-13` | HELD | projected | unknown schema handled opaquely (internal, pos) |
+| `REG-13` | PARTIAL | projected | kernel is domain-blind (no domain vocabulary baked in) — DEBT-B8; unknown schema handled opaquely (internal, pos) |
 | `REG-14` | PLANNED(needs-build) | projected | personal data by reference; erasure |
 | `REG-15` | PLANNED(needs-build) | projected | public = schema flag via CR |
 | `REG-16` | PLANNED(needs-build) | projected | archived version resolves identically |
@@ -95,7 +95,7 @@
 | `ACC-1` | NO TEST | projected | — |
 | `ACC-2` | VIOLATED | projected | account id is permanent + distinct from the login handle [debt DEBT-B30]; id/handle/binding distinct; handle reserved |
 | `ACC-3` | VIOLATED | projected | assurance reflects the real auth method (AL-vocabulary, >=AL1 after password) [debt DEBT-B13]; identity-binding uniqueness via a keyed blind index (HMAC), not a |
-| `ACC-4` | PLANNED(needs-build) | projected | admin creates fnuserf705cb in its own tenant (/bridge/user-create → identity, app-host svc:identity); admin puts fnuserf705cb on hold (/bridge/user-disable); fn |
+| `ACC-4` | PLANNED(needs-build) | projected | admin creates fnuseree2f4c in its own tenant (/bridge/user-create → identity, app-host svc:identity); admin puts fnuseree2f4c on hold (/bridge/user-disable); fn |
 | `ACC-5` | PLANNED(needs-build) | projected | provider connections (consent + confirmation; revocable) |
 | `ACC-6` | NO TEST | projected | — |
 | `ACC-7` | PLANNED(needs-build) | projected | consent by holder; withdraw->erase |
@@ -124,7 +124,7 @@
 | `PLT-1` | NO TEST | projected | — |
 | `PLT-2` | NO TEST | projected | — |
 | `PLT-3` | PLANNED(needs-build) | projected | operator holds no governance role (+ login-namespace != tenant, DEBT-B21) |
-| `PLT-4` | HELD | projected | opadmin (operator tenant) sees all networks w/ platform_authority=true (pos); platnone (same tenant, no role) is NOT platform authority (abuse) |
+| `PLT-4` | PARTIAL | projected | opadmin (operator tenant) sees all networks w/ platform_authority=true (pos); platnone (same tenant, no role) is NOT platform authority (abuse); the platform te |
 | `PLT-5` | HELD | projected | bootstrap grants no platform.authority when a holder exists (ADR-0122); grant platform.authority without a different-holder CR is refused (abuse); revoking the  |
 | `PLT-6` | NO TEST | projected | — |
 | `PLT-7` | NO TEST | projected | — |
@@ -232,13 +232,13 @@
 
 | rule | local-dev | production | cases (provenance) |
 |---|---|---|---|
-| `ARC-1` | HELD | projected | container network membership matches the declared map; live reachability probes match the membership map; the component net is broker-only (kernel is its only s |
+| `ARC-1` | PARTIAL | projected | container network membership matches the declared map; live reachability probes match the membership map; per-boundary networks deny outbound by default (review |
 | `ARC-2` | NO TEST | projected | — |
 | `ARC-3` | HELD | projected | banned pattern SUPERUSER_DB: no occurrence; the fact store (postgres) is reachable only by kernel/network/identity |
 | `ARC-4` | PLANNED(needs-build) | projected | per-service micro-segmentation within the svc mesh (declared calls: only) |
 | `ARC-5` | HELD | projected | the edge (nginx) reaches no internal service or data store |
 | `ARC-6` | NO TEST | projected | — |
-| `ARC-7` | HELD | projected | Vault is not reachable by pure-compute services or the edge; app-host: CAN read its own path; app-host: CANNOT read a foreign service's path; app-host: holds a  |
+| `ARC-7` | PARTIAL | projected | Vault is not reachable by pure-compute services or the edge; a component injects only its own secrets — unquoted secret name allows ../ traversal (review N5); a |
 
 ## GATEWAY
 
@@ -263,6 +263,6 @@
 
 | environment | HELD | PARTIAL | VIOLATED | PLANNED(needs-build) | UNVERIFIED(creds) | REVIEW | REGRESSION | NO TEST | projected |
 |---|---|---|---|---|---|---|---|---|---|
-| local-dev | 13 | 7 | 5 | 87 | 0 | 0 | 0 | 70 | 0 |
+| local-dev | 8 | 12 | 5 | 87 | 0 | 0 | 0 | 70 | 0 |
 | production | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 182 |
 
