@@ -77,7 +77,7 @@ services:
       SECRETS_INTERNAL: airawat-broker-secrets-internal   # LEGACY: this stack pins a pre-A71 image whose gate IS this literal; retired in reference dev-hard16+ (svc_authz) — drop on upgrade
       FILESTORE_URL: http://filestore:8095
       APPS_OVERLAY: /data/app-bundles/apps
-    ports: [ "8081:8080" ]   # host 8081 (old airawat-stack still holds 8080)
+    ports: [ "127.0.0.1:8081:8080" ]   # host 8081 (old airawat-stack still holds 8080)
     depends_on:
       postgres: { condition: service_healthy }
     restart: unless-stopped
@@ -96,7 +96,7 @@ services:
       IDENTITY_PER_TENANT_ISSUER: "1"   # ADR-0084 S1: issue as ds:<tenant>:identity with a per-tenant key
     volumes:
       - local_identity:/data/identity
-    ports: [ "8093:8093" ]
+    ports: [ "127.0.0.1:8093:8093" ]
     depends_on:
       vault: { condition: service_healthy }
 
@@ -129,7 +129,7 @@ services:
               "--identity","http://identity:8093","--secrets","http://secrets:8102","--no-verify-cert"]
     environment:
       FILESTORE_URL: http://filestore:8095
-    ports: [ "8099:8099" ]
+    ports: [ "127.0.0.1:8099:8099" ]
     volumes:
       - local_appbundles:/data/app-bundles
     depends_on:

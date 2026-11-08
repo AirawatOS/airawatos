@@ -4,12 +4,12 @@
 #   make verify-fast   everything except the fresh install (runs against the stack that is up)
 #   make <target>      any single net below
 # Needs: docker (with compose v2), python3, git. The fresh install WIPES the local-dev stack's volumes.
-.PHONY: verify verify-fast banned gtw-static known-violations fresh-install conformance flowmap vaultscope routes scans matrix decide-unit
+.PHONY: listen verify verify-fast banned gtw-static known-violations fresh-install conformance flowmap vaultscope routes scans matrix decide-unit
 
-verify: banned gtw-static known-violations decide-unit fresh-install conformance flowmap vaultscope routes scans matrix
+verify: banned gtw-static known-violations decide-unit fresh-install conformance flowmap vaultscope routes listen scans matrix
 	@echo "✓ make verify: all assurance nets green"
 
-verify-fast: banned gtw-static known-violations decide-unit conformance flowmap vaultscope routes scans matrix
+verify-fast: banned gtw-static known-violations decide-unit conformance flowmap vaultscope routes listen scans matrix
 	@echo "✓ make verify-fast: all assurance nets green (no fresh install)"
 
 banned:          ## net 6 — banned patterns (static), each mapped to its rule
@@ -38,6 +38,9 @@ vaultscope:      ## ARC-7 — each service reads only its own Vault paths
 
 routes:          ## net 4 — route inventory: every route declared; every non-public route refuses anonymous
 	python3 verify/route_inventory_test.py
+
+listen:          ## ARC-5 — no Airawat service listens on a non-loopback address (compose + live) — slice-1g B95
+	python3 verify/listen_test.py
 
 scans:           ## net 8 — gitleaks (history) + trivy (images, manifests)
 	python3 verify/scans.py all
