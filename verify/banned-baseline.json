@@ -1,7 +1,5 @@
 {
- "FAIL_OPEN_GATE": {
-  "platform-spec/reference/app_host.py::except Exception:": 1
- },
+ "FAIL_OPEN_GATE": {},
  "PROD_SHADOW_OR_INPROCESS": {},
  "TOKEN_ROLES": {
   "kernel/api/app.py::ok = (_is_platform_service(claims) and \"platform.scheduler\" in set(claims.get(\"roles\") or [])": 1,
@@ -42,6 +40,6 @@
  },
  "_meta": {
   "note": "TOKEN_ROLES = existing token-role reads, retired by the DEBT-B1 thread layer by layer; FAIL_OPEN_GATE = DEBT-B47; PROD_SHADOW_OR_INPROCESS = RELEASE-PLAN \u00a75",
-  "updated": "2026-11-08T07:32:03Z"
+  "updated": "2026-11-08T08:44:15Z"
  }
 }

@@ -84,6 +84,14 @@ s, d = req("POST", f"{EDGE}/login", {"realm": TENANT, "username": un, "password"
 res(f"{un} signs in again with the new password, must_reset cleared", s == 200 and not d.get("must_reset"), f"{s} {d}")
 s, _ = req("POST", f"{EDGE}/login", {"realm": TENANT, "username": un, "password": tmp})
 res("the admin-set password no longer works", s == 401, s)
+# slice-1f (DEBT-B47): an admin hold refuses the login; lifting it restores access (App Host's own identity, fail-closed)
+s, d = req("POST", f"{EDGE}/bridge/user-disable", {"username": un, "disabled": True, "reason": "functional check"}, opener=adm)
+res(f"admin puts {un} on hold (/bridge/user-disable)", s == 200 and d.get("disabled") is True, f"{s} {d}")
+s, d = req("POST", f"{EDGE}/login", {"realm": TENANT, "username": un, "password": new})
+res(f"{un} is REFUSED at the App Host while on hold", s in (401, 403) and "disabled" in json.dumps(d), f"{s} {d}")
+s, d = req("POST", f"{EDGE}/bridge/user-disable", {"username": un, "disabled": False}, opener=adm)
+s2, _ = req("POST", f"{EDGE}/login", {"realm": TENANT, "username": un, "password": new})
+res(f"lifting the hold restores {un}'s login", s == 200 and s2 == 200, f"{s}/{s2}")
 
 # ── B · an installed component writes a record within its grant ────────────────────────────────────────────
 print(f"▶ B · installed component writes within its grant ({CID} in {TENANT})")
@@ -92,10 +100,17 @@ s, d = req("POST", f"{IDN}/realms/{TENANT}/login", {"username": "admin", "passwo
 atok = (d or {}).get("access_token") if s == 200 else None
 res(f"tenant admin token for {TENANT}", bool(atok), s)
 H = {"Authorization": "Bearer " + (atok or "")}
-s, d = req("POST", f"{NET}/v1/tenants/resolve", {"tenant_id": TENANT})
+# slice-1f: the Network's lookups are internal-only — call them as a declared service principal (scheduler, svc:network)
+s, d = req("POST", f"{IDN}/login", {"username": "scheduler", "tenant": OPERATOR, "aud": "svc:network",
+                                   "password": vpw(f"secret/data/{OPERATOR}/scheduler/password")})
+NH = {"Authorization": "Bearer " + ((d or {}).get("access_token") or "")} if s == 200 else {}
+res("a declared service principal (scheduler) mints svc:network for the internal lookups", bool(NH), s)
+s, _ = req("POST", f"{NET}/v1/tenants/resolve", {"tenant_id": TENANT})
+res("the Network's internal lookup refuses an anonymous caller (slice-1f)", s == 401, s)
+s, d = req("POST", f"{NET}/v1/tenants/resolve", {"tenant_id": TENANT}, headers=NH)
 spid = (d or {}).get("steward_participant")
 res(f"tenant record names the registered steward ds:{TENANT}:steward (DEBT-B62)", spid == f"ds:{TENANT}:steward", f"{s} {spid}")
-s, d = req("POST", f"{NET}/v1/directory/resolve", {"participant_id": spid or ""})
+s, d = req("POST", f"{NET}/v1/directory/resolve", {"participant_id": spid or ""}, headers=NH)
 res("the steward resolves in the Network directory with a key", s == 200 and isinstance(d, dict) and bool(d.get("keys")), f"{s} {str(d)[:160]}")
 s, d = req("POST", f"{KRN}/v1/components/install", {"component_id": CID}, headers=H, timeout=60)
 res("tenant admin installs the component (install-as-grant: steward-signed grant)", s == 200, f"{s} {str(d)[:200]}")
@@ -130,7 +145,7 @@ print(f"▶ C · a component GRANTED a core-reserved write is still refused ({CI
 _RULES[:] = ["FND-19"]
 s, d = req("POST", f"{KRN}/v1/components/install", {"component_id": CID2}, headers=H, timeout=60)
 res("tenant admin installs the reserved-kind probe (declares governance.role_assignment)", s == 200, f"{s} {str(d)[:200]}")
-s, d = req("POST", f"{NET}/v1/grants/resolve", {"tenant": TENANT, "component_id": CID2})
+s, d = req("POST", f"{NET}/v1/grants/resolve", {"tenant": TENANT, "component_id": CID2}, headers=NH)
 gr = [g for g in ((d or {}).get("grants") or []) if "governance.role_assignment" in (g.get("writes") or [])] if isinstance(d, dict) else []
 res("the tenant steward's grant COVERS the declared governance.role_assignment write", bool(gr), f"{s} {str(d)[:240]}")
 s, out2 = req("POST", f"{SCH}/run", {"component": CID2, "tenant": TENANT, "reason": "install-functional-check",

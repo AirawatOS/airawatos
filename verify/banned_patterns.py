@@ -4,7 +4,7 @@
 Each check names the constitution rule it protects. Two kinds:
   * BASELINED — existing occurrences are recorded in verify/banned-baseline.json (fingerprint = file + normalised
     line); the check FAILS only on a NEW occurrence and reports the baselined count: TOKEN_ROLES (the DEBT-B1
-    thread), FAIL_OPEN_GATE (one entry, DEBT-B47) and PROD_SHADOW_OR_INPROCESS (RELEASE-PLAN §5 flips).
+    thread), FAIL_OPEN_GATE (baseline 0 since slice-1f closed DEBT-B47) and PROD_SHADOW_OR_INPROCESS (RELEASE-PLAN §5 flips).
     Secrets and literal gates are HARD — no baseline.
   * HARD — any occurrence fails. No baseline.
 
@@ -212,7 +212,7 @@ CHECKS = [  # name, rule protected, fn, baselined?
     ("UNDECLARED_ROUTE", "FND-8 (every privileged endpoint declared + authenticated) — §0 net 4", check_undeclared_routes, False),
     ("LITERAL_SECRET_OR_GATE", "FND-9 (audience-bound, Vault-minted service tokens; no shared literals) + FND-16 (no hardcoded defaults) — DEBT-A71", check_literal_gates, False),
     ("WEBHOOK_SECRET_LITERAL", "FND-9 + GTW-14 (inbound provider secrets Vault-held per provider/tenant, signature-verified) — DEBT-B64", check_webhook_secrets, False),
-    ("FAIL_OPEN_GATE", "FND-8 (fail-closed) — baselined against DEBT-B47 (account-hold check; a naive fail-closed fix would lock out every login when embedding is off)", check_fail_open, True),
+    ("FAIL_OPEN_GATE", "FND-8 (fail-closed) — baseline 0 since slice-1f fixed DEBT-B47 (the account-hold check)", check_fail_open, True),
     ("SUPERUSER_DB", "ARC-3 / FND-10 (per-service least-privilege DB roles) — DEBT-B57", check_superuser_db, False),
     ("PROD_SHADOW_OR_INPROCESS", "FND-16 (enforce by default) + CMP-5 (confinement) — DEBT-A72/B51; RELEASE-PLAN §5", check_prod_shadow, True),
 ]
