@@ -17,6 +17,8 @@
         "gtwstatic",
         "internal",
         "knownviolations",
+        "listen",
+        "netdoors",
         "routes",
         "scans",
         "vaultscope"
@@ -68,7 +70,7 @@
         "local-dev": "PLANNED(needs-build)"
       },
       "FND-15": {
-        "local-dev": "HELD"
+        "local-dev": "PARTIAL"
       },
       "FND-16": {
         "local-dev": "PLANNED(needs-build)"
@@ -97,7 +99,7 @@
         "local-dev": "PLANNED(needs-build)"
       },
       "REG-5": {
-        "local-dev": "HELD"
+        "local-dev": "PARTIAL"
       },
       "REG-6": {
         "local-dev": "VIOLATED"
@@ -185,7 +187,7 @@
         "local-dev": "PLANNED(needs-build)"
       },
       "NET-3": {
-        "local-dev": "HELD"
+        "local-dev": "PARTIAL"
       },
       "NET-4": {
         "local-dev": "PLANNED(needs-build)"
@@ -469,7 +471,7 @@
     },
     "PARTICIPANT": {
       "PTC-1": {
-        "local-dev": "HELD"
+        "local-dev": "PARTIAL"
       },
       "PTC-2": {
         "local-dev": "PLANNED(needs-build)"
@@ -533,7 +535,7 @@
     },
     "ARCHITECTURE": {
       "ARC-1": {
-        "local-dev": "PARTIAL"
+        "local-dev": "HELD"
       },
       "ARC-2": {
         "local-dev": "NO TEST"
@@ -551,7 +553,7 @@
         "local-dev": "NO TEST"
       },
       "ARC-7": {
-        "local-dev": "PARTIAL"
+        "local-dev": "HELD"
       }
     },
     "GATEWAY": {

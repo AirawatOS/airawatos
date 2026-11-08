@@ -2,7 +2,7 @@
 
 **Generated** by `conformance/build_matrix.py` from `conformance/results/*.json` (written by `conformance/run.py --matrix`). **Do not hand-edit** — regenerate after a conformance run. This is the conformance-derived single source of truth for per-rule status; the specs reference it (ADR: STATUS-MATRIX-DESIGN.md).
 
-- **local-dev** — measured: modes banned+external+flowmap+functional+gtwstatic+internal+knownviolations+routes+scans+vaultscope, git ``, 2026-11-08T10:19:47Z
+- **local-dev** — measured: modes banned+external+flowmap+functional+gtwstatic+internal+knownviolations+listen+netdoors+routes+scans+vaultscope, git ``, 2026-11-08T10:19:47Z
 - **production** — *PROJECTED*: no production conformance run yet; not asserted (stand up per docs/operator/FRESH-INSTALL-TEST.md §Step 3, then run the suite with AOS_ENV=production).
 
 **Derived status:** HELD (all cited cases PASS) · PARTIAL (PASS + known-violation XFAIL) · VIOLATED (only XFAIL — tracked as debt) · PLANNED(needs-build) (any SKIP_BUILD case: part of the rule is unbuilt — never HELD) · UNVERIFIED(creds) (any SKIP_CREDS case: not verified — never HELD; fix the fixture) · REVIEW (XPASS — spec lags code) · REGRESSION (a FAIL — contradicts spec) · NO TEST (no case cites the rule yet).
@@ -18,14 +18,14 @@
 | `FND-5` | PLANNED(needs-build) | projected | durable authority survives restart; session cookie is Secure + CSRF/Origin-checked on state-changing bridge POSTs |
 | `FND-6` | PARTIAL | projected | kernel is domain-blind (no domain vocabulary baked in) — DEBT-B8; unknown schema handled opaquely (internal, pos) |
 | `FND-7` | PLANNED(needs-build) | projected | kernel authorizes with Network down |
-| `FND-8` | PARTIAL | projected | /bridge/component-publish refuses an unverified bearer (not presence-only); account-hold (admin-disable) check fails CLOSED on registry error; anon bridge reads |
-| `FND-9` | PLANNED(needs-build) | projected | banned pattern LITERAL_SECRET_OR_GATE: no occurrence; banned pattern WEBHOOK_SECRET_LITERAL: no occurrence; identity /login refuses svc:identity to an undeclare |
-| `FND-10` | PLANNED(needs-build) | projected | automation /events refuses an anonymous call (abuse); banned pattern SUPERUSER_DB: no occurrence; filestore blob path carries no owning-tenant scope (cross-tena |
+| `FND-8` | PARTIAL | projected | /bridge/component-publish refuses an unverified bearer (not presence-only); /v1/certificates/resolve admits exactly ['launcher', 'scheduler']; /v1/directory/res |
+| `FND-9` | PLANNED(needs-build) | projected | automation /events admits its declared caller (event-relay principal, svc:automation); automation /events refuses an anonymous call; automation /events refuses  |
+| `FND-10` | PLANNED(needs-build) | projected | /v1/certificates/resolve admits exactly ['launcher', 'scheduler']; /v1/directory/resolve admits exactly ['app-host', 'kernel', 'scheduler']; /v1/grants/resolve  |
 | `FND-11` | PLANNED(needs-build) | projected | SoD for floor roles enforces approver != proposer; component.publisher refused at kernel admin (registry.usage); dev-sandbox refused at kernel admin (registry.u |
 | `FND-12` | PLANNED(needs-build) | projected | every authz decision audited (allow+deny); failed-auth logged |
 | `FND-13` | NO TEST | projected | — |
 | `FND-14` | PLANNED(needs-build) | projected | role assignment names its grantor (granted_by); role assignments carry grantor + governance provenance |
-| `FND-15` | HELD | projected | forged role+foreign-iss token rejected (internal, abuse); human (platauth) refused a service audience; scheduler may request its recorded audience (svc:automati |
+| `FND-15` | PARTIAL | projected | external issuers are bound to a recorded tenant AND network; authority never widens by issuer; forged role+foreign-iss token rejected (internal, abuse); human ( |
 | `FND-16` | PLANNED(needs-build) | projected | banned pattern LITERAL_SECRET_OR_GATE: no occurrence; banned pattern PROD_SHADOW_OR_INPROCESS: no occurrence; missing config stops startup; no new secret in any |
 | `FND-17` | PLANNED(needs-build) | projected | agent delegation; no self-widen |
 | `FND-18` | NO TEST | projected | — |
@@ -39,7 +39,7 @@
 | `REG-2` | PLANNED(needs-build) | projected | schema-governed writes; no ungoverned/ad-hoc shapes |
 | `REG-3` | PLANNED(needs-build) | projected | supersede creates new version; prior addressable |
 | `REG-4` | PLANNED(needs-build) | projected | valid + recorded time |
-| `REG-5` | HELD | projected | forged-token write denied (internal, abuse) |
+| `REG-5` | PARTIAL | projected | a write is authorized only by a recorded grant — never a token role (FND-2); forged-token write denied (internal, abuse) |
 | `REG-6` | VIOLATED | projected | anonymous existence-check denied (internal, abuse) [debt DEBT-A1]; anonymous kernel read denied (internal) [debt DEBT-A1] |
 | `REG-7` | PLANNED(needs-build) | projected | written record carries provenance [debt DEBT-A2 shadow] |
 | `REG-8` | PLANNED(needs-build) | projected | Kernel/participant signature on each committed version |
@@ -77,7 +77,7 @@
 |---|---|---|---|
 | `NET-1` | PLANNED(needs-build) | projected | slug/tenant not accepted as net authority [debt DEBT-B11/DEBT-B2] |
 | `NET-2` | PLANNED(needs-build) | projected | a Network is a governed lifecycle object (creator role, DRAFT, governing tenant, empty-catalog gate) |
-| `NET-3` | HELD | projected | admin is a plain network.admin (network.admin role, not platform authority) (pos); anonymous governance role-write denied (abuse); component.publisher refused a |
+| `NET-3` | PARTIAL | projected | admin is a plain network.admin (network.admin role, not platform authority) (pos); anonymous governance role-write denied (abuse); component.publisher refused a |
 | `NET-4` | PLANNED(needs-build) | projected | suspended net refuses exchange, allows reads |
 | `NET-5` | PLANNED(needs-build) | projected | membership supports invite->accept and suspend |
 | `NET-6` | PLANNED(needs-build) | projected | join never creates a login [debt DEBT-B9] |
@@ -202,7 +202,7 @@
 
 | rule | local-dev | production | cases (provenance) |
 |---|---|---|---|
-| `PTC-1` | HELD | projected | trust-directory admission POST /v1/participants refuses anonymous (authority-gated) |
+| `PTC-1` | PARTIAL | projected | participant registration records roles sought, conformance status and its service accounts; trust-directory admission POST /v1/participants refuses anonymous (a |
 | `PTC-2` | PLANNED(needs-build) | projected | Network-boundary auth is identity-only (FND-15) |
 | `PTC-3` | PLANNED(needs-build) | projected | Service registration carries iface/endpoint/version/data-use + a provide grant |
 | `PTC-4` | NO TEST | projected | — |
@@ -232,13 +232,13 @@
 
 | rule | local-dev | production | cases (provenance) |
 |---|---|---|---|
-| `ARC-1` | PARTIAL | projected | container network membership matches the declared map; live reachability probes match the membership map; per-boundary networks deny outbound by default (review |
+| `ARC-1` | HELD | projected | every container of the project is declared; every container was probed; every declared container is running; every non-egress network is internal (default-deny  |
 | `ARC-2` | NO TEST | projected | — |
-| `ARC-3` | HELD | projected | banned pattern SUPERUSER_DB: no occurrence; the fact store (postgres) is reachable only by kernel/network/identity |
-| `ARC-4` | PLANNED(needs-build) | projected | per-service micro-segmentation within the svc mesh (declared calls: only) |
-| `ARC-5` | HELD | projected | the edge (nginx) reaches no internal service or data store |
+| `ARC-3` | HELD | projected | banned pattern SUPERUSER_DB: no occurrence; the fact store is reachable only from kernel / network / identity |
+| `ARC-4` | PLANNED(needs-build) | projected | per-service micro-segmentation within the service mesh |
+| `ARC-5` | HELD | projected | no Airawat service listens on a non-loopback address (compose + live); only the edge (nginx) sits on the public network |
 | `ARC-6` | NO TEST | projected | — |
-| `ARC-7` | PARTIAL | projected | Vault is not reachable by pure-compute services or the edge; a component injects only its own secrets — unquoted secret name allows ../ traversal (review N5); a |
+| `ARC-7` | HELD | projected | Vault is reachable only from its declared clients; app-host CANNOT read or write platform credential localdev-network/platauth/password; app-host CANNOT read or |
 
 ## GATEWAY
 
@@ -263,6 +263,6 @@
 
 | environment | HELD | PARTIAL | VIOLATED | PLANNED(needs-build) | UNVERIFIED(creds) | REVIEW | REGRESSION | NO TEST | projected |
 |---|---|---|---|---|---|---|---|---|---|
-| local-dev | 8 | 12 | 5 | 87 | 0 | 0 | 0 | 70 | 0 |
+| local-dev | 6 | 14 | 5 | 87 | 0 | 0 | 0 | 70 | 0 |
 | production | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 182 |
 

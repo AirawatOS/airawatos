@@ -33,6 +33,31 @@ n = read("network/api.py")
 xfail(["PLT-4"], "the platform tenant confers nothing — DEBT-B2/A17/B82",
       'claims.get("tenant") == "airawat"' in n or 'AUTHORITY_TENANT = "airawat"' in n,
       "network/api.py grants operator/authority power by the tenant NAME 'airawat'")
+# slice-1g (DEBT-B93 / review M3) — rules that read HELD from narrow cases while their spec status is PARTIAL:
+pa = read("network/trust/platform_authority.py"); taz = read("network/trust_admin_authz.py")
+xfail(["NET-3"], "network roles: second-holder SoD + never-zero network.admin (ADR-0122 extended to the network role set)",
+      not re.search(r'FLOOR_ROLES\s*=\s*\{[^}]*"network\.admin"', pa) or 'else "legacy"' in taz,
+      "FLOOR_ROLES (SoD + last-holder floor) covers only platform.authority/tenant.admin; NETWORK_ADMIN_AUTHZ defaults to "
+      "'legacy' (DEBT-A14)")
+m = re.search(r"def register\(body.*?PARTICIPANTS\[pid\] = entry", n, re.S)
+reg = m.group(0) if m else ""
+xfail(["PTC-1"], "participant registration records roles sought, conformance status and its service accounts",
+      bool(reg) and not all(w in reg for w in ("role", "conformance", "service_account")),
+      "network /v1/participants signs only the key + jurisdiction + kind; roles, conformance status and service accounts "
+      "under the participant are not recorded (ADR-0124 service principals are free-standing)")
+kc = read("kernel/api/kernelcore.py"); dcmp = read("deploy/local-dev/docker-compose.dev.yml")
+off = [f for f in ("PROV_ENFORCE", "DATAPLANE_ENFORCE") if re.search(r'%s = os\.environ\.get\("%s", ""\)' % (f, f), kc)
+       and not re.search(r"%s:\s*[\"']?(1|true|yes)" % f, dcmp)]
+xfail(["REG-5"], "a write is authorized only by a recorded grant — never a token role (FND-2)",
+      bool(off) or '.get("roles"' in kc,
+      "kernel admin/write authority still read from token role claims (kernelcore _is_admin, DEBT-B1); enforcement "
+      "switches default off and unset in local-dev: %s (DEBT-A2/A3)" % ", ".join(off))
+au = read("network/authn.py")
+m = re.search(r"def register_issuer\(([^)]*)\)", au)
+xfail(["FND-15"], "external issuers are bound to a recorded tenant AND network; authority never widens by issuer",
+      bool(m) and "network" not in m.group(1),
+      "network authn.register_issuer(%s) has no network binding; the kernel grants admin from issuer + token role "
+      "(DEBT-B1/B13)" % (m.group(1) if m else "?"))
 # slice-1g: review K1 (shared transit/*, B88) and K2 (brokers read platform credentials, B89) are FIXED and proven LIVE by
 # conformance/vault_scope_test.py (actual sign / read attempts → 403); review W1 (no default-deny egress, B87) is FIXED and
 # proven LIVE by conformance/flow_map_test.py (actual connection attempts). Their static evidence cases were removed.
