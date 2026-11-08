@@ -66,6 +66,13 @@ above it, which holds its credentials.
 
 ## c. Enforcement per rule
 
+> **Default-deny egress (slice-1g, DEBT-B87).** Every boundary network is `internal: true` — no route to the internet,
+> the host or another network. Two networks route out: **`aos-public`** (nginx alone — the only published network) and
+> **`aos-egress`**, which only the declared egress gateways join: **kernel** (the broker's declared component egress),
+> **model-gateway** (AI providers), **network** (email, federation), **app-host** (channel providers, tile/asset proxy).
+> **`aos-component`** (placed components) is internal and holds only the broker. Proven by `conformance/flow_map_test.py`
+> by actual connection attempts from every container (every peer IP on every network, the internet, the host).
+
 | Rule | Primary enforcement | Assurance test (FIX-PLAN layer-1 nets) |
 |------|---------------------|----------------------------------------|
 | ARC-1 | **network separation** (each layer on its own docker/overlay network; deny-by-default egress) + broker-only component I/O (CMP-6) | **flow-map test**: enumerate running containers × their network memberships × actual socket edges; assert every edge crosses a declared door |
