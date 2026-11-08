@@ -3,7 +3,7 @@
 > **Per-rule status is generated, not hand-written** — see **[STATUS-MATRIX.md](STATUS-MATRIX.md)**, the conformance-derived rule × environment matrix (`conformance/run.py --matrix` → `conformance/build_matrix.py`; design: [STATUS-MATRIX-DESIGN.md](STATUS-MATRIX-DESIGN.md)). The inline **Status:** lines below are kept for prose and rationale and may lag; the matrix is authoritative for covered rules (uncovered rules show **NO TEST** there, not an implied status).
 
 **Status:** Draft v0.1 · **Date:** 2026-11-03
-**Builds on:** [[FOUNDATIONS-v0.1]] (FND-1–FND-17), [[REGISTRY-v0.1]] (REG-1–REG-18), [[DECISION-v0.1]] (DEC-1–DEC-12),
+**Builds on:** [[FOUNDATIONS-v0.1]] (FND-1–FND-19), [[REGISTRY-v0.1]] (REG-1–REG-18), [[DECISION-v0.1]] (DEC-1–DEC-12),
 [[NETWORK-v0.1]] (NET-1–NET-12), [[ACCOUNT-v0.1]] (ACC-1–ACC-9/ACC-W1–ACC-W4), [[CLIENT-v0.1]] (CLI-1–CLI-6) — assumed, not restated.
 This spec governs the **platform itself**: what the installer creates, how platform authority is held and
 recovered, how tenants are onboarded and given a verification status, and how platform administration is exposed. Every object

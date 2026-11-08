@@ -16,7 +16,7 @@ claim that the feature is built; it is the decided target plus where the live sy
 ## The layering (who depends on whom)
 
 ```
-FOUNDATIONS  — the authority model + principles FND-1–FND-17 (everything assumes this)
+FOUNDATIONS  — the authority model + principles FND-1–FND-19 (everything assumes this)
    │
    ├── REGISTRY   — records: identity, time, read/write authority, provenance, erasure, files
    ├── DECISION   — the decision record every authorization leaves behind
@@ -39,7 +39,7 @@ COMPONENT, POLICY, OFFERINGS and PARTICIPANT sit on top and cite the core.
 
 | Spec | Rules | Purpose | Status (tally) |
 |---|---|---|---|
-| [[FOUNDATIONS-v0.1]] | FND-1–FND-19 | The authority model: identity carries no authority; authority only from recorded grants; fail-closed, issuer-scoped, audited. The ground every other spec assumes; now carries the **two-key rule** for personal data (§3). | 17 rules — 10 PARTIAL, 6 VIOLATED (FND-1/FND-3/FND-7/FND-8/FND-9/FND-16), 1 NOT BUILT (FND-17); the governing gaps are token/tenant-name authority (DEBT-B1/DEBT-B2) and prod-pointing/fail-open defaults (FND-16) |
+| [[FOUNDATIONS-v0.1]] | FND-1–FND-19 | The authority model: identity carries no authority; authority only from recorded grants; fail-closed, issuer-scoped, audited. The ground every other spec assumes; now carries the **two-key rule** for personal data (§3). | 19 rules (FND-18 horizontal safety and FND-19 core-reserved kinds added since this tally; measured status is in STATUS-MATRIX) — of the original 17: 10 PARTIAL, 6 VIOLATED (FND-1/FND-3/FND-7/FND-8/FND-9/FND-16), 1 NOT BUILT (FND-17); the governing gaps are token/tenant-name authority (DEBT-B1/DEBT-B2) and prod-pointing/fail-open defaults (FND-16) |
 | [[REGISTRY-v0.1]] | REG-1–REG-18 | The governed registry: permanent ids, versions-not-edits, bitemporal time, read/write authority (REG-5/REG-6), provenance, signatures, schemas-as-records, audit, erasure (REG-14), encryption (REG-17), **files-are-records (REG-18)**. | 4 IN PLACE, 6 PARTIAL, 3 VIOLATED (REG-6/REG-13/REG-15), 4 PLANNED (REG-14/REG-16/REG-17/REG-18), 1 TO CONFIRM |
 | [[DECISION-v0.1]] | DEC-1–DEC-12 | What every authorization/decision must leave behind: replayable, authority-named, never-edited, denials recorded, personal-data-by-reference, reasons, contest (DEC-11), automated decisions (DEC-12). | 12 rules — 1 IN-PLACE-leaning, 4 PARTIAL, 4 VIOLATED (DEC-1/DEC-4/DEC-6/DEC-12), 3 PLANNED (DEC-7/DEC-10/DEC-11) |
 | [[NETWORK-v0.1]] | NET-1–NET-12 | Networks: identity, lifecycle, membership, **capabilities/grants (NET-9)** now extended to **data** per ADR-0127, Service publish (NET-10), directory visibility (NET-12), exchange. | 0 IN PLACE, 6 PARTIAL, 2 VIOLATED (NET-6/NET-7), rest PLANNED |
