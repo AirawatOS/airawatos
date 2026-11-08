@@ -4,13 +4,24 @@
 #   make verify-fast   everything except the fresh install (runs against the stack that is up)
 #   make <target>      any single net below
 # Needs: docker (with compose v2), python3, git. The fresh install WIPES the local-dev stack's volumes.
-.PHONY: listen verify verify-fast banned gtw-static known-violations fresh-install conformance flowmap vaultscope routes scans matrix decide-unit secret-names gateflags netdoors build-context images installer
+# slice-1h (DEBT-B99): ONE run id per make invocation, exported to every net; each results file carries it and the strict
+# matrix refuses any file of another run. `clean-results` deletes the previous run's evidence FIRST.
+ifeq ($(origin AOS_RUN_ID),undefined)
+AOS_RUN_ID := $(shell python3 verify/evidence.py new-run-id)
+endif
+export AOS_RUN_ID
 
-verify: banned gtw-static known-violations decide-unit secret-names gateflags build-context images installer fresh-install conformance flowmap vaultscope netdoors routes listen scans matrix
+.PHONY: clean-results vault-renewal dbgrants listen verify verify-fast banned gtw-static known-violations fresh-install conformance flowmap vaultscope routes scans matrix decide-unit secret-names gateflags netdoors build-context images installer
+
+verify: clean-results banned gtw-static known-violations decide-unit secret-names gateflags build-context images installer fresh-install conformance flowmap vaultscope vault-renewal netdoors dbgrants routes listen scans matrix
 	@echo "✓ make verify: all assurance nets green"
 
-verify-fast: banned gtw-static known-violations decide-unit secret-names gateflags build-context images conformance flowmap vaultscope netdoors routes listen scans matrix
+verify-fast: clean-results banned gtw-static known-violations decide-unit secret-names gateflags build-context images conformance flowmap vaultscope vault-renewal netdoors dbgrants routes listen scans matrix
 	@echo "✓ make verify-fast: all assurance nets green (no fresh install)"
+
+clean-results:   ## slice-1h B99 — delete the previous run's evidence so only THIS run's can reach the matrix
+	rm -f conformance/results/*.json
+	@echo "▶ run $(AOS_RUN_ID): previous evidence removed"
 
 banned:          ## net 6 — banned patterns (static), each mapped to its rule
 	python3 verify/banned_patterns.py --json conformance/results/local-dev-banned.json
@@ -21,7 +32,7 @@ gtw-static:      ## GTW — static evidence for gateway rules no black-box case 
 known-violations: ## matrix honesty — recorded violations of rules that narrow PASS cases would show HELD (XFAIL)
 	python3 verify/known_violations.py
 
-REF_IMAGE ?= $(shell grep -o 'manishsv/airawatos-reference:[^ ]*' deploy/local-dev/docker-compose.dev.yml | head -1)
+REF_IMAGE ?= $(shell awk '/^ *image: *manishsv\/airawatos-reference:/{print $$2; exit}' deploy/local-dev/docker-compose.dev.yml)
 secret-names:    ## B90 — the secrets broker + model-gateway refuse traversal names and follow no redirects (no network)
 	docker run --rm --network none -v $(CURDIR)/platform-spec/reference:/r:ro -v $(CURDIR)/verify:/v:ro $(REF_IMAGE) python /v/secret_names_test.py
 
@@ -64,5 +75,11 @@ listen:          ## ARC-5 — no Airawat service listens on a non-loopback addre
 scans:           ## net 8 — gitleaks (history) + trivy (images, manifests)
 	python3 verify/scans.py all
 
-matrix:          ## the status matrix from every results file
-	python3 conformance/build_matrix.py
+matrix:          ## the status matrix — STRICT: fresh, complete, passing evidence of THIS run only (B99)
+	python3 conformance/build_matrix.py --strict
+
+vault-renewal:   ## B96 — every service keeps Vault access across several short token lifetimes; a lost token is loud + unhealthy
+	python3 verify/vault_renewal_test.py
+
+dbgrants:        ## B93/ARC-3 — DB-grant audit: least-privilege roles, only kernel/network/identity reach the fact store
+	python3 verify/db_grant_audit.py

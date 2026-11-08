@@ -21,7 +21,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PG = os.environ.get("PG")   # slice-1h: unset = the guard BAKED INTO the shipped image (its own ENTRYPOINT); set = an older guard file
 REF = os.environ.get("REF", os.path.join(ROOT, "platform-spec/reference"))
 COMPOSE = open(os.path.join(ROOT, "deploy/local-dev/docker-compose.dev.yml")).read()
-IMG = {k: re.search(r"manishsv/airawatos-%s:[^\s]+" % k, COMPOSE).group(0) for k in ("reference", "kernel", "network")}
+# slice-1h: ONLY `image:` lines — a header comment naming old tags used to be matched (the test ran the wrong images)
+IMG = {k: re.search(r"^\s*image:\s*(manishsv/airawatos-%s:[^\s#]+)" % k, COMPOSE, re.M).group(1) for k in ("reference", "kernel", "network")}
 if os.environ.get("IMG_TAG"):                       # test older shipped images (e.g. IMG_TAG=1g)
     IMG = {k: v.split(":")[0] + ":" + os.environ["IMG_TAG"] for k, v in IMG.items()}
 GF = os.path.join(REF, "gateflags.py")
