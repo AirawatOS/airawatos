@@ -2,7 +2,7 @@
 
 **Generated** by `conformance/build_matrix.py` from `conformance/results/*.json` (written by `conformance/run.py --matrix`). **Do not hand-edit** — regenerate after a conformance run. This is the conformance-derived single source of truth for per-rule status; the specs reference it (ADR: STATUS-MATRIX-DESIGN.md).
 
-- **local-dev** — measured: modes banned+external+flowmap+functional+gtwstatic+internal+knownviolations+listen+netdoors+routes+scans+vaultscope, git ``, 2026-11-08T10:19:47Z
+- **local-dev** — measured: modes banned+external+flowmap+functional+gtwstatic+internal+knownviolations+listen+netdoors+routes+scans+vaultscope, git ``, 2026-11-08T15:34:32Z
 - **production** — *PROJECTED*: no production conformance run yet; not asserted (stand up per docs/operator/FRESH-INSTALL-TEST.md §Step 3, then run the suite with AOS_ENV=production).
 
 **Derived status:** HELD (all cited cases PASS) · PARTIAL (PASS + known-violation XFAIL) · VIOLATED (only XFAIL — tracked as debt) · PLANNED(needs-build) (any SKIP_BUILD case: part of the rule is unbuilt — never HELD) · UNVERIFIED(creds) (any SKIP_CREDS case: not verified — never HELD; fix the fixture) · REVIEW (XPASS — spec lags code) · REGRESSION (a FAIL — contradicts spec) · NO TEST (no case cites the rule yet).
@@ -12,8 +12,8 @@
 | rule | local-dev | production | cases (provenance) |
 |---|---|---|---|
 | `FND-1` | PARTIAL | projected | App Host authority comes from a recorded grant, not the token's roles claim; a roleless-created account has NO roles — no authority by omission [DEBT-B28 fixed] |
-| `FND-2` | PARTIAL | projected | Trust audit chain is verified/reconciled at runtime; banned pattern TOKEN_ROLES: 41 known occurrence(s), none new; dev-sandbox refused a cross-tenant write; val |
-| `FND-3` | PARTIAL | projected | a declared service principal (scheduler) mints svc:network for the internal lookups; authority only from a recorded grant, never tenant name (TRUST plane); decl |
+| `FND-2` | PARTIAL | projected | Trust audit chain is verified/reconciled at runtime; banned pattern TOKEN_ROLES: 140 known occurrence(s), none new; dev-sandbox refused a cross-tenant write; va |
+| `FND-3` | PARTIAL | projected | a declared caller (kernel) mints svc:network for the internal lookups; authority only from a recorded grant, never tenant name (TRUST plane); declared write (pl |
 | `FND-4` | PLANNED(needs-build) | projected | tenant != network (authority keyed on net:id, not tenant/slug) |
 | `FND-5` | PLANNED(needs-build) | projected | durable authority survives restart; session cookie is Secure + CSRF/Origin-checked on state-changing bridge POSTs |
 | `FND-6` | PARTIAL | projected | kernel is domain-blind (no domain vocabulary baked in) — DEBT-B8; unknown schema handled opaquely (internal, pos) |
@@ -95,7 +95,7 @@
 | `ACC-1` | NO TEST | projected | — |
 | `ACC-2` | VIOLATED | projected | account id is permanent + distinct from the login handle [debt DEBT-B30]; id/handle/binding distinct; handle reserved |
 | `ACC-3` | VIOLATED | projected | assurance reflects the real auth method (AL-vocabulary, >=AL1 after password) [debt DEBT-B13]; identity-binding uniqueness via a keyed blind index (HMAC), not a |
-| `ACC-4` | PLANNED(needs-build) | projected | admin creates fnuseree2f4c in its own tenant (/bridge/user-create → identity, app-host svc:identity); admin puts fnuseree2f4c on hold (/bridge/user-disable); fn |
+| `ACC-4` | PLANNED(needs-build) | projected | admin creates fnuser018901 in its own tenant (/bridge/user-create → identity, app-host svc:identity); admin puts fnuser018901 on hold (/bridge/user-disable); fn |
 | `ACC-5` | PLANNED(needs-build) | projected | provider connections (consent + confirmation; revocable) |
 | `ACC-6` | NO TEST | projected | — |
 | `ACC-7` | PLANNED(needs-build) | projected | consent by holder; withdraw->erase |
@@ -151,10 +151,10 @@
 |---|---|---|---|
 | `CMP-1` | NO TEST | projected | — |
 | `CMP-2` | NO TEST | projected | — |
-| `CMP-3` | PLANNED(needs-build) | projected | a declared service principal (scheduler) mints svc:network for the internal lookups; declared write (platform.inbox_item) ACCEPTED by the kernel broker; run tok |
+| `CMP-3` | PLANNED(needs-build) | projected | a declared caller (kernel) mints svc:network for the internal lookups; declared write (platform.inbox_item) ACCEPTED by the kernel broker; run token = declarati |
 | `CMP-4` | NO TEST | projected | — |
 | `CMP-5` | PLANNED(needs-build) | projected | banned pattern PROD_SHADOW_OR_INPROCESS: no occurrence; default/in-process component runtime inherits full host env (no confinement); placed component container |
-| `CMP-6` | PLANNED(needs-build) | projected | a declared service principal (scheduler) mints svc:network for the internal lookups; declared write (platform.inbox_item) ACCEPTED by the kernel broker; default |
+| `CMP-6` | PLANNED(needs-build) | projected | a declared caller (kernel) mints svc:network for the internal lookups; declared write (platform.inbox_item) ACCEPTED by the kernel broker; default/in-process co |
 | `CMP-7` | PLANNED(needs-build) | projected | launch-time digest rebind enforced only on the baked path; on-demand filestore delivery is fail-open + trusts an unsigned listing digest; unverified-digest cert |
 | `CMP-8` | NO TEST | projected | — |
 | `CMP-9` | NO TEST | projected | — |

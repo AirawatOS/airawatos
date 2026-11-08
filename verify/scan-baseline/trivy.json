@@ -10,20 +10,20 @@
    "debt": "DEBT-B79 (closed: 2.2.1 \u2014 0 CRITICAL; 3 HIGH reviewed)",
    "high_at_baseline": 3
   },
-  "manishsv/airawatos-kernel:dev-hard12": {
+  "manishsv/airawatos-kernel:1g": {
    "critical": [],
-   "debt": "DEBT-B80 (0 CRITICAL; remaining HIGH = Debian 13 base packages with no fixed version published, + 1 stale setuptools record on reference)",
+   "debt": "DEBT-B80 (0 CRITICAL; remaining HIGH = Debian 13 base packages with no fixed version published, + 1 stale setuptools record on reference) \u00b7 slice-1g: rebuilt from the repositories (Dockerfile pinned, B94); same profile",
    "high_at_baseline": 47
   },
-  "manishsv/airawatos-network:dev-a82": {
+  "manishsv/airawatos-network:1g": {
    "critical": [],
-   "debt": "DEBT-B80 (0 CRITICAL; remaining HIGH = Debian 13 base packages with no fixed version published, + 1 stale setuptools record on reference)",
+   "debt": "DEBT-B80 (0 CRITICAL; remaining HIGH = Debian 13 base packages with no fixed version published, + 1 stale setuptools record on reference) \u00b7 slice-1g: rebuilt from the repositories (Dockerfile pinned, B94); same profile",
    "high_at_baseline": 47
   },
-  "manishsv/airawatos-reference:dev-hard24": {
+  "manishsv/airawatos-reference:1g": {
    "critical": [],
-   "debt": "DEBT-B80 (0 CRITICAL; remaining HIGH = Debian 13 base packages with no fixed version published, + 1 stale setuptools record on reference)",
-   "high_at_baseline": 57
+   "debt": "DEBT-B80 (0 CRITICAL; remaining HIGH = Debian 13 base packages with no fixed version published, + 1 stale setuptools record on reference) \u00b7 slice-1g: rebuilt from the repositories (Dockerfile pinned, B94); same profile",
+   "high_at_baseline": 56
   },
   "nginx:alpine": {
    "critical": [],
