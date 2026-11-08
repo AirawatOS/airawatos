@@ -36,11 +36,8 @@ xfail(["PLT-4"], "the platform tenant confers nothing — DEBT-B2/A17/B82",
 # slice-1g: review K1 (shared transit/*, B88) and K2 (brokers read platform credentials, B89) are FIXED and proven LIVE by
 # conformance/vault_scope_test.py (actual sign / read attempts → 403); review W1 (no default-deny egress, B87) is FIXED and
 # proven LIVE by conformance/flow_map_test.py (actual connection attempts). Their static evidence cases were removed.
-s = read("platform-spec/reference/secrets.py")
-m = re.search(r"def _path\(tenant, component, name=None\):\n(.*\n){1,3}", s)
-unquoted = bool(m) and 'quote(name' not in m.group(0)
-xfail(["ARC-7"], "a component injects only its own secrets — unquoted secret name allows ../ traversal (review N5)", unquoted,
-      "secrets.py _path() quotes the component but not the secret name")
+# slice-1g: review N5 (unquoted secret name → ../ traversal, B90) is FIXED — secret_names.py validates tenant, component
+# and name and follows no redirects; proven by verify/secret_names_test.py (make secret-names). Static case removed.
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 json.dump({"env": "local-dev", "mode": "knownviolations", "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
            "git_sha": "", "cases": cases}, open(OUT, "w"), indent=1)

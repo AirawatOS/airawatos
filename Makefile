@@ -4,12 +4,12 @@
 #   make verify-fast   everything except the fresh install (runs against the stack that is up)
 #   make <target>      any single net below
 # Needs: docker (with compose v2), python3, git. The fresh install WIPES the local-dev stack's volumes.
-.PHONY: listen verify verify-fast banned gtw-static known-violations fresh-install conformance flowmap vaultscope routes scans matrix decide-unit
+.PHONY: listen verify verify-fast banned gtw-static known-violations fresh-install conformance flowmap vaultscope routes scans matrix decide-unit secret-names
 
-verify: banned gtw-static known-violations decide-unit fresh-install conformance flowmap vaultscope routes listen scans matrix
+verify: banned gtw-static known-violations decide-unit secret-names fresh-install conformance flowmap vaultscope routes listen scans matrix
 	@echo "✓ make verify: all assurance nets green"
 
-verify-fast: banned gtw-static known-violations decide-unit conformance flowmap vaultscope routes listen scans matrix
+verify-fast: banned gtw-static known-violations decide-unit secret-names conformance flowmap vaultscope routes listen scans matrix
 	@echo "✓ make verify-fast: all assurance nets green (no fresh install)"
 
 banned:          ## net 6 — banned patterns (static), each mapped to its rule
@@ -20,6 +20,10 @@ gtw-static:      ## GTW — static evidence for gateway rules no black-box case 
 
 known-violations: ## matrix honesty — recorded violations of rules that narrow PASS cases would show HELD (XFAIL)
 	python3 verify/known_violations.py
+
+REF_IMAGE ?= $(shell grep -o 'manishsv/airawatos-reference:[^ ]*' deploy/local-dev/docker-compose.dev.yml | head -1)
+secret-names:    ## B90 — the secrets broker + model-gateway refuse traversal names and follow no redirects (no network)
+	docker run --rm --network none -v $(CURDIR)/platform-spec/reference:/r:ro -v $(CURDIR)/verify:/v:ro $(REF_IMAGE) python /v/secret_names_test.py
 
 decide-unit:     ## net 5 — unit tests of the one decision function
 	cd kernel && python3 services/authz/test_decide.py
