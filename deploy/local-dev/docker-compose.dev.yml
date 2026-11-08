@@ -71,7 +71,7 @@ services:
     image: manishsv/airawatos-kernel:dev-hard12   # + slice-1c-iv step 3: scheduler-only /v1/components/run-token + slice-1e: steward-key miss not cached
     container_name: airawat-ld-kernel
     env_file: [ ./vault/approle/kernel.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
-    networks: [aos-svc, aos-data-facts, aos-data-secrets, aos-component]  # aos-component: the broker is the ONLY door a placed component can reach (step 3)
+    networks: [aos-svc, aos-data-facts, aos-data-secrets, aos-component, aos-egress]  # +aos-egress (B87): the broker's declared egress; aos-component: the broker is the ONLY door a placed component can reach (step 3)
     entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]
     command: ["uvicorn","api.app:app","--host","0.0.0.0","--port","8080"]   # entrypoint override clears image CMD → set it
     volumes: [ ./prod-guard.sh:/local-dev/prod-guard.sh:ro ]
@@ -123,7 +123,7 @@ services:
     image: manishsv/airawatos-network:dev-a82   # slice-1e: installer-signed tenants register ds:<t>:steward (B62); 1c-iv-c: join→provision mints svc:identity; step 5: /v1/runtime/attest → svc:network (literal retired)
     container_name: airawat-ld-network
     env_file: [ ./vault/approle/network.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
-    networks: [aos-edge, aos-svc, aos-data-facts, aos-data-secrets]
+    networks: [aos-edge, aos-svc, aos-data-facts, aos-data-secrets, aos-egress]   # +aos-egress (B87): email / federation
     entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]
     command: ["sh","-c","exec uvicorn api:app --host 0.0.0.0 --port 8090"]   # entrypoint override clears image CMD → set it
     environment:
@@ -242,7 +242,7 @@ services:
     <<: *ref
     container_name: airawat-ld-model-gateway
     env_file: [ ./vault/approle/model-gateway.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
-    networks: [aos-svc, aos-data-secrets]
+    networks: [aos-svc, aos-data-secrets, aos-egress]   # +aos-egress (B87): AI providers
     # slice-1c-ii: ENFORCE (shadow flag removed) — kernel mints svc:model-gateway for /complete, app-host for
     # /embed,/transcribe,/admin/provider-key. GW_INTERNAL_TOKEN retired (provider-key now svc:model-gateway-gated).
     environment: { <<: *devenv, GW_REASONING_BUDGET: "1200", VAULT_ADDR: http://vault:8200, IDENTITY_URL: http://identity:8093 }
@@ -355,7 +355,7 @@ services:
     <<: *ref
     container_name: airawat-ld-app-host
     env_file: [ ./vault/approle/app-host.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
-    networks: [aos-edge, aos-svc, aos-data-secrets]
+    networks: [aos-edge, aos-svc, aos-data-secrets, aos-egress]   # +aos-egress (B87): channel providers, tile/asset proxy
     command: ["python","reference/app_host.py","/app/components/apps","--port","8099",
               "--network","http://network:8090","--kernel","http://kernel:8080",
               "--identity","http://identity:8093","--scheduler","http://scheduler:8103",
@@ -393,7 +393,7 @@ services:
   nginx:
     image: nginx:alpine@sha256:713fc2ebfd92e8217db451477182ee91944b123d2b1ee9fd5a8c6e91ca6c3a11   # slice-1f (DEBT-B81): digest-pinned, 1.31.8
     container_name: airawat-ld-nginx
-    networks: [aos-edge]
+    networks: [aos-public, aos-edge]   # B87: aos-public is the only published, non-internal network
     ports: [ "127.0.0.1:8080:80" ]
     volumes: [ ./nginx.conf:/etc/nginx/conf.d/default.conf:ro ]
     depends_on: [ app-host, network ]   # ARC-5: edge proxies only the App Host front door + federation door (no kernel)
@@ -405,11 +405,16 @@ services:
 # (ARC-3; network/identity remain = DEBT-B57, a Layer-2 item); Vault only by its declared minting clients
 # (ARC-7; shared token = DEBT-B58). aos-component (step 3) is the broker-only net for placed components.
 networks:
-  aos-edge: { name: aos-edge }               # internet-adjacent: nginx <-> App Host front door + federation door
-  aos-svc: { name: aos-svc }                 # internal service mesh (app/services/kernel doors)
-  aos-data-facts: { name: aos-data-facts }   # Postgres fact store <- kernel/network/identity only (ARC-3)
-  aos-data-secrets: { name: aos-data-secrets } # Vault <- its declared clients only (ARC-7)
-  aos-component: { name: aos-component }      # confined net for placed component containers: only the broker (ARC-1/B52)
+  # slice-1g (DEBT-B87) — DEFAULT-DENY EGRESS: every network is `internal: true` (Docker gives it no route out) except the
+  # two declared egress networks. A container reaches the internet / the host ONLY if it sits on one of those.
+  aos-public: { name: aos-public }           # the ONLY published network — nginx alone (the edge must face the client)
+  aos-egress: { name: aos-egress }           # declared egress GATEWAYS only: kernel (broker egress), model-gateway (AI),
+                                             # network (email / federation), app-host (channels, tile + asset proxy)
+  aos-edge: { name: aos-edge, internal: true }               # nginx <-> App Host front door + federation door
+  aos-svc: { name: aos-svc, internal: true }                 # internal service mesh (app/services/kernel doors)
+  aos-data-facts: { name: aos-data-facts, internal: true }   # Postgres fact store <- kernel/network/identity only (ARC-3)
+  aos-data-secrets: { name: aos-data-secrets, internal: true } # Vault <- its declared clients only (ARC-7)
+  aos-component: { name: aos-component, internal: true }      # placed component containers: ONLY the broker (ARC-1/B52)
 
 volumes:
   localdev_pg: {}
