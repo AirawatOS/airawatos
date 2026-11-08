@@ -16,6 +16,7 @@ rows, so service mode = it sees the full set (strictly more than a user-scoped r
 Runs on the HOST (docker). Writes conformance/results/local-dev-netdoors.json (FND-8/FND-10). Exit 1 on difference.
 """
 import json, os, re, subprocess, sys, time
+import sys as _s_ev, os as _o_ev; _s_ev.path.insert(0, _o_ev.path.join(_o_ev.path.dirname(_o_ev.path.dirname(_o_ev.path.abspath(__file__))), "verify")); import evidence as _ev  # slice-1h B99
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NET = "airawat-ld-network"
@@ -119,5 +120,6 @@ for l in lists:
 os.makedirs(os.path.join(ROOT, "conformance", "results"), exist_ok=True)
 json.dump({"env": "local-dev", "mode": "netdoors", "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "git_sha": "",
            "cases": cases}, open(os.path.join(ROOT, "conformance", "results", "local-dev-netdoors.json"), "w"), indent=1)
+_ev.seal(os.path.join(ROOT, "conformance", "results", "local-dev-netdoors.json"))
 print(("✗" if bad else "✓") + " Network doors: %d difference(s)" % bad)
 sys.exit(1 if bad else 0)

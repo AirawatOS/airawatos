@@ -11,6 +11,7 @@ local-dev-routes.json for the status matrix (FND-8: every privileged endpoint au
 Usage: python3 verify/route_inventory_test.py
 """
 import json, os, subprocess, sys, tempfile, time
+import sys as _s_ev, os as _o_ev; _s_ev.path.insert(0, _o_ev.path.join(_o_ev.path.dirname(_o_ev.path.dirname(_o_ev.path.abspath(__file__))), "verify")); import evidence as _ev  # slice-1h B99
 
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 NET = os.environ.get("AOS_NET_CONTAINER", "airawat-ld-network")
@@ -22,6 +23,32 @@ def main():
                                        capture_output=True, text=True, check=True).stdout)
     inv = json.load(open(os.path.join(HERE, "route-inventory.json")))
     cases = []; fail = 0
+    # slice-1h (DEBT-B104 / re-review R5 item 3, B92 N1): the stdlib services have no router object, so their routes are
+    # ALSO discovered at RUNTIME (route_discover.py): every path constant of the compiled module is probed on the live
+    # service; whatever answers is a route — helper- and table-dispatched routes included. Merged into the extracted set.
+    with tempfile.TemporaryDirectory() as _td:
+        _cf = os.path.join(_td, "cands.json")
+        open(_cf, "w").write(subprocess.run([sys.executable, os.path.join(HERE, "route_discover.py"), "candidates"],
+                                            capture_output=True, text=True, check=True).stdout)
+        subprocess.run(["docker", "exec", NET, "mkdir", "-p", "/tmp/rd"], check=True)
+        for f in (os.path.join(HERE, "route_discover.py"), os.path.join(HERE, "route_probe.py"), _cf):
+            subprocess.run(["docker", "cp", f, NET + ":/tmp/rd/"], check=True, capture_output=True)
+        _d = subprocess.run(["docker", "exec", NET, "python3", "/tmp/rd/route_discover.py", "probe", "/tmp/rd/cands.json"],
+                            capture_output=True, text=True)
+    try:
+        _found = json.loads(_d.stdout)
+    except Exception:
+        print("  ✗ runtime route discovery did not run: " + (_d.stderr or _d.stdout)[-200:]); _found = None
+        fail += 1; cases.append({"case": "runtime route discovery ran", "rules": ["FND-8"], "result": "FAIL"})
+    _added = 0
+    for svc, rs in (_found or {}).items():
+        have = {(r["method"], r["path"]) for r in routes.get(svc, [])}
+        for r in rs:
+            if (r["method"], r["path"]) not in have:
+                routes.setdefault(svc, []).append({"method": r["method"], "path": r["path"], "discovered": r["status"]}); _added += 1
+    if _found is not None:
+        print("  runtime discovery: %d stdlib service(s) probed, %d route(s) found that source parsing missed"
+              % (len(_found), _added))
     print("▶ route inventory — TEST 1: every exposed route is declared")
     n = 0
     for svc, rs in sorted(routes.items()):
@@ -65,6 +92,7 @@ def main():
     os.makedirs(os.path.dirname(RESULTS), exist_ok=True)
     json.dump({"env": "local-dev", "mode": "routes", "git_sha": sha, "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                "cases": cases}, open(RESULTS, "w"), indent=1)
+    _ev.seal(RESULTS)
     print(("✓" if not fail else "✗") + f" route inventory: {fail} failure(s)")
     sys.exit(1 if fail else 0)
 

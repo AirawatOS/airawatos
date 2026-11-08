@@ -11,6 +11,7 @@ conformance/results/<env>-vaultscope.json (ARC-7 cases) for build_matrix.py. Exi
 Usage: python3 conformance/vault_scope_test.py
 """
 import json, os, subprocess, sys, time
+import sys as _s_ev, os as _o_ev; _s_ev.path.insert(0, _o_ev.path.join(_o_ev.path.dirname(_o_ev.path.dirname(_o_ev.path.abspath(__file__))), "verify")); import evidence as _ev  # slice-1h B99
 
 ENV = os.environ.get("AOS_ENV", "local-dev")
 PFX = "airawat-ld-"
@@ -239,6 +240,7 @@ def main():
                       "mode": "vaultscope", "result": r["status"]} for r in RESULTS]}
     with open(os.path.join(d, "%s-vaultscope.json" % ENV), "w") as f:
         json.dump(out, f, indent=2)
+    _ev.seal(os.path.join(d, "%s-vaultscope.json" % ENV))
     print("✓ Vault least-privilege PASS" if ok_all else "✗ Vault least-privilege FAILED")
     sys.exit(0 if ok_all else 1)
 

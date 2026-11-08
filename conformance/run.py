@@ -1252,6 +1252,7 @@ def emit_matrix(mode):
         sha = os.environ.get("GIT_SHA", "")
     out = {
         "env": env, "mode": mode, "base": (INTERNAL["kernel"] if mode == "internal" else BASE),
+        "run_id": os.environ.get("AOS_RUN_ID", ""),       # slice-1h B99: the harness checks this run wrote THIS file
         "git_sha": sha, "ts": __import__("time").strftime("%Y-%m-%dT%H:%M:%SZ", __import__("time").gmtime()),
         "cases": [{"case": r["name"], "spec": r["spec"], "rule": r["rule"],
                    "rules": _rules_of(r["rule"]), "mode": mode, "result": r["status"]} for r in RESULTS],

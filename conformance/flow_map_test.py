@@ -17,6 +17,7 @@ Runs on the HOST (docker exec into each container; python3 where present, busybo
 Writes conformance/results/<env>-flowmap.json. Exit 1 on any off-map path.  Usage: python3 conformance/flow_map_test.py
 """
 import json, os, subprocess, sys, time
+import sys as _s_ev, os as _o_ev; _s_ev.path.insert(0, _o_ev.path.join(_o_ev.path.dirname(_o_ev.path.dirname(_o_ev.path.abspath(__file__))), "verify")); import evidence as _ev  # slice-1h B99
 from concurrent.futures import ThreadPoolExecutor
 
 ENV = os.environ.get("AOS_ENV", "local-dev")
@@ -191,6 +192,7 @@ def main():
     json.dump({"env": ENV, "mode": "flowmap", "git_sha": sha, "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                "cases": [{"case": r["name"], "rules": [r["rule"]], "result": r["status"]} for r in RESULTS]},
               open(f"conformance/results/{ENV}-flowmap.json", "w"), indent=1)
+    _ev.seal(f"conformance/results/{ENV}-flowmap.json")
     print(("✓ ARC flow-map PASS" if ok else "✗ ARC flow-map FAIL"))
     sys.exit(0 if ok else 1)
 

@@ -22,7 +22,8 @@ STDLIB = {  # service -> source file (only files that run as a compose service)
     "automation": "automation.py", "event-relay": "event_relay.py", "scheduler": "scheduler.py",
     "runtime-manager": "runtime_manager.py",
 }
-VERBS = {"do_GET": "GET", "do_POST": "POST", "do_PUT": "PUT", "do_DELETE": "DELETE", "do_PATCH": "PATCH", "do_HEAD": "HEAD"}
+VERBS = {"do_GET": "GET", "do_POST": "POST", "do_PUT": "PUT", "do_DELETE": "DELETE", "do_PATCH": "PATCH", "do_HEAD": "HEAD",
+         "do_OPTIONS": "OPTIONS"}   # slice-1h: do_OPTIONS was missed (re-review R5 item 3)
 PATHLIT = re.compile(r"^/[A-Za-z0-9_\-./{}<>:]*$")
 
 

@@ -970,6 +970,8 @@ if [ "$PROFILE" = dev ] && [ "$SEED_DATA_TENANT" = 1 ]; then
   printf '%s\n' "$_FC_OUT" | grep -vE '^(MATRIX_RESULTS|DECISION_IDS) '
   mkdir -p "$SCRIPT_DIR/../../conformance/results"
   printf '%s\n' "$_FC_OUT" | sed -n 's/^MATRIX_RESULTS //p' > "$SCRIPT_DIR/../../conformance/results/local-dev-functional.json"
+  python3 "$SCRIPT_DIR/../../verify/evidence.py" seal "$SCRIPT_DIR/../../conformance/results/local-dev-functional.json" >/dev/null \
+    || { echo "✗ Phase 15: the functional proof wrote no evidence"; exit 1; }   # slice-1h B99: run id + git heads; zero cases refused
   [ "$_FC_RC" = 0 ] || { echo "✗ Phase 15: functional proof FAILED — the install starts but does not work end to end"; exit 1; }
   # slice-1d — the ONE decision function left DURABLE records for this run: the allow (declared write) and the deny
   # (undeclared write) are both in kernel_authz_decision (allow AND deny recorded — FND-12 / DEC-1).

@@ -7,6 +7,7 @@ tree and is reported XFAIL (violation present) or XPASS (it looks fixed — revi
 PARTIAL, never HELD (STATUS-MATRIX-DESIGN reduction). Writes conformance/results/local-dev-knownviolations.json.
 """
 import glob, json, os, re, time
+import sys as _s_ev, os as _o_ev; _s_ev.path.insert(0, _o_ev.path.join(_o_ev.path.dirname(_o_ev.path.dirname(_o_ev.path.abspath(__file__))), "verify")); import evidence as _ev  # slice-1h B99
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "conformance", "results", "local-dev-knownviolations.json")
@@ -19,6 +20,37 @@ def read(p):
     except Exception:
         return ""
 
+def code(p):
+    """slice-1h (DEBT-B99, re-review R6-3): the source WITHOUT comments (tokenize) — evidence is matched on code, so a
+    comment like `# rate_limit` cannot flip a case. A missing/unreadable target is recorded as a FAIL (broken target)."""
+    import io, tokenize
+    src = read(p)
+    if not src:
+        cases.append({"case": "evidence target readable: " + p, "rules": ["FND-8"], "result": "FAIL", "detail": "missing or empty"})
+        print("  ✗ FAIL  evidence target missing: " + p)
+        return ""
+    try:                                         # blank ONLY the comment text; layout (and every string) is kept
+        lines = src.split("\n")
+        for t in tokenize.generate_tokens(io.StringIO(src).readline):
+            if t.type == tokenize.COMMENT:
+                (r, c0), (_, c1) = t.start, t.end
+                lines[r - 1] = lines[r - 1][:c0] + " " * (c1 - c0) + lines[r - 1][c1:]
+        return "\n".join(lines)
+    except Exception:
+        return src
+
+
+def finish(name):
+    """Exit non-zero on a FAIL (broken target) or an XPASS (the recorded violation no longer reproduces: either it was
+    fixed — update the case + rule status — or the detector broke). A net that cannot fail proves nothing."""
+    import sys
+    bad = [c for c in cases if c["result"] in ("FAIL", "XPASS")]
+    for c in bad:
+        print("  ✗ %s: %s — %s" % (c["result"], c["case"], c.get("detail", "")))
+    print(("✗" if bad else "✓") + " %s: %d case(s), %d needing attention" % (name, len(cases), len(bad)))
+    sys.exit(1 if bad or not cases else 0)
+
+
 
 def xfail(rules, name, reproduced, detail):
     cases.append({"case": name, "rules": rules, "result": "XFAIL" if reproduced else "XPASS", "detail": detail})
@@ -26,10 +58,10 @@ def xfail(rules, name, reproduced, detail):
 
 
 print("▶ known-violation evidence (Layer 1 exit review)")
-k = read("kernel/api/app.py")
+k = code("kernel/api/app.py")
 xfail(["FND-6", "REG-13"], "kernel is domain-blind (no domain vocabulary baked in) — DEBT-B8",
-      "_NAT_KEYS = (" in k, "kernel/api/app.py defines _NAT_KEYS (case_number, gstin, udise_code, …)")
-n = read("network/api.py")
+      bool(re.search(r"\b_NAT_KEYS\s*=\s*\(", k)), "kernel/api/app.py defines _NAT_KEYS (case_number, gstin, udise_code, …)")
+n = code("network/api.py")
 xfail(["PLT-4"], "the platform tenant confers nothing — DEBT-B2/A17/B82",
       'claims.get("tenant") == "airawat"' in n or 'AUTHORITY_TENANT = "airawat"' in n,
       "network/api.py grants operator/authority power by the tenant NAME 'airawat'")
@@ -66,10 +98,8 @@ xfail(["ARC-7"], "a placed/in-process component cannot reach the host service's 
       "/proc/1/environ" not in rm and "hidepid" not in read("deploy/local-dev/docker-compose.dev.yml"),
       "in-process components run as root in the runtime-manager container; PID 1's environ (VAULT_TOKEN) is readable — "
       "a scrubbed env does not isolate them (live: launcher password read, 200)")
-gate = read("platform-spec/reference/svc_gate.py")
-xfail(["FND-16"], "gates refuse shadow under production themselves, not only via the compose entrypoint (re-review R1-1, DEBT-B97)",
-      "is_production" not in gate,
-      "svc_gate.require() never consults gateflags.is_production(); the shipped images have no prod-guard entrypoint")
+# FND-16 (re-review R1-1, DEBT-B97) FIXED in slice-1h: gates refuse shadow in production and the guard is baked into every
+# image — proven by verify/gateflags_test.py (shipped images, outside compose). Case removed.
 # slice-1g: review K1 (shared transit/*, B88) and K2 (brokers read platform credentials, B89) are FIXED and proven LIVE by
 # conformance/vault_scope_test.py (actual sign / read attempts → 403); review W1 (no default-deny egress, B87) is FIXED and
 # proven LIVE by conformance/flow_map_test.py (actual connection attempts). Their static evidence cases were removed.
@@ -78,3 +108,5 @@ xfail(["FND-16"], "gates refuse shadow under production themselves, not only via
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 json.dump({"env": "local-dev", "mode": "knownviolations", "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
            "git_sha": "", "cases": cases}, open(OUT, "w"), indent=1)
+_ev.seal(OUT)
+finish('known-violation evidence')

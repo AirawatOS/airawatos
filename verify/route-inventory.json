@@ -6,7 +6,7 @@
    "login": "any authenticated principal (a session or a verified bearer token)",
    "public": "callable with no credential \u2014 each carries a `why`; `review` = public today but should not be (the review list)"
   },
-  "extract": "verify/route_extract.py \u2014 stdlib services from their do_* dispatch (AST), FastAPI services from route decorators (+ default /docs,/redoc,/openapi.json)",
+  "extract": "verify/route_extract.py (stdlib do_* dispatch by AST incl. do_OPTIONS; FastAPI live app.routes) UNION verify/route_discover.py (RUNTIME: every path constant of each compiled stdlib module probed on the live service \u2014 helper- and table-dispatched routes included)",
   "probe": "verify/route_probe.py calls every non-public route anonymously; it must be refused (401/403). `sample`/`body` reach the gate of a handler that validates before authenticating (an ordering finding, listed in the review).",
   "spec": "FIX-PLAN \u00a70 net 4 (route inventory), slice-1d"
  },
@@ -43,6 +43,10 @@
    "class": "login",
    "who": "signed-in App Host session"
   },
+  "GET /bridge/change-request-decide": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
   "GET /bridge/change-requests": {
    "class": "authority",
    "who": "tenant admin (ADMIN_ROLES on the session)"
@@ -67,6 +71,22 @@
    "class": "login",
    "who": "signed-in App Host session"
   },
+  "GET /bridge/doc-ask": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
+  "GET /bridge/doc-render": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
+  "GET /bridge/doc-review": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
+  "GET /bridge/fetch": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
   "GET /bridge/file": {
    "class": "login",
    "who": "signed-in App Host session"
@@ -75,17 +95,41 @@
    "class": "authority",
    "who": "tenant admin (ADMIN_ROLES on the session)"
   },
+  "GET /bridge/git-binding": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
   "GET /bridge/market": {
    "class": "public",
    "why": "marketplace browse (certified listings, no tenant data)"
+  },
+  "GET /bridge/my-requests": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
   },
   "GET /bridge/networks-mine": {
    "class": "authority",
    "who": "tenant admin (ADMIN_ROLES on the session)"
   },
+  "GET /bridge/offline-relay": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
   "GET /bridge/original": {
    "class": "authority",
    "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "GET /bridge/query": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
+  "GET /bridge/resolve-citation": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
+  "GET /bridge/retrieve": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
   },
   "GET /bridge/role-members": {
    "class": "login",
@@ -107,6 +151,14 @@
    "class": "login",
    "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
   },
+  "GET /bridge/schema-advise": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
+  "GET /bridge/service-transactions": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
   "GET /bridge/tile/*": {
    "class": "public",
    "why": "map tile proxy (geo gateway target, GTW-13)"
@@ -126,6 +178,10 @@
   "GET /bridge/vfs": {
    "class": "login",
    "who": "signed-in App Host session"
+  },
+  "GET /bridge/voice-status": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
   },
   "GET /citizen/apps": {
    "class": "login",
@@ -235,6 +291,70 @@
    "class": "public",
    "why": "reports the caller's own identity (anonymous \u2192 none)"
   },
+  "OPTIONS /embed/*": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/authorize": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/clients": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/demo": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/ekyc-issue": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/login": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/present": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/proof-request": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/register": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/request": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/services": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/signup": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/token": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/uidai-enrol": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/verify-presentation": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/wallet": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
   "POST /admin/reload": {
    "class": "authority",
    "who": "tenant admin (ADMIN_ROLES on the session)"
@@ -287,6 +407,10 @@
    "class": "authority",
    "who": "tenant admin (ADMIN_ROLES on the session)"
   },
+  "POST /bridge/catalog": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
   "POST /bridge/change-request": {
    "class": "login",
    "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
@@ -338,6 +462,10 @@
   "POST /bridge/component-scaffold": {
    "class": "login",
    "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/components": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
   },
   "POST /bridge/compute-run": {
    "class": "login",
@@ -663,6 +791,10 @@
    "class": "authority",
    "who": "tenant admin (ADMIN_ROLES on the session)"
   },
+  "POST /bridge/runs": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
   "POST /bridge/save": {
    "class": "authority",
    "who": "tenant admin (ADMIN_ROLES on the session)"
@@ -670,6 +802,10 @@
   "POST /bridge/schedule": {
    "class": "authority",
    "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/schedules": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
   },
   "POST /bridge/schema-advise": {
    "class": "login",
@@ -935,9 +1071,17 @@
   }
  },
  "filestore": {
+  "GET /files/*": {
+   "class": "internal",
+   "who": "svc:filestore from {app-host, kernel, launcher} (helper-dispatched blob read; 403 anonymous) \u2014 found by runtime discovery, slice-1h"
+  },
   "GET /healthz": {
    "class": "public",
    "why": "health/liveness probe \u2014 no data"
+  },
+  "HEAD /files/*": {
+   "class": "internal",
+   "who": "svc:filestore from {app-host, kernel, launcher} (helper-dispatched blob metadata; 403 anonymous) \u2014 found by runtime discovery, slice-1h"
   },
   "POST /files": {
    "class": "internal",

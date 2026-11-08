@@ -12,9 +12,10 @@ a dependency manifest. HIGH image CVEs are counted and reported (base-image chur
 Usage: python3 verify/scans.py [secrets|vulns|all] [--update-baseline]
 """
 import glob, json, os, re, subprocess, sys, tempfile, time
+import sys as _s_ev, os as _o_ev; _s_ev.path.insert(0, _o_ev.path.join(_o_ev.path.dirname(_o_ev.path.dirname(_o_ev.path.abspath(__file__))), "verify")); import evidence as _ev  # slice-1h B99
 
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
-GITLEAKS = "zricethezav/gitleaks:v8.21.2"; TRIVY = "aquasec/trivy:0.57.1"
+GITLEAKS = "zricethezav/gitleaks:v8.21.2@sha256:0e99e8821643ea5b235718642b93bb32486af9c8162c8b8731f7cbdc951a7f46"; TRIVY = "aquasec/trivy:0.57.1@sha256:5c59e08f980b5d4d503329773480fcea2c9bdad7e381d846fbf9f2ecb8050f6b"   # slice-1h B99: digest-pinned scanners
 REPOS = {"root": ".", "platform-spec": "platform-spec", "kernel": "kernel", "network": "network", "components": "components"}
 BASE = os.path.join(HERE, "scan-baseline"); CACHE = os.path.expanduser("~/.cache/airawat-trivy")
 COMPOSE = os.path.join(ROOT, "deploy", "local-dev", "docker-compose.dev.yml")
@@ -123,6 +124,8 @@ def vulns():
 
 def main():
     what = (sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("--") else "all")
+    if what not in ("secrets", "vulns", "all"):          # slice-1h (DEBT-B99, re-review R3-6): an unknown mode scans NOTHING
+        print("✗ scans: unknown mode %r (secrets | vulns | all) — nothing scanned" % what); sys.exit(2)
     update = "--update-baseline" in sys.argv
     cases, failed = [], 0
     if what in ("secrets", "all"):
@@ -136,6 +139,13 @@ def main():
             print("✗ secret-scan self-test: a scanner that did not run was counted as zero findings (fail-open)"); sys.exit(2)
         print("✓ secret-scan self-test: a scanner that did not run is a failure (fail-closed)")
         found, new = secrets()
+        # slice-1h (B99): EVERY repository must have been scanned; a SCAN-DID-NOT-RUN may never be written into the baseline
+        _notrun = [fp for fp in found if fp.endswith("SCAN-DID-NOT-RUN")]
+        cases.append({"case": "gitleaks scanned all %d repositories (%d did not run)" % (len(REPOS), len(_notrun)),
+                      "rules": ["FND-9"], "result": "PASS" if not _notrun else "FAIL"})
+        failed += bool(_notrun)
+        if update and _notrun:
+            print("✗ refusing --update-baseline: %s did not run" % _notrun); sys.exit(2)
         if update:
             old = (json.load(open(os.path.join(BASE, "gitleaks.json"))) if os.path.exists(os.path.join(BASE, "gitleaks.json")) else {}).get("findings", {})
             json.dump({"_meta": {"tool": GITLEAKS, "updated": time.strftime("%Y-%m-%d")},
@@ -146,6 +156,14 @@ def main():
                       "result": "PASS" if (not new or update) else "FAIL"})
     if what in ("vulns", "all"):
         res, new = vulns()
+        # slice-1h (B99): every image the stack runs and every repository manifest must have produced a scan
+        _exp_img, _got_img = len(images()), len(res["images"])
+        _failed_fs = [k for k, v in res["manifests"].items() if v == ["scan-failed"]]
+        cases.append({"case": "trivy scanned every stack image (%d/%d) and every repository manifest (%d/%d)" % (
+                          _got_img, _exp_img, len(res["manifests"]) - len(_failed_fs), len(REPOS)),
+                      "rules": ["FND-16"], "result": "PASS" if (_got_img == _exp_img and _exp_img > 0 and not _failed_fs
+                                                                and len(res["manifests"]) == len(REPOS)) else "FAIL"})
+        failed += not (_got_img == _exp_img and _exp_img > 0 and not _failed_fs)
         if update:
             old = (json.load(open(os.path.join(BASE, "trivy.json"))) if os.path.exists(os.path.join(BASE, "trivy.json")) else {}).get("images", {})
             json.dump({"_meta": {"tool": TRIVY, "updated": time.strftime("%Y-%m-%d"),
@@ -159,6 +177,7 @@ def main():
     os.makedirs(os.path.dirname(RESULTS), exist_ok=True)
     json.dump({"env": "local-dev", "mode": "scans", "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "git_sha": "",
                "cases": cases}, open(RESULTS, "w"), indent=1)
+    _ev.seal(RESULTS)
     print(("✓" if not failed else "✗") + f" scans: {failed} failing")
     sys.exit(1 if failed else 0)
 
