@@ -102,6 +102,28 @@ part of R17's first cut.
 DPDP timeline (2027-05-13). Conformance cases are registered **NEEDS-BUILD** (see `conformance/run.py`,
 REGISTRY R17 / ACCOUNT A3 / DECISION D10).
 
+## Open questions
+
+1. **Per-tenant transit keys as cryptographic tenant separation; crypto-shredding on tenant exit (REG-14)**
+   *(added 2026-11-08 with ADR-0130)*. This ADR already chooses **per-tenant** transit keys for field encryption
+   (`rec-<tenant>` for inline ciphertext, `idx-<tenant>` for HMAC/blind index; Decisions 2, 3, 5). It is also
+   explicit that crypto-shredding is **not** the primary erasure for personal data (Decisions 2, 4: real deletion
+   in the REG-14 store). Still open:
+   - **Is per-tenant keying a guaranteed property (cryptographic tenant separation) or an implementation
+     choice?** As a guarantee, no key may ever be shared across tenants: not for convenience, not for
+     platform-level records, not for the filestore blob data keys of the next slice. A tenant's data would then be
+     unreadable under any other tenant's key even if a read gate failed (defence in depth for FND-10 / DEBT-B49).
+   - **Tenant exit.** When a tenant leaves an installation, are `rec-<tenant>` and `idx-<tenant>` (and the
+     tenant's blob data-key wrapping key) **destroyed** after the governed exit export? That would make the
+     tenant's inline `sensitive` ciphertext and every backup or replica copy unreadable. It is consistent with
+     Decision 2 (shredding is the backups/replicas path) and does not replace REG-14 deletion of the tenant's
+     personal values. Open: the exit sequence (export → REG-14 deletion → key destruction), who authorises it (a
+     recorded decision by the tenant and the platform authority), and the retention hold that may delay it.
+   - **Key scope for the erasable store and blobs.** The same per-tenant key family, or separate keys per store so
+     each can be shredded independently?
+   - **Hosted participants.** A participant hosted in a shared realm (ADR-0116) is not a tenant; does it get its
+     own key, or share the realm tenant's?
+
 ## Alternatives considered
 - **Application-layer encryption (each service encrypts before write).** Rejected — leaks the obligation
   across every writer, no central audit, and the Kernel can't enforce decrypt-authorization or redaction.
