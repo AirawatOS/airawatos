@@ -272,8 +272,12 @@ def main():
             for h in hits[:40]:
                 print(f"      {h[0]}:{h[1]}  {h[3]}  | {norm(h[2])[:110]}")
         failed += not ok
-        cases.append({"case": f"banned pattern {name}: {'no new' if baselined else 'no'} occurrence", "rules": [r.strip() for r in re.findall(r"(FND-\d+|ARC-\d+|CMP-\d+|GTW-\d+)", rule)][:3],
-                      "result": "PASS" if ok else "FAIL"})
+        # matrix honesty: a baselined check with KNOWN occurrences is evidence of a violation (XFAIL), never a PASS —
+        # "no new token-role read" must not make FND-1 look held while 41 baselined reads remain.
+        known = len(hits) if baselined else 0
+        cases.append({"case": f"banned pattern {name}: " + (f"{known} known occurrence(s), none new" if known else "no occurrence"),
+                      "rules": [r.strip() for r in re.findall(r"(FND-\d+|ARC-\d+|CMP-\d+|GTW-\d+)", rule)][:3],
+                      "result": "FAIL" if not ok else ("XFAIL" if known else "PASS")})
     if update:
         json.dump({"_meta": {"updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                              "note": "TOKEN_ROLES = existing token-role reads, retired by the DEBT-B1 thread layer by layer; FAIL_OPEN_GATE = DEBT-B47; PROD_SHADOW_OR_INPROCESS = RELEASE-PLAN §5"},

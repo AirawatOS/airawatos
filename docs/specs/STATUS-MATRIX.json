@@ -7,12 +7,17 @@
   ],
   "provenance": {
     "local-dev": {
-      "git_sha": "5922759",
-      "ts": "2026-11-08T02:34:03Z",
+      "git_sha": "",
+      "ts": "2026-11-08T07:44:11Z",
       "modes": [
+        "banned",
         "external",
         "flowmap",
+        "functional",
+        "gtwstatic",
         "internal",
+        "routes",
+        "scans",
         "vaultscope"
       ]
     }
@@ -23,7 +28,7 @@
         "local-dev": "PARTIAL"
       },
       "FND-2": {
-        "local-dev": "PLANNED(needs-build)"
+        "local-dev": "PARTIAL"
       },
       "FND-3": {
         "local-dev": "PARTIAL"
@@ -69,6 +74,12 @@
       },
       "FND-17": {
         "local-dev": "PLANNED(needs-build)"
+      },
+      "FND-18": {
+        "local-dev": "NO TEST"
+      },
+      "FND-19": {
+        "local-dev": "HELD"
       }
     },
     "REGISTRY": {
@@ -540,6 +551,50 @@
       },
       "ARC-7": {
         "local-dev": "HELD"
+      }
+    },
+    "GATEWAY": {
+      "GTW-1": {
+        "local-dev": "NO TEST"
+      },
+      "GTW-2": {
+        "local-dev": "NO TEST"
+      },
+      "GTW-3": {
+        "local-dev": "VIOLATED"
+      },
+      "GTW-4": {
+        "local-dev": "PARTIAL"
+      },
+      "GTW-5": {
+        "local-dev": "NO TEST"
+      },
+      "GTW-6": {
+        "local-dev": "NO TEST"
+      },
+      "GTW-7": {
+        "local-dev": "NO TEST"
+      },
+      "GTW-8": {
+        "local-dev": "NO TEST"
+      },
+      "GTW-9": {
+        "local-dev": "NO TEST"
+      },
+      "GTW-10": {
+        "local-dev": "NO TEST"
+      },
+      "GTW-11": {
+        "local-dev": "NO TEST"
+      },
+      "GTW-12": {
+        "local-dev": "NO TEST"
+      },
+      "GTW-13": {
+        "local-dev": "PARTIAL"
+      },
+      "GTW-14": {
+        "local-dev": "PARTIAL"
       }
     }
   }

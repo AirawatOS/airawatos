@@ -2,32 +2,34 @@
 
 **Generated** by `conformance/build_matrix.py` from `conformance/results/*.json` (written by `conformance/run.py --matrix`). **Do not hand-edit** — regenerate after a conformance run. This is the conformance-derived single source of truth for per-rule status; the specs reference it (ADR: STATUS-MATRIX-DESIGN.md).
 
-- **local-dev** — measured: modes external+flowmap+internal+vaultscope, git `5922759`, 2026-11-08T02:34:03Z
+- **local-dev** — measured: modes banned+external+flowmap+functional+gtwstatic+internal+routes+scans+vaultscope, git ``, 2026-11-08T07:44:11Z
 - **production** — *PROJECTED*: no production conformance run yet; not asserted (stand up per docs/operator/FRESH-INSTALL-TEST.md §Step 3, then run the suite with AOS_ENV=production).
 
-**Derived status:** HELD (all cited cases PASS) · PARTIAL (PASS + known-violation XFAIL) · VIOLATED (only XFAIL — tracked as debt) · PLANNED(needs-build) (any SKIP_BUILD case: part of the rule is unbuilt — never HELD) · UNVERIFIED(creds) (only SKIP_CREDS — fix the fixture) · REVIEW (XPASS — spec lags code) · REGRESSION (a FAIL — contradicts spec) · NO TEST (no case cites the rule yet).
+**Derived status:** HELD (all cited cases PASS) · PARTIAL (PASS + known-violation XFAIL) · VIOLATED (only XFAIL — tracked as debt) · PLANNED(needs-build) (any SKIP_BUILD case: part of the rule is unbuilt — never HELD) · UNVERIFIED(creds) (any SKIP_CREDS case: not verified — never HELD; fix the fixture) · REVIEW (XPASS — spec lags code) · REGRESSION (a FAIL — contradicts spec) · NO TEST (no case cites the rule yet).
 
 ## FOUNDATIONS
 
 | rule | local-dev | production | cases (provenance) |
 |---|---|---|---|
 | `FND-1` | PARTIAL | projected | App Host authority comes from a recorded grant, not the token's roles claim; a roleless-created account has NO roles — no authority by omission [DEBT-B28 fixed] |
-| `FND-2` | PLANNED(needs-build) | projected | Trust audit chain is verified/reconciled at runtime; dev-sandbox refused a cross-tenant write; valid non-admin session denied governance write (abuse) |
-| `FND-3` | PARTIAL | projected | authority only from a recorded grant, never tenant name (TRUST plane); forged role+foreign-iss token rejected (internal, abuse); home-issued admin role-claim (n |
+| `FND-2` | PARTIAL | projected | Trust audit chain is verified/reconciled at runtime; banned pattern TOKEN_ROLES: 41 known occurrence(s), none new; dev-sandbox refused a cross-tenant write; val |
+| `FND-3` | PARTIAL | projected | authority only from a recorded grant, never tenant name (TRUST plane); declared write (platform.inbox_item) ACCEPTED by the kernel broker; forged role+foreign-i |
 | `FND-4` | PLANNED(needs-build) | projected | tenant != network (authority keyed on net:id, not tenant/slug) |
 | `FND-5` | PLANNED(needs-build) | projected | durable authority survives restart; session cookie is Secure + CSRF/Origin-checked on state-changing bridge POSTs |
 | `FND-6` | HELD | projected | unknown schema handled opaquely (internal, pos) |
 | `FND-7` | PLANNED(needs-build) | projected | kernel authorizes with Network down |
 | `FND-8` | PARTIAL | projected | /bridge/component-publish refuses an unverified bearer (not presence-only); account-hold (admin-disable) check fails CLOSED on registry error; anon bridge reads |
-| `FND-9` | PLANNED(needs-build) | projected | identity /login refuses svc:identity to an undeclared principal (kernel); identity /users refuses a wrong-audience token (another door); identity /users refuses |
-| `FND-10` | PLANNED(needs-build) | projected | automation /events refuses an anonymous call (abuse); filestore blob path carries no owning-tenant scope (cross-tenant read once gated); filestore refuses a wro |
+| `FND-9` | PLANNED(needs-build) | projected | banned pattern LITERAL_SECRET_OR_GATE: no occurrence; banned pattern WEBHOOK_SECRET_LITERAL: no occurrence; identity /login refuses svc:identity to an undeclare |
+| `FND-10` | PLANNED(needs-build) | projected | automation /events refuses an anonymous call (abuse); banned pattern SUPERUSER_DB: no occurrence; filestore blob path carries no owning-tenant scope (cross-tena |
 | `FND-11` | PLANNED(needs-build) | projected | SoD for floor roles enforces approver != proposer; component.publisher refused at kernel admin (registry.usage); dev-sandbox refused at kernel admin (registry.u |
 | `FND-12` | PLANNED(needs-build) | projected | every authz decision audited (allow+deny); failed-auth logged |
 | `FND-13` | NO TEST | projected | — |
 | `FND-14` | PLANNED(needs-build) | projected | role assignment names its grantor (granted_by); role assignments carry grantor + governance provenance |
 | `FND-15` | HELD | projected | forged role+foreign-iss token rejected (internal, abuse); human (platauth) refused a service audience; scheduler may request its recorded audience (svc:automati |
-| `FND-16` | PLANNED(needs-build) | projected | missing config stops startup; safe defaults (no prod-pointing default; enforce-by-default; fail-loud) |
+| `FND-16` | PLANNED(needs-build) | projected | banned pattern LITERAL_SECRET_OR_GATE: no occurrence; banned pattern PROD_SHADOW_OR_INPROCESS: no occurrence; missing config stops startup; no new secret in any |
 | `FND-17` | PLANNED(needs-build) | projected | agent delegation; no self-widen |
+| `FND-18` | NO TEST | projected | — |
+| `FND-19` | HELD | projected | nothing was stored under the reserved kind; tenant admin installs the reserved-kind probe (declares governance.role_assignment); the kernel REFUSES the granted  |
 
 ## REGISTRY
 
@@ -93,7 +95,7 @@
 | `ACC-1` | NO TEST | projected | — |
 | `ACC-2` | VIOLATED | projected | account id is permanent + distinct from the login handle [debt DEBT-B30]; id/handle/binding distinct; handle reserved |
 | `ACC-3` | VIOLATED | projected | assurance reflects the real auth method (AL-vocabulary, >=AL1 after password) [debt DEBT-B13]; identity-binding uniqueness via a keyed blind index (HMAC), not a |
-| `ACC-4` | PLANNED(needs-build) | projected | login + recovery; per-account-type recovery |
+| `ACC-4` | PLANNED(needs-build) | projected | admin creates fnuserdf3ae1 in its own tenant (/bridge/user-create → identity, app-host svc:identity); fnuserdf3ae1 holds a live App Host session in localdev; fn |
 | `ACC-5` | PLANNED(needs-build) | projected | provider connections (consent + confirmation; revocable) |
 | `ACC-6` | NO TEST | projected | — |
 | `ACC-7` | PLANNED(needs-build) | projected | consent by holder; withdraw->erase |
@@ -149,10 +151,10 @@
 |---|---|---|---|
 | `CMP-1` | NO TEST | projected | — |
 | `CMP-2` | NO TEST | projected | — |
-| `CMP-3` | PLANNED(needs-build) | projected | run token = declaration ∩ authority; run-token has no expiry and no audience (replayable) |
+| `CMP-3` | PLANNED(needs-build) | projected | declared write (platform.inbox_item) ACCEPTED by the kernel broker; run token = declaration ∩ authority; run-token has no expiry and no audience (replayable); s |
 | `CMP-4` | NO TEST | projected | — |
-| `CMP-5` | PLANNED(needs-build) | projected | default/in-process component runtime inherits full host env (no confinement); placed component container has no egress confinement (flat internal net) |
-| `CMP-6` | PLANNED(needs-build) | projected | default/in-process component runtime inherits full host env (no confinement); records & files only via the broker under run token + declared scopes |
+| `CMP-5` | PLANNED(needs-build) | projected | banned pattern PROD_SHADOW_OR_INPROCESS: no occurrence; default/in-process component runtime inherits full host env (no confinement); placed component container |
+| `CMP-6` | PLANNED(needs-build) | projected | declared write (platform.inbox_item) ACCEPTED by the kernel broker; default/in-process component runtime inherits full host env (no confinement); records & file |
 | `CMP-7` | PLANNED(needs-build) | projected | launch-time digest rebind enforced only on the baked path; on-demand filestore delivery is fail-open + trusts an unsigned listing digest; unverified-digest cert |
 | `CMP-8` | NO TEST | projected | — |
 | `CMP-9` | NO TEST | projected | — |
@@ -232,16 +234,35 @@
 |---|---|---|---|
 | `ARC-1` | HELD | projected | container network membership matches the declared map; live reachability probes match the membership map; the component net is broker-only (kernel is its only s |
 | `ARC-2` | NO TEST | projected | — |
-| `ARC-3` | HELD | projected | the fact store (postgres) is reachable only by kernel/network/identity |
+| `ARC-3` | HELD | projected | banned pattern SUPERUSER_DB: no occurrence; the fact store (postgres) is reachable only by kernel/network/identity |
 | `ARC-4` | PLANNED(needs-build) | projected | per-service micro-segmentation within the svc mesh (declared calls: only) |
 | `ARC-5` | HELD | projected | the edge (nginx) reaches no internal service or data store |
 | `ARC-6` | NO TEST | projected | — |
 | `ARC-7` | HELD | projected | Vault is not reachable by pure-compute services or the edge; app-host: CAN read its own path; app-host: CANNOT read a foreign service's path; app-host: holds a  |
 
+## GATEWAY
+
+| rule | local-dev | production | cases (provenance) |
+|---|---|---|---|
+| `GTW-1` | NO TEST | projected | — |
+| `GTW-2` | NO TEST | projected | — |
+| `GTW-3` | VIOLATED | projected | no component reaches a provider around the gateway (provider SDK egress, DEBT-B65); no outbound call to an arbitrary URL outside the webhooks gateway (automatio |
+| `GTW-4` | PARTIAL | projected | model-gateway /complete refuses an anonymous call (abuse); the AI gateway checks consent, cost and rate limits before calling a provider (DEBT-B71) |
+| `GTW-5` | NO TEST | projected | — |
+| `GTW-6` | NO TEST | projected | — |
+| `GTW-7` | NO TEST | projected | — |
+| `GTW-8` | NO TEST | projected | — |
+| `GTW-9` | NO TEST | projected | — |
+| `GTW-10` | NO TEST | projected | — |
+| `GTW-11` | NO TEST | projected | — |
+| `GTW-12` | NO TEST | projected | — |
+| `GTW-13` | PARTIAL | projected | App Host page carries a self-only content security policy (no third-party script origin); no app bundle loads code or tiles from a third-party origin (DEBT-B68) |
+| `GTW-14` | PARTIAL | projected | banned pattern WEBHOOK_SECRET_LITERAL: no occurrence; channel gateway /bridge/message-intake refuses anon + the retired baked literal (abuse); channel gateway / |
+
 ## Tally (rules per derived status, per environment)
 
 | environment | HELD | PARTIAL | VIOLATED | PLANNED(needs-build) | UNVERIFIED(creds) | REVIEW | REGRESSION | NO TEST | projected |
 |---|---|---|---|---|---|---|---|---|---|
-| local-dev | 12 | 3 | 4 | 88 | 0 | 0 | 0 | 59 | 0 |
-| production | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 166 |
+| local-dev | 13 | 7 | 5 | 87 | 0 | 0 | 0 | 70 | 0 |
+| production | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 182 |
 
