@@ -89,6 +89,52 @@ def probe(svc, own="", foreign=""):
     except Exception as e:
         return {"ERR": str(e)[:60]}
 
+# capabilities probe (slice-1g): with PID1's own token, ask Vault what it may do on each path (sys/capabilities-self),
+# and optionally ATTEMPT an operation (POST path with a body) — prints "CAP <path> <caps>" / "TRY <path> <status>".
+_CAPS = r'''
+import json, urllib.request, urllib.error, sys, os
+tok = ""
+for line in open("/proc/1/environ","rb").read().split(b"\0"):
+    if line.startswith(b"VAULT_TOKEN="): tok = line.split(b"=",1)[1].decode()
+H = {"X-Vault-Token": tok, "Content-Type": "application/json"}
+def post(p, body):
+    r = urllib.request.Request("http://vault:8200/v1/"+p, data=json.dumps(body).encode(), headers=H, method="POST")
+    try: return urllib.request.urlopen(r, timeout=8).status, json.loads(urllib.request.urlopen(r, timeout=8).read() or b"{}") if False else {}
+    except urllib.error.HTTPError as e: return e.code, {}
+    except Exception: return 0, {}
+paths = json.loads(os.environ.get("CAPS","[]"))
+if paths:
+    r = urllib.request.Request("http://vault:8200/v1/sys/capabilities-self", data=json.dumps({"paths": paths}).encode(), headers=H, method="POST")
+    try: d = json.loads(urllib.request.urlopen(r, timeout=8).read())
+    except Exception as e: d = {}
+    for p in paths: print("CAP", p, ",".join(d.get(p) or d.get("data", {}).get(p) or ["?"]))
+for p in json.loads(os.environ.get("TRY","[]")):
+    print("TRY", p, post(p, {"input": "c2xpY2UtMWctcHJvYmU="})[0])
+'''
+def caps(svc, paths=(), tries=()):
+    r = subprocess.run(["docker", "exec", "-e", "CAPS=" + json.dumps(list(paths)), "-e", "TRY=" + json.dumps(list(tries)),
+                        PFX + svc, "python3", "-c", _CAPS], capture_output=True, text=True, timeout=30)
+    out = {"CAP": {}, "TRY": {}}
+    for ln in r.stdout.splitlines():
+        k, _, rest = ln.partition(" ")
+        if k in out:
+            pth, _, v = rest.rpartition(" "); out[k][pth] = v
+    return out
+
+
+def granted(c, write=False):
+    """True if the capability string allows a read (or, write=True, a create/update/delete)."""
+    want = {"create", "update", "delete", "sudo", "root"} if write else {"read", "root", "sudo"}
+    return bool(set((c or "").split(",")) & want)
+
+
+# slice-1g (DEBT-B88) — per-service transit keys: identity's issuer key usable ONLY by identity; the authority + steward
+# keys ONLY by the network; every other service touches no transit key.
+TRANSIT_KEYS = {"airawat-identity": "identity", "airawat-authority": "network", "steward-localdev": "network"}
+TRANSIT_SERVICES = ["kernel", "network", "identity", "app-host", "scheduler", "secrets", "model-gateway", "decision",
+                    "workflow", "automation", "event-relay", "runtime-manager"]
+
+
 def config_has_static_vault_token(svc):
     try:
         r = subprocess.run(["docker", "inspect", "-f", "{{range .Config.Env}}{{println .}}{{end}}", PFX + svc],
@@ -151,6 +197,28 @@ def main():
                       o.get("FOREIGN") == "403", "%s -> %s (want 403; proves svc-model-gateway narrowed to +/+/*)" % (short, o.get("FOREIGN")))
         ok_all &= rec("ARC-7", "%s: no static VAULT_TOKEN in container config" % svc,
                       not config_has_static_vault_token(svc), "config static token present=%s" % config_has_static_vault_token(svc))
+
+    # slice-1g (DEBT-B88): transit keys are per service. ACTUAL sign attempts: kernel and network with identity's key.
+    for svc in ("kernel", "network"):
+        o = caps(svc, tries=["transit/sign/airawat-identity"])
+        st = o["TRY"].get("transit/sign/airawat-identity")
+        ok_all &= rec("ARC-7", "%s CANNOT sign with identity's issuer key (forge identity tokens)" % svc,
+                      st == "403", "POST transit/sign/airawat-identity -> %s (want 403)" % st)
+    for svc in TRANSIT_SERVICES:
+        paths = []
+        for key in TRANSIT_KEYS:
+            paths += ["transit/sign/" + key, "transit/keys/" + key + "/rotate", "transit/keys/" + key + "/config"]
+        o = caps(svc, paths)["CAP"]
+        bad = []
+        for key, owner in TRANSIT_KEYS.items():
+            if svc != owner and granted(o.get("transit/sign/" + key), write=True):
+                bad.append("sign " + key)
+            for adm in ("rotate", "config"):     # nobody administers ANOTHER service's key
+                if svc != owner and granted(o.get("transit/keys/%s/%s" % (key, adm)), write=True):
+                    bad.append("%s %s" % (adm, key))
+        own_ok = all(granted(o.get("transit/sign/" + k), write=True) for k, ow in TRANSIT_KEYS.items() if ow == svc)
+        ok_all &= rec("ARC-7", "%s: transit limited to its own keys (cannot sign with, rotate or configure another service's key)" % svc,
+                      not bad and own_ok, ("foreign/admin: %s" % bad) if bad else ("own keys signable=%s" % own_ok))
 
     for svc in NOVAULT:
         o = probe(svc)

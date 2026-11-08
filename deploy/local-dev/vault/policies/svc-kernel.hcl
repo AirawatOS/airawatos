@@ -8,4 +8,4 @@ path "secret/data/localdev-operator/kernel/*"     { capabilities = ["read"] }
 path "secret/metadata/localdev-operator/kernel/*" { capabilities = ["read", "list"] }
 # WIDENED (recorded): "kernel additionally transit" per the slice brief. Kernel's active transit use is
 # future (REG-17 field encryption, B23 registry signing); granted now so those land without a policy change.
-path "transit/*" { capabilities = ["create", "read", "update"] }
+# slice-1g (DEBT-B88): the kernel uses NO transit key (ADR-0126 rec-*/idx-* not built) — no transit grant at all.
