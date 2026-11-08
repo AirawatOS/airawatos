@@ -110,9 +110,27 @@ The workflow engine moves out of the core (§2); **the record of who decided wha
   checks the deciding principal's recorded authority, writes the decision record and returns its id. The
   component references that id; it never writes `governance.decision` itself. To issue an order, the component
   asks the core to sign one; the core refuses unless the order cites a decision record it holds.
-- **Enforcement:** the kernel refuses a `governance.decision` or `governance.order` write that arrives under a
-  component run token. That is a schema-level write restriction, enforced like any other undeclared write: the
-  write is refused by the steward-grant check (proven in slice-1e Phase 15).
+- **Enforcement (to build):** the kernel refuses a `governance.decision` or `governance.order` write that arrives
+  under a component run token **even if the component declared it and a tenant granted it**. Those schemas go on a
+  **core-reserved list** the install grant can never cover. Today only the generic rule exists: an *undeclared*
+  write is refused by the steward-grant check (proven in slice-1e Phase 15). That rule is not enough, because a
+  workflow component could declare these writes. The reserved list is a precondition for moving the workflow
+  engine out (§4).
 - **Consequence:** replacing or upgrading the workflow engine can never change what a decision record says, who
   it names as the authority, or whether one is written. An AI or automation step can only recommend; the record
   names the human or recorded authority who decided (DEC-12).
+
+### 4. Preconditions before anything leaves the core
+
+Nothing listed in §2 as *moves out* (workflow engine, docrender, provider wires, the email sender, the channel
+intakes) leaves the core until these are **closed** (not deferred):
+
+| Precondition | Debt | Why it gates the move |
+|---|---|---|
+| **Confinement of the default runtime** | **DEBT-B51** | an in-process component inherits the host's environment; moving code out of a service into an unconfined component would *widen* its reach, not narrow it |
+| **Egress policy for placed containers** | **DEBT-B52** | a component on the flat internal network can reach any service directly; the move only shrinks the TCB if the component can reach nothing but its declared doors |
+| **Signing and provenance of component versions** | **DEBT-B23** (with A67, B54–B56) | code that leaves the core must still be the code that was reviewed: publisher-signed, content-pinned, digest verified at every launch |
+| **Core-reserved schemas** (§3) | new, recorded with the Layer 7 moves | workflow cannot write decision records or orders even if granted |
+
+The moves are added to **FIX-PLAN Layer 7** as one item ("ADR-0130 core → component moves") whose exit is
+gated on these four. Until then the code stays where it is; this ADR changes placement, not deployment.

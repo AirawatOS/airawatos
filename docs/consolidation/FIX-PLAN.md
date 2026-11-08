@@ -193,6 +193,13 @@ edge crosses a declared door — ARC §c) is the capstone net that proves nets 1
   `safe_endpoint` weak SSRF filter), **DEBT-A50/A51/A54** (deploy tooling: direct internal ports, `/bridge`
   client, cleartext creds to a plain-http IP). Confirmed sound: the aos SDK confined runtime (broker-only `/v1/*`,
   fail-closed token gate, no self-asserted roles), `/v1/fetch` declared-egress, install/list admin-gating.
+- **ADR-0130 core → component moves** (after B51 + B52 + B23 are CLOSED, plus the core-reserved-schema list):
+  the **workflow engine** (decision records + order signing stay core — ADR-0130 §3), **docrender** (out of the
+  App Host process; the door keeps output sanitisation + CSP, B50), **templates**, **workflow definitions** and
+  **scheduled jobs** as base-OS packs; the provider-specific code behind each gateway (SES/SMTP out of the Network,
+  `_openai`/`_anthropic`/`_stt` out of the model-gateway, the Telegram/SMS intakes out of the App Host) becomes
+  provider adapters (ADR-0130 §8). Each move is gated on a fresh install + conformance, and the TCB list in
+  ADR-0130 §5 is updated with the move.
 - **Missing tests:** scrubbed-env assertion for in-process runs (B51); container-egress-denied (B52); run-token
   replay/expiry (B53); on-demand-delivery fail-closed (B54); un-baked digest rebind (B55); conformance.verified
   honored (B56); publisher-signature-present on a version (B23); the proposed tests are recorded as SKIP_BUILD in
