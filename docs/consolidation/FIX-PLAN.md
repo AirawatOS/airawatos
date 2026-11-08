@@ -176,7 +176,7 @@ edge crosses a declared door — ARC §c) is the capstone net that proves nets 1
   **DEBT-A71/A37/A36** (shared static literals → audience-bound tokens), **DEBT-A66 / B1 / B3** (secrets/decision
   authority from token roles / authentication-alone), **DEBT-B10** (automation dedup + scheduler receipts
   in-memory → double-fire on restart), **DEBT-B49** (filestore blob path has no owning-tenant scope even once
-  gated), **DEBT-A40** (notify unattributed registry write), **DEBT-A65** (dual-audience migration acceptance),
+  gated — storage contract now owned by Layer 2, ADR-0130), **DEBT-A40** (notify unattributed registry write), **DEBT-A65** (dual-audience migration acceptance),
   **DEBT-A11/B16** (connector/secrets `/fetch` SSRF). **Conversation-channel gateway (with DEBT-B46):** **DEBT-B64** — inbound SMS/USSD/message intake authenticated by one shared secret (interim: moved to Vault, slice-1c-iv step 4); **target:** per-provider, per-tenant signed webhooks, tenant bound by provider registration, behind the B46 rate-limited front door. Confirmed fixed: B4/A36 fail-closed-when-unset; B6/B28/B29
   identity directory; automation `/events` promoted to a PASS (slice-5).
   **Gateways (ADR-0130, GATEWAY-v0.1):** each gateway gets a versioned NORTH and SOUTH contract with GTW-4/5
@@ -223,6 +223,13 @@ edge crosses a declared door — ARC §c) is the capstone net that proves nets 1
   `safe_endpoint` weak SSRF filter), **DEBT-A50/A51/A54** (deploy tooling: direct internal ports, `/bridge`
   client, cleartext creds to a plain-http IP). Confirmed sound: the aos SDK confined runtime (broker-only `/v1/*`,
   fail-closed token gate, no self-asserted roles), `/v1/fetch` declared-egress, install/list admin-gating.
+- **ADR-0130 provider adapters** (component class `adapter`, installable from the marketplace): signed, confined,
+  listed only after passing the gateway's **south conformance** suite (GTW-12), no platform-approved catalogue
+  (ADR-0129). Each adapter **declares its provider destinations**; the runtime enforces them as a per-container
+  **network egress allow-list** (GTW-11). That closes DEBT-B65/B66/B67, which code-level egress checks cannot.
+  Preconditions: **B23**, **B51 + B52**, **network-enforced declared egress**, the **GTW conformance suite**.
+  Tenant-chosen: messaging, AI, payments, identity, channels, data-source drivers, geo. Operator-chosen: file
+  storage, git hosting (both choosers are open questions in ADR-0130 against the inventory).
 - **ADR-0130 core → component moves** (after B51 + B52 + B23 are CLOSED, plus the core-reserved-schema list):
   the **workflow engine** (decision records + order signing stay core — ADR-0130 §3), **docrender** (out of the
   App Host process; the door keeps output sanitisation + CSP, B50), **templates**, **workflow definitions** and

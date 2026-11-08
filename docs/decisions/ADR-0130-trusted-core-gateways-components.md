@@ -229,3 +229,78 @@ hands it for that call. The detailed rules are in [GATEWAY-v0.1](../specs/GATEWA
 8. **The inventory omits three things the placement needs:** the automation raw-URL action (an unmediated outbound
    call, DEBT-A43), `services/service-gateway` (a read-scaling tier, core), and `services/mospi-gateway` (a
    provider adapter).
+
+### 8. Provider adapters are a component class, installable from the marketplace
+
+> §7 is the [GATEWAY-v0.1](../specs/GATEWAY-v0.1.md) spec (GTW) and its FIX-PLAN entries; it has no section of its
+> own here.
+
+- **An adapter is a component** of a new class, `adapter`, bound to one gateway profile and one south contract
+  major. It is **signed and content-pinned** (B23), **confined** (B51/B52), and **listed in the marketplace only if
+  it passes that gateway's south conformance suite** (GTW-12). Passing is the listing requirement; there is
+  **no platform-approved catalogue and no platform approval or veto** (ADR-0129 Decision 6).
+- **Declared outbound access only.** The adapter declares the provider destinations it may reach (named hosts and
+  ports, e.g. `earthengine.googleapis.com:443`, a camera's RTSP endpoint), and nothing else. The declaration is
+  **shown to the chooser at install** and **enforced by the network**: the runtime gives the adapter's container an
+  egress allow-list of exactly those destinations plus the gateway's south endpoint. Code-level checks are not
+  enough, because libraries and tools that open their own connections bypass them: the Earth Engine SDK
+  (**DEBT-B65**), ffmpeg dialling RTSP (**DEBT-B66**), raw `urllib` on the in-process path (**DEBT-B67**).
+- **Gateways are never installable.** Only the adapters behind them are.
+- **Remote providers.** A provider may instead be a **remote participant** reached over the federation door,
+  speaking the same south contract, its messages signed by its registered key (FED5). The gateway applies the same
+  GTW-4/5/6 checks; the provider's own conformance is its provider-role conformance (PTC-11).
+- **Who installs which adapters:**
+
+  | Chosen by the **tenant** | Chosen by the **operator** (once per installation) |
+  |---|---|
+  | messaging, AI models, payments, identity, conversation channels, data-source drivers, geo | file storage, git hosting |
+
+  **Flagged against the inventory:** today external identity providers are **operator-configured**
+  (inventory §10) and git hosting is chosen **per tenant/project** (inventory §14). The inventory is followed as the
+  current state. Moving identity to tenant choice and git hosting to operator choice are changes this ADR proposes,
+  not facts (open questions 1 and 2).
+- **Preconditions** before any adapter is installable from the marketplace: **B23** (signing/provenance), **B51 +
+  B52** (confinement), **network-enforced declared egress** (GTW-11), and the **GTW conformance suite** (GTW-12).
+  These go into **FIX-PLAN Layer 7**.
+
+## Consequences
+
+- The TCB shrinks to authority, enforcement and doors (§5). Provider-specific code is no longer reviewed as core
+  but proven per listing.
+- Every outside call has one shape: north → checks → south → audit/decision record. The current inconsistency
+  (email unaudited, AI without consent or cost limits, SDK egress unseen) becomes a set of named gaps against one
+  contract (GATEWAY-v0.1 status lines).
+- New core work: versioned north/south contracts, network-enforced egress per adapter, a core-reserved schema list,
+  signature verification at adapter launch, and the GTW conformance suites.
+- Identity cost: one run identity per installed component and adapter per tenant, which needs short-lived,
+  audience-bound run tokens (DEBT-B53).
+- `services/` (service-gateway, mospi-gateway) no longer maps to a single tier. The REPO-RESTRUCTURE-PROPOSAL's
+  `gateways/` tier should hold the gateway cores. service-gateway belongs with the core read tier and mospi-gateway
+  with the adapters (components).
+
+## Open questions
+
+1. **Git hosting: operator infrastructure or tenant/project choice?** The inventory shows per-project choice
+   (ADR-0083). The brief proposed operator infrastructure. Per-project credentials favour tenant choice, while a
+   single audited egress point favours the operator.
+2. **External identity providers: operator-configured or tenant-chosen?** Today the operator configures them
+   (ADR-0068). Tenant choice would make a tenant's own login system a scoped external issuer (FND-15). The open
+   point is whether the operator keeps a veto for the shared installation's infrastructure policy (ADR-0129 allows
+   policy, not approval).
+3. **Federated mail placement.** Its south side is the core federation door. Should the messaging north contract
+   cover federated recipients, or should federated mail stay a Network operation?
+4. **SMS/USSD gateway chooser.** Operator today (one gateway per installation). Target per-tenant providers
+   (DEBT-B64) — is an operator-level default kept as a convenience (allowed by ADR-0129)?
+5. **Core-reserved schemas.** Which schemas are on the list beyond `governance.decision` and `governance.order`
+   (e.g. `governance.role_assignment`, `governance.access_grant`)?
+
+## Spec changes if accepted
+
+| Spec | Change |
+|---|---|
+| GATEWAY (new) | GTW-1–GTW-14 + profiles (this ADR, §6–§8) |
+| PLATFORM | PLT-16 points to GATEWAY-v0.1; PLT-17 as restated by ADR-0129 (infrastructure policy only); PLT-18 credentials per GTW-8; PLT-20/PLT-21 realised by GTW-4/GTW-5 |
+| COMPONENT | new component class `adapter` (south contract major, declared destinations); listing requirement = GTW south conformance; CMP-11 declared egress enforced by the network |
+| DECISION | DEC-1 extended to every gateway call; the core-reserved schema list (governance.decision / governance.order not writable under a component run token) |
+| ARCHITECTURE-FLOWS | door D6 split: provider gateways (GTW) vs the service-gateway read tier; adapters' declared egress as flow-map edges |
+| FIX-PLAN | Layer 2 (file storage, B49), Layer 5 (B68), Layer 6 (gateways), Layer 7 (moves + adapters) |
