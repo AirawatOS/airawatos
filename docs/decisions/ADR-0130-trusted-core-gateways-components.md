@@ -94,3 +94,25 @@ so it stays **inside the core and inside the TCB**. It is placed as a core sub-t
 | **docrender** (in-process in app-host today) | System component | renders untrusted markdown; holds nothing | the App Host still applies output sanitisation + CSP at the door (PLT-14, DEBT-B50) |
 | templates, workflow definitions (`platform.workflow`), scheduled jobs (`platform.schedule`) | System components (data + packs) | governed records and packs, no authority | shipped as base-OS packs; the scheduler (plumbing) executes schedules |
 | `mail-engine`, `telegram-concierge`, `git-publisher`, drivers (~48), `rtsp-ingest` | Components (already) | — | `telegram-concierge`, `git-publisher`, drivers and `rtsp-ingest` are **provider adapters** in §8's sense |
+
+### 3. Decision records stay core, even when the workflow engine is a component
+
+The workflow engine moves out of the core (§2); **the record of who decided what does not**. The split:
+
+- **Core keeps:** the one decision function (FND-12), the **writer of `governance.decision`** (the decision
+  service today), and **signing of `governance.order`**. Signing needs a key, which is a §1(a) reason, so the
+  component cannot hold it. Decision records are written only by the core, for allow **and** deny (DEC-1, DEC-6),
+  and are never edited (DEC-5).
+- **The workflow component keeps:** interpreting a `platform.workflow` declaration, creating tasks, routing them
+  to roles, and rolling step completion up. It runs under its own run token and the grants of the caller who
+  started it.
+- **The seam:** when a step needs a decision, the workflow component **asks the core decision function**, which
+  checks the deciding principal's recorded authority, writes the decision record and returns its id. The
+  component references that id; it never writes `governance.decision` itself. To issue an order, the component
+  asks the core to sign one; the core refuses unless the order cites a decision record it holds.
+- **Enforcement:** the kernel refuses a `governance.decision` or `governance.order` write that arrives under a
+  component run token. That is a schema-level write restriction, enforced like any other undeclared write: the
+  write is refused by the steward-grant check (proven in slice-1e Phase 15).
+- **Consequence:** replacing or upgrading the workflow engine can never change what a decision record says, who
+  it names as the authority, or whether one is written. An AI or automation step can only recommend; the record
+  names the human or recorded authority who decided (DEC-12).
