@@ -381,7 +381,7 @@ IDT=os.environ["IDT"]; INST=os.environ["INST"]; PROFILE=os.environ["PROFILE"]; E
 operator, network, developer = f"{INST}-operator", f"{INST}-network", f"{INST}-developer"
 # (user, tenant, roles, audiences, include?)
 PRINCIPALS = [
-    ("scheduler",           operator,  ["platform.scheduler"], ["svc:automation", "svc:runtime-manager"], True),  # daemons → automation; scheduler → runtime-manager /v1/invoke (step 2)
+    ("scheduler",           operator,  ["platform.scheduler"], ["svc:automation", "svc:runtime-manager", "svc:network"], True),  # +slice-1f: Network internal lookups  # daemons → automation; scheduler → runtime-manager /v1/invoke (step 2)
     ("component-publisher", network,   ["component.publisher"], None,              True),             # app-host publish/sign
     ("dev-sandbox",         developer, ["platform.developer"],  None,              PROFILE == "dev"), # dev-token mint (DEV ONLY)
     ("embed-service",       operator,  ["embed.client-admin"],  None,              EMBED),            # citizen-embed OIDC (if enabled)
@@ -424,10 +424,10 @@ import os, json, secrets, urllib.request, urllib.error
 IDN="http://identity:8093"; VADDR=os.environ.get("VAULT_ADDR","http://vault:8200"); VTOK=os.environ["VAULT_TOKEN"]
 IDT=os.environ["IDT"]; TENANT=os.environ["TENANT"]
 PRINCIPALS = {
-    "app-host": ["svc:scheduler", "svc:filestore", "svc:model-gateway", "svc:identity"],   # +1c-iv-c: identity door (own principal)
-    "kernel":   ["svc:model-gateway", "svc:filestore", "svc:secrets", "svc:runtime-manager"],  # +1c-iii: broker /fetch + runtime-mgr
-    "decision": ["svc:notify"],
-    "workflow": ["svc:notify"],
+    "app-host": ["svc:scheduler", "svc:filestore", "svc:model-gateway", "svc:identity", "svc:network"],   # +1c-iv-c identity door; +1f Network lookups
+    "kernel":   ["svc:model-gateway", "svc:filestore", "svc:secrets", "svc:runtime-manager", "svc:network"],  # +1c-iii broker/runtime-mgr; +1f Network lookups
+    "decision": ["svc:notify", "svc:network"],                             # +1f: keys/resolve (signature verify)
+    "workflow": ["svc:notify", "svc:network"],                             # +1f: keys/resolve (signature verify)
     "launcher": ["svc:filestore", "svc:secrets", "svc:network"],           # (runtime manager) source fetch + /materialize + runtime attest (step 5)
 }
 def _req(url, data=None, headers=None, method="GET"):

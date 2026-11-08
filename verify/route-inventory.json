@@ -380,9 +380,8 @@
    "who": "tenant admin (ADMIN_ROLES on the session)"
   },
   "POST /bridge/doc-render": {
-   "class": "public",
-   "review": "answers an anonymous caller \u2014 gate it",
-   "why": "public today (anonymous call answered 200)"
+   "class": "login",
+   "who": "signed-in App Host session (slice-1f \u2014 authoring preview / in-app docs, not designated public)"
   },
   "POST /bridge/doc-review": {
    "class": "login",
@@ -926,8 +925,7 @@
   },
   "POST /verify": {
    "class": "public",
-   "review": "crashes on an unexpected body (connection reset) before authenticating \u2014 fix the handler",
-   "why": "public today (anonymous call answered ERR:RemoteDisconnected)"
+   "why": "anyone may verify a signed decision (offline, against the directory key); a malformed body is a 400 (slice-1f, DEBT-B75)"
   }
  },
  "event-relay": {
@@ -997,18 +995,15 @@
  "kernel": {
   "GET /docs": {
    "class": "public",
-   "review": "interactive API docs + OpenAPI of an internal service exposed (FND-16 safe defaults) \u2014 disable in production",
-   "why": "public today (anonymous call answered 200)"
+   "why": "API docs \u2014 local-dev profile only; disabled when AIRAWAT_ENV=production (slice-1f, DEBT-B76)"
   },
   "GET /openapi.json": {
    "class": "public",
-   "review": "interactive API docs + OpenAPI of an internal service exposed (FND-16 safe defaults) \u2014 disable in production",
-   "why": "public today (anonymous call answered 200)"
+   "why": "API docs \u2014 local-dev profile only; disabled when AIRAWAT_ENV=production (slice-1f, DEBT-B76)"
   },
   "GET /redoc": {
    "class": "public",
-   "review": "interactive API docs + OpenAPI of an internal service exposed (FND-16 safe defaults) \u2014 disable in production",
-   "why": "public today (anonymous call answered 200)"
+   "why": "API docs \u2014 local-dev profile only; disabled when AIRAWAT_ENV=production (slice-1f, DEBT-B76)"
   },
   "GET /v1/components": {
    "class": "authority",
@@ -1092,6 +1087,7 @@
   },
   "POST /v1/registry/aggregate": {
    "class": "public",
+   "owner": "FIX-PLAN Layer 2 \u2014 Kernel (DEBT-A1, first item)",
    "review": "anonymous registry read (DEBT-A1 \u2014 kernel anon reads; ARC-5)",
    "why": "public today (anonymous call answered 200)"
   },
@@ -1105,11 +1101,13 @@
   },
   "POST /v1/registry/count": {
    "class": "public",
+   "owner": "FIX-PLAN Layer 2 \u2014 Kernel (DEBT-A1, first item)",
    "review": "anonymous registry read (DEBT-A1 \u2014 kernel anon reads; ARC-5)",
    "why": "public today (anonymous call answered 200)"
   },
   "POST /v1/registry/datasets": {
    "class": "public",
+   "owner": "FIX-PLAN Layer 2 \u2014 Kernel (DEBT-A1, first item)",
    "review": "anonymous registry read (DEBT-A1 \u2014 kernel anon reads; ARC-5)",
    "why": "public today (anonymous call answered 200)"
   },
@@ -1119,6 +1117,7 @@
   },
   "POST /v1/registry/exists": {
    "class": "public",
+   "owner": "FIX-PLAN Layer 2 \u2014 Kernel (DEBT-A1, first item)",
    "review": "anonymous registry read (DEBT-A1 \u2014 kernel anon reads; ARC-5)",
    "why": "public today (anonymous call answered 200)"
   },
@@ -1128,11 +1127,13 @@
   },
   "POST /v1/registry/query": {
    "class": "public",
+   "owner": "FIX-PLAN Layer 2 \u2014 Kernel (DEBT-A1, first item)",
    "review": "anonymous registry read (DEBT-A1 \u2014 kernel anon reads; ARC-5)",
    "why": "public today (anonymous call answered 200)"
   },
   "POST /v1/registry/resolve": {
    "class": "public",
+   "owner": "FIX-PLAN Layer 2 \u2014 Kernel (DEBT-A1, first item)",
    "review": "anonymous registry read (DEBT-A1 \u2014 kernel anon reads; ARC-5)",
    "why": "public today (anonymous call answered 200)"
   },
@@ -1154,6 +1155,7 @@
   },
   "POST /v1/registry/schemas-present": {
    "class": "public",
+   "owner": "FIX-PLAN Layer 2 \u2014 Kernel (DEBT-A1, first item)",
    "review": "anonymous registry read (DEBT-A1 \u2014 kernel anon reads; ARC-5)",
    "why": "public today (anonymous call answered 200)"
   },
@@ -1184,6 +1186,7 @@
   },
   "POST /v1/resolve-ref": {
    "class": "public",
+   "owner": "FIX-PLAN Layer 2 \u2014 Kernel (DEBT-A1, first item)",
    "review": "anonymous registry read (DEBT-A1 \u2014 kernel anon reads; ARC-5)",
    "why": "public today (anonymous call answered 500)"
   },
@@ -1221,8 +1224,7 @@
  "network": {
   "GET /docs": {
    "class": "public",
-   "review": "interactive API docs + OpenAPI of an internal service exposed (FND-16 safe defaults) \u2014 disable in production",
-   "why": "public today (anonymous call answered 200)"
+   "why": "API docs \u2014 local-dev profile only; disabled when AIRAWAT_ENV=production (slice-1f, DEBT-B76)"
   },
   "GET /join": {
    "class": "public",
@@ -1230,27 +1232,23 @@
   },
   "GET /openapi.json": {
    "class": "public",
-   "review": "interactive API docs + OpenAPI of an internal service exposed (FND-16 safe defaults) \u2014 disable in production",
-   "why": "public today (anonymous call answered 200)"
+   "why": "API docs \u2014 local-dev profile only; disabled when AIRAWAT_ENV=production (slice-1f, DEBT-B76)"
   },
   "GET /redoc": {
    "class": "public",
-   "review": "interactive API docs + OpenAPI of an internal service exposed (FND-16 safe defaults) \u2014 disable in production",
-   "why": "public today (anonymous call answered 200)"
+   "why": "API docs \u2014 local-dev profile only; disabled when AIRAWAT_ENV=production (slice-1f, DEBT-B76)"
   },
   "GET /v1/authority": {
    "class": "public",
    "why": "the authority's public key"
   },
   "GET /v1/credentials": {
-   "class": "public",
-   "review": "directory/request list readable anonymously (DEBT-B36 \u2014 members-only directories, NET-12)",
-   "why": "public today (anonymous call answered 200)"
+   "class": "login",
+   "who": "any verified principal \u2014 rows scoped to its own tenant/subject; full list to a declared service (svc:network) or an authority admin (slice-1f)"
   },
   "GET /v1/data-requests": {
-   "class": "public",
-   "review": "directory/request list readable anonymously (DEBT-B36 \u2014 members-only directories, NET-12)",
-   "why": "public today (anonymous call answered 200)"
+   "class": "login",
+   "who": "any verified principal \u2014 rows scoped to its own tenant/subject; full list to a declared service (svc:network) or an authority admin (slice-1f)"
   },
   "GET /v1/domains": {
    "class": "public",
@@ -1258,13 +1256,11 @@
   },
   "GET /v1/federation/offerings": {
    "class": "public",
-   "review": "directory/request list readable anonymously (DEBT-B36 \u2014 members-only directories, NET-12)",
-   "why": "public today (anonymous call answered 200)"
+   "why": "designated public: an anonymous caller sees ONLY offerings with visibility=public; a signed-in caller the whole catalog (slice-1f)"
   },
   "GET /v1/file-shares": {
-   "class": "public",
-   "review": "directory/request list readable anonymously (DEBT-B36 \u2014 members-only directories, NET-12)",
-   "why": "public today (anonymous call answered 200)"
+   "class": "login",
+   "who": "any verified principal \u2014 rows scoped to its own tenant/subject; full list to a declared service (svc:network) or an authority admin (slice-1f)"
   },
   "GET /v1/files/*": {
    "class": "public",
@@ -1275,23 +1271,20 @@
    "why": "health/liveness probe \u2014 no data"
   },
   "GET /v1/interface-requests": {
-   "class": "public",
-   "review": "directory/request list readable anonymously (DEBT-B36 \u2014 members-only directories, NET-12)",
-   "why": "public today (anonymous call answered 200)"
+   "class": "login",
+   "who": "any verified principal \u2014 rows scoped to its own tenant/subject; full list to a declared service (svc:network) or an authority admin (slice-1f)"
   },
   "GET /v1/interfaces": {
    "class": "public",
    "why": "governed interface catalogue (public standards)"
   },
   "GET /v1/interfaces/bindings": {
-   "class": "public",
-   "review": "directory/request list readable anonymously (DEBT-B36 \u2014 members-only directories, NET-12)",
-   "why": "public today (anonymous call answered 200)"
+   "class": "internal",
+   "who": "the internal verb\u2192endpoint map \u2014 declared services with svc:network only (slice-1f)"
   },
   "GET /v1/join": {
-   "class": "public",
-   "review": "directory/request list readable anonymously (DEBT-B36 \u2014 members-only directories, NET-12)",
-   "why": "public today (anonymous call answered 200)"
+   "class": "authority",
+   "who": "join applications (contact emails): the network authority's admins or a declared service only (slice-1f)"
   },
   "GET /v1/jurisdictions": {
    "class": "public",
@@ -1320,9 +1313,8 @@
    "why": "platform operators directory (ADR-0116)"
   },
   "GET /v1/pack-requests": {
-   "class": "public",
-   "review": "directory/request list readable anonymously (DEBT-B36 \u2014 members-only directories, NET-12)",
-   "why": "public today (anonymous call answered 200)"
+   "class": "login",
+   "who": "any verified principal \u2014 rows scoped to its own tenant/subject; full list to a declared service (svc:network) or an authority admin (slice-1f)"
   },
   "GET /v1/packs": {
    "class": "public",
@@ -1333,32 +1325,28 @@
    "who": "any authenticated principal (bearer token verified)"
   },
   "GET /v1/participants": {
-   "class": "public",
-   "review": "directory/request list readable anonymously (DEBT-B36 \u2014 members-only directories, NET-12)",
-   "why": "public today (anonymous call answered 200)"
+   "class": "login",
+   "who": "participant directory \u2014 any verified principal (slice-1f; anonymous refused)"
   },
   "GET /v1/participation": {
    "class": "login",
    "who": "any authenticated principal (bearer token verified)"
   },
   "GET /v1/role-requests": {
-   "class": "public",
-   "review": "directory/request list readable anonymously (DEBT-B36 \u2014 members-only directories, NET-12)",
-   "why": "public today (anonymous call answered 200)"
+   "class": "login",
+   "who": "any verified principal \u2014 rows scoped to its own tenant/subject; full list to a declared service (svc:network) or an authority admin (slice-1f)"
   },
   "GET /v1/roles": {
    "class": "public",
    "why": "governed role catalogue (public standards)"
   },
   "GET /v1/runtime/attestations": {
-   "class": "public",
-   "review": "directory/request list readable anonymously (DEBT-B36 \u2014 members-only directories, NET-12)",
-   "why": "public today (anonymous call answered 200)"
+   "class": "login",
+   "who": "node attestations \u2014 any verified principal (slice-1f)"
   },
   "GET /v1/schema-requests": {
-   "class": "public",
-   "review": "directory/request list readable anonymously (DEBT-B36 \u2014 members-only directories, NET-12)",
-   "why": "public today (anonymous call answered 200)"
+   "class": "login",
+   "who": "any verified principal \u2014 rows scoped to its own tenant/subject; full list to a declared service (svc:network) or an authority admin (slice-1f)"
   },
   "GET /v1/schemas": {
    "class": "public",
@@ -1366,13 +1354,11 @@
   },
   "GET /v1/service-offerings": {
    "class": "public",
-   "review": "directory/request list readable anonymously (DEBT-B36 \u2014 members-only directories, NET-12)",
-   "why": "public today (anonymous call answered 200)"
+   "why": "designated public: an anonymous caller sees ONLY offerings with visibility=public (NET-12); a signed-in caller the active directory (slice-1f)"
   },
   "GET /v1/service/transactions": {
-   "class": "public",
-   "review": "directory/request list readable anonymously (DEBT-B36 \u2014 members-only directories, NET-12)",
-   "why": "public today (anonymous call answered 200)"
+   "class": "login",
+   "who": "any verified principal \u2014 rows scoped to its own tenant/subject; full list to a declared service (svc:network) or an authority admin (slice-1f)"
   },
   "GET /v1/solutions": {
    "class": "public",
@@ -1383,23 +1369,20 @@
    "why": "certified marketplace listings"
   },
   "GET /v1/store/publish-requests": {
-   "class": "public",
-   "review": "directory/request list readable anonymously (DEBT-B36 \u2014 members-only directories, NET-12)",
-   "why": "public today (anonymous call answered 200)"
+   "class": "login",
+   "who": "any verified principal \u2014 rows scoped to its own tenant/subject; full list to a declared service (svc:network) or an authority admin (slice-1f)"
   },
   "GET /v1/store/stats": {
    "class": "public",
    "why": "marketplace counts"
   },
   "GET /v1/tenants": {
-   "class": "public",
-   "review": "directory/request list readable anonymously (DEBT-B36 \u2014 members-only directories, NET-12)",
-   "why": "public today (anonymous call answered 200)"
+   "class": "login",
+   "who": "any verified principal sees ITS OWN tenant; all tenants to a declared service or an authority admin (slice-1f)"
   },
   "POST /v1/certificates/resolve": {
-   "class": "public",
-   "review": "internal resolution read called anonymously by kernel/identity/app-host \u2014 should be internal-only with declared callers (ADR-0123, DEBT-B9)",
-   "why": "public today (anonymous call answered 404)"
+   "class": "internal",
+   "who": "svc:network from {kernel, app-host, identity (self-issued), scheduler, launcher, decision, workflow} \u2014 operator realm (slice-1f)"
   },
   "POST /v1/certificates/retire": {
    "class": "authority",
@@ -1439,9 +1422,8 @@
    "who": "tenant admin/steward of the named tenant (_require_admin)"
   },
   "POST /v1/directory/resolve": {
-   "class": "public",
-   "review": "internal resolution read called anonymously by kernel/identity/app-host \u2014 should be internal-only with declared callers (ADR-0123, DEBT-B9)",
-   "why": "public today (anonymous call answered 404)"
+   "class": "internal",
+   "who": "svc:network from {kernel, app-host, identity (self-issued), scheduler, launcher, decision, workflow} \u2014 operator realm (slice-1f)"
   },
   "POST /v1/domains": {
    "class": "authority",
@@ -1503,9 +1485,8 @@
    "who": "tenant admin/steward of the named tenant (_require_admin)"
   },
   "POST /v1/grants/resolve": {
-   "class": "public",
-   "review": "internal resolution read called anonymously by kernel/identity/app-host \u2014 should be internal-only with declared callers (ADR-0123, DEBT-B9)",
-   "why": "public today (anonymous call answered 200)"
+   "class": "internal",
+   "who": "svc:network from {kernel, app-host, identity (self-issued), scheduler, launcher, decision, workflow} \u2014 operator realm (slice-1f)"
   },
   "POST /v1/grants/revoke": {
    "body": {
@@ -1540,9 +1521,8 @@
    "who": "tenant admin/steward of the named tenant (_require_admin)"
   },
   "POST /v1/interfaces/resolve": {
-   "class": "public",
-   "review": "internal resolution read called anonymously by kernel/identity/app-host \u2014 should be internal-only with declared callers (ADR-0123, DEBT-B9)",
-   "why": "public today (anonymous call answered 500)"
+   "class": "internal",
+   "who": "svc:network from {kernel, app-host, identity (self-issued), scheduler, launcher, decision, workflow} \u2014 operator realm (slice-1f)"
   },
   "POST /v1/join": {
    "class": "login",
@@ -1565,9 +1545,8 @@
    "who": "tenant admin/steward of the named tenant (_require_admin)"
   },
   "POST /v1/jurisdictions/resolve": {
-   "class": "public",
-   "review": "internal resolution read called anonymously by kernel/identity/app-host \u2014 should be internal-only with declared callers (ADR-0123, DEBT-B9)",
-   "why": "public today (anonymous call answered 404)"
+   "class": "internal",
+   "who": "svc:network from {kernel, app-host, identity (self-issued), scheduler, launcher, decision, workflow} \u2014 operator realm (slice-1f)"
   },
   "POST /v1/keys": {
    "body": {
@@ -1585,9 +1564,8 @@
    "why": "proof-of-possession challenge nonce"
   },
   "POST /v1/keys/resolve": {
-   "class": "public",
-   "review": "internal resolution read called anonymously by kernel/identity/app-host \u2014 should be internal-only with declared callers (ADR-0123, DEBT-B9)",
-   "why": "public today (anonymous call answered 404)"
+   "class": "internal",
+   "who": "svc:network from {kernel, app-host, identity (self-issued), scheduler, launcher, decision, workflow} \u2014 operator realm (slice-1f)"
   },
   "POST /v1/network/services": {
    "class": "login",
@@ -1618,9 +1596,8 @@
    "who": "tenant admin/steward of the named tenant (_require_admin)"
   },
   "POST /v1/packs/resolve": {
-   "class": "public",
-   "review": "internal resolution read called anonymously by kernel/identity/app-host \u2014 should be internal-only with declared callers (ADR-0123, DEBT-B9)",
-   "why": "public today (anonymous call answered 500)"
+   "class": "internal",
+   "who": "svc:network from {kernel, app-host, identity (self-issued), scheduler, launcher, decision, workflow} \u2014 operator realm (slice-1f)"
   },
   "POST /v1/participant/profile": {
    "class": "login",
@@ -1652,14 +1629,12 @@
    "why": "remote self-asserted applications (ADR-0084) \u2014 pending until a network admin decides"
   },
   "POST /v1/receipts/data-read": {
-   "class": "public",
-   "review": "internal resolution read called anonymously by kernel/identity/app-host \u2014 should be internal-only with declared callers (ADR-0123, DEBT-B9)",
-   "why": "public today (anonymous call answered 400)"
+   "class": "internal",
+   "who": "svc:network from {kernel, app-host, identity (self-issued), scheduler, launcher, decision, workflow} \u2014 operator realm (slice-1f)"
   },
   "POST /v1/resolve": {
-   "class": "public",
-   "review": "internal resolution read called anonymously by kernel/identity/app-host \u2014 should be internal-only with declared callers (ADR-0123, DEBT-B9)",
-   "why": "public today (anonymous call answered 500)"
+   "class": "internal",
+   "who": "svc:network from {kernel, app-host, identity (self-issued), scheduler, launcher, decision, workflow} \u2014 operator realm (slice-1f)"
   },
   "POST /v1/role-requests": {
    "class": "login",
@@ -1698,18 +1673,16 @@
    "why": "deterministic schema house-rule check (no data, no model call)"
   },
   "POST /v1/schemas/resolve": {
-   "class": "public",
-   "review": "internal resolution read called anonymously by kernel/identity/app-host \u2014 should be internal-only with declared callers (ADR-0123, DEBT-B9)",
-   "why": "public today (anonymous call answered 500)"
+   "class": "internal",
+   "who": "svc:network from {kernel, app-host, identity (self-issued), scheduler, launcher, decision, workflow} \u2014 operator realm (slice-1f)"
   },
   "POST /v1/service-offerings": {
    "class": "authority",
    "who": "tenant admin/steward of the named tenant (_require_admin)"
   },
   "POST /v1/service-offerings/resolve": {
-   "class": "public",
-   "review": "internal resolution read called anonymously by kernel/identity/app-host \u2014 should be internal-only with declared callers (ADR-0123, DEBT-B9)",
-   "why": "public today (anonymous call answered 404)"
+   "class": "internal",
+   "who": "svc:network from {kernel, app-host, identity (self-issued), scheduler, launcher, decision, workflow} \u2014 operator realm (slice-1f)"
   },
   "POST /v1/service-offerings/retire": {
    "class": "authority",
@@ -1760,9 +1733,8 @@
    "who": "tenant admin/steward of the named tenant (_require_admin)"
   },
   "POST /v1/store/resolve": {
-   "class": "public",
-   "review": "internal resolution read called anonymously by kernel/identity/app-host \u2014 should be internal-only with declared callers (ADR-0123, DEBT-B9)",
-   "why": "public today (anonymous call answered 404)"
+   "class": "internal",
+   "who": "svc:network from {kernel, app-host, identity (self-issued), scheduler, launcher, decision, workflow} \u2014 operator realm (slice-1f)"
   },
   "POST /v1/store/retire": {
    "class": "authority",
@@ -1786,9 +1758,8 @@
    "who": "tenant admin/steward of the named tenant (_require_admin)"
   },
   "POST /v1/tenants/resolve": {
-   "class": "public",
-   "review": "internal resolution read called anonymously by kernel/identity/app-host \u2014 should be internal-only with declared callers (ADR-0123, DEBT-B9)",
-   "why": "public today (anonymous call answered 404)"
+   "class": "internal",
+   "who": "svc:network from {kernel, app-host, identity (self-issued), scheduler, launcher, decision, workflow} \u2014 operator realm (slice-1f)"
   },
   "POST /v1/trusted-issuers": {
    "class": "authority",

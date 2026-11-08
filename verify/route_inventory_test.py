@@ -54,10 +54,10 @@ def main():
     cases.append({"case": f"every non-public route refuses an anonymous call ({len(probe_cases)} probed, {len(bad)} not refused)",
                   "rules": ["FND-8"], "result": "PASS" if not bad else "FAIL"})
 
-    review = [(s, k, v["review"]) for s, d in inv.items() if s != "_meta" for k, v in d.items() if v.get("review")]
-    print(f"▶ REVIEW — {len(review)} route(s) declared public that should not be:")
-    for s, k, r in review:
-        print(f"  ! {s:14} {k:44} {r}")
+    review = [(s, k, v["review"], v.get("owner", "UNASSIGNED")) for s, d in inv.items() if s != "_meta" for k, v in d.items() if v.get("review")]
+    print(f"▶ REVIEW — {len(review)} route(s) declared public that should not be (with owning layer):")
+    for s, k, r, o in review:
+        print(f"  ! {s:14} {k:44} {r}  → {o}")
     if review:   # a known violation of FND-8 tracked as debt: shown as XFAIL so the rule reads PARTIAL, never HELD
         cases.append({"case": f"no route is public that should not be ({len(review)} on the review list — DEBT-A1/B36/B48)",
                       "rules": ["FND-8"], "result": "XFAIL"})
