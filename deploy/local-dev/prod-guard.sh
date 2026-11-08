@@ -6,12 +6,6 @@
 # the guard is a transparent pass-through there.
 set -e
 
-_truthy() {
-  case "$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')" in
-    1|true|yes|on) return 0 ;; *) return 1 ;;
-  esac
-}
-
 # L1-1b step4 — capture whether a STATIC VAULT_TOKEN was injected via the environment, BEFORE the AppRole login
 # below may set one. In production a service must obtain its token via AppRole; a pre-injected static token is a
 # root/shared token and the prod guard refuses it.
@@ -47,37 +41,20 @@ except Exception:
   echo "[prod-guard] Vault: logged in via AppRole (scoped token; not printed)." >&2
 fi
 
-_ENV="$(printf '%s' "${AIRAWAT_ENV:-}" | tr '[:upper:]' '[:lower:]')"
-if [ "$_ENV" = "production" ]; then
-  VIOL=""
-  _truthy "${AIRAWAT_ALLOW_PASSWORDLESS:-}" && VIOL="$VIOL passwordless-login(AIRAWAT_ALLOW_PASSWORDLESS)"
-  _truthy "${IDENTITY_SEED_DEMO:-}"         && VIOL="$VIOL demo-seed(IDENTITY_SEED_DEMO)"
-  _truthy "${AIRAWAT_EPHEMERAL_OK:-}"       && VIOL="$VIOL ephemeral-ok(AIRAWAT_EPHEMERAL_OK)"
-  _truthy "${IDENTITY_AUD_ISS_SHADOW:-}"    && VIOL="$VIOL iss-aud-shadow(IDENTITY_AUD_ISS_SHADOW)"
-  _truthy "${AIRAWAT_NO_VERIFY_CERT:-}"     && VIOL="$VIOL no-verify-cert(AIRAWAT_NO_VERIFY_CERT)"
-  [ "$(printf '%s' "${SCHEMA_VALIDATE:-}" | tr '[:upper:]' '[:lower:]')" = "shadow" ] \
-      && VIOL="$VIOL schema-shadow(SCHEMA_VALIDATE=shadow)"
-  # L1-1b step4 — a service must obtain its Vault token via AppRole; a STATIC token injected via env is a
-  # root/shared token (DEBT-B58). Refuse it in production.
-  [ -n "$_VAULT_PRESET" ] && VIOL="$VIOL static-vault-token(root/shared — use per-service AppRole)"
-  # L1-1b step4 — the in-process component runtime inherits the host env + is unconfined (DEBT-B51). Refuse it
-  # in production (interim: the operator must run a confined container runtime, not the in-process subprocess).
-  _truthy "${AIRAWAT_INPROCESS_COMPONENTS:-}" && VIOL="$VIOL in-process-component-placement(DEBT-B51)"
-  # L1-1c step3 — an inbound GATE in SHADOW is an OPEN write/spend/execute door. Every gate ENFORCES by default;
-  # a dev opts one open ONLY via an explicit <SVC>_SHADOW flag. Production refuses ANY such flag (fail-loud):
-  for _sv in $(env | sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*_SHADOW\)=.*/\1/p'); do
-    eval "_sval=\${$_sv:-}"
-    _truthy "$_sval" && VIOL="$VIOL gate-shadow($_sv)"
-  done
-  # effective command args — catches --no-verify-cert passed on the service command line
-  for a in "$@"; do
-    [ "$a" = "--no-verify-cert" ] && VIOL="$VIOL no-verify-cert(--no-verify-cert arg)"
-  done
-  if [ -n "$VIOL" ]; then
-    echo "[prod-guard] REFUSING TO START — AIRAWAT_ENV=production with development conveniences active:$VIOL" >&2
-    echo "[prod-guard] remove the flag(s)/arg(s) above for production, or set AIRAWAT_ENV=development for a dev stack." >&2
+# slice-1g (DEBT-B83): the production check is the SAME parser the gates use — platform-spec/reference/gateflags.py
+# (mounted at /local-dev/gateflags.py; baked at /app/reference/gateflags.py in reference images). Production refuses
+# every *_SHADOW flag that is set at all, whatever its value. If production is requested and the parser cannot be
+# found or run, the guard refuses (fail closed).
+_GF=/local-dev/gateflags.py
+[ -f "$_GF" ] || _GF=/app/reference/gateflags.py
+_ENV="$(printf '%s' "${AIRAWAT_ENV:-}" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
+if [ "$_ENV" = "production" ] || [ "$_ENV" = "prod" ]; then
+  if [ ! -f "$_GF" ] || ! command -v python3 >/dev/null 2>&1; then
+    echo "[prod-guard] REFUSING TO START — AIRAWAT_ENV=production but the gate-flag parser (gateflags.py) is unavailable (fail closed)." >&2
     exit 97
   fi
-  echo "[prod-guard] AIRAWAT_ENV=production — no dev conveniences detected; proceeding." >&2
+  _ST=""
+  [ -n "$_VAULT_PRESET" ] && _ST="--static-vault-token"
+  python3 "$_GF" guard $_ST -- "$@" || exit 97
 fi
 exec "$@"

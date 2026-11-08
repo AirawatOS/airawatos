@@ -21,10 +21,10 @@ x-devenv: &devenv
   AIRAWAT_ALLOW_PASSWORDLESS: "1"     # reference IdP passwordless dev auth (gated: prod-guard blocks under production)
 
 x-ref: &ref                          # one source-built reference image; many services (per-service command)
-  image: manishsv/airawatos-reference:dev-hard26   # + slice-1e (user-create/reset name the tenant) + 1c-iv-c (svc:identity) + step 2 (runtime-manager) + step 3 (scheduler-owned pipelines) + step 4 (gateway secret in Vault) + step 5 (launcher attests svc:network)
+  image: manishsv/airawatos-reference:dev-hard27   # + slice-1e (user-create/reset name the tenant) + 1c-iv-c (svc:identity) + step 2 (runtime-manager) + step 3 (scheduler-owned pipelines) + step 4 (gateway secret in Vault) + step 5 (launcher attests svc:network)
   restart: unless-stopped
   entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]     # production guard (effective-settings check)
-  volumes: [ ./prod-guard.sh:/local-dev/prod-guard.sh:ro ]
+  volumes: [ ./prod-guard.sh:/local-dev/prod-guard.sh:ro, ../../platform-spec/reference/gateflags.py:/local-dev/gateflags.py:ro ]   # slice-1g B83: the ONE flag parser
   environment: { <<: *devenv }
   depends_on: { kernel: { condition: service_started } }
 
@@ -74,7 +74,7 @@ services:
     networks: [aos-svc, aos-data-facts, aos-data-secrets, aos-component, aos-egress]  # +aos-egress (B87): the broker's declared egress; aos-component: the broker is the ONLY door a placed component can reach (step 3)
     entrypoint: ["/bin/sh","/local-dev/prod-guard.sh"]
     command: ["uvicorn","api.app:app","--host","0.0.0.0","--port","8080"]   # entrypoint override clears image CMD → set it
-    volumes: [ ./prod-guard.sh:/local-dev/prod-guard.sh:ro ]
+    volumes: [ ./prod-guard.sh:/local-dev/prod-guard.sh:ro, ../../platform-spec/reference/gateflags.py:/local-dev/gateflags.py:ro ]   # slice-1g B83: the ONE flag parser
     environment:
       <<: *devenv
       REGISTRY_BACKEND: postgres
@@ -177,6 +177,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./prod-guard.sh:/local-dev/prod-guard.sh:ro
+      - ../../platform-spec/reference/gateflags.py:/local-dev/gateflags.py:ro   # slice-1g B83: the ONE flag parser
       - localdev_netfiles:/data/netfiles
 
   identity:
@@ -207,6 +208,7 @@ services:
       IDENTITY_LOCKOUT_RECHECK_SECONDS: "10"                 # re-probe the durable store this often while degraded
     volumes:
       - ./prod-guard.sh:/local-dev/prod-guard.sh:ro
+      - ../../platform-spec/reference/gateflags.py:/local-dev/gateflags.py:ro   # slice-1g B83: the ONE flag parser
       - localdev_identity:/data/identity
     depends_on:
       network: { condition: service_healthy }
@@ -236,6 +238,7 @@ services:
     depends_on: {}
     volumes:
       - ./prod-guard.sh:/local-dev/prod-guard.sh:ro
+      - ../../platform-spec/reference/gateflags.py:/local-dev/gateflags.py:ro   # slice-1g B83: the ONE flag parser
       - localdev_filestore:/data/filestore
 
   model-gateway:
@@ -383,6 +386,7 @@ services:
       SCHEDULER_CALLER_TENANT: localdev-operator
     volumes:
       - ./prod-guard.sh:/local-dev/prod-guard.sh:ro
+      - ../../platform-spec/reference/gateflags.py:/local-dev/gateflags.py:ro   # slice-1g B83: the ONE flag parser
       - localdev_appbundles:/data/app-bundles
     depends_on:
       kernel: { condition: service_started }
