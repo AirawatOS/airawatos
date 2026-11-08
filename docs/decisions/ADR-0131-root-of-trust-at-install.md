@@ -43,6 +43,18 @@ no bootstrap channel on the internal door.**
    **user/principal** records, not the authority-signed tenant records. `ensure_install` stops writing to
    identity entirely.
 
+7. **The founding act registers each tenant's steward (slice-1e, DEBT-B62).** For every tenant record the
+   installer signs (`<op>`, `<op>-network`, `<op>-developer`, `<op>-participant`, `citizens`, and the dev data
+   tenant), `ensure_install` names the steward participant **`ds:<tenant>:steward`** — whose key is the tenant's
+   own Vault transit key `steward-<tenant>`, the key `/v1/grants/issue` signs install grants with — and registers
+   its **CA-signed directory entry** in the Network directory, on every run (idempotent; an older record naming
+   the unregistered `ds:<tenant>:participant/admin` is re-signed). This is the **same** identity and mechanism the
+   join→approve path (`_provision_steward`) already gives an onboarded tenant — no new trust-plane construct. So
+   the kernel's `_steward_authorizes` resolves the steward key and an installed component's declared writes
+   verify on a fresh install. Fail-closed: without Vault the steward cannot be provisioned and the install stops.
+   (The kernel no longer caches an unresolved steward key, so a tenant whose steward is registered later is not
+   pinned as "no steward" until restart.)
+
 ## Consequences
 
 - `IDENTITY_INTERNAL` is removed from all code, compose, env, and committed defaults. A71 is fully closed for

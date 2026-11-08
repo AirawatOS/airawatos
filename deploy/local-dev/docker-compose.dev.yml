@@ -67,7 +67,7 @@ services:
 
   # ── platform core ─────────────────────────────────────────────────────────────────────────────────
   kernel:
-    image: manishsv/airawatos-kernel:dev-hard8   # + slice-1c-iv step 3: scheduler-only /v1/components/run-token
+    image: manishsv/airawatos-kernel:dev-hard9   # + slice-1c-iv step 3: scheduler-only /v1/components/run-token + slice-1e: steward-key miss not cached
     container_name: airawat-ld-kernel
     env_file: [ ./vault/approle/kernel.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
     networks: [aos-svc, aos-data-facts, aos-data-secrets, aos-component]  # aos-component: the broker is the ONLY door a placed component can reach (step 3)
@@ -119,7 +119,7 @@ services:
     restart: unless-stopped
 
   network:
-    image: manishsv/airawatos-network:dev-a78   # 1c-iv-c: join→provision mints svc:identity; step 5: /v1/runtime/attest → svc:network (literal retired)
+    image: manishsv/airawatos-network:dev-a79   # slice-1e: installer-signed tenants register ds:<t>:steward (B62); 1c-iv-c: join→provision mints svc:identity; step 5: /v1/runtime/attest → svc:network (literal retired)
     container_name: airawat-ld-network
     env_file: [ ./vault/approle/network.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
     networks: [aos-edge, aos-svc, aos-data-facts, aos-data-secrets]
