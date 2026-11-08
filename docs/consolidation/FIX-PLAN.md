@@ -250,7 +250,8 @@ Order: **Layer 1 independent review → MERGE → repository restructure → Lay
   Preconditions: **B23**, **B51 + B52**, **network-enforced declared egress**, the **GTW conformance suite**.
   Tenant-chosen: messaging, AI, payments, identity (under an operator floor), channels, data-source drivers, geo,
   git hosting (per tenant/project, ADR-0083). Operator-chosen: file storage.
-- **ADR-0130 core → component moves** (after B51 + B52 + B23 are CLOSED, plus the core-reserved-schema list):
+- **ADR-0130 core → component moves** (after B51 + B52 + B23 are CLOSED, plus **FND-19** core-reserved record kinds
+  enforced in the kernel before the steward-grant check):
   the **workflow engine** (decision records + order signing stay core — ADR-0130 §3), **docrender** (out of the
   App Host process; the door keeps output sanitisation + CSP, B50), **templates**, **workflow definitions** and
   **scheduled jobs** as base-OS packs; the provider-specific code behind each gateway (SES/SMTP out of the Network,

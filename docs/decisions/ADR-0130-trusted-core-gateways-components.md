@@ -110,9 +110,10 @@ The workflow engine moves out of the core (§2); **the record of who decided wha
   checks the deciding principal's recorded authority, writes the decision record and returns its id. The
   component references that id; it never writes `governance.decision` itself. To issue an order, the component
   asks the core to sign one; the core refuses unless the order cites a decision record it holds.
-- **Enforcement (to build):** the kernel refuses a `governance.decision` or `governance.order` write that arrives
-  under a component run token **even if the component declared it and a tenant granted it**. Those schemas go on a
-  **core-reserved list** the install grant can never cover. Today only the generic rule exists: an *undeclared*
+- **Enforcement (to build) — FOUNDATIONS FND-19 (core-reserved record kinds):** the kernel refuses a
+  `governance.decision` or `governance.order` write that arrives under a component run token **even if the component
+  declared it and a tenant granted it**. Those kinds are on the **core-reserved list** (FND-19), which no grant can
+  cover. Today only the generic rule exists: an *undeclared*
   write is refused by the steward-grant check (proven in slice-1e Phase 15). That rule is not enough, because a
   workflow component could declare these writes. The reserved list is a precondition for moving the workflow
   engine out (§4).
@@ -130,7 +131,7 @@ intakes) leaves the core until these are **closed** (not deferred):
 | **Confinement of the default runtime** | **DEBT-B51** | an in-process component inherits the host's environment; moving code out of a service into an unconfined component would *widen* its reach, not narrow it |
 | **Egress policy for placed containers** | **DEBT-B52** | a component on the flat internal network can reach any service directly; the move only shrinks the TCB if the component can reach nothing but its declared doors |
 | **Signing and provenance of component versions** | **DEBT-B23** (with A67, B54–B56) | code that leaves the core must still be the code that was reviewed: publisher-signed, content-pinned, digest verified at every launch |
-| **Core-reserved schemas** (§3) | new, recorded with the Layer 7 moves | workflow cannot write decision records or orders even if granted |
+| **Core-reserved record kinds** (§3, **FND-19**) | FND-19 (NOT BUILT) | workflow cannot write decision records or orders even if granted |
 
 The moves are added to **FIX-PLAN Layer 7** as one item ("ADR-0130 core → component moves") whose exit is
 gated on these four. Until then the code stays where it is; this ADR changes placement, not deployment.
@@ -286,8 +287,6 @@ Git hosting is **not** operator infrastructure. It stays chosen **per tenant/pro
    cover federated recipients, or should federated mail stay a Network operation?
 2. **SMS/USSD gateway chooser.** Operator today (one gateway per installation). Target per-tenant providers
    (DEBT-B64) — is an operator-level default kept as a convenience (allowed by ADR-0129)?
-3. **Core-reserved schemas.** Which schemas are on the list beyond `governance.decision` and `governance.order`
-   (e.g. `governance.role_assignment`, `governance.access_grant`)?
 
 ## Resolved questions
 
@@ -313,6 +312,12 @@ Git hosting is **not** operator infrastructure. It stays chosen **per tenant/pro
    provider adapter, using a per-project credential from Vault (`credential_ref`). The only operator infrastructure
    chosen once per installation is **file storage**.
 
+3. **Core-reserved record kinds — a constitution-level rule** *(decided 2026-11-08)*: **FOUNDATIONS FND-19**.
+   Decision records, signed orders, role assignments and grants, consent records, authority-signed tenant and
+   directory records, audit/erasure/key-use events, and certificates/listing attestations may be written only by
+   the core. No grant, declaration, install approval or delegation lets a component write them. The list is
+   governed and changed only by platform-authority ChangeRequest.
+
 ## Spec changes if accepted
 
 | Spec | Change |
@@ -320,6 +325,7 @@ Git hosting is **not** operator infrastructure. It stays chosen **per tenant/pro
 | GATEWAY (new) | GTW-1–GTW-14 + profiles (this ADR, §6–§8) |
 | PLATFORM | PLT-16 points to GATEWAY-v0.1; PLT-17 as restated by ADR-0129 (infrastructure policy only); PLT-18 credentials per GTW-8; PLT-20/PLT-21 realised by GTW-4/GTW-5 |
 | COMPONENT | new component class `adapter` (south contract major, declared destinations); listing requirement = GTW south conformance; CMP-11 declared egress enforced by the network |
-| DECISION | DEC-1 extended to every gateway call; the core-reserved schema list (governance.decision / governance.order not writable under a component run token) |
+| FOUNDATIONS | **FND-19** core-reserved record kinds (added) |
+| DECISION | DEC-1 extended to every gateway call; decision records are core-reserved (FND-19) |
 | ARCHITECTURE-FLOWS | door D6 split: provider gateways (GTW) vs the service-gateway read tier; adapters' declared egress as flow-map edges |
 | FIX-PLAN | Layer 2 (file storage, B49), Layer 5 (B68), Layer 6 (gateways), Layer 7 (moves + adapters) |
