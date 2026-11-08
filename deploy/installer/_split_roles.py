@@ -70,8 +70,8 @@ if table_exists("kv"):
     cur.execute("INSERT INTO kernel_kv  SELECT * FROM kv WHERE store = ANY(%s) ON CONFLICT (store,key) DO NOTHING", (list(KERNEL_NS),))
     cur.execute("INSERT INTO network_kv SELECT * FROM kv WHERE NOT (store = ANY(%s)) ON CONFLICT (store,key) DO NOTHING", (list(KERNEL_NS),))
 
-KERNEL_TABLES = ["registry_version", "registry_schema_meta", "kernel_admin_audit", "kernel_kv"]
-SEQS = ["registry_version_seq_seq", "kernel_admin_audit_seq_seq"]
+KERNEL_TABLES = ["registry_version", "registry_schema_meta", "kernel_admin_audit", "kernel_authz_decision", "kernel_kv"]
+SEQS = ["registry_version_seq_seq", "kernel_admin_audit_seq_seq", "kernel_authz_decision_seq_seq"]
 
 # Ownership → migrator (only tables/sequences that already exist; skipped on the pre-migrator pass).
 for t in [x for x in KERNEL_TABLES + ["network_kv"] if table_exists(x)]:

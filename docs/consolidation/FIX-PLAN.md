@@ -41,6 +41,8 @@ CI and on every fresh install.
    roles/grants/consent (never token claims, tenant name, or issuer), is **fail-closed**, and **writes a decision
    record** (FND-2/FND-3/FND-8/FND-12). Gates are **armed by default on a fresh install**; a missing gate config
    **stops startup (fail-loud)**, never silently shadows (FND-16).
+   *Skeleton built (slice-1d):* `kernel/services/authz/decide.py` — interface in its README; reference use is the
+   kernel component write gate (durable records in `kernel_authz_decision`). Other gates migrate with DEBT-B1.
 6. **Banned-pattern checks in CI** — static gates that fail the build on: a token-role read used as authority
    (B1), an undeclared route, a default/hardcoded secret, a fail-open handler (`if not X or …` admitting on
    unset), a superuser DB connection from a service, a direct internal-service URL that skips a door.
