@@ -100,6 +100,26 @@ for img, r in rec["images"].items():
     changed = sorted(f for f in set(got) & set(want) if got[f] != want[f])
     check(bool(got) and not extra and not missing and not changed,
           f"{img}: /app equals the git tree BY CONTENT ({len(got)} files; untracked: {extra[:4]}; missing: {missing[:4]}; content differs: {changed[:4]})")
+# slice-1i (DEBT-B133): check what IS INSTALLED, not how the Dockerfile spells the install — every image's
+# pip freeze --all must EQUAL its lock + the pinned tooling, and its OS packages must EQUAL the list recorded at build.
+LOCKS = {"reference": "platform-spec/requirements.reference.lock", "kernel": "kernel/deploy/requirements.lock",
+         "network": "network/deploy/requirements.lock"}
+for img, r in rec["images"].items():
+    kind = next((k for k in LOCKS if "airawatos-%s:" % k in img), None)
+    test_img = os.environ.get("IMG_OVERRIDE_" + kind.upper(), img) if kind else img
+    lock = [l.strip() for l in open(os.path.join(ROOT, LOCKS[kind])) if l.strip() and not l.startswith("#")] if kind else []
+    df = open(os.path.join(ROOT, r["dockerfile"])).read()
+    tooling = set(re.findall(r"\b((?:pip|setuptools|wheel)==[^\s&]+)", df))
+    want_py = set(lock) | tooling
+    got_py = set(subprocess.run(["docker", "run", "--rm", "--network", "none", "--entrypoint", "pip", test_img, "freeze", "--all"],
+                                capture_output=True, text=True).stdout.split())
+    check(bool(got_py) and got_py == want_py, f"{test_img}: installed Python packages EQUAL the lock + pinned tooling "
+          f"({len(got_py)} installed; not in lock: {sorted(got_py - want_py)[:5]}; missing: {sorted(want_py - got_py)[:5]})")
+    got_os = set(subprocess.run(["docker", "run", "--rm", "--network", "none", "--entrypoint", "sh", test_img, "-c",
+                                 "dpkg-query -W -f='${Package}=${Version}\\n'"], capture_output=True, text=True).stdout.split())
+    want_os = set(r.get("os_packages") or [])
+    check(bool(want_os) and got_os == want_os, f"{test_img}: installed OS packages EQUAL the build record "
+          f"({len(got_os)} installed; unrecorded: {sorted(got_os - want_os)[:5]}; missing: {sorted(want_os - got_os)[:5]})")
 ps = subprocess.run(["docker", "ps", "--filter", "name=airawat-ld-", "--format", "{{.Names}}\t{{.Image}}"], capture_output=True, text=True).stdout
 for line in ps.splitlines():
     name, img = line.split("\t")

@@ -138,6 +138,95 @@ TRANSIT_SERVICES = ["kernel", "network", "identity", "app-host", "scheduler", "s
                     "workflow", "automation", "event-relay", "runtime-manager"]
 
 
+import re as _re
+
+READ_ALLOW = {   # service -> regexes of the ONLY Vault paths it may read (data AND metadata)
+    "kernel": [r"^secret/(data|metadata)/localdev/kernel-app/", r"^secret/(data|metadata)/localdev-operator/kernel/"],
+    "network": [r"^secret/(data|metadata)/localdev/network-app/", r"^secret/data/localdev-network/(trust-reader|trust-writer|trust-plane)/",
+                r"^secret/metadata/localdev-network/", r"^secret/data/localdev-operator/provisioner/",
+                r"^transit/keys/(airawat-authority|steward-[^/]+)$"],
+    "identity": [r"^secret/(data|metadata)/localdev/identity-lockout/", r"^secret/(data|metadata)/localdev-operator/(admin|provisioner)/",
+                 r"^transit/keys/(airawat-identity|identity-[^/]+)$"],
+    "scheduler": [r"^secret/(data|metadata)/localdev-operator/scheduler/"],
+    "automation": [r"^secret/(data|metadata)/localdev-operator/scheduler/"],
+    "event-relay": [r"^secret/(data|metadata)/localdev-operator/scheduler/"],
+    "app-host": [r"^secret/data/localdev-operator/(app-host|embed-service|sms-gateway)/", r"^secret/data/localdev-network/component-publisher/",
+                 r"^secret/data/localdev-developer/dev-sandbox/"],
+    "decision": [r"^secret/(data|metadata)/localdev-operator/decision/"],
+    "workflow": [r"^secret/(data|metadata)/localdev-operator/workflow/"],
+    "runtime-manager": [r"^secret/(data|metadata)/localdev-operator/launcher/"],
+    "secrets": [r"^components/(data|metadata)/"],
+    "model-gateway": [r"^components/(data|metadata)/"],
+}
+_READS = r'''
+import json, os, urllib.request, urllib.error
+tok = ""
+for line in open("/proc/1/environ","rb").read().split(b"\0"):
+    if line.startswith(b"VAULT_TOKEN="): tok = line.split(b"=",1)[1].decode()
+for p in json.loads(os.environ["PATHS"]):
+    r = urllib.request.Request("http://vault:8200/v1/" + p, headers={"X-Vault-Token": tok})
+    try: print("R", urllib.request.urlopen(r, timeout=6).status, p)
+    except urllib.error.HTTPError as e: print("R", e.code, p)
+    except Exception: print("R", 0, p)
+'''
+
+
+def _root(method, path, body=None, root=""):
+    import urllib.request as _u
+    cmd = ["docker", "exec", "-e", "VAULT_TOKEN=" + root, "airawat-ld-vault", "sh", "-c",
+           "wget -qO- --header \"X-Vault-Token: $VAULT_TOKEN\" %s 'http://127.0.0.1:8200/v1/%s' 2>/dev/null" %
+           (("--post-data='%s'" % json.dumps(body)) if body is not None else "", path)]
+    out = subprocess.run(cmd, capture_output=True, text=True).stdout
+    try:
+        return json.loads(out or "{}")
+    except Exception:
+        return {}
+
+
+def _vroot(*args, root=""):
+    return subprocess.run(["docker", "exec", "-e", "VAULT_TOKEN=" + root, "-e", "VAULT_ADDR=http://127.0.0.1:8200", PFX + "vault", "vault"]
+                          + list(args), capture_output=True, text=True)
+
+
+def actual_read_scope(root):
+    mounts = json.loads(_vroot("secrets", "list", "-format=json", root=root).stdout or "{}")
+    kv = [m.rstrip("/") for m, v in mounts.items() if v.get("type") == "kv"]
+    canaries = []
+    for m in kv:
+        cp = "aos-scope-canary/%d" % int(time.time())
+        _vroot("kv", "put", "-mount=" + m, cp, "value=canary", root=root); canaries.append((m, cp))
+    paths = []
+    def walk(m, prefix=""):
+        lst = json.loads(_vroot("kv", "list", "-format=json", "-mount=" + m, prefix or "/", root=root).stdout or "[]")
+        for k in lst:
+            if k.endswith("/"):
+                walk(m, prefix + k)
+            else:
+                paths.extend(["%s/data/%s%s" % (m, prefix, k), "%s/metadata/%s%s" % (m, prefix, k)])
+    for m in kv:
+        walk(m)
+    for m, v in mounts.items():
+        if v.get("type") == "transit":
+            for k in json.loads(_vroot("list", "-format=json", m + "keys", root=root).stdout or "[]"):
+                paths.append("%skeys/%s" % (m, k))
+    paths += ["sys/mounts", "sys/policies/acl?list=true", "sys/auth", "auth/approle/role?list=true", "sys/audit",
+              "identity/entity/id?list=true"] + ["%s?list=true" % m.rstrip("/") for m, v in mounts.items()
+                                                 if v.get("type") not in ("kv", "transit", "system", "cubbyhole", "identity")]
+    ok = True
+    try:
+        for svc, allow in READ_ALLOW.items():
+            r = subprocess.run(["docker", "exec", "-e", "PATHS=" + json.dumps(paths), PFX + svc, "python3", "-c", _READS],
+                               capture_output=True, text=True, timeout=120)
+            readable = [l.split(" ", 2)[2] for l in r.stdout.splitlines() if l.startswith("R 200 ")]
+            extra = sorted(p for p in readable if not any(_re.search(a, p) for a in allow))
+            ok &= rec("ARC-7", "%s ACTUALLY reads only its allow-listed Vault paths (%d paths across %d mounts tried)" % (svc, len(paths), len(mounts)),
+                      bool(r.stdout) and not extra, ("reads outside its allow-list: %s" % extra[:8]) if extra else "readable: %d allow-listed path(s)" % len(readable))
+    finally:
+        for m, cp in canaries:
+            _vroot("kv", "metadata", "delete", "-mount=" + m, cp, root=root)
+    return ok
+
+
 def config_has_static_vault_token(svc):
     try:
         r = subprocess.run(["docker", "inspect", "-f", "{{range .Config.Env}}{{println .}}{{end}}", PFX + svc],
@@ -245,6 +334,12 @@ def main():
         own_ok = all(granted(o.get("transit/sign/" + k), write=True) for k, ow in TRANSIT_KEYS.items() if ow == svc)
         ok_all &= rec("ARC-7", "%s: transit limited to its own keys (cannot sign with, rotate or configure another service's key)" % svc,
                       not bad and own_ok, ("foreign/admin: %s" % bad) if bad else ("own keys signable=%s" % own_ok))
+
+    # slice-1i (DEBT-B132): ACTUAL READS across EVERY Vault mount — not a list of known paths. A canary secret is written
+    # into every KV mount; every KV secret + its metadata, every transit key and the system / auth endpoints are then read
+    # with each service's OWN token, and the readable set must match that service's ALLOW-LIST. A wildcard grant on any
+    # mount (the final review's case: decision reading components/data/*) shows up as a read of the canary.
+    ok_all &= actual_read_scope(ROOT)
 
     for svc in NOVAULT:
         o = probe(svc)

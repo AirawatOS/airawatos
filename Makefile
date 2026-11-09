@@ -44,6 +44,7 @@ build-context:   ## B94 — no env file, credential or runtime data reaches any 
 
 images:          ## B80/B94 — Dockerfiles digest-pinned + locked; every stack image recorded in IMAGES.lock.json and running as recorded
 	python3 verify/images_test.py
+	python3 verify/images_selftest.py
 
 installer:       ## B100/R7-1 — installer survives a clean host and names any failing phase (live fault injection)
 	python3 verify/installer_test.py --live
@@ -62,6 +63,7 @@ flowmap:         ## ARC — flow-map test (network membership + live probes)
 
 vaultscope:      ## ARC-7 — each service reads only its own Vault paths
 	python3 conformance/vault_scope_test.py
+	python3 verify/vault_scope_selftest.py
 
 netdoors:        ## B86 — every Network internal door admits EXACTLY its declared callers (ARCHITECTURE-FLOWS table, live)
 	python3 conformance/net_doors_test.py

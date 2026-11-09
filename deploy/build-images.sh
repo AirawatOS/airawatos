@@ -42,7 +42,9 @@ for name, df, ctx, rev, srcs in (("reference", "platform-spec/Dockerfile.referen
                                  ("kernel", "kernel/deploy/Dockerfile", "git archive (kernel)", k, {"root": root, "platform-spec": ps, "kernel": k}),
                                  ("network", "network/deploy/Dockerfile", "git archive (network)", n, {"root": root, "platform-spec": ps, "network": n})):
     t = "manishsv/airawatos-%s:%s" % (name, tag)
-    imgs[t] = {"dockerfile": df, "context": ctx, "git_revision": rev, "sources": srcs, "image_id": iid(t),
+    osp = subprocess.run(["docker", "run", "--rm", "--network", "none", "--entrypoint", "sh", t, "-c",
+                          "dpkg-query -W -f='${Package}=${Version}\\n'"], capture_output=True, text=True).stdout.split()
+    imgs[t] = {"os_packages": sorted(osp), "dockerfile": df, "context": ctx, "git_revision": rev, "sources": srcs, "image_id": iid(t),
                "platform": plat(t), "base": base, "built": time.strftime("%Y-%m-%d")}
 json.dump({"_meta": {"note": "slice-1h (DEBT-B101): built FROM GIT ONLY by deploy/build-images.sh (git archive of each repo's "
                      "committed HEAD; nothing untracked can enter). image_id = local image config digest. verify/images_test.py "
