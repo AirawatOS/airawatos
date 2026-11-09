@@ -93,7 +93,17 @@ with tempfile.TemporaryDirectory(prefix="aos-drill-") as td:
     left_c = sh("docker", "ps", "-aq", "--filter", "label=com.docker.compose.project=" + P).stdout.split()
     left_v = [v for v in sh("docker", "volume", "ls", "-q").stdout.split() if v.startswith(P + "_")]
     check("the stack was DESTROYED (no container, no volume)", not left_c and not left_v, "containers %d, volumes %s" % (len(left_c), left_v or "none"))
+    # slice-1i (DEBT-B134): restore to a NEW host — the host-side secrets are DELETED before the restore and must come back
+    import hashlib, glob as _g
+    hostfiles = [os.path.join(LD, ".env")] + sorted(_g.glob(os.path.join(LD, "vault/approle/*.env")))
+    host_before = {f: hashlib.sha256(open(f, "rb").read()).hexdigest() for f in hostfiles}
+    for f in hostfiles:
+        os.remove(f)
+    check("host secrets DELETED before the restore (a new host)", not any(os.path.exists(f) for f in hostfiles), "%d files removed" % len(hostfiles))
     r = sh(os.path.join(LD, "restore.sh"), os.path.join(td, "bk"))
+    host_after = {f: (hashlib.sha256(open(f, "rb").read()).hexdigest() if os.path.exists(f) else None) for f in hostfiles}
+    check("restore brought back every host secret byte-identical (.env + %d AppRole env files)" % (len(hostfiles) - 1),
+          host_after == host_before, "missing/changed: %s" % [os.path.relpath(f, LD) for f in hostfiles if host_after[f] != host_before[f]])
     check("restore.sh restored every volume and the stack is healthy", r.returncode == 0, (r.stdout + r.stderr).strip().splitlines()[-1][:200])
 after = marks()
 for k in ["citizen", "vault_secret", "registry_rows", "filestore", "appbundles"] + sorted(x for x in before if x.startswith("vol:")):

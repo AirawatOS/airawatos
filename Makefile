@@ -91,6 +91,7 @@ ops:             ## B102 — log rotation everywhere, a rotated Vault audit devi
 	python3 verify/ops_test.py
 
 restore-drill:   ## B102 — back up, DESTROY (down -v), restore, prove every store came back (identity, Vault, Postgres, files)
+	python3 verify/backup_restore_selftest.py
 	python3 verify/restore_drill.py
 
 dbgrants:        ## B93/ARC-3 — DB-grant audit: least-privilege roles, only kernel/network/identity reach the fact store
