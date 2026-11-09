@@ -4,7 +4,7 @@
   "amd64": "native amd64 build still required (DEBT-B114, pre-production)."
  },
  "images": {
-  "manishsv/airawatos-reference:1i": {
+  "manishsv/airawatos-reference:1j": {
    "os_packages": [
     "adduser=3.152",
     "apt=3.0.4",
@@ -131,16 +131,16 @@
    "context": "git archive (workspace)",
    "git_revision": "be155c9b98305deabd2e30b8d3ab5dba1b23b535",
    "sources": {
-    "root": "99bd5226c4e8167b14a4f7a703ffcf2c561dc6d4",
+    "root": "909fa0e01025b6f0e467c4fa05715b26796a813e",
     "platform-spec": "be155c9b98305deabd2e30b8d3ab5dba1b23b535",
     "components": "8cef04a15c2ac31ea42d4a6a5e1cdcc617e56f94"
    },
-   "image_id": "sha256:35c0ad5755616df2866d6b3d36ab4c473a47de11b57ac7f8d95f72daf1ded642",
+   "image_id": "sha256:e1f3bc795a33316035d3129bfb5d186e82f2c0632c0f0e3b2b0bc83e99a0cddd",
    "platform": "linux/arm64",
    "base": "python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535",
    "built": "2026-11-09"
   },
-  "manishsv/airawatos-kernel:1i": {
+  "manishsv/airawatos-kernel:1j": {
    "os_packages": [
     "adduser=3.152",
     "apt=3.0.4",
@@ -234,16 +234,16 @@
    "context": "git archive (kernel)",
    "git_revision": "b3b6373477bf09f22ed64528b69b04b0ed8ef5fc",
    "sources": {
-    "root": "99bd5226c4e8167b14a4f7a703ffcf2c561dc6d4",
+    "root": "909fa0e01025b6f0e467c4fa05715b26796a813e",
     "platform-spec": "be155c9b98305deabd2e30b8d3ab5dba1b23b535",
     "kernel": "b3b6373477bf09f22ed64528b69b04b0ed8ef5fc"
    },
-   "image_id": "sha256:0067be582d26c55344ac987439d5f04c88d53623de407a404f4e753411a2b576",
+   "image_id": "sha256:a149a74c7bce2025584148405021faba07fdf2e2dc37d720fe126f3faf483876",
    "platform": "linux/arm64",
    "base": "python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535",
    "built": "2026-11-09"
   },
-  "manishsv/airawatos-network:1i": {
+  "manishsv/airawatos-network:1j": {
    "os_packages": [
     "adduser=3.152",
     "apt=3.0.4",
@@ -337,11 +337,11 @@
    "context": "git archive (network)",
    "git_revision": "030e4ae20185b556e5f23b3c694598931c4d7a82",
    "sources": {
-    "root": "99bd5226c4e8167b14a4f7a703ffcf2c561dc6d4",
+    "root": "909fa0e01025b6f0e467c4fa05715b26796a813e",
     "platform-spec": "be155c9b98305deabd2e30b8d3ab5dba1b23b535",
     "network": "030e4ae20185b556e5f23b3c694598931c4d7a82"
    },
-   "image_id": "sha256:20f8dfd8685eb70858d3584e61eee633bd4c3d70884eab4e728d4fd069238f99",
+   "image_id": "sha256:c8a200f6ac912da9fc5e53014e694d57c747fe2013f716072dcc482ad0f5b366",
    "platform": "linux/arm64",
    "base": "python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535",
    "built": "2026-11-09"

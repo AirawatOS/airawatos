@@ -95,8 +95,10 @@ if "--live" in sys.argv:
                            env={**os.environ, **env}, cwd=os.path.dirname(INSTALL), timeout=1800)
         out = r.stdout + r.stderr
         m = re.search(r"✗ install FAILED in phase: (.*?) \(exit", out)
+        # a recreate case must fail AT the recreated helper: the recreate line comes BEFORE the injected fault
+        order_ok = ("AOS_INSTALL_TEST_RECREATE" not in env) or (0 <= out.find("RECREATING app-host") < out.find("INJECTED"))
         check("%s → non-zero exit, %s named, no 'install complete'" % (name, phase.strip() or "the phase"),
-              r.returncode != 0 and bool(m) and m.group(1).startswith(phase) and "install complete" not in out and must in out,
-              "exit %s, reported phase %r, %r seen: %s" % (r.returncode, m and m.group(1)[:50], must, must in out))
+              r.returncode != 0 and bool(m) and m.group(1).startswith(phase) and "install complete" not in out and must in out and order_ok,
+              "exit %s, reported phase %r, %r seen: %s, fault after the recreate: %s" % (r.returncode, m and m.group(1)[:50], must, must in out, order_ok))
 print(("✗" if fails else "✓") + " installer test: %d failure(s)" % len(fails))
 sys.exit(1 if fails else 0)
