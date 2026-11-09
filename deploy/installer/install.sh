@@ -977,7 +977,9 @@ if [ "$PROFILE" = dev ] && [ "$SEED_DATA_TENANT" = 1 ]; then
   XAPP env INSTANCE="$INSTANCE" OPERATOR_PASSWORD="$OPERATOR_PASSWORD" COMPS=engines/pipeline-probe-step,engines/reserved-kind-probe python3 - < "$SCRIPT_DIR/_deliver_fixture.py" \
     || { echo "✗ Phase 15: could not deliver the fixture components"; exit 1; }
   XNET env INSTANCE="$INSTANCE" python3 /app/mint_base_listings.py >/dev/null || { echo "✗ Phase 15: listing mint failed"; exit 1; }
-  _FC_RC=0; _FC_OUT="$(XNET env INSTANCE="$INSTANCE" OPERATOR_PASSWORD="$OPERATOR_PASSWORD" python3 - < "$SCRIPT_DIR/functional_check.py")" || _FC_RC=$?
+  # the functional proof is a TEST, not a write helper: it deliberately makes refused calls (wrong password → 401, a user on
+# hold → 403, anonymous lookup → 401) and asserts them itself — it runs WITHOUT the write guard; its own exit code decides.
+_FC_RC=0; _FC_OUT="$(XNET env PYTHONPATH=/app INSTANCE="$INSTANCE" OPERATOR_PASSWORD="$OPERATOR_PASSWORD" python3 - < "$SCRIPT_DIR/functional_check.py")" || _FC_RC=$?
   printf '%s\n' "$_FC_OUT" | grep -vE '^(MATRIX_RESULTS|DECISION_IDS) '
   mkdir -p "$SCRIPT_DIR/../../conformance/results"
   printf '%s\n' "$_FC_OUT" | sed -n 's/^MATRIX_RESULTS //p' > "$SCRIPT_DIR/../../conformance/results/local-dev-functional.json"
