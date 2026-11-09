@@ -95,6 +95,11 @@ neighbours, and no High-severity Layer 1 finding exists.
 > generate-root approval conditions are NOT met (**DEBT-B160, fix before merge**). Registered: B153 (production installer keeps
 > the root token at rest, before first production), B155–B159, B161–B162. Next: remediation of B154 (+B155) and B160 only, then
 > a re-check of condition 4 and the generate-root conditions.
+>
+> **Slice 1k (2026-11-10):** B154/B155/B156 fixed by class — restore never works in place (volume sets + one atomic pointer;
+> rollback removes only the new set; journal + `--recover`); B160/B161 — root on demand only, the drill proves the services on
+> their own tokens before any root exists, revokes every root token and fails if one remains; break-glass procedure + rehearsal
+> gate; backup encryption/access and online-backup gates before first production. Next: re-check of condition 4 and B160 only.
 
 ## Layer 1 — Installation + infrastructure
 
