@@ -93,7 +93,10 @@ BASELINE_FILE = os.environ.get("AOS_EVIDENCE_BASELINE") or os.path.join(REPO, "v
 BASE = json.load(open(BASELINE_FILE)) if os.path.exists(BASELINE_FILE) else {}
 UPDATE_BASELINE = "--update-baseline" in sys.argv
 def _norm(name):
-    return _re.sub(r"\d+", "#", name or "").strip()
+    # run-specific parts of a case name — generated ids (hex runs with a digit, e.g. a random user fnuserab12cbf) and
+    # counts — collapse to '#', so the same case keeps the same key across runs
+    n = _re.sub(r"[0-9a-f]*\d[0-9a-f]*", "#", name or "")
+    return _re.sub(r"#+", "#", n).strip()
 if STRICT and HEADS is None:
     problems.append("cannot read the current git heads (verify/evidence.py)")
 if STRICT and HEADS and any(v.endswith("+dirty") for v in HEADS.values()):

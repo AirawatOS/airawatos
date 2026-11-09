@@ -428,11 +428,11 @@
     "count": 1,
     "pass": 1
    },
-   "admin creates fnuserab#cbf in its own tenant (/bridge/user-create \u2192 identity, app-host svc:identity)": {
+   "admin creates fnuser# in its own tenant (/bridge/user-create \u2192 identity, app-host svc:identity)": {
     "count": 1,
     "pass": 1
    },
-   "admin puts fnuserab#cbf on hold (/bridge/user-disable)": {
+   "admin puts fnuser# on hold (/bridge/user-disable)": {
     "count": 1,
     "pass": 1
    },
@@ -440,27 +440,27 @@
     "count": 1,
     "pass": 1
    },
-   "fnuserab#cbf holds a live App Host session in localdev": {
+   "fnuser# holds a live App Host session in localdev": {
     "count": 1,
     "pass": 1
    },
-   "fnuserab#cbf is REFUSED at the App Host while on hold": {
+   "fnuser# is REFUSED at the App Host while on hold": {
     "count": 1,
     "pass": 1
    },
-   "fnuserab#cbf rotates the password through the App Host (/auth/change-password)": {
+   "fnuser# rotates the password through the App Host (/auth/change-password)": {
     "count": 1,
     "pass": 1
    },
-   "fnuserab#cbf signs in again with the new password, must_reset cleared": {
+   "fnuser# signs in again with the new password, must_reset cleared": {
     "count": 1,
     "pass": 1
    },
-   "fnuserab#cbf signs in at the App Host with the admin-set password, must_reset:true": {
+   "fnuser# signs in at the App Host with the admin-set password, must_reset:true": {
     "count": 1,
     "pass": 1
    },
-   "lifting the hold restores fnuserab#cbf's login": {
+   "lifting the hold restores fnuser#'s login": {
     "count": 1,
     "pass": 1
    },
@@ -492,7 +492,7 @@
     "count": 1,
     "pass": 1
    },
-   "the Network's internal lookup refuses an anonymous caller (slice-#f)": {
+   "the Network's internal lookup refuses an anonymous caller (slice-#)": {
     "count": 1,
     "pass": 1
    },
