@@ -44,6 +44,9 @@ check('"install complete" is printed only after _INSTALL_DONE=1 at the very end'
       len(re.findall(r"^[^#\n]*install complete", src, flags=re.M)) == 1 and re.search(r"_INSTALL_DONE=1\necho \"✓ install complete", src) is not None)
 swallow = re.findall(r"except urllib\.error\.HTTPError as e: return e\b", src)
 check("no write helper swallows a non-2xx (each records it in _FAILS)", not swallow and "_FAILS.append" in src, "%d swallowing helpers" % len(swallow))
+check("every helper the installer runs is under the write guard (XNET, XAPP, XRUNNET, XRUNKERN)",
+      all(re.search(r"^%s\(\)\s*\{[^\n]*(\n[^\n]*)?(_GUARD_ENV|sitecustomize)" % f, src, re.M) for f in ("XNET", "XAPP", "XRUNNET", "XRUNKERN")),
+      "guarded: %s" % [f for f in ("XNET", "XAPP", "XRUNNET", "XRUNKERN") if re.search(r"^%s\(\)\s*\{[^\n]*(\n[^\n]*)?(_GUARD_ENV|sitecustomize)" % f, src, re.M)])
 check("a missing Phase-8 network record fails the phase", "localdev network not found — skip" not in src)
 
 # 3. live fault injection
@@ -52,14 +55,16 @@ if "--live" in sys.argv:
     # so a re-install would stop before the phase under test. The fresh-install net that follows rebuilds the stack.
     _C = ["docker", "compose", "-p", "airawatos-localdev", "--project-directory", os.path.join(ROOT, "deploy/local-dev"),
           "-f", os.path.join(ROOT, "deploy/local-dev/docker-compose.dev.yml")]
-    for phase in ("Phase 1a", "Phase 8"):
+    # slice-1i (DEBT-B135): faults INSIDE real writes (the write guard fails the first matching write of that phase) — not at
+    # phase banners. The final review's case: the Phase-1 shelf step's failed login was swallowed and the install completed.
+    for phase, sub in (("Phase 1 ", "/login"), ("Phase 7 ", "/set-password"), ("Phase 8", "/v1/registry/objects")):
         subprocess.run(_C + ["down", "-v", "--remove-orphans"], capture_output=True)
         r = subprocess.run(["bash", INSTALL, "--profile", "dev"], capture_output=True, text=True,
-                           env={**os.environ, "AOS_INSTALL_FAULT": phase}, cwd=os.path.dirname(INSTALL), timeout=1800)
+                           env={**os.environ, "AOS_INSTALL_FAULT_WRITE": "%s|%s" % (phase, sub)}, cwd=os.path.dirname(INSTALL), timeout=1800)
         out = r.stdout + r.stderr
         m = re.search(r"✗ install FAILED in phase: (.*?) \(exit", out)
-        check("a fault in %s → non-zero exit, phase named, no 'install complete'" % phase,
-              r.returncode != 0 and bool(m) and m.group(1).startswith(phase) and "install complete" not in out,
+        check("a failed WRITE (%s) inside %s → non-zero exit, that phase named, no 'install complete'" % (sub, phase.strip()),
+              r.returncode != 0 and bool(m) and m.group(1).startswith(phase) and "install complete" not in out and "INJECTED" in out,
               "exit %s, reported phase %r" % (r.returncode, m and m.group(1)))
 print(("✗" if fails else "✓") + " installer test: %d failure(s)" % len(fails))
 sys.exit(1 if fails else 0)

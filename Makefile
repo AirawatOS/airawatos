@@ -47,6 +47,7 @@ images:          ## B80/B94 — Dockerfiles digest-pinned + locked; every stack 
 	python3 verify/images_selftest.py
 
 installer:       ## B100/R7-1 — installer survives a clean host and names any failing phase (live fault injection)
+	python3 verify/write_guard_test.py
 	python3 verify/installer_test.py --live
 
 decide-unit:     ## net 5 — unit tests of the one decision function

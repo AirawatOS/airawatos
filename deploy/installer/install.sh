@@ -79,12 +79,22 @@ COMPOSE() { docker compose -p "$P" --project-directory "$LOCALDEV" -f "$F" "$@";
 # process authenticates with its own AppRole scoped token (prod-guard). `-e VAULT_TOKEN` on exec/run overrides
 # the container's approle env so the install step acts as root, and (for a one-off) prod-guard then skips its
 # AppRole login. VAULT_TOKEN is the installer-shell root discovered from the vault volume (below).
-XNET()  { COMPOSE exec -T -e VAULT_TOKEN="${VAULT_TOKEN:-}" network "$@"; }
-XAPP()  { COMPOSE exec -T -e VAULT_TOKEN="${VAULT_TOKEN:-}" app-host "$@"; }
+# slice-1i (DEBT-B127/B135): every Python helper runs with the WRITE GUARD (_write_guard.py as sitecustomize): a failed write
+# forces the helper to exit non-zero, whatever its own error handling does. _wfault adds the dev-only in-write test fault for
+# the phase named in AOS_INSTALL_FAULT_WRITE="<phase prefix>|<url substring>".
+_GUARD_ENV=(-e PYTHONPATH=/tmp/aos-hook:/app:/app/reference)
+_wfault() { local ph="${AOS_INSTALL_FAULT_WRITE%%|*}" sub="${AOS_INSTALL_FAULT_WRITE#*|}"
+  if [ -n "${AOS_INSTALL_FAULT_WRITE:-}" ] && [ "${PROFILE:-}" = dev ]; then case "$_PHASE" in "$ph"*) printf '%s' "$sub"; return;; esac; fi; }
+_hook() { COMPOSE exec -T "$1" sh -c 'mkdir -p /tmp/aos-hook' >/dev/null 2>&1 && COMPOSE cp "$SCRIPT_DIR/_write_guard.py" "$1:/tmp/aos-hook/sitecustomize.py" >/dev/null 2>&1 \
+  || { echo "✗ could not install the installer write guard into $1"; exit 1; }; }
+XNET()  { COMPOSE exec -T -e VAULT_TOKEN="${VAULT_TOKEN:-}" "${_GUARD_ENV[@]}" -e AOS_INSTALL_FAULT_WRITE="$(_wfault)" network "$@"; }
+XAPP()  { COMPOSE exec -T -e VAULT_TOKEN="${VAULT_TOKEN:-}" "${_GUARD_ENV[@]}" -e AOS_INSTALL_FAULT_WRITE="$(_wfault)" app-host "$@"; }
 # One-off containers on a service image, WITHOUT pulling up its depends_on graph (used before the long-running
 # services exist, so they cannot wait on a not-yet-healthy network/kernel).
-XRUNNET()  { COMPOSE run --rm --no-deps -T -e VAULT_TOKEN="${VAULT_TOKEN:-}" network "$@"; }
-XRUNKERN() { COMPOSE run --rm --no-deps -T -e VAULT_TOKEN="${VAULT_TOKEN:-}" kernel "$@"; }
+XRUNNET()  { COMPOSE run --rm --no-deps -T -v "$SCRIPT_DIR/_write_guard.py:/tmp/aos-hook/sitecustomize.py:ro" "${_GUARD_ENV[@]}" \
+             -e AOS_INSTALL_FAULT_WRITE="$(_wfault)" -e VAULT_TOKEN="${VAULT_TOKEN:-}" network "$@"; }
+XRUNKERN() { COMPOSE run --rm --no-deps -T -v "$SCRIPT_DIR/_write_guard.py:/tmp/aos-hook/sitecustomize.py:ro" "${_GUARD_ENV[@]}" \
+             -e AOS_INSTALL_FAULT_WRITE="$(_wfault)" -e VAULT_TOKEN="${VAULT_TOKEN:-}" kernel "$@"; }
 # ADR-0131 / slice-1c-iv-c — identity's provisioning door accepts ONLY an svc:identity token from an allow-listed
 # operator-realm caller. The installer acts as the `provisioner` principal (self-seeded by identity from the Vault
 # install config): read its password from Vault (root, install-time) and mint a FRESH short-lived svc:identity
@@ -270,6 +280,7 @@ for i in $(seq 1 60); do
   curl -fsS http://127.0.0.1:8080/network/v1/health >/dev/null 2>&1 && KHEALTH && break
   sleep 2
 done
+_hook network; _hook app-host     # slice-1i B127: the write guard into the long-running containers the phases exec into
 _verify_arc_networks   # FIX-PLAN L1 slice-1a step4 — all services up ⇒ all 5 ARC networks exist; verify the walls
 # step5 — comprehensive ARC flow-map test (membership + forbidden-reachability probes); fails on any off-map path.
 _REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
