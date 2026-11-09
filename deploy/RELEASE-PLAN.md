@@ -116,6 +116,28 @@ A deploy that flips authentication/authority enforcement must be recoverable to 
       backup timestamp (RPO). **A backup that has not been restored does not count.**
 - Rollback dependency: every §4/§5 rollback assumes these backups exist and restore cleanly.
 
+**GATES before first production (slice-1k).** The local-dev `backup.sh` stops the stack and writes plain archives. Neither
+is acceptable in production.
+- [ ] **Backups encrypted at rest, with restricted access.** A backup holds every service credential: the Vault data and
+      unseal material, the AppRole secret-ids and the DB role passwords.
+      - Every artifact (pg dumps and base backups, volume snapshots, Vault snapshots, host-secret copies) is encrypted at
+        rest with a KMS key used only for backups (EBS snapshot encryption, and SSE-KMS on the S3 bucket).
+      - The bucket blocks public access and requires TLS. Only a dedicated backup role can write, and only the
+        break-glass/restore role can read; no human or service principal has standing read access.
+      - Object Lock or versioning protects backups against deletion.
+      - Access is logged (CloudTrail data events) and reviewed.
+      - Verified by: an attempt to read a backup object as an ordinary operator and as any service role is denied.
+- [ ] **Production backups are taken ONLINE, without stopping the system.**
+      - **Postgres:** database-native backups, i.e. continuous WAL archiving plus a periodic `pg_basebackup` (point-in-time
+        recovery), or at minimum `pg_dump -Fc` from a consistent snapshot. Never a stopped-volume copy.
+      - **Other durable volumes** (filestore, app bundles, identity, network files, the Vault data and audit volumes):
+        crash-consistent EBS snapshots taken while the services run, coordinated with the database backup so the set is
+        one point in time.
+      - **Vault:** its own snapshot mechanism once on integrated storage (`vault operator raft snapshot save`); until then,
+        an EBS snapshot.
+      - Verified by: a backup during a load test shows no failed request; the Stage-0 restore drill restores that backup
+        to a recorded RPO and RTO.
+
 ## 0b. Stage 0b — housekeeping (remove ambiguity before rehearsal)
 
 - [ ] **Authoritative Vault.** Confirm which Vault the prod stack unseals and reads from (one, not several);
