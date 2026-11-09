@@ -29,6 +29,8 @@ deploy/**/init.json
 
 # slice-1h (DEBT-B102): backups hold the full credential set (Vault root token + unseal key) — never committed
 deploy/local-dev/backups/
+# slice-1j: restore keeps the previous host secrets here until the restored stack is healthy
+deploy/local-dev/.restore-prev/
 
 # compiled Python — never tracked (slice-1i: tracked .pyc dirtied the tree on every test run)
 __pycache__/

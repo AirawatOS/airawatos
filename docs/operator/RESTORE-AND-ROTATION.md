@@ -28,8 +28,23 @@ re-seed the passwords into Vault (installer, below).
 
 ```
 deploy/local-dev/backup.sh  [dir]   # quiesces the stack, tars ALL 7 durable volumes + .env + approle env files, sha256 manifest, restarts
-deploy/local-dev/restore.sh <dir>   # verifies the manifest, removes the stack + volumes, recreates every volume, restarts, waits healthy
+deploy/local-dev/restore.sh <dir>   # validate → stage → switch → healthy, or automatic ROLLBACK (slice-1j)
 ```
+**restore.sh (slice-1j, DEBT-B139/B140) — nothing of the running stack is touched until a complete, verified stage exists:**
+1. *Validate against the declared stack*, not the backup's own claims: the archives must be exactly the volumes
+   `docker-compose.dev.yml` declares (a missing or extra volume is refused), the host files exactly `.env` plus one AppRole
+   env file (with `VAULT_ROLE_ID` and `VAULT_SECRET_ID`) per role the compose file references, every file matching the
+   manifest's sha256. Every archive member is scanned: absolute paths, `..`, links leaving the volume, devices → refused.
+2. *Stage*: every archive is extracted IN FULL into a side volume (`<project>-stage-<vol>`) and compared with its member
+   list — a failure here (bad member, disk full) refuses the restore with the running stack untouched.
+3. *Switch*: the stack is stopped (volumes kept), each live volume is copied aside (`<project>-prev-<vol>`) and the host
+   secrets to `deploy/local-dev/.restore-prev/` (gitignored), then the live volumes are refilled from the stage.
+4. The restored stack must be fully healthy within `AOS_RESTORE_WAIT_S` (270 s). Otherwise — or on any error after the
+   switch — restore **rolls back** automatically to the previous volumes and host secrets and restarts the previous
+   stack. If even the rollback fails, the `-prev-` volumes and `.restore-prev/` are KEPT: do not delete them; copy each
+   `-prev-<vol>` back into `<project>_<vol>` by hand.
+Proven by `verify/backup_restore_selftest.py` (in `make restore-drill`): 16 refusal cases (incl. the conditions review's
+six-of-seven-volume backup, a backup without AppRole files, an absolute-symlink member) and a rollback case.
 The backup directory is created 0700 and is gitignored (`deploy/local-dev/backups/`): it holds the Vault root token and
 unseal key — store it as a secret. **Drill** (`python3 verify/restore_drill.py`, 2026-11-08): marks in identity, Vault KV,
 Postgres, filestore and app-bundles → backup (48 s, stack stopped) → `down -v` (0 containers, 0 volumes) → restore →
