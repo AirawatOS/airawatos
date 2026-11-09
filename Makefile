@@ -78,6 +78,7 @@ scans:           ## net 8 — gitleaks (history) + trivy (images, manifests)
 	python3 verify/scans.py all
 
 matrix:          ## the status matrix — STRICT: fresh, complete, passing evidence of THIS run only (B99)
+	python3 verify/matrix_selftest.py
 	python3 conformance/build_matrix.py --strict
 
 matrix-fast:     ## verify-fast's matrix: strict, except the fresh install's functional evidence (not produced without a fresh install)
