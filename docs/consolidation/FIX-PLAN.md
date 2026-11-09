@@ -57,6 +57,29 @@ edge crosses a declared door — ARC §c) is the capstone net that proves nets 1
 
 ---
 
+## Layer exit standard (applies to Layer 1 from slice 1i onward, and to every later layer)
+
+Set 2026-11-09 after the Layer 1 exit sequence (exit review → re-review → focused review), which kept finding new
+neighbouring issues and so never converged. Every layer exit now follows one fixed shape:
+
+1. **One deep review per layer exit.** Fresh, independent reviewers who did not build the layer probe it as widely as they
+   can. Its findings define the remediation conditions, each a numbered condition in the review document.
+2. **A scope-frozen, time-boxed re-review of those conditions only.** It tests each condition with the reviewers' own cases
+   plus neighbouring variants of the same class. It does not reopen the rest of the layer.
+3. **Verdict:** PASS if every condition holds and **no High-severity finding owned by that layer** exists.
+4. **Every NEW finding** from the re-review that is Medium or lower is **registered with an owning layer and a deadline**
+   and does **not** block the exit. The deadline is either "before Layer N+1 exit" or "before first production".
+5. **What blocks what:**
+   - **Highs block the next layer.** A High found at any time is fixed before the next layer starts.
+   - **Operational Mediums block production, not the next layer.** These are backup and restore, monitoring, rotation,
+     recovery and hardening. They go to "Before first production" with their debt id.
+   - **Other Mediums** carry the next layer's exit as their deadline.
+
+**Layer 1 under this standard.** The deep review was the focused exit review
+([LAYER1-EXIT-FINAL](../reviews/LAYER1-EXIT-FINAL.md)); slice 1i addresses its eight §5 conditions. The conditions-only
+re-review that follows is the last Layer 1 review. PASS if the eight conditions hold, with the reviewers' cases plus
+neighbours, and no High-severity Layer 1 finding exists.
+
 ## Layer 1 — Installation + infrastructure
 
 > **Exit review 2026-11-08: FAIL** — see [LAYER1-EXIT-REVIEW](../reviews/LAYER1-EXIT-REVIEW.md). Ten blocking findings
