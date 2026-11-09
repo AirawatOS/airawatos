@@ -129,13 +129,13 @@
    ],
    "dockerfile": "platform-spec/Dockerfile.reference",
    "context": "git archive (workspace)",
-   "git_revision": "ffddb0af8931f3e710f67f804f883f83150f9b5d",
+   "git_revision": "d002fe84b830ec2623a641efdc5d1745d38ab76a",
    "sources": {
-    "root": "93fe8531af0dce25d067d0eeb8246d144b0ab5c3",
-    "platform-spec": "ffddb0af8931f3e710f67f804f883f83150f9b5d",
+    "root": "6eb6830376d53549d5ff1d7696e81a1edc7f3f86",
+    "platform-spec": "d002fe84b830ec2623a641efdc5d1745d38ab76a",
     "components": "8cef04a15c2ac31ea42d4a6a5e1cdcc617e56f94"
    },
-   "image_id": "sha256:04d1f0b8710f8d341f4350b88425ec7faf05126f685a7d4ed3ad0828880aecc8",
+   "image_id": "sha256:6e20721a59b2a71ccdf718555d12beecc3e17a68b48715cbb4e0cdbf44b49b96",
    "platform": "linux/arm64",
    "base": "python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535",
    "built": "2026-11-09"
@@ -234,11 +234,11 @@
    "context": "git archive (kernel)",
    "git_revision": "b3b6373477bf09f22ed64528b69b04b0ed8ef5fc",
    "sources": {
-    "root": "93fe8531af0dce25d067d0eeb8246d144b0ab5c3",
-    "platform-spec": "ffddb0af8931f3e710f67f804f883f83150f9b5d",
+    "root": "6eb6830376d53549d5ff1d7696e81a1edc7f3f86",
+    "platform-spec": "d002fe84b830ec2623a641efdc5d1745d38ab76a",
     "kernel": "b3b6373477bf09f22ed64528b69b04b0ed8ef5fc"
    },
-   "image_id": "sha256:b6724b51c4191da0756b5a6b7952cd47a74b20e37a0bcee852fa240f99de875c",
+   "image_id": "sha256:0067be582d26c55344ac987439d5f04c88d53623de407a404f4e753411a2b576",
    "platform": "linux/arm64",
    "base": "python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535",
    "built": "2026-11-09"
@@ -335,13 +335,13 @@
    ],
    "dockerfile": "network/deploy/Dockerfile",
    "context": "git archive (network)",
-   "git_revision": "0c9b094a3573a2febf97757db23083c1112507d5",
+   "git_revision": "0f2d8a2a56692643c20378fa45933dd13e21388e",
    "sources": {
-    "root": "93fe8531af0dce25d067d0eeb8246d144b0ab5c3",
-    "platform-spec": "ffddb0af8931f3e710f67f804f883f83150f9b5d",
-    "network": "0c9b094a3573a2febf97757db23083c1112507d5"
+    "root": "6eb6830376d53549d5ff1d7696e81a1edc7f3f86",
+    "platform-spec": "d002fe84b830ec2623a641efdc5d1745d38ab76a",
+    "network": "0f2d8a2a56692643c20378fa45933dd13e21388e"
    },
-   "image_id": "sha256:e36fc747539b1d69dbf3eb734f8d9478ed2aa30ed1e07d51e337463e910dcf1f",
+   "image_id": "sha256:32677e711f3a7780f02f9ada8a7b18f368addca41ade13237cbe81b3e37c473a",
    "platform": "linux/arm64",
    "base": "python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535",
    "built": "2026-11-09"
