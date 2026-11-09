@@ -18,7 +18,7 @@ if [ ! -f "$RT/gateflags.py" ] || ! command -v python3 >/dev/null 2>&1; then
   exit 97
 fi
 _PROD=1
-python3 "$RT/gateflags.py" is-production || { _rc=$?; [ "$_rc" = 1 ] && _PROD=0 || { echo "[airawat-entrypoint] REFUSING TO START — the gate-flag parser failed (exit $_rc)" >&2; exit 97; }; }
+python3 "$RT/gateflags.py" is-production || { _rc=$?; [ "$_rc" = 10 ] && _PROD=0 || { echo "[airawat-entrypoint] REFUSING TO START — the gate-flag parser failed (exit $_rc); a parser that cannot decide is a refusal" >&2; exit 97; }; }
 
 # ── per-service Vault AppRole login (closes DEBT-B58). A preset VAULT_TOKEN (installer one-offs pass root) skips it.
 _LOGGED_IN=0

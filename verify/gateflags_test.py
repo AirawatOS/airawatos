@@ -29,10 +29,19 @@ GF = os.path.join(REF, "gateflags.py")
 fails = []
 
 
+import tempfile as _tf
+_T = _tf.mkdtemp(prefix="aos-gf-")
+open(os.path.join(_T, "svc.py"), "w").write("print('SERVICE-STARTED')\n")
+open(os.path.join(_T, "commands.json"), "w").write('{"python": {"/t/svc.py": {"options": [], "positional": 0}}}')
+# slice-1i: production now runs ONLY allow-listed commands — the flag cases run an allow-listed TEST command (a mounted test
+# allow-list) so a refusal is caused by the flag under test, never by the command being unlisted.
+TESTCMD = ["-v", _T + ":/t:ro", "-v", _T + "/commands.json:/opt/airawat/commands.json:ro"]
+
+
 def guard(env, image="reference"):
     """Run the shipped image OUTSIDE the compose (no compose entrypoint, no mounts) — its baked guard decides; with PG
     set, an older guard file is mounted as the entrypoint instead. Returns (exit code, started?). env value None = unset."""
-    cmd = ["docker", "run", "--rm", "--network", "none"]
+    cmd = ["docker", "run", "--rm", "--network", "none"] + ([] if PG else TESTCMD)
     if PG:
         cmd += ["--entrypoint", "/bin/sh", "-v", PG + ":/local-dev/prod-guard.sh:ro"]
         if os.path.exists(GF):
@@ -40,7 +49,7 @@ def guard(env, image="reference"):
     for k, v in env.items():
         if v is not None:
             cmd += ["-e", "%s=%s" % (k, v)]
-    cmd += [IMG[image]] + (["/local-dev/prod-guard.sh"] if PG else []) + ["python3", "-c", "print('SERVICE-STARTED')"]
+    cmd += [IMG[image]] + (["/local-dev/prod-guard.sh", "python3", "-c", "print('SERVICE-STARTED')"] if PG else ["python3", "/t/svc.py"])
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     return r.returncode, "SERVICE-STARTED" in r.stdout
 
@@ -115,6 +124,43 @@ for k in ("unset", "production"):
           "gate %s" % ("ENFORCE" if res[("gateprod", k)] else "SHADOW"))
 check("positive: under declared development the gate honours the shadow flag", not res[("gatedev", "development")],
       "gate %s" % ("ENFORCE" if res[("gatedev", "development")] else "SHADOW"))
+# slice-1i (DEBT-B116): the BAKED allow-list refuses every unsafe or unlisted command in production, in any spelling
+def real(cmdline, env=None, entry=None, image="reference"):
+    c = ["docker", "run", "--rm", "--network", "none", "-e", "AIRAWAT_ENV=" + ((env or {}).get("AIRAWAT_ENV", "production"))]
+    for k, v in (env or {}).items():
+        if k != "AIRAWAT_ENV":
+            c += ["-e", "%s=%s" % (k, v)]
+    if entry:
+        c += ["--entrypoint", entry]
+    r = subprocess.run(c + [IMG[image]] + cmdline, capture_output=True, text=True, timeout=60)
+    return r.returncode, (r.stderr + r.stdout)
+B116 = [
+    ("app_host --no (final-review case: an abbreviation of --no-verify-cert)", ["python", "reference/app_host.py", "/a", "--no"]),
+    ("app_host --no-v", ["python", "reference/app_host.py", "/a", "--no-v"]),
+    ("app_host --no-verify-cert in full", ["python", "reference/app_host.py", "/a", "--no-verify-cert"]),
+    ("workflow --vault-t=<token> (= form, abbreviation)", ["python", "reference/workflow.py", "--vault-t=hvs.x"]),
+    ("decision --vault-token <token>", ["python", "reference/decision.py", "--vault-token", "hvs.x"]),
+    ("sh -c wrapper without exec", ["sh", "-c", "python reference/app_host.py /a --no"]),
+    ("bash -c exec wrapper hiding --no-verify-cert", ["bash", "-c", "exec python reference/app_host.py /a --no-verify-cert"]),
+    ("sh -c with shell syntax", ["sh", "-c", "exec uvicorn api:app --port 1; python reference/app_host.py /a --no"]),
+    ("an unlisted program (env …)", ["env", "X=1", "python", "reference/app_host.py", "/a", "--no"]),
+    ("an unknown option", ["python", "reference/notify.py", "--kernel", "http://k", "--debug"]),
+]
+with cf.ThreadPoolExecutor(8) as ex:
+    b116 = {n: ex.submit(real, c) for n, c in B116}
+    crash = ex.submit(real, ["python", "reference/notify.py"], {"AIRAWAT_ENV": "development", "PYTHONHOME": "/nonexistent"})
+    svc_side = ex.submit(real, ["reference/app_host.py", "/app/components/apps", "--no-verify-cert"], None, "python3")
+    svc_side2 = ex.submit(real, ["reference/workflow.py", "--vault-token", "hvs.x"], None, "python3")
+    b116 = {n: f.result() for n, f in b116.items()}
+for n, (rc, out) in b116.items():
+    check("production refuses: %s" % n, rc == 97, "exit %s; %s" % (rc, next((l for l in out.splitlines() if "REFUS" in l), out.strip()[-90:])[:120]))
+rc, out = crash.result()
+check("a CRASHING flag parser is a refusal, not development (PYTHONHOME=/nonexistent)", rc == 97,
+      "exit %s; %s" % (rc, next((l for l in out.splitlines() if "REFUS" in l), out.strip()[-80:])[:110]))
+for label, fut in (("app_host --no-verify-cert", svc_side), ("workflow --vault-token", svc_side2)):
+    rc, out = fut.result()
+    check("the SERVICE itself refuses %s in production with the guard bypassed (--entrypoint python3)" % label, rc == 97,
+          "exit %s; %s" % (rc, next((l for l in out.splitlines() if "REFUS" in l), out.strip()[-80:])[:110]))
 rc, started = res[("pos", "prod")]
 check("positive: production with no flags starts", rc == 0 and started, "exit %s, started=%s" % (rc, started))
 rc, started = res[("pos", "dev")]
