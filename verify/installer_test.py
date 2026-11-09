@@ -6,8 +6,14 @@
      clean-host case. They must complete. (The re-review's `make verify` died here: an empty `grep` killed the shell.)
   2. EVERY PHASE IS NAMED and every Python phase records failed writes: static checks that each phase banner sets
      _PHASE, the EXIT trap reports it, and no write helper swallows a non-2xx.
-  3. FAULT INJECTION (live, --live): run the real installer with AOS_INSTALL_FAULT=<phase> (dev profile) and require a
-     non-zero exit, a "✗ install FAILED in phase: <that phase>" line, and NO "install complete".
+  3. FAULT INJECTION (live, --live): run the real installer with AOS_INSTALL_FAULT_WRITE=<phase>|<url> (dev profile) and
+     require a non-zero exit, a "✗ install FAILED in phase: <that phase>" line, and NO "install complete".
+  slice-1j (DEBT-B141): the write guard must SURVIVE CONTAINER RECREATION and FAIL CLOSED when it is absent —
+     static: XNET/XAPP exec through install-guard/run, which is baked into the images; nothing is copied into a container;
+     live: (a) the conditions review's case — app-host RECREATED right before the shelf step and the shelf login of
+     localdev-network failed → the install fails naming Phase 1c; (b) the same for the localdev-operator shelf login;
+     (c) the guard made unloadable (AOS_INSTALL_TEST_GUARD_DIR=a directory without it) → the very first guarded helper
+     refuses and the install fails naming its phase.
 INSTALL=<path> tests another copy of install.sh (e.g. the pre-1h one). Exit 1 on any failure.
 """
 import os, re, subprocess, sys, tempfile
@@ -44,9 +50,19 @@ check('"install complete" is printed only after _INSTALL_DONE=1 at the very end'
       len(re.findall(r"^[^#\n]*install complete", src, flags=re.M)) == 1 and re.search(r"_INSTALL_DONE=1\necho \"✓ install complete", src) is not None)
 swallow = re.findall(r"except urllib\.error\.HTTPError as e: return e\b", src)
 check("no write helper swallows a non-2xx (each records it in _FAILS)", not swallow and "_FAILS.append" in src, "%d swallowing helpers" % len(swallow))
-check("every helper the installer runs is under the write guard (XNET, XAPP, XRUNNET, XRUNKERN)",
-      all(re.search(r"^%s\(\)\s*\{[^\n]*(\n[^\n]*)?(_GUARD_ENV|sitecustomize)" % f, src, re.M) for f in ("XNET", "XAPP", "XRUNNET", "XRUNKERN")),
-      "guarded: %s" % [f for f in ("XNET", "XAPP", "XRUNNET", "XRUNKERN") if re.search(r"^%s\(\)\s*\{[^\n]*(\n[^\n]*)?(_GUARD_ENV|sitecustomize)" % f, src, re.M)])
+def _fn(f):
+    m = re.search(r"^%s\(\)\s*\{(.*?)\}\s*$" % f, src, re.M | re.S)
+    return m.group(1) if m else ""
+check("exec helpers (XNET, XAPP) run through install-guard/run, which refuses unless the guard is active (B141)",
+      all("_GUARD_RUN" in _fn(f) for f in ("XNET", "XAPP")) and "/opt/airawat/install-guard/run" in src,
+      "through run: %s" % [f for f in ("XNET", "XAPP") if "_GUARD_RUN" in _fn(f)])
+check("one-off helpers (XRUNNET, XRUNKERN) get the guard MOUNTED from outside on each run",
+      all("sitecustomize.py:ro" in _fn(f) and "_GUARD_ENV" in _fn(f) for f in ("XRUNNET", "XRUNKERN")))
+check("nothing copies the guard INTO a running container (a recreate would remove it)",
+      not re.search(r"^[^#\n]*(COMPOSE|docker) cp [^\n]*(guard|sitecustomize)", src, re.M))
+_RUN = os.path.join(ROOT, "deploy/runtime/install-guard/run")
+check("install-guard/run is in deploy/runtime (baked into every image at /opt/airawat) and checks the guard's marker",
+      os.path.exists(_RUN) and "AOS_INSTALL_WRITE_GUARD" in open(_RUN).read() and "exit 97" in open(_RUN).read())
 check("a missing Phase-8 network record fails the phase", "localdev network not found — skip" not in src)
 
 # 3. live fault injection
@@ -58,14 +74,29 @@ if "--live" in sys.argv:
     # slice-1i (DEBT-B135): faults INSIDE real writes (the write guard fails the first matching write of that phase) — not at
     # phase banners. The final review's case: the Phase-1 shelf step's failed login was swallowed and the install completed.
     # the shelf step (seed_base_os MODE=shelf — the final review's case) runs inside Phase 1c's span
-    for phase, sub in (("Phase 1c", "/login"), ("Phase 7 ", "/set-password"), ("Phase 8", "/v1/registry/objects")):
+    # slice-1j (DEBT-B141): (name, phase, env, must-see) — the shelf step runs in app-host AFTER its recreate
+    LIVE = [
+        ("a failed WRITE (/login) inside Phase 1c", "Phase 1c", {"AOS_INSTALL_FAULT_WRITE": "Phase 1c|/login"}, "INJECTED"),
+        ("a failed WRITE (/set-password) inside Phase 7", "Phase 7 ", {"AOS_INSTALL_FAULT_WRITE": "Phase 7 |/set-password"}, "INJECTED"),
+        ("a failed WRITE (/v1/registry/objects) inside Phase 8", "Phase 8", {"AOS_INSTALL_FAULT_WRITE": "Phase 8|/v1/registry/objects"}, "INJECTED"),
+        ("app-host RECREATED before the shelf step + the localdev-network shelf login fails (conditions-review case)", "Phase 1c",
+         {"AOS_INSTALL_TEST_RECREATE": "MODE=shelf", "AOS_INSTALL_FAULT_WRITE": "Phase 1c|/realms/localdev-network/login"}, "INJECTED"),
+        ("app-host RECREATED before the shelf step + the localdev-operator shelf login fails", "Phase 1c",
+         {"AOS_INSTALL_TEST_RECREATE": "MODE=shelf", "AOS_INSTALL_FAULT_WRITE": "Phase 1c|/realms/localdev-operator/login"}, "INJECTED"),
+        ("the write guard cannot load (a directory without it) → the first guarded helper REFUSES", "",
+         {"AOS_INSTALL_TEST_GUARD_DIR": "/nonexistent-guard-dir"}, "write guard NOT ACTIVE"),
+    ]
+    only = os.environ.get("LIVE_ONLY", "")
+    for name, phase, env, must in LIVE:
+        if only and only not in name:
+            continue
         subprocess.run(_C + ["down", "-v", "--remove-orphans"], capture_output=True)
         r = subprocess.run(["bash", INSTALL, "--profile", "dev"], capture_output=True, text=True,
-                           env={**os.environ, "AOS_INSTALL_FAULT_WRITE": "%s|%s" % (phase, sub)}, cwd=os.path.dirname(INSTALL), timeout=1800)
+                           env={**os.environ, **env}, cwd=os.path.dirname(INSTALL), timeout=1800)
         out = r.stdout + r.stderr
         m = re.search(r"✗ install FAILED in phase: (.*?) \(exit", out)
-        check("a failed WRITE (%s) inside %s → non-zero exit, that phase named, no 'install complete'" % (sub, phase.strip()),
-              r.returncode != 0 and bool(m) and m.group(1).startswith(phase) and "install complete" not in out and "INJECTED" in out,
-              "exit %s, reported phase %r" % (r.returncode, m and m.group(1)))
+        check("%s → non-zero exit, %s named, no 'install complete'" % (name, phase.strip() or "the phase"),
+              r.returncode != 0 and bool(m) and m.group(1).startswith(phase) and "install complete" not in out and must in out,
+              "exit %s, reported phase %r, %r seen: %s" % (r.returncode, m and m.group(1)[:50], must, must in out))
 print(("✗" if fails else "✓") + " installer test: %d failure(s)" % len(fails))
 sys.exit(1 if fails else 0)

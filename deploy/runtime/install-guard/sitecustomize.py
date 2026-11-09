@@ -1,4 +1,9 @@
-# sitecustomize — the installer's WRITE GUARD (slice-1i, DEBT-B127/B135).
+# sitecustomize — the installer's WRITE GUARD (slice-1i, DEBT-B127/B135; slice-1j, DEBT-B141).
+#
+# slice-1j: BAKED INTO EVERY IMAGE at /opt/airawat/install-guard/ (it was copied into running containers, and a container
+# recreate silently removed it). It is INERT in a service process — it loads only when PYTHONPATH names its directory,
+# which only the installer's wrappers do: install-guard/run (exec into long-running containers; refuses unless the guard
+# is ACTIVE) and the one-off `compose run` helpers (the guard file mounted from outside).
 #
 # Loaded (via PYTHONPATH) into EVERY Python helper the installer runs — inline heredoc phases and helper scripts alike
 # (ensure_install, seed_base, seed_base_os, mint_base_listings, the trust-schema tool, _deliver_fixture, …). It wraps
@@ -16,6 +21,7 @@ import sys
 import urllib.error
 import urllib.request
 
+AOS_INSTALL_WRITE_GUARD = True        # install-guard/run checks this marker before it runs any helper
 _orig = urllib.request.urlopen
 _FAILS = []
 _FAULT = os.environ.get("AOS_INSTALL_FAULT_WRITE", "")

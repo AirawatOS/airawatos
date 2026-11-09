@@ -1,0 +1,13 @@
+#!/bin/sh
+# Run an installer helper with the installer WRITE GUARD ACTIVE — or refuse (slice-1j, DEBT-B141).
+# install.sh execs EVERY helper in a long-running container through this script (XNET / XAPP). It is baked into every
+# image at /opt/airawat/install-guard/, so recreating a container cannot remove it, and it FAILS CLOSED: if the guard does
+# not load (missing, shadowed, broken) the helper does not run and the installer's phase fails.
+#   AOS_INSTALL_GUARD_DIR — test hook (install.sh passes it only in the dev profile) to prove the refusal.
+G="${AOS_INSTALL_GUARD_DIR:-/opt/airawat/install-guard}"
+export PYTHONPATH="$G:/app:/app/reference"
+if ! python3 -c 'import sys, sitecustomize as s; sys.exit(0 if getattr(s, "AOS_INSTALL_WRITE_GUARD", False) else 97)' 2>/dev/null; then
+  echo "✗ installer write guard NOT ACTIVE in $(hostname) (looked in $G) — refusing to run: $*" >&2
+  exit 97
+fi
+exec "$@"

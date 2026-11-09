@@ -12,7 +12,7 @@ Exit 1 on failure.
 import http.server, os, subprocess, sys, tempfile, threading
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-GUARD = os.environ.get("GUARD", os.path.join(ROOT, "deploy/installer/_write_guard.py"))
+GUARD = os.environ.get("GUARD", os.path.join(ROOT, "deploy/runtime/install-guard/sitecustomize.py"))
 
 
 class H(http.server.BaseHTTPRequestHandler):
