@@ -16,9 +16,9 @@ import os, json, glob, collections, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
-RESULTS_DIR = os.path.join(HERE, "results")
-OUT_MD = os.path.join(REPO, "docs", "specs", "STATUS-MATRIX.md")
-OUT_JSON = os.path.join(REPO, "docs", "specs", "STATUS-MATRIX.json")
+RESULTS_DIR = os.environ.get("AOS_RESULTS_DIR") or os.path.join(HERE, "results")
+OUT_MD = os.environ.get("AOS_MATRIX_OUT_MD") or os.path.join(REPO, "docs", "specs", "STATUS-MATRIX.md")
+OUT_JSON = os.environ.get("AOS_MATRIX_OUT_JSON") or os.path.join(REPO, "docs", "specs", "STATUS-MATRIX.json")
 
 # Full rule inventory per spec (so rules with no test show NO TEST, not silently absent). Numbers per README.
 INVENTORY = [
@@ -79,6 +79,26 @@ REQUIRED = ["banned", "gtwstatic", "knownviolations", "functional", "external", 
             "netdoors", "routes", "listen", "scans", "vaultrenewal", "dbgrants", "ops", "restoredrill"]
 KINDS = {"PASS", "FAIL", "XFAIL", "XPASS", "SKIP_BUILD", "SKIP_CREDS", "needs-build", "needs-creds"}
 problems, seen_modes = [], set()
+# slice-1i (DEBT-B117): every file's recorded git heads must EQUAL the current HEAD of all five repositories, clean
+# (no "+dirty"); slice-1i (DEBT-B118): per-net case BASELINE (verify/evidence-baseline.json) — no baseline case may
+# disappear, no baseline PASS may become anything else, SKIP_BUILD may not exceed its ceiling.
+import re as _re, subprocess as _sp
+sys.path.insert(0, os.path.join(REPO, "verify"))
+try:
+    import evidence as _evd
+    HEADS = _evd.git_heads()
+except Exception as _e:
+    HEADS = None
+BASELINE_FILE = os.environ.get("AOS_EVIDENCE_BASELINE") or os.path.join(REPO, "verify", "evidence-baseline.json")
+BASE = json.load(open(BASELINE_FILE)) if os.path.exists(BASELINE_FILE) else {}
+UPDATE_BASELINE = "--update-baseline" in sys.argv
+def _norm(name):
+    return _re.sub(r"\d+", "#", name or "").strip()
+if STRICT and HEADS is None:
+    problems.append("cannot read the current git heads (verify/evidence.py)")
+if STRICT and HEADS and any(v.endswith("+dirty") for v in HEADS.values()):
+    problems.append("the working tree is DIRTY (%s) — evidence must come from committed code" % sorted(k for k, v in HEADS.items() if v.endswith("+dirty")))
+new_base = {}
 if STRICT and not RUN_ID:
     problems.append("no AOS_RUN_ID — strict mode needs the run id of this make verify")
 for f in files:
@@ -96,6 +116,30 @@ for f in files:
         for c in d.get("cases", []):
             if c.get("result") in ("FAIL", "XPASS"):
                 problems.append("%s: %s — %s" % (name, c.get("result"), c.get("case", "")[:120]))
+        if not d.get("ts") or not isinstance(d.get("git"), dict):
+            problems.append("%s: evidence carries no ts / git heads" % name)
+        elif HEADS and d["git"] != HEADS:
+            diff = {k: (d["git"].get(k), v) for k, v in HEADS.items() if d["git"].get(k) != v}
+            problems.append("%s: evidence from OTHER commits than HEAD: %s" % (name, {k: "%s ≠ HEAD %s" % (str(a)[:12], b[:12]) for k, (a, b) in diff.items()}))
+        mode = d.get("mode")
+        cur = {}
+        for c in d.get("cases", []):
+            cur.setdefault(_norm(c.get("case")), []).append(c.get("result"))
+        new_base[mode] = {"cases": {k: sorted(set(v))[0] for k, v in cur.items()},
+                          "skip_build_ceiling": sum(1 for c in d.get("cases", []) if c.get("result") == "SKIP_BUILD")}
+        b = BASE.get(mode)
+        if b and not UPDATE_BASELINE:
+            gone = sorted(k for k in b["cases"] if k not in cur)
+            if gone:
+                problems.append("%s: %d baseline case(s) DISAPPEARED, e.g. %s" % (name, len(gone), gone[:3]))
+            demoted = sorted(k for k, kind in b["cases"].items() if kind == "PASS" and k in cur and "PASS" not in cur[k])
+            if demoted:
+                problems.append("%s: %d baseline PASS case(s) no longer PASS, e.g. %s" % (name, len(demoted), demoted[:3]))
+            sb = new_base[mode]["skip_build_ceiling"]
+            if sb > b.get("skip_build_ceiling", 0):
+                problems.append("%s: SKIP_BUILD %d exceeds its ceiling %d" % (name, sb, b.get("skip_build_ceiling", 0)))
+        elif STRICT and not b and not UPDATE_BASELINE:
+            problems.append("%s: no case baseline recorded for net %r (run build_matrix.py --strict --update-baseline deliberately)" % (name, mode))
     env = d.get("env", "unknown")
     pr = provenance.setdefault(env, {"git_sha": d.get("git_sha", ""), "ts": d.get("ts", ""), "modes": set()})
     pr["modes"].add(d.get("mode", "?"))
@@ -200,10 +244,20 @@ open(OUT_MD, "w").write("\n".join(L) + "\n")
 print("[build_matrix] wrote %s and %s from %d result file(s): envs=%s" %
       (os.path.relpath(OUT_MD, REPO), os.path.relpath(OUT_JSON, REPO), len(files), ", ".join(ENVS)))
 
-if STRICT:
+if STRICT and not UPDATE_BASELINE:
     if problems:
         print("[build_matrix] ✗ STRICT: %d evidence problem(s) — the matrix is NOT trustworthy:" % len(problems))
         for p_ in problems[:60]:
             print("    ✗ " + p_)
         sys.exit(1)
     print("[build_matrix] ✓ STRICT: every required net wrote fresh, non-empty, passing evidence for run %s" % RUN_ID)
+
+if UPDATE_BASELINE:
+    problems = [x for x in problems if "OTHER commits" not in x and "DIRTY" not in x]   # recording reads one consistent run
+    if problems:
+        print("[build_matrix] ✗ refusing to record a case baseline from evidence with problems"); sys.exit(1)
+    json.dump({"_meta": {"note": "slice-1i (DEBT-B118): per-net case baseline — names normalised (digits → #); kind = the result "
+                         "recorded; skip_build_ceiling = SKIP_BUILD count. Strict matrix: no baseline case may disappear, no PASS "
+                         "may be demoted, SKIP_BUILD may not exceed the ceiling. Update DELIBERATELY with --update-baseline."},
+               **{m: new_base[m] for m in sorted(new_base)}}, open(BASELINE_FILE, "w"), indent=1, sort_keys=True)
+    print("[build_matrix] case baseline written: %s (%d nets)" % (os.path.relpath(BASELINE_FILE, REPO), len(new_base)))
