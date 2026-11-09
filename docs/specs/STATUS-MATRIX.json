@@ -7,8 +7,8 @@
   ],
   "provenance": {
     "local-dev": {
-      "git_sha": "6a9e47fa60bc613b92d67ff280bf8542047dccf0",
-      "ts": "2026-11-09T09:43:33Z",
+      "git_sha": "1740bec3cf8c79b750c7ca973a8173a26ade06d6",
+      "ts": "2026-11-09T13:25:27Z",
       "modes": [
         "banned",
         "dbgrants",
