@@ -114,6 +114,12 @@ xfail(["NET-12"], "a citizen sees only its own rows — never a tenant's by a us
 # (docs/reviews/LAYER1-EXIT-CONDITIONS.md). Each makes its rule PARTIAL until the debt is closed.
 # slice-1j: F-C4-1 (DEBT-B139) and F-C4-2 (DEBT-B140) FIXED — restore validates against the declared stack, stages, switches
 # and rolls back; proven by verify/backup_restore_selftest.py and verify/restore_drill.py. Cases removed.
+# Layer 1 RE-CHECK (2026-11-09) — reproduced LIVE by the reviewer (docs/reviews/LAYER1-EXIT-RECHECK.md):
+rs = read("deploy/local-dev/restore.sh")
+xfail(["ARC-3"], "a restore that fails mid-switch rolls back WITHOUT destroying live data (re-check F-C4-3, DEBT-B154, High)",
+      'PREV_EXISTED="$PREV_EXISTED $v"' in rs and 'docker volume rm -f "${P}_$v"' in rs,
+      "restore.sh records the previously-existing volumes one at a time inside the copy-aside loop; a copy failure part-way makes "
+      "the rollback treat every not-yet-copied live volume as new and `docker volume rm` it (live: pg, vault, identity deleted)")
 ga = code("verify/db_grant_audit.py")
 xfail(["ARC-3"], "audit tables are append-only for every runtime role by effect, through views and rules too (conditions C1-N1, DEBT-B144)",
       "pg_rewrite" not in ga and "relkind" not in ga,
