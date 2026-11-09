@@ -6,7 +6,7 @@ token_period): renewing it before each period ends keeps it valid indefinitely, 
 service process (which read VAULT_TOKEN once) never needs a new one. Every renewal failure is LOUD (stderr → container
 logs) and recorded in /tmp/airawat-vault.status, which svc_health.py turns into an UNHEALTHY container.
 """
-import json, os, sys, time, urllib.error, urllib.request
+import json, os, signal, sys, time, urllib.error, urllib.request
 
 ADDR = os.environ.get("VAULT_ADDR", "").rstrip("/")
 TOK = os.environ.get("VAULT_TOKEN", "")
@@ -36,7 +36,7 @@ def log(msg):
 def main():
     if not (ADDR and TOK):
         return
-    period, failures = 0, 0
+    period, failures, dead_streak = 0, 0, 0
     while True:
         try:
             d = call("auth/token/lookup-self")["data"]
@@ -57,6 +57,17 @@ def main():
                 failures, ("HTTP %s" % code) if code else str(e)[:160],
                 "this service has LOST Vault access and is UNHEALTHY" if dead else "retrying; the service is UNHEALTHY until it succeeds"))
             status(False, error=("http %s" % code) if code else str(e)[:160], failures=failures, token_invalid=dead)
+            dead_streak = (dead_streak + 1) if dead else 0
+            # slice-1i (DEBT-B128): a token that is DEAD (expired past its period, revoked) cannot be renewed and the
+            # service read it once at start — recover by a CONTROLLED RESTART: terminate the service (our parent); with
+            # `init: true` the container exits and its restart policy brings it back with a fresh AppRole login. While
+            # Vault is unreachable (connection errors) we keep retrying; the restart happens once Vault answers 401/403.
+            if dead_streak >= 2:
+                log("✗✗ token is DEAD — restarting the service for a fresh AppRole login (controlled restart)")
+                try:
+                    os.kill(os.getppid(), signal.SIGTERM)
+                except Exception as k:
+                    log("✗✗ could not restart the service: %s" % k)
             time.sleep(5)
 
 

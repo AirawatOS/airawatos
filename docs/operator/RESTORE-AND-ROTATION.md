@@ -66,6 +66,22 @@ logins intact.)*
 > If Postgres is restored but Vault is **not** (e.g. a DB-only roll-back), re-sync the DB-role passwords from Vault
 > with the supported path under "Rotate (or re-sync) a DB-role password" below (skip the `kv put` line).
 
+## Vault outage and lost tokens — recovery (slice-1i, DEBT-B128)
+
+Every Vault-using service runs under a minimal init (`init: true`) with a baked token renewer. Recovery is automatic:
+- **Vault unreachable** (outage, network blip): the renewer logs `[vault-renew …] ✗ RENEWAL FAILED` every few seconds and
+  the container is UNHEALTHY; it keeps retrying.
+- **Token dead** (expired past its period during the outage, or revoked): the renewer logs `✗✗ token is DEAD — restarting
+  the service` and terminates the service; the container exits and `restart: unless-stopped` starts it again; the
+  entrypoint performs a fresh AppRole login (the secret-id comes from the service's env_file). If Vault is still down,
+  the login retries and the container restarts until Vault answers.
+- **Renewer died**: the healthcheck reports UNHEALTHY and performs the same controlled restart.
+- **A service that declares Vault but holds no token** is UNHEALTHY (it was reported healthy before slice 1i).
+Operator action is needed only if a service stays unhealthy: check `docker logs airawat-ld-<svc> | grep vault-renew`, that
+Vault is unsealed (`[vault] UNSEALED` in its log), and that the service's AppRole secret-id in `vault/approle/<svc>.env`
+is still valid (re-run the installer to issue new ones). Proven by `verify/vault_renewal_test.py`: revoked token, killed
+renewer, a network blip and a Vault outage each longer than one token period — every service recovers on its own.
+
 ## Credential rotation (per service)
 
 All rotation is per-service and does not touch other services. The scoped tokens are short-lived/renewable, so

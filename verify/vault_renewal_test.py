@@ -60,7 +60,7 @@ def set_period(period):
 
 LOOKUP = r'''
 import json, urllib.request
-t = [l.split(b"=",1)[1].decode() for l in open("/proc/1/environ","rb").read().split(b"\0") if l.startswith(b"VAULT_TOKEN=")]
+t = [l.split(b"=",1)[1].decode() for l in (lambda rd: next((d for d in (rd(p) for p in sorted(__import__("glob").glob("/proc/[0-9]*/environ"), key=lambda x: int(x.split("/")[2]))) if b"VAULT_TOKEN=" in d), b""))(lambda p: (lambda f: f.read())(open(p, "rb")) if __import__("os").access(p, 4) else b"").split(b"\0") if l.startswith(b"VAULT_TOKEN=")]
 try:
     r = urllib.request.Request("http://vault:8200/v1/auth/token/lookup-self", headers={"X-Vault-Token": t[0] if t else ""})
     d = json.loads(urllib.request.urlopen(r, timeout=6).read())["data"]; print("OK", d.get("ttl"), d.get("period"), d.get("accessor"))
@@ -76,6 +76,25 @@ def lookup(svc):
 
 def health(svc):
     return sh("docker", "inspect", "-f", "{{.State.Health.Status}}", "airawat-ld-" + svc).stdout.strip()
+
+
+def restarts(svc):
+    return sh("docker", "inspect", "-f", "{{.RestartCount}}", "airawat-ld-" + svc).stdout.strip()
+
+
+def renewer_alive(svc):
+    return sh("docker", "exec", "airawat-ld-" + svc, "sh", "-c", "pgrep -f vault_renew.py >/dev/null && echo yes").stdout.strip() == "yes"
+
+
+def recovered(svc, old_accessor, wait=240):
+    """True once the service holds a NEW valid token (another accessor) and is healthy again."""
+    deadline = time.time() + wait
+    while time.time() < deadline:
+        r = lookup(svc)
+        if len(r) >= 4 and r[0] == "OK" and r[3] != old_accessor and health(svc) == "healthy":
+            return True
+        time.sleep(5)
+    return False
 
 
 def restart_and_wait(svcs):
@@ -125,6 +144,34 @@ try:
     check("a revoked token is reported LOUDLY in %s's log (renewer: VAULT TOKEN INVALID)" % VICTIM, loud and bool(acc) and rv is not None and rv.returncode == 0,
           "accessor %s, revoke rc %s" % (bool(acc), rv and rv.returncode))
     check("a revoked token makes %s UNHEALTHY (docker health)" % VICTIM, unhealthy, "health=%s" % health(VICTIM))
+    # slice-1i (DEBT-B128): the lost token is RECOVERED — controlled restart → fresh AppRole login → healthy, valid token
+    check("after the revocation %s RECOVERS by itself (controlled restart, fresh login, healthy)" % VICTIM, recovered(VICTIM, acc),
+          "health=%s restarts=%s" % (health(VICTIM), restarts(VICTIM)))
+    # neighbour 1: the renewer is killed → not silent: unhealthy, then a controlled restart brings it back
+    acc2 = (lookup(VICTIM) + ["", "", "", ""])[3]
+    sh("docker", "exec", "airawat-ld-" + VICTIM, "sh", "-c", "pkill -f vault_renew.py")
+    check("a KILLED renewer is detected and %s recovers (restart, renewer running again)" % VICTIM,
+          recovered(VICTIM, acc2) and renewer_alive(VICTIM), "health=%s renewer=%s" % (health(VICTIM), renewer_alive(VICTIM)))
+    # neighbour 2: a network blip longer than one token period (the token expires while Vault is unreachable)
+    acc3 = (lookup(VICTIM) + ["", "", "", ""])[3]
+    net = "airawatos-localdev_aos-data-secrets" if sh("docker", "network", "inspect", "airawatos-localdev_aos-data-secrets").returncode == 0 else "aos-data-secrets"
+    sh("docker", "network", "disconnect", net, "airawat-ld-" + VICTIM)
+    time.sleep(75)
+    sh("docker", "network", "connect", net, "airawat-ld-" + VICTIM)
+    check("after a network blip longer than one period %s recovers (fresh token, healthy)" % VICTIM, recovered(VICTIM, acc3),
+          "health=%s" % health(VICTIM))
+    # the final review's case: Vault itself DOWN for longer than one token period — every service must recover
+    accs = {s_: (lookup(s_) + ["", "", "", ""])[3] for s_ in ROLES}
+    sh(*C, "stop", "vault"); time.sleep(75); sh(*C, "start", "vault")
+    deadline, back = time.time() + 240, set()
+    while time.time() < deadline and len(back) < len(ROLES):
+        for s_ in ROLES:
+            r_ = lookup(s_)
+            if s_ not in back and len(r_) >= 4 and r_[0] == "OK" and r_[3] != accs[s_] and health(s_) == "healthy":
+                back.add(s_)
+        time.sleep(10)
+    check("after Vault was DOWN longer than one token period, every service recovers (%d/%d fresh + healthy)" % (len(back), len(ROLES)),
+          len(back) == len(ROLES), "not recovered: %s" % sorted(set(ROLES) - back))
 finally:
     set_period(os.environ.get("AOS_VAULT_TOKEN_PERIOD", "1h"))
     ok = restart_and_wait(ROLES)

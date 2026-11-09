@@ -12,12 +12,25 @@ import json, os, sys, urllib.request
 
 def pid1_env(name):
     try:
-        for kv in open("/proc/1/environ", "rb").read().split(b"\0"):
+        for kv in (lambda rd: next((d for d in (rd(p) for p in sorted(__import__("glob").glob("/proc/[0-9]*/environ"), key=lambda x: int(x.split("/")[2]))) if b"VAULT_TOKEN=" in d), b""))(lambda p: (lambda f: f.read())(open(p, "rb")) if __import__("os").access(p, 4) else b"").split(b"\0"):
             if kv.startswith(name.encode() + b"="):
                 return kv.split(b"=", 1)[1].decode()
     except Exception:
         pass
     return os.environ.get(name, "")
+
+
+def _restart():
+    """Controlled restart: terminate the service process (the lowest pid holding VAULT_TOKEN); with `init: true` the init
+    then exits and the container's restart policy starts it again — the entrypoint logs in to Vault afresh."""
+    import glob, signal
+    for p in sorted(glob.glob("/proc/[0-9]*/environ"), key=lambda x: int(x.split("/")[2])):
+        pid = int(p.split("/")[2])
+        try:
+            if pid != 1 and b"VAULT_TOKEN=" in open(p, "rb").read():
+                os.kill(pid, signal.SIGTERM); return
+        except Exception:
+            continue
 
 
 def main():
@@ -27,6 +40,19 @@ def main():
         except Exception as e:
             print("unhealthy: %s -> %s" % (sys.argv[1], str(e)[:80])); return 1
     tok, addr = pid1_env("VAULT_TOKEN"), (pid1_env("VAULT_ADDR") or "").rstrip("/")
+    # slice-1i (DEBT-B125): a service that DECLARES Vault (it has an AppRole role id) but holds no token is UNHEALTHY —
+    # it was "healthy" before, because the token check only ran when a token existed.
+    declared = bool(os.environ.get("VAULT_ROLE_ID") or pid1_env("VAULT_ROLE_ID"))
+    if declared and not tok:
+        print("unhealthy: this service declares Vault (AppRole) but holds NO Vault token"); return 1
+    # slice-1i (DEBT-B128, FINAL F4-7): the renewer must be alive — a dead renewer means the token silently lapses later.
+    # Controlled restart: the service is terminated so the restart policy brings it back with a fresh AppRole login.
+    if declared and tok:
+        import glob
+        alive = any(b"vault_renew.py" in (open(c, "rb").read() if os.access(c, 4) else b"") for c in glob.glob("/proc/[0-9]*/cmdline"))
+        if not alive:
+            print("unhealthy: the Vault token renewer is not running — restarting the service for a fresh login")
+            _restart(); return 1
     if tok and addr:
         try:
             req = urllib.request.Request(addr + "/v1/auth/token/lookup-self", headers={"X-Vault-Token": tok})

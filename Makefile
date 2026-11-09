@@ -85,6 +85,7 @@ matrix-fast:     ## verify-fast's matrix: strict, except the fresh install's fun
 	python3 conformance/build_matrix.py --strict --optional functional
 
 vault-renewal:   ## B96 — every service keeps Vault access across several short token lifetimes; a lost token is loud + unhealthy
+	python3 verify/svc_health_test.py
 	python3 verify/vault_renewal_test.py
 
 ops:             ## B102 — log rotation everywhere, a rotated Vault audit device, the backup set covers every volume

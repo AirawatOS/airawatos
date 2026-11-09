@@ -35,7 +35,7 @@ VR = subprocess.run(["docker", "exec", "airawat-ld-vault", "sh", "-lc",
                     capture_output=True, text=True).stdout.strip()
 idtok = subprocess.run(["docker", "exec", "airawat-ld-identity", "python3", "-c",
                         "import os, sys\n"   # identity's PID1 Vault token (AppRole), so the token is signed with identity's REAL transit key
-                        "for l in open('/proc/1/environ','rb').read().split(b'\\0'):\n"
+                        "for l in (lambda rd: next((d for d in (rd(p) for p in sorted(__import__('glob').glob('/proc/[0-9]*/environ'), key=lambda x: int(x.split('/')[2]))) if b'VAULT_TOKEN=' in d), b''))(lambda p: (lambda f: f.read())(open(p, 'rb')) if __import__('os').access(p, 4) else b'').split(b'\\0'):\n"
                         "    k, _, v = l.partition(b'=')\n"
                         "    if k in (b'VAULT_TOKEN', b'VAULT_ADDR'): os.environ[k.decode()] = v.decode()\n"
                         "sys.argv=['identity.py']; sys.path.insert(0,'/app/reference'); import identity; print('TOK', identity._self_network_token())"],
