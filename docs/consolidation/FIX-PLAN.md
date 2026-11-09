@@ -89,6 +89,12 @@ neighbours, and no High-severity Layer 1 finding exists.
 > stack), the installer write guard baked into the images and fail-closed, Vault scope by exact configuration match (services
 > no longer carry Vault's built-in `default` policy), and no backup can carry a Vault root token (DEBT-B152). Next: the
 > conditions-only re-check of conditions 4, 6 and 7.
+>
+> **Re-check 2026-11-09: FAIL** — see [LAYER1-EXIT-RECHECK](../reviews/LAYER1-EXIT-RECHECK.md). Conditions 6 and 7 hold;
+> condition 4 does not: **DEBT-B154 (High)**, the restore rollback after a failed copy-aside destroys live volumes. The three
+> generate-root approval conditions are NOT met (**DEBT-B160, fix before merge**). Registered: B153 (production installer keeps
+> the root token at rest, before first production), B155–B159, B161–B162. Next: remediation of B154 (+B155) and B160 only, then
+> a re-check of condition 4 and the generate-root conditions.
 
 ## Layer 1 — Installation + infrastructure
 

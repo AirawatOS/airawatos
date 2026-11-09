@@ -2,7 +2,7 @@
 
 **Generated** by `conformance/build_matrix.py` from `conformance/results/*.json` (written by `conformance/run.py --matrix`). **Do not hand-edit** — regenerate after a conformance run. This is the conformance-derived single source of truth for per-rule status; the specs reference it (ADR: STATUS-MATRIX-DESIGN.md).
 
-- **local-dev** — measured: modes banned+dbgrants+external+flowmap+functional+gtwstatic+internal+knownviolations+listen+netdoors+ops+restoredrill+routes+scans+vaultrenewal+vaultscope, git `1740bec3cf8c79b750c7ca973a8173a26ade06d6`, 2026-11-09T13:25:27Z
+- **local-dev** — measured: modes banned+dbgrants+external+flowmap+functional+gtwstatic+internal+knownviolations+listen+netdoors+ops+restoredrill+routes+scans+vaultrenewal+vaultscope, git `e51e342e0922049205645876820f64db4363fac9`, 2026-11-09T16:02:22Z
 - **production** — *PROJECTED*: no production conformance run yet; not asserted (stand up per docs/operator/FRESH-INSTALL-TEST.md §Step 3, then run the suite with AOS_ENV=production).
 
 **Derived status:** HELD (all cited cases PASS) · PARTIAL (PASS + known-violation XFAIL) · VIOLATED (only XFAIL — tracked as debt) · PLANNED(needs-build) (any SKIP_BUILD case: part of the rule is unbuilt — never HELD) · UNVERIFIED(creds) (any SKIP_CREDS case: not verified — never HELD; fix the fixture) · REVIEW (XPASS — spec lags code) · REGRESSION (a FAIL — contradicts spec) · NO TEST (no case cites the rule yet).
@@ -95,7 +95,7 @@
 | `ACC-1` | NO TEST | projected | — |
 | `ACC-2` | VIOLATED | projected | account id is permanent + distinct from the login handle [debt DEBT-B30]; id/handle/binding distinct; handle reserved |
 | `ACC-3` | VIOLATED | projected | assurance reflects the real auth method (AL-vocabulary, >=AL1 after password) [debt DEBT-B13]; identity-binding uniqueness via a keyed blind index (HMAC), not a |
-| `ACC-4` | PLANNED(needs-build) | projected | admin creates fnuser796677 in its own tenant (/bridge/user-create → identity, app-host svc:identity); admin puts fnuser796677 on hold (/bridge/user-disable); fn |
+| `ACC-4` | PLANNED(needs-build) | projected | admin creates fnuser504fa7 in its own tenant (/bridge/user-create → identity, app-host svc:identity); admin puts fnuser504fa7 on hold (/bridge/user-disable); fn |
 | `ACC-5` | PLANNED(needs-build) | projected | provider connections (consent + confirmation; revocable) |
 | `ACC-6` | NO TEST | projected | — |
 | `ACC-7` | PLANNED(needs-build) | projected | consent by holder; withdraw->erase |
@@ -234,7 +234,7 @@
 |---|---|---|---|
 | `ARC-1` | HELD | projected | every container of the project is declared; every container was probed; every declared container is running; every non-egress network is internal (default-deny  |
 | `ARC-2` | NO TEST | projected | — |
-| `ARC-3` | PARTIAL | projected | after the restore every service reads its own Vault paths (AppRole logins intact); audit table kernel_admin_audit is append-only for every runtime role, by effe |
+| `ARC-3` | PARTIAL | projected | a restore that fails mid-switch rolls back WITHOUT destroying live data (re-check F-C4-3, DEBT-B154, High); after the restore every service reads its own Vault  |
 | `ARC-4` | PLANNED(needs-build) | projected | per-service micro-segmentation within the service mesh |
 | `ARC-5` | HELD | projected | no Airawat service listens on a non-loopback address (compose + live); only the edge (nginx) sits on the public network |
 | `ARC-6` | NO TEST | projected | — |
