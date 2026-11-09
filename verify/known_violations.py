@@ -110,6 +110,29 @@ xfail(["NET-12"], "a citizen sees only its own rows — never a tenant's by a us
 # proven LIVE by conformance/flow_map_test.py (actual connection attempts). Their static evidence cases were removed.
 # slice-1g: review N5 (unquoted secret name → ../ traversal, B90) is FIXED — secret_names.py validates tenant, component
 # and name and follows no redirects; proven by verify/secret_names_test.py (make secret-names). Static case removed.
+# Layer 1 CONDITIONS-ONLY re-review (2026-11-09) — violations reproduced LIVE by the reviewers, evidence from the source
+# (docs/reviews/LAYER1-EXIT-CONDITIONS.md). Each makes its rule PARTIAL until the debt is closed.
+rs = read("deploy/local-dev/restore.sh")
+xfail(["ARC-3"], "restore requires EVERY compose-declared volume and EVERY AppRole file before it destroys anything (conditions F-C4-1, DEBT-B139)",
+      "config --volumes" not in rs,
+      "restore.sh checks the manifest only against the files present: a self-consistent 6-of-7-volume backup restored rc 0 "
+      "'healthy' with the filestore emptied; a backup without approle files passed and failed after down -v")
+xfail(["ARC-3"], "restore proves every archive EXTRACTS before it destroys the stack (conditions F-C4-2, DEBT-B140)",
+      "tar tzf" in rs and "stag" not in rs,
+      "restore.sh pre-checks with tar tzf (a listing): an archive with an absolute symlink passed and failed to extract after down -v")
+ga = code("verify/db_grant_audit.py")
+xfail(["ARC-3"], "audit tables are append-only for every runtime role by effect, through views and rules too (conditions C1-N1, DEBT-B144)",
+      "pg_rewrite" not in ga and "relkind" not in ga,
+      "db_grant_audit enumerates pg_tables only: a migrator-owned view or rule let kernel_app delete/rewrite audit rows, audit green")
+vs = code("conformance/vault_scope_test.py")
+xfail(["ARC-7"], "the Vault scope check reads every mount by its engine: KV-v1, non-KV engines, LIST, identity/, sudo sys/ (conditions C7-N3, DEBT-B138)",
+      '"%s/data/%s%s"' in vs and "version" not in vs,
+      "vault_scope_test builds KV-v2 /data/ paths only and tries a fixed sys/identity list: decision read a KV-v1 mount and a live "
+      "TOTP code, listed every secret name, read sys/policies/acl/* — check green")
+gf = code("platform-spec/reference/gateflags.py") + read("deploy/runtime/airawat-entrypoint.sh")
+xfail(["FND-16"], "production starts only allow-listed configuration, environment-borne server options included (conditions C2-N1, DEBT-B142)",
+      "UVICORN_" not in gf,
+      "the guard checks argv only: kernel:1i with AIRAWAT_ENV=production UVICORN_RELOAD=true started the reloader")
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 json.dump({"env": "local-dev", "mode": "knownviolations", "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
            "git_sha": "", "cases": cases}, open(OUT, "w"), indent=1)

@@ -80,6 +80,11 @@ neighbouring issues and so never converged. Every layer exit now follows one fix
 re-review that follows is the last Layer 1 review. PASS if the eight conditions hold, with the reviewers' cases plus
 neighbours, and no High-severity Layer 1 finding exists.
 
+> **Conditions-only re-review 2026-11-09: FAIL** — see [LAYER1-EXIT-CONDITIONS](../reviews/LAYER1-EXIT-CONDITIONS.md).
+> Conditions 1, 2, 3, 5, 8 hold; **4, 6, 7 do not** (DEBT-B139/B140 restore, B141 installer guard, B138 Vault scope —
+> all Medium, due before Layer 2 starts). No High. Routed, non-blocking: B142–B144 (Med, before Layer 2 exit), B145–B151
+> (Low/Info, per-row deadline). Next: a remediation slice for B138–B141 only, then a re-review of conditions 4, 6, 7 only.
+
 ## Layer 1 — Installation + infrastructure
 
 > **Exit review 2026-11-08: FAIL** — see [LAYER1-EXIT-REVIEW](../reviews/LAYER1-EXIT-REVIEW.md). Ten blocking findings
