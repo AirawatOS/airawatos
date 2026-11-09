@@ -2,7 +2,7 @@
 
 **Generated** by `conformance/build_matrix.py` from `conformance/results/*.json` (written by `conformance/run.py --matrix`). **Do not hand-edit** — regenerate after a conformance run. This is the conformance-derived single source of truth for per-rule status; the specs reference it (ADR: STATUS-MATRIX-DESIGN.md).
 
-- **local-dev** — measured: modes banned+dbgrants+external+flowmap+functional+gtwstatic+internal+knownviolations+listen+netdoors+ops+restoredrill+routes+scans+vaultrenewal+vaultscope, git `ba2d7643f75bd956c790cb779bfb279070cdf9b0`, 2026-11-08T18:57:31Z
+- **local-dev** — measured: modes banned+dbgrants+external+flowmap+functional+gtwstatic+internal+knownviolations+listen+netdoors+ops+restoredrill+routes+scans+vaultrenewal+vaultscope, git `9793cd32328744c20b9344117c74977f83926ee8`, 2026-11-09T03:07:34Z
 - **production** — *PROJECTED*: no production conformance run yet; not asserted (stand up per docs/operator/FRESH-INSTALL-TEST.md §Step 3, then run the suite with AOS_ENV=production).
 
 **Derived status:** HELD (all cited cases PASS) · PARTIAL (PASS + known-violation XFAIL) · VIOLATED (only XFAIL — tracked as debt) · PLANNED(needs-build) (any SKIP_BUILD case: part of the rule is unbuilt — never HELD) · UNVERIFIED(creds) (any SKIP_CREDS case: not verified — never HELD; fix the fixture) · REVIEW (XPASS — spec lags code) · REGRESSION (a FAIL — contradicts spec) · NO TEST (no case cites the rule yet).
@@ -26,7 +26,7 @@
 | `FND-13` | NO TEST | projected | — |
 | `FND-14` | PLANNED(needs-build) | projected | role assignment names its grantor (granted_by); role assignments carry grantor + governance provenance |
 | `FND-15` | PARTIAL | projected | external issuers are bound to a recorded tenant AND network; authority never widens by issuer; forged role+foreign-iss token rejected (internal, abuse); human ( |
-| `FND-16` | PLANNED(needs-build) | projected | a revoked token is reported LOUDLY in decision's log (renewer: VAULT TOKEN INVALID); a revoked token makes decision UNHEALTHY (docker health); after 5 lifetimes |
+| `FND-16` | PARTIAL | projected | a revoked token is reported LOUDLY in decision's log (renewer: VAULT TOKEN INVALID); a revoked token makes decision UNHEALTHY (docker health); after 5 lifetimes |
 | `FND-17` | PLANNED(needs-build) | projected | agent delegation; no self-widen |
 | `FND-18` | NO TEST | projected | — |
 | `FND-19` | HELD | projected | nothing was stored under the reserved kind; tenant admin installs the reserved-kind probe (declares governance.role_assignment); the kernel REFUSES the granted  |
@@ -86,7 +86,7 @@
 | `NET-9` | PLANNED(needs-build) | projected | capability-grant store POST /v1/grants refuses anonymous (grant.steward, fail closed); wildcard/unversioned capability grant rejected [debt DEBT-B12] |
 | `NET-10` | PLANNED(needs-build) | projected | publishing a Service requires a recorded service.provide grant |
 | `NET-11` | PLANNED(needs-build) | projected | exchange runs through the one decision function and leaves a decision record |
-| `NET-12` | PLANNED(needs-build) | projected | /bridge/schema-history refuses anonymous (change-request provenance); /bridge/schemas refuses anonymous (catalog + pending change-requests); /bridge/service-off |
+| `NET-12` | PARTIAL | projected | /bridge/schema-history refuses anonymous (change-request provenance); /bridge/schemas refuses anonymous (catalog + pending change-requests); /bridge/service-off |
 
 ## ACCOUNT
 
@@ -95,7 +95,7 @@
 | `ACC-1` | NO TEST | projected | — |
 | `ACC-2` | VIOLATED | projected | account id is permanent + distinct from the login handle [debt DEBT-B30]; id/handle/binding distinct; handle reserved |
 | `ACC-3` | VIOLATED | projected | assurance reflects the real auth method (AL-vocabulary, >=AL1 after password) [debt DEBT-B13]; identity-binding uniqueness via a keyed blind index (HMAC), not a |
-| `ACC-4` | PLANNED(needs-build) | projected | admin creates fnuser7d9c13 in its own tenant (/bridge/user-create → identity, app-host svc:identity); admin puts fnuser7d9c13 on hold (/bridge/user-disable); fn |
+| `ACC-4` | PLANNED(needs-build) | projected | admin creates fnuser5581d4 in its own tenant (/bridge/user-create → identity, app-host svc:identity); admin puts fnuser5581d4 on hold (/bridge/user-disable); fn |
 | `ACC-5` | PLANNED(needs-build) | projected | provider connections (consent + confirmation; revocable) |
 | `ACC-6` | NO TEST | projected | — |
 | `ACC-7` | PLANNED(needs-build) | projected | consent by holder; withdraw->erase |
@@ -263,6 +263,6 @@
 
 | environment | HELD | PARTIAL | VIOLATED | PLANNED(needs-build) | UNVERIFIED(creds) | REVIEW | REGRESSION | NO TEST | projected |
 |---|---|---|---|---|---|---|---|---|---|
-| local-dev | 5 | 15 | 5 | 87 | 0 | 0 | 0 | 70 | 0 |
+| local-dev | 5 | 17 | 5 | 85 | 0 | 0 | 0 | 70 | 0 |
 | production | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 182 |
 
