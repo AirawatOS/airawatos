@@ -7,8 +7,8 @@
   ],
   "provenance": {
     "local-dev": {
-      "git_sha": "9793cd32328744c20b9344117c74977f83926ee8",
-      "ts": "2026-11-09T03:07:34Z",
+      "git_sha": "8aa4712d108e107164942f23d63c20ad88822f2b",
+      "ts": "2026-11-09T06:49:58Z",
       "modes": [
         "banned",
         "dbgrants",
@@ -77,7 +77,7 @@
         "local-dev": "PARTIAL"
       },
       "FND-16": {
-        "local-dev": "PARTIAL"
+        "local-dev": "PLANNED(needs-build)"
       },
       "FND-17": {
         "local-dev": "PLANNED(needs-build)"
