@@ -40,6 +40,8 @@ MUT = [
     ("internal drops its SKIP_BUILD cases (final-review case)", "internal", lambda d: d.update(cases=[c for c in d["cases"] if c["result"] != "SKIP_BUILD"])),
     ("internal PASS cases become SKIP_BUILD", "internal", lambda d: [c.update(result="SKIP_BUILD") for c in d["cases"] if c["result"] == "PASS"]),
     ("internal cut to one case", "internal", lambda d: d.update(cases=d["cases"][:1])),
+    ("internal drops HALF of one case group (same normalised name)", "internal", lambda d: d.update(cases=[c for c in d["cases"]
+        if not (c["result"] == "PASS" and c["case"].endswith(("0", "1", "2", "3")))])),
     ("git heads from another commit", "flowmap", lambda d: d["git"].update(kernel="0" * 40)),
     ("git heads carry +dirty", "routes", lambda d: d["git"].update(network=d["git"]["network"] + "+dirty")),
     ("no git heads recorded", "listen", lambda d: d.pop("git", None)),

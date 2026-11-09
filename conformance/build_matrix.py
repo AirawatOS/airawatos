@@ -125,16 +125,18 @@ for f in files:
         cur = {}
         for c in d.get("cases", []):
             cur.setdefault(_norm(c.get("case")), []).append(c.get("result"))
-        new_base[mode] = {"cases": {k: sorted(set(v))[0] for k, v in cur.items()},
+        # per normalised name: how many cases, and how many of them PASS
+        new_base[mode] = {"cases": {k: {"count": len(v), "pass": v.count("PASS")} for k, v in cur.items()},
                           "skip_build_ceiling": sum(1 for c in d.get("cases", []) if c.get("result") == "SKIP_BUILD")}
         b = BASE.get(mode)
         if b and not UPDATE_BASELINE:
-            gone = sorted(k for k in b["cases"] if k not in cur)
+            gone = sorted("%s (%d→%d)" % (k, v["count"], len(cur.get(k, []))) for k, v in b["cases"].items() if len(cur.get(k, [])) < v["count"])
             if gone:
-                problems.append("%s: %d baseline case(s) DISAPPEARED, e.g. %s" % (name, len(gone), gone[:3]))
-            demoted = sorted(k for k, kind in b["cases"].items() if kind == "PASS" and k in cur and "PASS" not in cur[k])
+                problems.append("%s: %d baseline case group(s) LOST cases, e.g. %s" % (name, len(gone), gone[:3]))
+            demoted = sorted("%s (PASS %d→%d)" % (k, v["pass"], cur.get(k, []).count("PASS")) for k, v in b["cases"].items()
+                             if cur.get(k, []).count("PASS") < v["pass"])
             if demoted:
-                problems.append("%s: %d baseline PASS case(s) no longer PASS, e.g. %s" % (name, len(demoted), demoted[:3]))
+                problems.append("%s: %d baseline case group(s) LOST PASSes, e.g. %s" % (name, len(demoted), demoted[:3]))
             sb = new_base[mode]["skip_build_ceiling"]
             if sb > b.get("skip_build_ceiling", 0):
                 problems.append("%s: SKIP_BUILD %d exceeds its ceiling %d" % (name, sb, b.get("skip_build_ceiling", 0)))
