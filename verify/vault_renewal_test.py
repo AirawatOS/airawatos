@@ -52,8 +52,9 @@ def vroot(cmd):
 
 def set_period(period):
     for r in ROLES:
-        rc = vroot("vault write auth/approle/role/%s token_policies=%s token_period=%s token_ttl=0 token_max_ttl=0 "
-                   "token_num_uses=0 secret_id_num_uses=0 secret_id_ttl=0" % (r, POL[r], period))
+        # slice-1j: change ONLY the period (an AppRole role write updates just the fields given) — the token policies are
+        # the installer's declared set (svc-* + svc-base, no default); rewriting them here would drop svc-base.
+        rc = vroot("vault write auth/approle/role/%s token_period=%s token_ttl=0 token_max_ttl=0" % (r, period))
         if rc.returncode:
             raise SystemExit("✗ could not set the token period of %s: %s" % (r, rc.stderr[:200]))
 
