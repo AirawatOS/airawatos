@@ -1,0 +1,2041 @@
+{
+ "_meta": {
+  "note": "slice-1i (DEBT-B118): per-net case baseline \u2014 names normalised (digits \u2192 #); kind = the result recorded; skip_build_ceiling = SKIP_BUILD count. Strict matrix: no baseline case may disappear, no PASS may be demoted, SKIP_BUILD may not exceed the ceiling. Update DELIBERATELY with --update-baseline."
+ },
+ "banned": {
+  "cases": {
+   "banned pattern FAIL_OPEN_GATE: no occurrence": {
+    "count": 1,
+    "pass": 1
+   },
+   "banned pattern LITERAL_SECRET_OR_GATE: no occurrence": {
+    "count": 1,
+    "pass": 1
+   },
+   "banned pattern PROD_SHADOW_OR_INPROCESS: no occurrence": {
+    "count": 1,
+    "pass": 1
+   },
+   "banned pattern SUPERUSER_DB: no occurrence": {
+    "count": 1,
+    "pass": 1
+   },
+   "banned pattern TOKEN_ROLES: # known occurrence(s), none new": {
+    "count": 1,
+    "pass": 0
+   },
+   "banned pattern UNDECLARED_ROUTE: no occurrence": {
+    "count": 1,
+    "pass": 1
+   },
+   "banned pattern WEBHOOK_SECRET_LITERAL: no occurrence": {
+    "count": 1,
+    "pass": 1
+   }
+  },
+  "skip_build_ceiling": 0
+ },
+ "dbgrants": {
+  "cases": {
+   "audit table kernel_admin_audit is append-only for every runtime role, by effect": {
+    "count": 1,
+    "pass": 1
+   },
+   "audit table kernel_authz_decision is append-only for every runtime role, by effect": {
+    "count": 1,
+    "pass": 1
+   },
+   "every public-schema table is owned by migrator (sole DDL author)": {
+    "count": 1,
+    "pass": 1
+   },
+   "identity_lockout's EFFECTIVE sequence privileges equal its allow-list (USAGE only \u2014 no setval)": {
+    "count": 1,
+    "pass": 1
+   },
+   "identity_lockout's EFFECTIVE table privileges equal its allow-list (incl. inherited, column-level and PUBLIC)": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel_app's EFFECTIVE sequence privileges equal its allow-list (USAGE only \u2014 no setval)": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel_app's EFFECTIVE table privileges equal its allow-list (incl. inherited, column-level and PUBLIC)": {
+    "count": 1,
+    "pass": 1
+   },
+   "network_app's EFFECTIVE sequence privileges equal its allow-list (USAGE only \u2014 no setval)": {
+    "count": 1,
+    "pass": 1
+   },
+   "network_app's EFFECTIVE table privileges equal its allow-list (incl. inherited, column-level and PUBLIC)": {
+    "count": 1,
+    "pass": 1
+   },
+   "no SECURITY DEFINER function exists outside the system schemas": {
+    "count": 1,
+    "pass": 1
+   },
+   "no running service is connected as the superuser": {
+    "count": 1,
+    "pass": 1
+   },
+   "no runtime role (or the owner) is a member of another role \u2014 nothing is inherited": {
+    "count": 1,
+    "pass": 1
+   },
+   "no service role is superuser / createrole / createdb / bypassrls / replication": {
+    "count": 1,
+    "pass": 1
+   },
+   "only migrator may CREATE in schema public (effective)": {
+    "count": 1,
+    "pass": 1
+   },
+   "the login roles are exactly the declared set": {
+    "count": 1,
+    "pass": 1
+   }
+  },
+  "skip_build_ceiling": 0
+ },
+ "external": {
+  "cases": {
+   "App Host page carries a self-only content security policy (no third-party script origin)": {
+    "count": 1,
+    "pass": 1
+   },
+   "Kernel\u2192Vault uses its own service identity scoped to transit encrypt/decrypt/hmac on rec-*/idx-* (never root); fails closed if Vault down": {
+    "count": 1,
+    "pass": 0
+   },
+   "REG-# idempotency over a protected field compares a keyed HMAC of plaintext \u2014 never a plain hash, never ciphertext": {
+    "count": 1,
+    "pass": 0
+   },
+   "admin is a plain network.admin (network.admin role, not platform authority) (pos)": {
+    "count": 1,
+    "pass": 1
+   },
+   "agent delegation; no self-widen": {
+    "count": 1,
+    "pass": 0
+   },
+   "anonymous governance role-write denied (abuse)": {
+    "count": 1,
+    "pass": 1
+   },
+   "archived version resolves identically": {
+    "count": 1,
+    "pass": 0
+   },
+   "assisted access via FND-#": {
+    "count": 1,
+    "pass": 0
+   },
+   "authenticated session opens (pos)": {
+    "count": 1,
+    "pass": 1
+   },
+   "automated decision labelled + human authority [debt DEBT-B#]": {
+    "count": 1,
+    "pass": 0
+   },
+   "channel gateway /bridge/message-intake refuses anon + the retired baked literal (abuse)": {
+    "count": 1,
+    "pass": 1
+   },
+   "channel gateway /bridge/sms-intake refuses anon + the retired baked literal (abuse)": {
+    "count": 1,
+    "pass": 1
+   },
+   "closure withdraws consents + erases": {
+    "count": 1,
+    "pass": 0
+   },
+   "components list does not leak run_token (abuse) [debt DEBT-B#]": {
+    "count": 1,
+    "pass": 0
+   },
+   "consent by holder; withdraw->erase": {
+    "count": 1,
+    "pass": 0
+   },
+   "contest flow; reviewer != decider": {
+    "count": 1,
+    "pass": 0
+   },
+   "decider needs recorded authority [debt DEBT-B#]": {
+    "count": 1,
+    "pass": 0
+   },
+   "denial recorded with reason [debt DEBT-A#]": {
+    "count": 1,
+    "pass": 0
+   },
+   "deterministic resolution over records (pos)": {
+    "count": 1,
+    "pass": 0
+   },
+   "durable authority survives restart": {
+    "count": 1,
+    "pass": 0
+   },
+   "edge does not expose the Kernel door: /kernel/v#/registry/exists (abuse)": {
+    "count": 1,
+    "pass": 1
+   },
+   "edge does not expose the Kernel door: /kernel/v#/registry/objects (abuse)": {
+    "count": 1,
+    "pass": 1
+   },
+   "edge does not expose the Kernel door: /kernel/v#/registry/resolve (abuse)": {
+    "count": 1,
+    "pass": 1
+   },
+   "erasure of a personal field deletes the value (REG-#) + records an audited erasure; derived per-person key is NOT erasure": {
+    "count": 1,
+    "pass": 0
+   },
+   "every decryption of personal data produces a full decision record (actor/subject/purpose/basis)": {
+    "count": 1,
+    "pass": 0
+   },
+   "every key use is audited in the Kernel chain AND Vault audit device, without plaintext/ciphertext": {
+    "count": 1,
+    "pass": 0
+   },
+   "grant platform.authority without a different-holder CR is refused (abuse)": {
+    "count": 1,
+    "pass": 1
+   },
+   "handle/username is not a credential (abuse)": {
+    "count": 1,
+    "pass": 1
+   },
+   "id/handle/binding distinct; handle reserved": {
+    "count": 1,
+    "pass": 0
+   },
+   "identity-binding uniqueness via a keyed blind index (HMAC), not a plaintext column": {
+    "count": 1,
+    "pass": 0
+   },
+   "inbound channel binds the tenant from the provider registration, not the body": {
+    "count": 1,
+    "pass": 0
+   },
+   "issuer trust admin-only + scoped": {
+    "count": 1,
+    "pass": 0
+   },
+   "join never creates a login [debt DEBT-B#]": {
+    "count": 1,
+    "pass": 0
+   },
+   "join request-code never returns the verification code (abuse)": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel authorizes with Network down": {
+    "count": 1,
+    "pass": 0
+   },
+   "missing config stops startup": {
+    "count": 1,
+    "pass": 0
+   },
+   "opadmin (operator tenant) sees all networks w/ platform_authority=true (pos)": {
+    "count": 1,
+    "pass": 1
+   },
+   "personal data by reference; erasure": {
+    "count": 1,
+    "pass": 0
+   },
+   "personal data in decision by reference": {
+    "count": 1,
+    "pass": 0
+   },
+   "personal field (x-sensitivity:personal) is NOT stored in the versioned record; value lives in the REG-# erasable store": {
+    "count": 1,
+    "pass": 0
+   },
+   "personal-data read always full record": {
+    "count": 1,
+    "pass": 0
+   },
+   "platnone (same tenant, no role) is NOT platform authority (abuse)": {
+    "count": 1,
+    "pass": 1
+   },
+   "presentation bound to recipient/purpose": {
+    "count": 1,
+    "pass": 0
+   },
+   "protected authz emits a decision record": {
+    "count": 1,
+    "pass": 0
+   },
+   "public = schema flag via CR": {
+    "count": 1,
+    "pass": 0
+   },
+   "public versioned protocol, not /bridge/* [debt DEBT-A#]": {
+    "count": 1,
+    "pass": 0
+   },
+   "raw id never shown; one-identity-one-account": {
+    "count": 1,
+    "pass": 0
+   },
+   "reason codes; subject reads own decisions": {
+    "count": 1,
+    "pass": 0
+   },
+   "replayable; model output as input": {
+    "count": 1,
+    "pass": 0
+   },
+   "revoking the last platform.authority holder (admin@operator) is refused (abuse)": {
+    "count": 1,
+    "pass": 1
+   },
+   "role assignment names its grantor (granted_by)": {
+    "count": 1,
+    "pass": 0
+   },
+   "scope bound to registered client, not query (abuse) [debt DEBT-B#]": {
+    "count": 1,
+    "pass": 0
+   },
+   "selective disclosure": {
+    "count": 1,
+    "pass": 0
+   },
+   "sensitive field stored inline as per-tenant (rec-<tenant>) transit ciphertext, never plaintext": {
+    "count": 1,
+    "pass": 0
+   },
+   "slug/tenant not accepted as net authority [debt DEBT-B#/DEBT-B#]": {
+    "count": 1,
+    "pass": 0
+   },
+   "supersede creates new version; prior addressable": {
+    "count": 1,
+    "pass": 0
+   },
+   "suspended net refuses exchange, allows reads": {
+    "count": 1,
+    "pass": 0
+   },
+   "trust-bearing write audited": {
+    "count": 1,
+    "pass": 0
+   },
+   "unauthorised read of a protected field returns a redacted placeholder \u2014 never ciphertext, never plaintext": {
+    "count": 1,
+    "pass": 0
+   },
+   "unregistered client rejected (abuse) [debt DEBT-A#]": {
+    "count": 1,
+    "pass": 1
+   },
+   "valid non-admin session denied governance write (abuse)": {
+    "count": 1,
+    "pass": 1
+   },
+   "wildcard/unversioned capability grant rejected [debt DEBT-B#]": {
+    "count": 1,
+    "pass": 0
+   },
+   "write then re-read by id \u2014 id stable": {
+    "count": 1,
+    "pass": 0
+   },
+   "written record carries provenance [debt DEBT-A# shadow]": {
+    "count": 1,
+    "pass": 0
+   }
+  },
+  "skip_build_ceiling": 46
+ },
+ "flowmap": {
+  "cases": {
+   "Vault is reachable only from its declared clients": {
+    "count": 1,
+    "pass": 1
+   },
+   "every container of the project is declared": {
+    "count": 1,
+    "pass": 1
+   },
+   "every container was probed": {
+    "count": 1,
+    "pass": 1
+   },
+   "every declared container is running": {
+    "count": 1,
+    "pass": 1
+   },
+   "every non-egress network is internal (default-deny egress)": {
+    "count": 1,
+    "pass": 1
+   },
+   "network membership equals the declared map": {
+    "count": 1,
+    "pass": 1
+   },
+   "no container reaches another over a network they do not share (incl. routed / published-port paths)": {
+    "count": 1,
+    "pass": 1
+   },
+   "no outside container attached to an aos-* network": {
+    "count": 1,
+    "pass": 1
+   },
+   "only the declared egress gateways reach the internet or the host": {
+    "count": 1,
+    "pass": 1
+   },
+   "only the edge (nginx) sits on the public network": {
+    "count": 1,
+    "pass": 1
+   },
+   "per-service micro-segmentation within the service mesh": {
+    "count": 1,
+    "pass": 0
+   },
+   "the component network holds only the broker (kernel)": {
+    "count": 1,
+    "pass": 1
+   },
+   "the fact store is reachable only from kernel / network / identity": {
+    "count": 1,
+    "pass": 1
+   },
+   "the platform's required edges are reachable": {
+    "count": 1,
+    "pass": 1
+   }
+  },
+  "skip_build_ceiling": 1
+ },
+ "functional": {
+  "cases": {
+   "a declared caller (kernel) mints svc:network for the internal lookups": {
+    "count": 1,
+    "pass": 1
+   },
+   "admin creates fnuserab#cbf in its own tenant (/bridge/user-create \u2192 identity, app-host svc:identity)": {
+    "count": 1,
+    "pass": 1
+   },
+   "admin puts fnuserab#cbf on hold (/bridge/user-disable)": {
+    "count": 1,
+    "pass": 1
+   },
+   "declared write (platform.inbox_item) ACCEPTED by the kernel broker": {
+    "count": 1,
+    "pass": 1
+   },
+   "fnuserab#cbf holds a live App Host session in localdev": {
+    "count": 1,
+    "pass": 1
+   },
+   "fnuserab#cbf is REFUSED at the App Host while on hold": {
+    "count": 1,
+    "pass": 1
+   },
+   "fnuserab#cbf rotates the password through the App Host (/auth/change-password)": {
+    "count": 1,
+    "pass": 1
+   },
+   "fnuserab#cbf signs in again with the new password, must_reset cleared": {
+    "count": 1,
+    "pass": 1
+   },
+   "fnuserab#cbf signs in at the App Host with the admin-set password, must_reset:true": {
+    "count": 1,
+    "pass": 1
+   },
+   "lifting the hold restores fnuserab#cbf's login": {
+    "count": 1,
+    "pass": 1
+   },
+   "nothing was stored under the reserved kind": {
+    "count": 1,
+    "pass": 1
+   },
+   "scheduler runs the installed component (runtime manager, its own install token)": {
+    "count": 1,
+    "pass": 1
+   },
+   "tenant admin admin@localdev signs in at the App Host": {
+    "count": 1,
+    "pass": 1
+   },
+   "tenant admin installs the component (install-as-grant: steward-signed grant)": {
+    "count": 1,
+    "pass": 1
+   },
+   "tenant admin installs the reserved-kind probe (declares governance.role_assignment)": {
+    "count": 1,
+    "pass": 1
+   },
+   "tenant admin token for localdev": {
+    "count": 1,
+    "pass": 1
+   },
+   "tenant record names the registered steward ds:localdev:steward (DEBT-B#)": {
+    "count": 1,
+    "pass": 1
+   },
+   "the Network's internal lookup refuses an anonymous caller (slice-#f)": {
+    "count": 1,
+    "pass": 1
+   },
+   "the admin-set password no longer works": {
+    "count": 1,
+    "pass": 1
+   },
+   "the kernel REFUSES the granted governance.role_assignment write (core-reserved, FND-#)": {
+    "count": 1,
+    "pass": 1
+   },
+   "the record is readable by the tenant (history has the committed version)": {
+    "count": 1,
+    "pass": 1
+   },
+   "the steward resolves in the Network directory with a key": {
+    "count": 1,
+    "pass": 1
+   },
+   "the tenant steward's grant COVERS the declared governance.role_assignment write": {
+    "count": 1,
+    "pass": 1
+   },
+   "undeclared write (platform.schedule) REFUSED": {
+    "count": 1,
+    "pass": 1
+   }
+  },
+  "skip_build_ceiling": 0
+ },
+ "gtwstatic": {
+  "cases": {
+   "no app bundle loads code or tiles from a third-party origin (DEBT-B#)": {
+    "count": 1,
+    "pass": 0
+   },
+   "no component reaches a provider around the gateway (provider SDK egress, DEBT-B#)": {
+    "count": 1,
+    "pass": 0
+   },
+   "no outbound call to an arbitrary URL outside the webhooks gateway (automation raw-URL action, DEBT-A#)": {
+    "count": 1,
+    "pass": 0
+   },
+   "the AI gateway checks consent, cost and rate limits before calling a provider (DEBT-B#)": {
+    "count": 1,
+    "pass": 0
+   }
+  },
+  "skip_build_ceiling": 0
+ },
+ "internal": {
+  "cases": {
+   "/bridge/component-publish refuses an unverified bearer (not presence-only)": {
+    "count": 1,
+    "pass": 1
+   },
+   "/bridge/schema-history refuses anonymous (change-request provenance)": {
+    "count": 1,
+    "pass": 1
+   },
+   "/bridge/schemas refuses anonymous (catalog + pending change-requests)": {
+    "count": 1,
+    "pass": 1
+   },
+   "/bridge/service-offerings refuses anonymous (governed manage view)": {
+    "count": 1,
+    "pass": 1
+   },
+   "/bridge/service-search shows anon only public-designated offerings (no audience bypass)": {
+    "count": 1,
+    "pass": 0
+   },
+   "/embed consent is intersected with the client's registered scopes": {
+    "count": 1,
+    "pass": 0
+   },
+   "/embed/signup does not leak account existence (anti-enumeration)": {
+    "count": 1,
+    "pass": 0
+   },
+   "/embed/token returns an app-addressed token carrying a consent reference": {
+    "count": 1,
+    "pass": 0
+   },
+   "App Host authority comes from a recorded grant, not the token's roles claim": {
+    "count": 1,
+    "pass": 0
+   },
+   "Kernel/participant signature on each committed version": {
+    "count": 1,
+    "pass": 0
+   },
+   "Network-boundary auth is identity-only (FND-#)": {
+    "count": 1,
+    "pass": 0
+   },
+   "Service registration carries iface/endpoint/version/data-use + a provide grant": {
+    "count": 1,
+    "pass": 0
+   },
+   "SoD for floor roles enforces approver != proposer": {
+    "count": 1,
+    "pass": 0
+   },
+   "Trust audit chain is verified/reconciled at runtime": {
+    "count": 1,
+    "pass": 0
+   },
+   "a Network is a governed lifecycle object (creator role, DRAFT, governing tenant, empty-catalog gate)": {
+    "count": 1,
+    "pass": 0
+   },
+   "a roleless-created account has NO roles \u2014 no authority by omission [DEBT-B# fixed]": {
+    "count": 1,
+    "pass": 1
+   },
+   "account id is permanent + distinct from the login handle [debt DEBT-B#]": {
+    "count": 1,
+    "pass": 0
+   },
+   "account-hold (admin-disable) check fails CLOSED on registry error": {
+    "count": 1,
+    "pass": 0
+   },
+   "anon bridge reads/proxies fail closed (schedules/runs/fetch/doc-ask/retrieve)": {
+    "count": 1,
+    "pass": 0
+   },
+   "anonymous existence-check denied (internal, abuse) [debt DEBT-A#]": {
+    "count": 1,
+    "pass": 0
+   },
+   "anonymous kernel read denied (internal) [debt DEBT-A#]": {
+    "count": 1,
+    "pass": 0
+   },
+   "anonymous kernel write denied (internal, abuse)": {
+    "count": 1,
+    "pass": 1
+   },
+   "anonymous service search returns only public-designated offerings (members-only default)": {
+    "count": 1,
+    "pass": 1
+   },
+   "assurance reflects the real auth method (AL-vocabulary, >=AL# after password) [debt DEBT-B#]": {
+    "count": 1,
+    "pass": 0
+   },
+   "authority only from a recorded grant, never tenant name (TRUST plane)": {
+    "count": 1,
+    "pass": 0
+   },
+   "automation /events admits its declared caller (event-relay principal, svc:automation)": {
+    "count": 1,
+    "pass": 1
+   },
+   "automation /events refuses an anonymous call": {
+    "count": 1,
+    "pass": 1
+   },
+   "automation /events refuses an anonymous call (abuse)": {
+    "count": 1,
+    "pass": 1
+   },
+   "automation /events refuses an undeclared platform-audience token (app-host)": {
+    "count": 1,
+    "pass": 1
+   },
+   "automation /events refuses an undeclared platform-audience token (decision)": {
+    "count": 1,
+    "pass": 1
+   },
+   "automation /events refuses an undeclared platform-audience token (scheduler)": {
+    "count": 1,
+    "pass": 1
+   },
+   "automation /events refuses an undeclared platform-audience token (svcprobe)": {
+    "count": 1,
+    "pass": 1
+   },
+   "bootstrap grants no platform.authority when a holder exists (ADR-#)": {
+    "count": 1,
+    "pass": 1
+   },
+   "capability-grant store POST /v#/grants refuses anonymous (grant.steward, fail closed)": {
+    "count": 1,
+    "pass": 1
+   },
+   "classifications are descriptive only (never gate exchange)": {
+    "count": 1,
+    "pass": 0
+   },
+   "client requests are signed by a key the CLIENT controls (not host-forged)": {
+    "count": 1,
+    "pass": 0
+   },
+   "component.publisher refused at kernel admin (registry.usage)": {
+    "count": 1,
+    "pass": 1
+   },
+   "component.publisher refused at network admin (assign role)": {
+    "count": 1,
+    "pass": 1
+   },
+   "component.publisher refused at network admin (issue grant)": {
+    "count": 1,
+    "pass": 1
+   },
+   "component.publisher refused at secrets admin (/set)": {
+    "count": 1,
+    "pass": 1
+   },
+   "creation needs network.creator; never creates tenants": {
+    "count": 1,
+    "pass": 0
+   },
+   "credential issuance requires a typed issue grant; signed; revocation published": {
+    "count": 1,
+    "pass": 0
+   },
+   "cross-install requests signed by registered keys": {
+    "count": 1,
+    "pass": 0
+   },
+   "decision record contents": {
+    "count": 1,
+    "pass": 0
+   },
+   "decision records never edited": {
+    "count": 1,
+    "pass": 0
+   },
+   "decisions linked (correlation/op ids) to CRs + audit": {
+    "count": 1,
+    "pass": 0
+   },
+   "default/in-process component runtime inherits full host env (no confinement)": {
+    "count": 1,
+    "pass": 0
+   },
+   "dev-sandbox refused a cross-tenant write": {
+    "count": 1,
+    "pass": 1
+   },
+   "dev-sandbox refused at kernel admin (registry.usage)": {
+    "count": 1,
+    "pass": 1
+   },
+   "directory-of-Networks / root of trust": {
+    "count": 1,
+    "pass": 0
+   },
+   "docrender shared renderer does not neutralise active content (latent stored XSS)": {
+    "count": 1,
+    "pass": 0
+   },
+   "events: granted types only; interest != authority; idempotency": {
+    "count": 1,
+    "pass": 0
+   },
+   "every authz decision audited (allow+deny); failed-auth logged": {
+    "count": 1,
+    "pass": 0
+   },
+   "exchange runs through the one decision function and leaves a decision record": {
+    "count": 1,
+    "pass": 0
+   },
+   "files are records (Kernel-mediated bytes)": {
+    "count": 1,
+    "pass": 0
+   },
+   "filestore blob path carries no owning-tenant scope (cross-tenant read once gated)": {
+    "count": 1,
+    "pass": 0
+   },
+   "filestore refuses a wrong-audience token (abuse)": {
+    "count": 1,
+    "pass": 1
+   },
+   "filestore refuses an anonymous call (abuse)": {
+    "count": 1,
+    "pass": 1
+   },
+   "forged role+foreign-iss token rejected (internal, abuse)": {
+    "count": 1,
+    "pass": 1
+   },
+   "forged-token write denied (internal, abuse)": {
+    "count": 1,
+    "pass": 1
+   },
+   "home issuer trusted only for its own participants, per-Network": {
+    "count": 1,
+    "pass": 0
+   },
+   "home-issued admin role-claim (no recorded grant) refused at kernel admin (abuse) [debt DEBT-B#]": {
+    "count": 1,
+    "pass": 0
+   },
+   "host directory authoritative; resolve uses an exact steward match (no substring collisions)": {
+    "count": 1,
+    "pass": 0
+   },
+   "human (platauth) refused a service audience": {
+    "count": 1,
+    "pass": 1
+   },
+   "idempotent writes (content-hash dedup)": {
+    "count": 1,
+    "pass": 0
+   },
+   "identity /login refuses svc:identity to an undeclared principal (kernel)": {
+    "count": 1,
+    "pass": 1
+   },
+   "identity /users directory requires an authorised caller (abuse)": {
+    "count": 1,
+    "pass": 1
+   },
+   "identity /users refuses a wrong-audience token (another door)": {
+    "count": 1,
+    "pass": 1
+   },
+   "identity /users refuses an UNDECLARED caller (kernel, not allow-listed)": {
+    "count": 1,
+    "pass": 1
+   },
+   "identity /users refuses an UNDECLARED caller holding svc:identity (#)": {
+    "count": 1,
+    "pass": 1
+   },
+   "identity /users refuses an anonymous write (fail closed) [A# closed]": {
+    "count": 1,
+    "pass": 1
+   },
+   "identity /users refuses the RETIRED shared literal (no literal gate)": {
+    "count": 1,
+    "pass": 1
+   },
+   "identity directory admits the DECLARED caller app-host (pos)": {
+    "count": 1,
+    "pass": 1
+   },
+   "identity directory admits the DECLARED caller provisioner (pos)": {
+    "count": 1,
+    "pass": 1
+   },
+   "inbound request carries a verified decision/consent reference; never widen": {
+    "count": 1,
+    "pass": 0
+   },
+   "issuer trust is network.admin-only and scoped to (member-tenant, net:id)": {
+    "count": 1,
+    "pass": 0
+   },
+   "join = registration in host registry (id, roles, keys, conformance)": {
+    "count": 1,
+    "pass": 0
+   },
+   "kernel run-token door admits the scheduler (pos; absent install \u2192 #)": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel run-token door refuses a non-scheduler platform service (component-publisher)": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel run-token door refuses an anonymous call": {
+    "count": 1,
+    "pass": 1
+   },
+   "launch-time digest rebind enforced only on the baked path": {
+    "count": 1,
+    "pass": 0
+   },
+   "login + recovery; per-account-type recovery": {
+    "count": 1,
+    "pass": 0
+   },
+   "member list GET /v#/participation refuses anonymous (members-only)": {
+    "count": 1,
+    "pass": 1
+   },
+   "membership supports invite->accept and suspend": {
+    "count": 1,
+    "pass": 0
+   },
+   "model-gateway /complete refuses an anonymous call (abuse)": {
+    "count": 1,
+    "pass": 1
+   },
+   "model-gateway refuses a wrong-audience token (another door)": {
+    "count": 1,
+    "pass": 1
+   },
+   "network runtime-attest admits the DECLARED caller launcher (pos; unknown runtime \u2192 #)": {
+    "count": 1,
+    "pass": 1
+   },
+   "network runtime-attest refuses a wrong-audience token (#)": {
+    "count": 1,
+    "pass": 1
+   },
+   "network runtime-attest refuses an UNDECLARED caller holding svc:network (#)": {
+    "count": 1,
+    "pass": 1
+   },
+   "network runtime-attest refuses an anonymous call (#)": {
+    "count": 1,
+    "pass": 1
+   },
+   "network runtime-attest refuses the RETIRED shared literal": {
+    "count": 1,
+    "pass": 1
+   },
+   "no passwordless full-authority mint (residual; write-gate half fixed by DEBT-B#)": {
+    "count": 1,
+    "pass": 0
+   },
+   "notify /notify refuses an anonymous call (abuse)": {
+    "count": 1,
+    "pass": 1
+   },
+   "notify refuses a wrong-audience token (another door)": {
+    "count": 1,
+    "pass": 1
+   },
+   "on-demand filestore delivery is fail-open + trusts an unsigned listing digest": {
+    "count": 1,
+    "pass": 0
+   },
+   "one governing tenant hosts a Network": {
+    "count": 1,
+    "pass": 0
+   },
+   "one public versioned participant protocol; never /bridge": {
+    "count": 1,
+    "pass": 0
+   },
+   "operator holds no governance role (+ login-namespace != tenant, DEBT-B#)": {
+    "count": 1,
+    "pass": 0
+   },
+   "per-role conformance before activation": {
+    "count": 2,
+    "pass": 0
+   },
+   "placed component container has no egress confinement (flat internal net)": {
+    "count": 1,
+    "pass": 0
+   },
+   "platform.authority first-holder bootstrap is installer-only": {
+    "count": 1,
+    "pass": 0
+   },
+   "presentation verification binds holder-proof/recipient/purpose/nonce (ACC-W#)": {
+    "count": 1,
+    "pass": 0
+   },
+   "provider connections (consent + confirmation; revocable)": {
+    "count": 1,
+    "pass": 0
+   },
+   "public front door is apply/verify/status only, rate-limited + bot-protected + route-separated": {
+    "count": 1,
+    "pass": 0
+   },
+   "publishing a Service requires a recorded service.provide grant": {
+    "count": 1,
+    "pass": 0
+   },
+   "records & files only via the broker under run token + declared scopes": {
+    "count": 1,
+    "pass": 0
+   },
+   "registered clients with recorded scopes": {
+    "count": 1,
+    "pass": 0
+   },
+   "role assignments carry grantor + governance provenance": {
+    "count": 1,
+    "pass": 0
+   },
+   "run token = declaration \u2229 authority": {
+    "count": 1,
+    "pass": 0
+   },
+   "run-token has no expiry and no audience (replayable)": {
+    "count": 1,
+    "pass": 0
+   },
+   "runtime-manager /v#/invoke refuses an anonymous call (#)": {
+    "count": 1,
+    "pass": 1
+   },
+   "runtime-manager admits the DECLARED caller kernel (pos)": {
+    "count": 1,
+    "pass": 1
+   },
+   "runtime-manager admits the DECLARED caller scheduler (pos)": {
+    "count": 1,
+    "pass": 1
+   },
+   "runtime-manager refuses a wrong-audience token (#)": {
+    "count": 1,
+    "pass": 1
+   },
+   "runtime-manager refuses an UNDECLARED caller holding svc:runtime-manager (#)": {
+    "count": 1,
+    "pass": 1
+   },
+   "safe defaults (no prod-pointing default; enforce-by-default; fail-loud)": {
+    "count": 1,
+    "pass": 0
+   },
+   "scheduler /run refuses a wrong-audience token (abuse)": {
+    "count": 1,
+    "pass": 1
+   },
+   "scheduler /run refuses an anonymous call (abuse)": {
+    "count": 1,
+    "pass": 1
+   },
+   "scheduler may request its recorded audience (svc:automation)": {
+    "count": 1,
+    "pass": 1
+   },
+   "scheduler refused svc:app-host (not recorded)": {
+    "count": 1,
+    "pass": 1
+   },
+   "scheduler refused svc:kernel (not recorded)": {
+    "count": 1,
+    "pass": 1
+   },
+   "schema-governed writes; no ungoverned/ad-hoc shapes": {
+    "count": 1,
+    "pass": 0
+   },
+   "schemas are records; owner != adopter": {
+    "count": 1,
+    "pass": 0
+   },
+   "secrets /fetch refuses a wrong-audience token (another door)": {
+    "count": 1,
+    "pass": 1
+   },
+   "secrets /fetch refuses an anonymous call (abuse)": {
+    "count": 1,
+    "pass": 1
+   },
+   "secrets /materialize refuses an anonymous call (abuse)": {
+    "count": 1,
+    "pass": 1
+   },
+   "session cookie is Secure + CSRF/Origin-checked on state-changing bridge POSTs": {
+    "count": 1,
+    "pass": 0
+   },
+   "settlement references": {
+    "count": 1,
+    "pass": 0
+   },
+   "signed responses + fulfilment evidence joined to a decision": {
+    "count": 1,
+    "pass": 0
+   },
+   "tenant != network (authority keyed on net:id, not tenant/slug)": {
+    "count": 1,
+    "pass": 0
+   },
+   "the public client/participant protocol is a versioned API, not /bridge/*": {
+    "count": 1,
+    "pass": 0
+   },
+   "token app-addressed + carries a consent reference [debt DEBT-B#]": {
+    "count": 1,
+    "pass": 0
+   },
+   "trust-directory admission POST /v#/participants refuses anonymous (authority-gated)": {
+    "count": 1,
+    "pass": 1
+   },
+   "two citizens: one citizen's Network list rows are invisible to another citizen": {
+    "count": 1,
+    "pass": 1
+   },
+   "unauthenticated /v#/components/install is admin-gated (abuse)": {
+    "count": 1,
+    "pass": 1
+   },
+   "unknown schema handled opaquely (internal, pos)": {
+    "count": 1,
+    "pass": 1
+   },
+   "unverified-digest certify accepted; host ignores conformance.verified": {
+    "count": 1,
+    "pass": 0
+   },
+   "valid + recorded time": {
+    "count": 1,
+    "pass": 0
+   }
+  },
+  "skip_build_ceiling": 67
+ },
+ "knownviolations": {
+  "cases": {
+   "a citizen sees only its own rows \u2014 never a tenant's by a username equal to the tenant id (FINAL F#-#, DEBT-B#)": {
+    "count": 1,
+    "pass": 0
+   },
+   "a placed/in-process component cannot reach the host service's Vault credential (re-review R#-#, DEBT-B#)": {
+    "count": 1,
+    "pass": 0
+   },
+   "a write is authorized only by a recorded grant \u2014 never a token role (FND-#)": {
+    "count": 1,
+    "pass": 0
+   },
+   "external issuers are bound to a recorded tenant AND network; authority never widens by issuer": {
+    "count": 1,
+    "pass": 0
+   },
+   "kernel is domain-blind (no domain vocabulary baked in) \u2014 DEBT-B#": {
+    "count": 1,
+    "pass": 0
+   },
+   "network roles: second-holder SoD + never-zero network.admin (ADR-# extended to the network role set)": {
+    "count": 1,
+    "pass": 0
+   },
+   "participant registration records roles sought, conformance status and its service accounts": {
+    "count": 1,
+    "pass": 0
+   },
+   "the platform tenant confers nothing \u2014 DEBT-B#/A#/B#": {
+    "count": 1,
+    "pass": 0
+   }
+  },
+  "skip_build_ceiling": 0
+ },
+ "listen": {
+  "cases": {
+   "no Airawat service listens on a non-loopback address (compose + live)": {
+    "count": 1,
+    "pass": 1
+   }
+  },
+  "skip_build_ceiling": 0
+ },
+ "netdoors": {
+  "cases": {
+   "/v#/certificates/resolve admits exactly ['launcher', 'scheduler']": {
+    "count": 1,
+    "pass": 1
+   },
+   "/v#/certificates/resolve answers its declared callers without a server error": {
+    "count": 1,
+    "pass": 1
+   },
+   "/v#/directory/resolve admits exactly ['app-host', 'kernel', 'scheduler']": {
+    "count": 1,
+    "pass": 1
+   },
+   "/v#/directory/resolve answers its declared callers without a server error": {
+    "count": 1,
+    "pass": 1
+   },
+   "/v#/grants/resolve admits exactly ['app-host', 'kernel']": {
+    "count": 1,
+    "pass": 1
+   },
+   "/v#/grants/resolve answers its declared callers without a server error": {
+    "count": 1,
+    "pass": 1
+   },
+   "/v#/interfaces/resolve admits exactly ['app-host', 'kernel']": {
+    "count": 1,
+    "pass": 1
+   },
+   "/v#/interfaces/resolve answers its declared callers without a server error": {
+    "count": 1,
+    "pass": 1
+   },
+   "/v#/jurisdictions/resolve admits exactly ['app-host']": {
+    "count": 1,
+    "pass": 1
+   },
+   "/v#/jurisdictions/resolve answers its declared callers without a server error": {
+    "count": 1,
+    "pass": 1
+   },
+   "/v#/keys/resolve admits exactly ['decision', 'workflow']": {
+    "count": 1,
+    "pass": 1
+   },
+   "/v#/keys/resolve answers its declared callers without a server error": {
+    "count": 1,
+    "pass": 1
+   },
+   "/v#/packs/resolve admits exactly nobody": {
+    "count": 1,
+    "pass": 1
+   },
+   "/v#/packs/resolve answers its declared callers without a server error": {
+    "count": 1,
+    "pass": 1
+   },
+   "/v#/receipts/data-read admits exactly ['kernel']": {
+    "count": 1,
+    "pass": 1
+   },
+   "/v#/receipts/data-read answers its declared callers without a server error": {
+    "count": 1,
+    "pass": 1
+   },
+   "/v#/resolve admits exactly ['kernel']": {
+    "count": 1,
+    "pass": 1
+   },
+   "/v#/resolve answers its declared callers without a server error": {
+    "count": 1,
+    "pass": 1
+   },
+   "/v#/schemas/resolve admits exactly ['app-host', 'kernel']": {
+    "count": 1,
+    "pass": 1
+   },
+   "/v#/schemas/resolve answers its declared callers without a server error": {
+    "count": 1,
+    "pass": 1
+   },
+   "/v#/service-offerings/resolve admits exactly ['app-host']": {
+    "count": 1,
+    "pass": 1
+   },
+   "/v#/service-offerings/resolve answers its declared callers without a server error": {
+    "count": 1,
+    "pass": 1
+   },
+   "/v#/store/resolve admits exactly ['app-host', 'kernel', 'launcher', 'scheduler']": {
+    "count": 1,
+    "pass": 1
+   },
+   "/v#/store/resolve answers its declared callers without a server error": {
+    "count": 1,
+    "pass": 1
+   },
+   "/v#/tenants/resolve admits exactly ['app-host', 'identity', 'kernel']": {
+    "count": 1,
+    "pass": 1
+   },
+   "/v#/tenants/resolve answers its declared callers without a server error": {
+    "count": 1,
+    "pass": 1
+   },
+   "every service can hold an svc:network token for the probe": {
+    "count": 1,
+    "pass": 1
+   },
+   "list /v#/interfaces/bindings: service mode for exactly ['app-host', 'scheduler']": {
+    "count": 1,
+    "pass": 1
+   },
+   "list /v#/join: service mode for exactly ['app-host']": {
+    "count": 1,
+    "pass": 1
+   },
+   "list /v#/tenants: service mode for exactly ['app-host', 'kernel']": {
+    "count": 1,
+    "pass": 1
+   },
+   "the declared table covers every internal door in the Network code (and no other)": {
+    "count": 1,
+    "pass": 1
+   }
+  },
+  "skip_build_ceiling": 0
+ },
+ "ops": {
+  "cases": {
+   "Vault has a file audit device on its own volume": {
+    "count": 1,
+    "pass": 1
+   },
+   "a Vault request is recorded in the audit log": {
+    "count": 1,
+    "pass": 1
+   },
+   "every compose service has a size-capped, rotated log": {
+    "count": 1,
+    "pass": 1
+   },
+   "every running container carries the capped log config": {
+    "count": 1,
+    "pass": 1
+   },
+   "the audit log is rotated past its limit and Vault reopens a fresh one": {
+    "count": 1,
+    "pass": 1
+   },
+   "the audit log lives on a dedicated volume": {
+    "count": 1,
+    "pass": 1
+   },
+   "the backup set covers every durable volume (identity, filestore, app-bundles included)": {
+    "count": 1,
+    "pass": 1
+   }
+  },
+  "skip_build_ceiling": 0
+ },
+ "restoredrill": {
+  "cases": {
+   "after the restore every service reads its own Vault paths (AppRole logins intact)": {
+    "count": 1,
+    "pass": 1
+   },
+   "backup.sh took a consistent backup of every volume + host secrets": {
+    "count": 1,
+    "pass": 1
+   },
+   "host secrets DELETED before the restore (a new host)": {
+    "count": 1,
+    "pass": 1
+   },
+   "marks written before the backup (incl. a marker on every one of # volumes)": {
+    "count": 1,
+    "pass": 1
+   },
+   "restore brought back every host secret byte-identical (.env + # AppRole env files)": {
+    "count": 1,
+    "pass": 1
+   },
+   "restore.sh restored every volume and the stack is healthy": {
+    "count": 1,
+    "pass": 1
+   },
+   "restored: appbundles identical": {
+    "count": 1,
+    "pass": 1
+   },
+   "restored: citizen identical": {
+    "count": 1,
+    "pass": 1
+   },
+   "restored: filestore identical": {
+    "count": 1,
+    "pass": 1
+   },
+   "restored: identity's signing keys identical (JWKS) \u2014 tokens issued before the restore still verify": {
+    "count": 1,
+    "pass": 1
+   },
+   "restored: registry_rows identical": {
+    "count": 1,
+    "pass": 1
+   },
+   "restored: vault_secret identical": {
+    "count": 1,
+    "pass": 1
+   },
+   "restored: vol:localdev_appbundles identical": {
+    "count": 1,
+    "pass": 1
+   },
+   "restored: vol:localdev_filestore identical": {
+    "count": 1,
+    "pass": 1
+   },
+   "restored: vol:localdev_identity identical": {
+    "count": 1,
+    "pass": 1
+   },
+   "restored: vol:localdev_netfiles identical": {
+    "count": 1,
+    "pass": 1
+   },
+   "restored: vol:localdev_pg identical": {
+    "count": 1,
+    "pass": 1
+   },
+   "restored: vol:localdev_vault identical": {
+    "count": 1,
+    "pass": 1
+   },
+   "restored: vol:localdev_vault_audit identical": {
+    "count": 1,
+    "pass": 1
+   },
+   "the stack was DESTROYED (no container, no volume)": {
+    "count": 1,
+    "pass": 1
+   }
+  },
+  "skip_build_ceiling": 0
+ },
+ "routes": {
+  "cases": {
+   "every exposed route is declared (# routes, # services)": {
+    "count": 1,
+    "pass": 1
+   },
+   "every non-public route refuses an anonymous call (# probed, # not refused)": {
+    "count": 1,
+    "pass": 1
+   },
+   "no route is public that should not be (# on the review list \u2014 DEBT-A#/B#/B#)": {
+    "count": 1,
+    "pass": 0
+   }
+  },
+  "skip_build_ceiling": 0
+ },
+ "scans": {
+  "cases": {
+   "gitleaks scanned all # repositories (# did not run)": {
+    "count": 1,
+    "pass": 1
+   },
+   "no new CRITICAL image CVE and no HIGH/CRITICAL dependency CVE (# new)": {
+    "count": 1,
+    "pass": 1
+   },
+   "no new secret in any repository's history (# known, # new)": {
+    "count": 1,
+    "pass": 1
+   },
+   "trivy scanned every stack image (#/#) and every repository manifest (#/#)": {
+    "count": 1,
+    "pass": 1
+   }
+  },
+  "skip_build_ceiling": 0
+ },
+ "vaultrenewal": {
+  "cases": {
+   "a KILLED renewer is detected and decision recovers (restart, renewer running again)": {
+    "count": 1,
+    "pass": 1
+   },
+   "a revoked token is NOT silent: decision goes unhealthy or is restarted (controlled restart)": {
+    "count": 1,
+    "pass": 1
+   },
+   "a revoked token is reported LOUDLY in decision's log (renewer: VAULT TOKEN INVALID)": {
+    "count": 1,
+    "pass": 1
+   },
+   "after # lifetimes every service still reads its own Vault paths (vault_scope_test)": {
+    "count": 1,
+    "pass": 1
+   },
+   "after Vault was DOWN longer than one token period, every service recovers (#/# fresh + healthy)": {
+    "count": 1,
+    "pass": 1
+   },
+   "after a network blip longer than one period decision recovers (fresh token, healthy)": {
+    "count": 1,
+    "pass": 1
+   },
+   "after the revocation decision RECOVERS by itself (controlled restart, fresh login, healthy)": {
+    "count": 1,
+    "pass": 1
+   },
+   "every Vault-using service restarts healthy on # s periodic tokens": {
+    "count": 1,
+    "pass": 1
+   },
+   "every service's OWN token stayed valid for # lifetimes (renewed, period # s)": {
+    "count": 1,
+    "pass": 1
+   },
+   "identity still signs through Vault transit after # lifetimes": {
+    "count": 1,
+    "pass": 1
+   }
+  },
+  "skip_build_ceiling": 0
+ },
+ "vaultscope": {
+  "cases": {
+   "app-host ACTUALLY reads only its allow-listed Vault paths (# paths across # mounts tried)": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host CANNOT read or write platform credential localdev-network/platauth/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host CANNOT read or write platform credential localdev-network/trust-plane/audit_hmac": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host CANNOT read or write platform credential localdev-network/trust-reader/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host CANNOT read or write platform credential localdev-network/trust-writer/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host CANNOT read or write platform credential localdev-operator/admin/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host CANNOT read or write platform credential localdev-operator/decision/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host CANNOT read or write platform credential localdev-operator/kernel/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host CANNOT read or write platform credential localdev-operator/launcher/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host CANNOT read or write platform credential localdev-operator/provisioner/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host CANNOT read or write platform credential localdev-operator/scheduler/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host CANNOT read or write platform credential localdev-operator/svcprobe/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host CANNOT read or write platform credential localdev-operator/workflow/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host CANNOT read or write platform credential localdev/identity-lockout/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host CANNOT read or write platform credential localdev/kernel-app/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host CANNOT read or write platform credential localdev/migrator/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host CANNOT read or write platform credential localdev/network-app/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host reads ONLY its own platform credentials (all # checked)": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host: CAN read its own path": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host: CANNOT read a foreign service's path": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host: holds a scoped (non-root) Vault token": {
+    "count": 2,
+    "pass": 2
+   },
+   "app-host: no static VAULT_TOKEN in container config": {
+    "count": 2,
+    "pass": 2
+   },
+   "app-host: transit limited to its own keys (cannot sign with, rotate or configure another service's key)": {
+    "count": 1,
+    "pass": 1
+   },
+   "automation ACTUALLY reads only its allow-listed Vault paths (# paths across # mounts tried)": {
+    "count": 1,
+    "pass": 1
+   },
+   "automation reads ONLY its own platform credentials (all # checked)": {
+    "count": 1,
+    "pass": 1
+   },
+   "automation: CAN read its own path": {
+    "count": 1,
+    "pass": 1
+   },
+   "automation: CANNOT read a foreign service's path": {
+    "count": 1,
+    "pass": 1
+   },
+   "automation: holds a scoped (non-root) Vault token": {
+    "count": 1,
+    "pass": 1
+   },
+   "automation: no static VAULT_TOKEN in container config": {
+    "count": 1,
+    "pass": 1
+   },
+   "automation: transit limited to its own keys (cannot sign with, rotate or configure another service's key)": {
+    "count": 1,
+    "pass": 1
+   },
+   "decision ACTUALLY reads only its allow-listed Vault paths (# paths across # mounts tried)": {
+    "count": 1,
+    "pass": 1
+   },
+   "decision reads ONLY its own platform credentials (all # checked)": {
+    "count": 1,
+    "pass": 1
+   },
+   "decision: CAN read its own path": {
+    "count": 1,
+    "pass": 1
+   },
+   "decision: CANNOT read a foreign service's path": {
+    "count": 1,
+    "pass": 1
+   },
+   "decision: holds a scoped (non-root) Vault token": {
+    "count": 1,
+    "pass": 1
+   },
+   "decision: no static VAULT_TOKEN in container config": {
+    "count": 1,
+    "pass": 1
+   },
+   "decision: transit limited to its own keys (cannot sign with, rotate or configure another service's key)": {
+    "count": 1,
+    "pass": 1
+   },
+   "event-relay ACTUALLY reads only its allow-listed Vault paths (# paths across # mounts tried)": {
+    "count": 1,
+    "pass": 1
+   },
+   "event-relay reads ONLY its own platform credentials (all # checked)": {
+    "count": 1,
+    "pass": 1
+   },
+   "event-relay: CAN read its own path": {
+    "count": 1,
+    "pass": 1
+   },
+   "event-relay: CANNOT read a foreign service's path": {
+    "count": 1,
+    "pass": 1
+   },
+   "event-relay: holds a scoped (non-root) Vault token": {
+    "count": 1,
+    "pass": 1
+   },
+   "event-relay: no static VAULT_TOKEN in container config": {
+    "count": 1,
+    "pass": 1
+   },
+   "event-relay: transit limited to its own keys (cannot sign with, rotate or configure another service's key)": {
+    "count": 1,
+    "pass": 1
+   },
+   "filestore: no Vault identity (uses no Vault door)": {
+    "count": 1,
+    "pass": 1
+   },
+   "identity ACTUALLY reads only its allow-listed Vault paths (# paths across # mounts tried)": {
+    "count": 1,
+    "pass": 1
+   },
+   "identity reads ONLY its own platform credentials (all # checked)": {
+    "count": 1,
+    "pass": 1
+   },
+   "identity: CAN read its own path": {
+    "count": 1,
+    "pass": 1
+   },
+   "identity: CANNOT read a foreign service's path": {
+    "count": 1,
+    "pass": 1
+   },
+   "identity: holds a scoped (non-root) Vault token": {
+    "count": 1,
+    "pass": 1
+   },
+   "identity: no static VAULT_TOKEN in container config": {
+    "count": 1,
+    "pass": 1
+   },
+   "identity: transit limited to its own keys (cannot sign with, rotate or configure another service's key)": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel ACTUALLY reads only its allow-listed Vault paths (# paths across # mounts tried)": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel CANNOT sign with identity's issuer key (forge identity tokens)": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel reads ONLY its own platform credentials (all # checked)": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel: CAN read its own path": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel: CANNOT read a foreign service's path": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel: holds a scoped (non-root) Vault token": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel: no static VAULT_TOKEN in container config": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel: transit limited to its own keys (cannot sign with, rotate or configure another service's key)": {
+    "count": 1,
+    "pass": 1
+   },
+   "model-gateway ACTUALLY reads only its allow-listed Vault paths (# paths across # mounts tried)": {
+    "count": 1,
+    "pass": 1
+   },
+   "model-gateway CAN read+write component secrets (its own mount)": {
+    "count": 1,
+    "pass": 1
+   },
+   "model-gateway CANNOT read or write platform credential localdev-network/component-publisher/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "model-gateway CANNOT read or write platform credential localdev-network/platauth/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "model-gateway CANNOT read or write platform credential localdev-network/trust-plane/audit_hmac": {
+    "count": 1,
+    "pass": 1
+   },
+   "model-gateway CANNOT read or write platform credential localdev-network/trust-reader/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "model-gateway CANNOT read or write platform credential localdev-network/trust-writer/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "model-gateway CANNOT read or write platform credential localdev-operator/admin/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "model-gateway CANNOT read or write platform credential localdev-operator/app-host/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "model-gateway CANNOT read or write platform credential localdev-operator/decision/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "model-gateway CANNOT read or write platform credential localdev-operator/kernel/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "model-gateway CANNOT read or write platform credential localdev-operator/launcher/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "model-gateway CANNOT read or write platform credential localdev-operator/provisioner/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "model-gateway CANNOT read or write platform credential localdev-operator/scheduler/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "model-gateway CANNOT read or write platform credential localdev-operator/svcprobe/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "model-gateway CANNOT read or write platform credential localdev-operator/workflow/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "model-gateway CANNOT read or write platform credential localdev/identity-lockout/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "model-gateway CANNOT read or write platform credential localdev/kernel-app/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "model-gateway CANNOT read or write platform credential localdev/migrator/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "model-gateway CANNOT read or write platform credential localdev/network-app/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "model-gateway: holds a scoped (non-root) Vault token": {
+    "count": 1,
+    "pass": 1
+   },
+   "model-gateway: no static VAULT_TOKEN in container config": {
+    "count": 1,
+    "pass": 1
+   },
+   "model-gateway: transit limited to its own keys (cannot sign with, rotate or configure another service's key)": {
+    "count": 1,
+    "pass": 1
+   },
+   "network ACTUALLY reads only its allow-listed Vault paths (# paths across # mounts tried)": {
+    "count": 1,
+    "pass": 1
+   },
+   "network CANNOT sign with identity's issuer key (forge identity tokens)": {
+    "count": 1,
+    "pass": 1
+   },
+   "network reads ONLY its own platform credentials (all # checked)": {
+    "count": 1,
+    "pass": 1
+   },
+   "network: CAN read its own path": {
+    "count": 1,
+    "pass": 1
+   },
+   "network: CAN read the provisioner credential (svc:identity mint, ADR-#)": {
+    "count": 2,
+    "pass": 2
+   },
+   "network: CANNOT read a foreign service's path": {
+    "count": 1,
+    "pass": 1
+   },
+   "network: CANNOT read another operator-realm secret (grant is exact)": {
+    "count": 2,
+    "pass": 2
+   },
+   "network: holds a scoped (non-root) Vault token": {
+    "count": 1,
+    "pass": 1
+   },
+   "network: no static VAULT_TOKEN in container config": {
+    "count": 1,
+    "pass": 1
+   },
+   "network: transit limited to its own keys (cannot sign with, rotate or configure another service's key)": {
+    "count": 1,
+    "pass": 1
+   },
+   "notify: no Vault identity (uses no Vault door)": {
+    "count": 1,
+    "pass": 1
+   },
+   "root token discoverable (to verify services do NOT use it)": {
+    "count": 1,
+    "pass": 1
+   },
+   "runtime-manager ACTUALLY reads only its allow-listed Vault paths (# paths across # mounts tried)": {
+    "count": 1,
+    "pass": 1
+   },
+   "runtime-manager reads ONLY its own platform credentials (all # checked)": {
+    "count": 1,
+    "pass": 1
+   },
+   "runtime-manager: CAN read its own path": {
+    "count": 1,
+    "pass": 1
+   },
+   "runtime-manager: CANNOT read a foreign service's path": {
+    "count": 1,
+    "pass": 1
+   },
+   "runtime-manager: holds a scoped (non-root) Vault token": {
+    "count": 1,
+    "pass": 1
+   },
+   "runtime-manager: no static VAULT_TOKEN in container config": {
+    "count": 1,
+    "pass": 1
+   },
+   "runtime-manager: transit limited to its own keys (cannot sign with, rotate or configure another service's key)": {
+    "count": 1,
+    "pass": 1
+   },
+   "scheduler ACTUALLY reads only its allow-listed Vault paths (# paths across # mounts tried)": {
+    "count": 1,
+    "pass": 1
+   },
+   "scheduler reads ONLY its own platform credentials (all # checked)": {
+    "count": 1,
+    "pass": 1
+   },
+   "scheduler: CAN read its own path": {
+    "count": 1,
+    "pass": 1
+   },
+   "scheduler: CANNOT read a foreign service's path": {
+    "count": 1,
+    "pass": 1
+   },
+   "scheduler: holds a scoped (non-root) Vault token": {
+    "count": 1,
+    "pass": 1
+   },
+   "scheduler: no static VAULT_TOKEN in container config": {
+    "count": 1,
+    "pass": 1
+   },
+   "scheduler: transit limited to its own keys (cannot sign with, rotate or configure another service's key)": {
+    "count": 1,
+    "pass": 1
+   },
+   "secrets ACTUALLY reads only its allow-listed Vault paths (# paths across # mounts tried)": {
+    "count": 1,
+    "pass": 1
+   },
+   "secrets CAN read+write component secrets (its own mount)": {
+    "count": 1,
+    "pass": 1
+   },
+   "secrets CANNOT read or write platform credential localdev-network/component-publisher/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "secrets CANNOT read or write platform credential localdev-network/platauth/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "secrets CANNOT read or write platform credential localdev-network/trust-plane/audit_hmac": {
+    "count": 1,
+    "pass": 1
+   },
+   "secrets CANNOT read or write platform credential localdev-network/trust-reader/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "secrets CANNOT read or write platform credential localdev-network/trust-writer/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "secrets CANNOT read or write platform credential localdev-operator/admin/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "secrets CANNOT read or write platform credential localdev-operator/app-host/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "secrets CANNOT read or write platform credential localdev-operator/decision/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "secrets CANNOT read or write platform credential localdev-operator/kernel/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "secrets CANNOT read or write platform credential localdev-operator/launcher/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "secrets CANNOT read or write platform credential localdev-operator/provisioner/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "secrets CANNOT read or write platform credential localdev-operator/scheduler/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "secrets CANNOT read or write platform credential localdev-operator/svcprobe/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "secrets CANNOT read or write platform credential localdev-operator/workflow/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "secrets CANNOT read or write platform credential localdev/identity-lockout/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "secrets CANNOT read or write platform credential localdev/kernel-app/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "secrets CANNOT read or write platform credential localdev/migrator/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "secrets CANNOT read or write platform credential localdev/network-app/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "secrets: holds a scoped (non-root) Vault token": {
+    "count": 1,
+    "pass": 1
+   },
+   "secrets: no static VAULT_TOKEN in container config": {
+    "count": 1,
+    "pass": 1
+   },
+   "secrets: transit limited to its own keys (cannot sign with, rotate or configure another service's key)": {
+    "count": 1,
+    "pass": 1
+   },
+   "workflow ACTUALLY reads only its allow-listed Vault paths (# paths across # mounts tried)": {
+    "count": 1,
+    "pass": 1
+   },
+   "workflow reads ONLY its own platform credentials (all # checked)": {
+    "count": 1,
+    "pass": 1
+   },
+   "workflow: CAN read its own path": {
+    "count": 1,
+    "pass": 1
+   },
+   "workflow: CANNOT read a foreign service's path": {
+    "count": 1,
+    "pass": 1
+   },
+   "workflow: holds a scoped (non-root) Vault token": {
+    "count": 1,
+    "pass": 1
+   },
+   "workflow: no static VAULT_TOKEN in container config": {
+    "count": 1,
+    "pass": 1
+   },
+   "workflow: transit limited to its own keys (cannot sign with, rotate or configure another service's key)": {
+    "count": 1,
+    "pass": 1
+   }
+  },
+  "skip_build_ceiling": 0
+ }
+}
