@@ -37,11 +37,12 @@ echo "▶ backup → $OUT (quiescing the stack)"
 STEP="stop the stack"; "${C[@]}" stop >/dev/null; STOPPED=1
 for v in $VOLS; do
   STEP="archive volume $v"
-  docker volume inspect "${P}_$v" >/dev/null 2>&1 || { echo "✗ volume ${P}_$v missing" >&2; exit 1; }
+  VN="$(python3 "$HERE/_sets.py" volname "$v")"     # slice-1k: the ACTIVE set's volume (<set>_<vol>)
+  docker volume inspect "$VN" >/dev/null 2>&1 || { echo "✗ volume $VN missing" >&2; exit 1; }
   # slice-1j (step 4): a backup NEVER carries the Vault root token — the local-dev Vault keeps its init output (root token
   # included) as init.json on its own data volume; the archived copy has the root token BLANKED (the unseal key stays: it
   # is what a restore needs; vault/entrypoint.sh regenerates a root token from it after a restore).
-  docker run --rm --user 0:0 --entrypoint sh -v "${P}_$v":/src:ro -v "$OUT":/b "$TAR_IMG" -c '
+  docker run --rm --user 0:0 --entrypoint sh -v "$VN":/src:ro -v "$OUT":/b "$TAR_IMG" -c '
     D=/src
     if [ -f /src/init.json ]; then
       mkdir /w && cp -a /src/. /w/ && sed -i "s/\"root_token\": *\"[^\"]*\"/\"root_token\": \"\"/" /w/init.json && D=/w || exit 1

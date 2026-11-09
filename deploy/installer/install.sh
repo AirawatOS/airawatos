@@ -205,10 +205,14 @@ _PHASE="bring-up: postgres + vault"; _fault; echo "▶ bring-up: postgres + vaul
 # slice-1d (banned pattern LITERAL_SECRET, FND-16) — the Postgres SUPERUSER password is generated ONCE per install
 # into the gitignored deploy/local-dev/.env (compose reads it; never committed, never a literal). It is used only at
 # install time (the split-role step); every service connects as its own least-privilege role with a Vault password.
+# slice-1k (DEBT-B154): host secrets live in the ACTIVE volume set (deploy/local-dev/sets/<set>/; .env and vault/approle are
+# symlinks through sets/active) so restore.sh can build a NEW set beside the live one. A legacy flat .env/approle is MOVED
+# (bytes unchanged) into sets/<project>/ — whose volumes keep the original <project>_<vol> names.
+AOS_LD_PROJECT="$P" python3 "$LOCALDEV/_sets.py" ensure-layout || { echo "✗ could not set up the volume-set layout"; exit 1; }
 touch "$LOCALDEV/.env"
 POSTGRES_PASSWORD="$(sed -n 's/^POSTGRES_PASSWORD=//p' "$LOCALDEV/.env" | tail -1)"
 if [ -z "$POSTGRES_PASSWORD" ]; then
-  if docker volume inspect "${P}_localdev_pg" >/dev/null 2>&1; then
+  if docker volume inspect "$(AOS_LD_PROJECT="$P" python3 "$LOCALDEV/_sets.py" volname localdev_pg)" >/dev/null 2>&1; then
     echo "✗ a database volume exists but deploy/local-dev/.env has no POSTGRES_PASSWORD — restore it, or wipe the stack"
     echo "  (docker compose ... down -v) for a fresh install"; exit 1
   fi
@@ -231,7 +235,7 @@ VT_DISC="$(COMPOSE exec -T vault sh -lc "tr -d '\n ' < /vault/data/init.json 2>/
 if [ -n "$VT_DISC" ]; then
   export VAULT_TOKEN="$VT_DISC"
   if [ -f "$LOCALDEV/.env" ] && grep -q '^VAULT_TOKEN=' "$LOCALDEV/.env"; then
-    grep -v '^VAULT_TOKEN=' "$LOCALDEV/.env" > "$LOCALDEV/.env.tmp" && mv "$LOCALDEV/.env.tmp" "$LOCALDEV/.env"
+    grep -v '^VAULT_TOKEN=' "$LOCALDEV/.env" > "$LOCALDEV/.env.tmp" && cat "$LOCALDEV/.env.tmp" > "$LOCALDEV/.env" && rm -f "$LOCALDEV/.env.tmp"   # through the symlink
     echo "  · removed the shared VAULT_TOKEN from .env (root is install-time only now)"
   fi
   echo "  · root token read from the vault volume for install-time provisioning (not printed)"

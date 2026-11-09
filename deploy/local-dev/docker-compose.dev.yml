@@ -427,11 +427,14 @@ networks:
   aos-data-secrets: { name: aos-data-secrets, internal: true } # Vault <- its declared clients only (ARC-7)
   aos-component: { name: aos-component, internal: true }      # placed component containers: ONLY the broker (ARC-1/B52)
 
+# slice-1k (DEBT-B154): every volume belongs to a VOLUME SET — named <set>_<vol>, the set chosen by AOS_VOLSET in the active
+# set's .env (deploy/local-dev/.env -> sets/active/.env; see deploy/local-dev/_sets.py). The default keeps the original
+# <project>_<vol> names. restore.sh restores into a NEW set and only moves the pointer — it never writes another set.
 volumes:
-  localdev_pg: {}
-  localdev_vault: {}
-  localdev_vault_audit: {}
-  localdev_filestore: {}
-  localdev_identity: {}
-  localdev_appbundles: {}
-  localdev_netfiles: {}
+  localdev_pg: { name: "${AOS_VOLSET:-airawatos-localdev}_localdev_pg" }
+  localdev_vault: { name: "${AOS_VOLSET:-airawatos-localdev}_localdev_vault" }
+  localdev_vault_audit: { name: "${AOS_VOLSET:-airawatos-localdev}_localdev_vault_audit" }
+  localdev_filestore: { name: "${AOS_VOLSET:-airawatos-localdev}_localdev_filestore" }
+  localdev_identity: { name: "${AOS_VOLSET:-airawatos-localdev}_localdev_identity" }
+  localdev_appbundles: { name: "${AOS_VOLSET:-airawatos-localdev}_localdev_appbundles" }
+  localdev_netfiles: { name: "${AOS_VOLSET:-airawatos-localdev}_localdev_netfiles" }

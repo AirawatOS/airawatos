@@ -28,23 +28,36 @@ re-seed the passwords into Vault (installer, below).
 
 ```
 deploy/local-dev/backup.sh  [dir]   # quiesces the stack, tars ALL 7 durable volumes + .env + approle env files, sha256 manifest, restarts
-deploy/local-dev/restore.sh <dir>   # validate → stage → switch → healthy, or automatic ROLLBACK (slice-1j)
+deploy/local-dev/restore.sh <dir>   # validate → build a NEW volume set → cut over the pointer → healthy, or roll back (slice-1k)
+deploy/local-dev/restore.sh --recover   # finish the rollback of a restore that was KILLED (SIGKILL / crash)
+deploy/local-dev/_sets.py list | prune <set>   # the volume sets; deleting an old one is a separate, explicit action
 ```
-**restore.sh (slice-1j, DEBT-B139/B140) — nothing of the running stack is touched until a complete, verified stage exists:**
-1. *Validate against the declared stack*, not the backup's own claims: the archives must be exactly the volumes
-   `docker-compose.dev.yml` declares (a missing or extra volume is refused), the host files exactly `.env` plus one AppRole
-   env file (with `VAULT_ROLE_ID` and `VAULT_SECRET_ID`) per role the compose file references, every file matching the
-   manifest's sha256. Every archive member is scanned: absolute paths, `..`, links leaving the volume, devices → refused.
-2. *Stage*: every archive is extracted IN FULL into a side volume (`<project>-stage-<vol>`) and compared with its member
-   list — a failure here (bad member, disk full) refuses the restore with the running stack untouched.
-3. *Switch*: the stack is stopped (volumes kept), each live volume is copied aside (`<project>-prev-<vol>`) and the host
-   secrets to `deploy/local-dev/.restore-prev/` (gitignored), then the live volumes are refilled from the stage.
-4. The restored stack must be fully healthy within `AOS_RESTORE_WAIT_S` (270 s). Otherwise — or on any error after the
-   switch — restore **rolls back** automatically to the previous volumes and host secrets and restarts the previous
-   stack. If even the rollback fails, the `-prev-` volumes and `.restore-prev/` are KEPT: do not delete them; copy each
-   `-prev-<vol>` back into `<project>_<vol>` by hand.
-Proven by `verify/backup_restore_selftest.py` (in `make restore-drill`): 16 refusal cases (incl. the conditions review's
-six-of-seven-volume backup, a backup without AppRole files, an absolute-symlink member) and a rollback case.
+**Volume sets (slice-1k, DEBT-B154/B155/B156) — restore is NEVER in place.** Every durable volume belongs to a *set*:
+Docker volumes `<set>_<vol>` plus the set's host secrets in `deploy/local-dev/sets/<set>/` (`.env` with `AOS_VOLSET=<set>`
+and `approle/*.env`). One pointer selects the live set: `sets/active -> <set>`; `deploy/local-dev/.env` and
+`vault/approle` are symlinks through it, so compose and every script follow the pointer. The installer creates the layout
+(the first set keeps the original `<project>_<vol>` volume names; a legacy flat `.env`/`approle/` is moved into it unchanged).
+
+**restore.sh never writes to or deletes any set but the one it is building:**
+1. *Validate against the declared stack*, not the backup's own claims: exactly the volumes `docker-compose.dev.yml`
+   declares, exactly `.env` plus one AppRole file (with `VAULT_ROLE_ID` and `VAULT_SECRET_ID`) per role, every sha256,
+   every archive member scanned (absolute paths, `..`, escaping links, devices), no Vault token anywhere.
+2. *Build a NEW set* `<project>-r<UTC time>-<random>`: each archive extracted in full into a brand-new volume and compared
+   with its member list; the host secrets written into `sets/<new>/`. A journal (`sets/.restore-journal`) is written first.
+3. *Cut over*: the live stack is stopped (its volumes untouched), the pointer moved atomically to the new set, the stack
+   started on it; success only when every service is running and healthy within `AOS_RESTORE_WAIT_S` (270 s).
+4. *Any failure, error or signal* (TERM/INT/HUP) → the pointer goes back, the previous stack is restarted if it was
+   running, and only the NEW set is removed. A **SIGKILL** cannot be trapped: the journal stays, the next `restore.sh`
+   refuses to run, and `restore.sh --recover` completes the rollback. The previous set is untouched in every case.
+5. After a successful restore the previous set is **kept**. Delete it only when you no longer need it:
+   `deploy/local-dev/_sets.py prune <set>` (refused for the active set and while a journal exists).
+Proven by `verify/backup_restore_selftest.py` (in `make restore-drill`), with the stack stopped so nothing else writes the
+previous set: extraction failing at the first, middle and last volume; disk full while staging; a failure injected at every
+stage; SIGTERM and SIGKILL at every stage (validated, each extraction position, verified, secrets, stopped, switched,
+started); a new stack that never becomes healthy — in **every** case the previous set is **byte-identical** afterwards (every
+file's name, mode, owner, size, mtime and sha256), the pointer unchanged, only the new set removed. Plus the 19 refusal
+cases, the re-check reviewer's tiny-`-prev-`-volume case, a second restore leaving both older sets in place, and a rollback
+with the stack running (the previous stack healthy with data written after the backup).
 The backup directory is created 0700 and is gitignored (`deploy/local-dev/backups/`): it holds the Vault unseal key and
 every service secret — store it as a secret. **It never holds a Vault root token (slice-1j):** the local-dev Vault keeps its
 init output (root token included) as `init.json` on its own data volume, so `backup.sh` blanks `root_token` in the archived

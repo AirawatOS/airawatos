@@ -25,13 +25,19 @@ for n in $(docker network ls -q --filter "label=com.docker.compose.project=$P");
 done
 left_c="$(docker ps -a --filter "label=com.docker.compose.project=$P" -q | wc -l | tr -d ' ')"
 left_v="$(docker volume ls -q --filter "label=com.docker.compose.project=$P" | wc -l | tr -d ' ')"
-left_v2="$(docker volume ls -q | grep -c "^${P}_" || true)"
+left_v2="$(docker volume ls -q | grep -cE "^${P}(_|-r)" || true)"   # slice-1k: every volume set of the project (<set>_<vol>)
 left_n="$(docker network ls -q --filter "label=com.docker.compose.project=$P" | wc -l | tr -d ' ')"
 if [ "$left_c" != 0 ] || [ "$left_v" != 0 ] || [ "$left_v2" != 0 ] || [ "$left_n" != 0 ]; then
   echo "✗ REFUSED: not a clean slate after teardown — containers=$left_c volumes=$left_v/$left_v2 networks=$left_n"
   echo "  (a fresh-install result from a stale stack would be meaningless; remove them and re-run)"; exit 3
 fi
 echo "  ✓ clean slate proven: 0 containers, 0 volumes, 0 networks for project $P"
+# slice-1k: no volume of ANY set is left, so every set's host secrets are stale — start the host layout from nothing too
+# (the installer creates sets/<project>/ and the .env / vault/approle symlinks). Only the set layout is removed here.
+LD="$ROOT/deploy/local-dev"
+if [ -d "$LD/sets" ]; then rm -rf "$LD/sets"; fi
+[ -L "$LD/.env" ] && rm -f "$LD/.env"
+[ -L "$LD/vault/approle" ] && rm -f "$LD/vault/approle"
 START="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; START_EPOCH="$(date -u +%s)"
 
 echo "▶ fresh install — deploy/installer/install.sh --profile dev  (log: ${LOG#$ROOT/})"
@@ -40,7 +46,7 @@ sed -n '/Phase 15/,$p' "$LOG" | grep -E "✓|✗" | sed 's/^/  /'
 [ "$rc" = 0 ] || { echo "✗ install FAILED (exit $rc) — see ${LOG#$ROOT/}"; exit "$rc"; }
 
 stale=0
-for v in $(docker volume ls -q | grep "^${P}_"); do
+for v in $(docker volume ls -q --filter "label=com.docker.compose.project=$P"); do
   created="$(docker volume inspect -f '{{.CreatedAt}}' "$v")"
   ce="$(python3 -c "import sys,datetime;print(int(datetime.datetime.fromisoformat(sys.argv[1].replace('Z','+00:00')).timestamp()))" "$created" 2>/dev/null || echo 0)"
   if [ "$ce" -lt "$START_EPOCH" ]; then echo "  ✗ volume $v predates this run ($created < $START)"; stale=1; fi
