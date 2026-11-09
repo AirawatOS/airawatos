@@ -21,7 +21,7 @@ _export() {   # name dir → prints the repo HEAD sha; exports HEAD into $WS/ws/
 S_ROOT="$(_export root .)"; S_PS="$(_export platform-spec platform-spec)"; S_K="$(_export kernel kernel)"
 S_N="$(_export network network)"; S_C="$(_export components components)"
 echo "▶ building from git: root@${S_ROOT:0:10} platform-spec@${S_PS:0:10} kernel@${S_K:0:10} network@${S_N:0:10} components@${S_C:0:10}"
-B=(docker buildx build --load --provenance=false)
+B=(docker buildx build --builder "${AOS_BUILDER:-$(docker context show)}" --load --provenance=false)   # the context builder: no builder container (F3-3)
 "${B[@]}" -f "$WS/ws/platform-spec/Dockerfile.reference" --build-arg GIT_SHA="$S_PS" \
   -t "manishsv/airawatos-reference:$TAG" "$WS/ws"
 for svc in kernel network; do
