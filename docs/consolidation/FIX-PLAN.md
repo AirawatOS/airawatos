@@ -84,6 +84,11 @@ neighbours, and no High-severity Layer 1 finding exists.
 > Conditions 1, 2, 3, 5, 8 hold; **4, 6, 7 do not** (DEBT-B139/B140 restore, B141 installer guard, B138 Vault scope —
 > all Medium, due before Layer 2 starts). No High. Routed, non-blocking: B142–B144 (Med, before Layer 2 exit), B145–B151
 > (Low/Info, per-row deadline). Next: a remediation slice for B138–B141 only, then a re-review of conditions 4, 6, 7 only.
+>
+> **Slice 1j (2026-11-09):** B138–B141 fixed by class — restore stage-then-switch with rollback (validated against the declared
+> stack), the installer write guard baked into the images and fail-closed, Vault scope by exact configuration match (services
+> no longer carry Vault's built-in `default` policy), and no backup can carry a Vault root token (DEBT-B152). Next: the
+> conditions-only re-check of conditions 4, 6 and 7.
 
 ## Layer 1 — Installation + infrastructure
 
