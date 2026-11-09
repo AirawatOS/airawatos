@@ -171,6 +171,15 @@ shaped, not the local-dev Mac stack.
       (`conformance/run.py`, external + internal) green at each enforce step.
 - [ ] Record timings per step (for the real change windows) and any data-specific surprise (e.g. a legacy
       account without a password, a steward record lacking provenance) so it is fixed on prod **before** the flip.
+- [ ] **GATE — break-glass drill** (slice-1k, DEBT-B160c). Run the production break-glass procedure
+      (`docs/operator/RESTORE-AND-ROTATION.md` § *PRODUCTION break-glass*) end to end on the rehearsal host:
+      - a 3-of-5 recovery-key quorum generates a root token, each holder from their own session;
+      - the ticketed task is done;
+      - the token is revoked, and lookup of its accessor returns not found;
+      - the audit log is reviewed for that accessor;
+      - an enumeration of root tokens finds none;
+      - the custody register records the run.
+      Repeat after any change of key holders. No go-live without a passed drill on record.
 - [ ] Tear the rehearsal host down. Go/no-go for production = the rehearsal ran clean, including rollbacks.
 
 ---

@@ -63,7 +63,7 @@ every service secret — store it as a secret. **It never holds a Vault root tok
 init output (root token included) as `init.json` on its own data volume, so `backup.sh` blanks `root_token` in the archived
 copy, and the finished backup is scanned (`deploy/local-dev/_backup_scan.py`: any `root_token` value, the live root token's
 value, any `hvs.`/`hvb.` token literal) — a hit FAILS the backup, and `restore.sh` REFUSES such a backup. After a restore
-the Vault entrypoint regenerates a root token from the unseal key (Vault `generate-root`) on the restored volume only.
+the Vault runs with NO root token: none is generated at start (slice-1k, DEBT-B160). See *Root token on demand* below.
 **Production by design:** Vault auto-unseals (KMS/HSM) and keeps no root token at rest; an operator runs `generate-root`
 with the recovery keys when one is needed and revokes it afterwards — so there is no root token for any backup to capture. **Drill** (`python3 verify/restore_drill.py`, 2026-11-08): marks in identity, Vault KV,
 Postgres, filestore and app-bundles → backup (48 s, stack stopped) → `down -v` (0 containers, 0 volumes) → restore →
@@ -178,6 +178,45 @@ sed "s/$OLD/$NEW/" /vault/data/init.json > /tmp/i && cat /tmp/i > /vault/data/in
 ```
 Verified on Vault 2.2.1: the new token has policies `[root]`, the old token gets 403, and a restart unseals using the
 new root. No service restart is needed (services do not hold root).
+
+### Root token on demand (local-dev, slice-1k — DEBT-B160 / B161)
+The local-dev Vault never generates a root token at start. A restored Vault therefore runs without one, and every service
+works with its own AppRole token. When tooling needs root, it is generated ON DEMAND and revoked as soon as the tooling is
+done:
+```
+python3 deploy/local-dev/vault_root.py generate      # generate-root with the unseal key → init.json (never printed)
+python3 deploy/local-dev/vault_root.py revoke-all    # revoke EVERY root token found by accessor enumeration (this one last)
+python3 deploy/local-dev/vault_root.py verify-none   # a probe root enumerates all accessors: no other root may exist
+```
+`vault.hcl` allows unauthenticated `generate-root` (local-dev only; completing it still needs the unseal key). The restore
+drill (`verify/restore_drill.py`) proves the order: after the restore it checks that NO root token exists and that every
+service is healthy and reads its own paths with its OWN token; only then does it generate a root token for the checks that
+need one; then it revokes every root token (including the pre-backup one that came back with Vault's storage) and fails if
+any remains.
+
+### PRODUCTION break-glass — obtaining (and destroying) a root token
+Production keeps **no root token at rest** (DEBT-B153 tracks the installer gap). Root is a break-glass credential:
+1. **Seal and keys.** Vault auto-unseals with AWS KMS (`seal "awskms"`). Initialise with **recovery keys**:
+   `vault operator init -recovery-shares=5 -recovery-threshold=3`. KMS unseals; the recovery keys are needed ONLY for
+   `generate-root` (and rekey). The install-time root token is revoked at the end of the install.
+2. **Quorum: 3 of 5.** No single person can obtain root.
+3. **Holders.** Five named individuals in at least two teams (for example: platform security lead, two senior operators
+   from operations, the engineering lead, a delegate from governance). A holder holds exactly one share, PGP-encrypted to
+   their own key at init (`-recovery-pgp-keys`), never stored on the Vault host or in any backup.
+4. **Where it is recorded.** The custody register (the restricted ops document store, access-logged) lists for each share:
+   holder, team, PGP key fingerprint, date issued, date last verified. It never contains a share. Every break-glass use is
+   recorded there too: ticket, reason, approvers, who entered a share, start and end time, the root token's ACCESSOR.
+5. **Procedure.** Open a change ticket naming the reason and two approvers. One operator runs
+   `vault operator generate-root -init` (an OTP is printed to that operator only). Three holders each submit their
+   decrypted share (`vault operator generate-root -nonce=<nonce>`), each from their own session. The operator decodes the
+   token (`-decode … -otp …`), records its accessor, does ONLY the ticketed work, then **revokes it**
+   (`vault token revoke -self`) and confirms with `vault token lookup -accessor <accessor>` → not found.
+6. **Afterwards.** Review the Vault audit log for every request made with that accessor. Enumerate root tokens
+   (`vault list auth/token/accessors` + `lookup-accessor`) and confirm that none exists. Close the ticket with both
+   checks attached. A holder who leaves, or a share that may have been exposed, triggers a **rekey of the recovery
+   keys** (`vault operator rekey -target=recovery`) with the same quorum.
+7. **Rehearsed.** The break-glass drill (RELEASE-PLAN, rehearsal gate) runs this procedure end to end on the rehearsal
+   host before first production and after any change of holders.
 
 ### Rotate a transit key (identity issuer / network authority)
 ```
