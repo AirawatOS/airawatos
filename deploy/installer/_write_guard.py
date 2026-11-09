@@ -39,6 +39,7 @@ def urlopen(req, *a, **k):
     if write and _FAULT and not _fired[0] and _FAULT in u:
         _fired[0] = True
         _FAILS.append("%s %s -> 503 (INJECTED test fault)" % (m, u))
+        sys.stderr.write("⚡ INJECTED installer test fault: %s %s -> 503\n" % (m, u)); sys.stderr.flush()
         raise urllib.error.HTTPError(u, 503, "injected installer test fault", {}, None)
     try:
         return _orig(req, *a, **k)

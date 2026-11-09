@@ -34,7 +34,7 @@ known-violations: ## matrix honesty — recorded violations of rules that narrow
 
 REF_IMAGE ?= $(shell awk '/^ *image: *manishsv\/airawatos-reference:/{print $$2; exit}' deploy/local-dev/docker-compose.dev.yml)
 secret-names:    ## B90 — the secrets broker + model-gateway refuse traversal names and follow no redirects (no network)
-	docker run --rm --network none -v $(CURDIR)/platform-spec/reference:/r:ro -v $(CURDIR)/verify:/v:ro $(REF_IMAGE) python /v/secret_names_test.py
+	docker run --rm --network none -e AIRAWAT_ENV=development -v $(CURDIR)/platform-spec/reference:/r:ro -v $(CURDIR)/verify:/v:ro $(REF_IMAGE) python /v/secret_names_test.py
 
 gateflags:       ## B83 — one flag parser for gates + prod guard; production refuses any shadow flag set at all (throwaway containers)
 	python3 verify/gateflags_test.py

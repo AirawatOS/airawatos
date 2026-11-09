@@ -101,11 +101,7 @@ xfail(["ARC-7"], "a placed/in-process component cannot reach the host service's 
 # FND-16 (re-review R1-1, DEBT-B97) FIXED in slice-1h: gates refuse shadow in production and the guard is baked into every
 # image — proven by verify/gateflags_test.py (shipped images, outside compose). Case removed.
 # Layer 1 FINAL review (2026-11-09) — violations reproduced live by the reviewers, evidence from the source:
-gfc = code("platform-spec/reference/gateflags.py")
-xfail(["FND-16"], "production refuses cert-skip / static-token ARGUMENTS in every spelling (FINAL F1-1, DEBT-B116)",
-      'a.startswith("--no-verify")' in gfc and 'a.startswith("--vault-token")' in gfc,
-      "gateflags matches only top-level args starting --no-verify / --vault-token; argparse accepts abbreviations (--no, --vault-t=) "
-      "and sh -c commands are not inspected — live: app_host.py --no started in production")
+# FND-16 (FINAL F1-1, DEBT-B116) FIXED in slice-1i: production runs only allow-listed commands; proven by verify/gateflags_test.py.
 xfail(["NET-12"], "a citizen sees only its own rows — never a tenant's by a username equal to the tenant id (FINAL F1-6, DEBT-B120)",
       'v.startswith(f"ds:{pid}:")' in n,
       "network _row_is_callers matches ds:<username>:… for shared-realm callers — a citizen registered as `localdev` saw ds:localdev: rows")

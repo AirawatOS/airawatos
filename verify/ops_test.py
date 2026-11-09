@@ -71,7 +71,7 @@ check("the audit log is rotated past its limit and Vault reopens a fresh one", r
 sh("docker", "exec", "--user", "0:0", "airawat-ld-vault", "sh", "-c", "rm -f /vault/audit/audit.log.[1-9]")   # leave no test artefact behind
 vols = {k for k in cfg.get("volumes", {})}
 bk = open(os.path.join(ROOT, "deploy/local-dev/backup.sh")).read()
-m = re.search(r'^VOLS="([^"]+)"', bk, re.M)
+m = re.search(r'^VOLS="(?:\$\{AOS_BACKUP_VOLS:-)?([^"}]+)\}?"', bk, re.M)
 covered = set(m.group(1).split()) if m else set()
 check("the backup set covers every durable volume (identity, filestore, app-bundles included)", vols and vols <= covered,
       "volumes %s; not in backup.sh: %s" % (sorted(vols), sorted(vols - covered) or "none"))

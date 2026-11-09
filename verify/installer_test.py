@@ -57,7 +57,8 @@ if "--live" in sys.argv:
           "-f", os.path.join(ROOT, "deploy/local-dev/docker-compose.dev.yml")]
     # slice-1i (DEBT-B135): faults INSIDE real writes (the write guard fails the first matching write of that phase) — not at
     # phase banners. The final review's case: the Phase-1 shelf step's failed login was swallowed and the install completed.
-    for phase, sub in (("Phase 1 ", "/login"), ("Phase 7 ", "/set-password"), ("Phase 8", "/v1/registry/objects")):
+    # the shelf step (seed_base_os MODE=shelf — the final review's case) runs inside Phase 1c's span
+    for phase, sub in (("Phase 1c", "/login"), ("Phase 7 ", "/set-password"), ("Phase 8", "/v1/registry/objects")):
         subprocess.run(_C + ["down", "-v", "--remove-orphans"], capture_output=True)
         r = subprocess.run(["bash", INSTALL, "--profile", "dev"], capture_output=True, text=True,
                            env={**os.environ, "AOS_INSTALL_FAULT_WRITE": "%s|%s" % (phase, sub)}, cwd=os.path.dirname(INSTALL), timeout=1800)

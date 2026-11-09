@@ -82,8 +82,14 @@ def restarts(svc):
     return sh("docker", "inspect", "-f", "{{.RestartCount}}", "airawat-ld-" + svc).stdout.strip()
 
 
+KILL_RENEWER = ("import glob,os,signal\nfor c in glob.glob('/proc/[0-9]*/cmdline'):\n  try:\n"
+                "    if b'vault_renew.py' in open(c,'rb').read(): os.kill(int(c.split('/')[2]), signal.SIGKILL)\n  except Exception: pass")
+
+
 def renewer_alive(svc):
-    return sh("docker", "exec", "airawat-ld-" + svc, "sh", "-c", "pgrep -f vault_renew.py >/dev/null && echo yes").stdout.strip() == "yes"
+    return sh("docker", "exec", "airawat-ld-" + svc, "python3", "-c",
+              "import glob,sys\nsys.exit(0 if any(b'vault_renew.py' in open(c,'rb').read() for c in glob.glob('/proc/[0-9]*/cmdline') "
+              "if __import__('os').access(c,4)) else 1)").returncode == 0
 
 
 def recovered(svc, old_accessor, wait=240):
@@ -134,22 +140,24 @@ try:
     r = lookup(VICTIM)
     acc = r[3] if len(r) >= 4 else ""
     since = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    r0 = restarts(VICTIM)
     rv = vroot("vault token revoke -accessor %s" % acc) if acc else None
     loud, unhealthy, deadline = False, False, time.time() + 120
-    while time.time() < deadline and not (loud and unhealthy):
+    while time.time() < deadline and not (loud and (unhealthy or restarts(VICTIM) != r0)):
         time.sleep(5)
         logs = sh("docker", "logs", "--since", since, "airawat-ld-" + VICTIM)
         loud = loud or "VAULT TOKEN INVALID" in (logs.stdout + logs.stderr)
-        unhealthy = unhealthy or health(VICTIM) == "unhealthy"
+        unhealthy = unhealthy or health(VICTIM) in ("unhealthy", "starting")
     check("a revoked token is reported LOUDLY in %s's log (renewer: VAULT TOKEN INVALID)" % VICTIM, loud and bool(acc) and rv is not None and rv.returncode == 0,
           "accessor %s, revoke rc %s" % (bool(acc), rv and rv.returncode))
-    check("a revoked token makes %s UNHEALTHY (docker health)" % VICTIM, unhealthy, "health=%s" % health(VICTIM))
+    check("a revoked token is NOT silent: %s goes unhealthy or is restarted (controlled restart)" % VICTIM,
+          unhealthy or restarts(VICTIM) != r0, "health=%s restarts %s→%s" % (health(VICTIM), r0, restarts(VICTIM)))
     # slice-1i (DEBT-B128): the lost token is RECOVERED — controlled restart → fresh AppRole login → healthy, valid token
     check("after the revocation %s RECOVERS by itself (controlled restart, fresh login, healthy)" % VICTIM, recovered(VICTIM, acc),
           "health=%s restarts=%s" % (health(VICTIM), restarts(VICTIM)))
     # neighbour 1: the renewer is killed → not silent: unhealthy, then a controlled restart brings it back
     acc2 = (lookup(VICTIM) + ["", "", "", ""])[3]
-    sh("docker", "exec", "airawat-ld-" + VICTIM, "sh", "-c", "pkill -f vault_renew.py")
+    sh("docker", "exec", "airawat-ld-" + VICTIM, "python3", "-c", KILL_RENEWER)   # the slim image has no pkill
     check("a KILLED renewer is detected and %s recovers (restart, renewer running again)" % VICTIM,
           recovered(VICTIM, acc2) and renewer_alive(VICTIM), "health=%s renewer=%s" % (health(VICTIM), renewer_alive(VICTIM)))
     # neighbour 2: a network blip longer than one token period (the token expires while Vault is unreachable)
