@@ -20,7 +20,10 @@ try:
 except Exception as e:
     fail(f"Vault not reachable at {VA} ({str(e)[:80]}).",
          "Start Vault and confirm VAULT_ADDR/VAULT_TOKEN; in production Vault must be unsealed and NOT in dev-root mode.")
-v("POST", "sys/mounts/transit", {"type":"transit"}, ok_fail=True)   # idempotent enable
+# slice-1i (B127): enable transit only when ABSENT — no write is ever expected to fail (the installer's write guard fails a
+# helper on ANY failed write; "already mounted" used to be a swallowed 400)
+if "transit/" not in (v("GET", "sys/mounts") or {}).get("data", v("GET", "sys/mounts") or {}):
+    v("POST", "sys/mounts/transit", {"type":"transit"})
 for key, label in (("airawat-identity","identity issuer"), ("airawat-authority","Network authority")):
     v("POST", f"transit/keys/{key}", {"type":"ed25519"}, ok_fail=True)   # create if missing (idempotent)
     r=v("GET", f"transit/keys/{key}", ok_fail=True)
