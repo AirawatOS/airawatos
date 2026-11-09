@@ -129,13 +129,13 @@
    ],
    "dockerfile": "platform-spec/Dockerfile.reference",
    "context": "git archive (workspace)",
-   "git_revision": "d002fe84b830ec2623a641efdc5d1745d38ab76a",
+   "git_revision": "be155c9b98305deabd2e30b8d3ab5dba1b23b535",
    "sources": {
-    "root": "6eb6830376d53549d5ff1d7696e81a1edc7f3f86",
-    "platform-spec": "d002fe84b830ec2623a641efdc5d1745d38ab76a",
+    "root": "99bd5226c4e8167b14a4f7a703ffcf2c561dc6d4",
+    "platform-spec": "be155c9b98305deabd2e30b8d3ab5dba1b23b535",
     "components": "8cef04a15c2ac31ea42d4a6a5e1cdcc617e56f94"
    },
-   "image_id": "sha256:6e20721a59b2a71ccdf718555d12beecc3e17a68b48715cbb4e0cdbf44b49b96",
+   "image_id": "sha256:35c0ad5755616df2866d6b3d36ab4c473a47de11b57ac7f8d95f72daf1ded642",
    "platform": "linux/arm64",
    "base": "python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535",
    "built": "2026-11-09"
@@ -234,8 +234,8 @@
    "context": "git archive (kernel)",
    "git_revision": "b3b6373477bf09f22ed64528b69b04b0ed8ef5fc",
    "sources": {
-    "root": "6eb6830376d53549d5ff1d7696e81a1edc7f3f86",
-    "platform-spec": "d002fe84b830ec2623a641efdc5d1745d38ab76a",
+    "root": "99bd5226c4e8167b14a4f7a703ffcf2c561dc6d4",
+    "platform-spec": "be155c9b98305deabd2e30b8d3ab5dba1b23b535",
     "kernel": "b3b6373477bf09f22ed64528b69b04b0ed8ef5fc"
    },
    "image_id": "sha256:0067be582d26c55344ac987439d5f04c88d53623de407a404f4e753411a2b576",
@@ -335,13 +335,13 @@
    ],
    "dockerfile": "network/deploy/Dockerfile",
    "context": "git archive (network)",
-   "git_revision": "0f2d8a2a56692643c20378fa45933dd13e21388e",
+   "git_revision": "030e4ae20185b556e5f23b3c694598931c4d7a82",
    "sources": {
-    "root": "6eb6830376d53549d5ff1d7696e81a1edc7f3f86",
-    "platform-spec": "d002fe84b830ec2623a641efdc5d1745d38ab76a",
-    "network": "0f2d8a2a56692643c20378fa45933dd13e21388e"
+    "root": "99bd5226c4e8167b14a4f7a703ffcf2c561dc6d4",
+    "platform-spec": "be155c9b98305deabd2e30b8d3ab5dba1b23b535",
+    "network": "030e4ae20185b556e5f23b3c694598931c4d7a82"
    },
-   "image_id": "sha256:32677e711f3a7780f02f9ada8a7b18f368addca41ade13237cbe81b3e37c473a",
+   "image_id": "sha256:20f8dfd8685eb70858d3584e61eee633bd4c3d70884eab4e728d4fd069238f99",
    "platform": "linux/arm64",
    "base": "python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535",
    "built": "2026-11-09"
