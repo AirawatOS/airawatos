@@ -111,8 +111,9 @@ with tempfile.TemporaryDirectory(prefix="aos-drill-") as td:
     for f in (os.path.join(LD, ".env"), os.path.join(LD, "vault/approle")):
         if os.path.islink(f):
             os.unlink(f)
-    check("host secrets DELETED before the restore (a new host: no volume set, no pointer, no .env)",
-          not os.path.exists(os.path.join(LD, "sets")) and not os.path.lexists(os.path.join(LD, ".env")), "%d files removed" % len(hostfiles))
+    check("host secrets DELETED before the restore (a new host)",      # case name kept: the evidence baseline keys on it
+          not os.path.exists(os.path.join(LD, "sets")) and not os.path.lexists(os.path.join(LD, ".env")),
+          "%d files removed; no volume set, no pointer, no .env link left" % len(hostfiles))
     r = sh(os.path.join(LD, "restore.sh"), os.path.join(td, "bk"))
     host_after = {k: (hashlib.sha256(strip(open(os.path.join(LD, k), "rb").read())).hexdigest() if os.path.exists(os.path.join(LD, k)) else None)
                   for k in host_before}
