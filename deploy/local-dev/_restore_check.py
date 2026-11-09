@@ -69,6 +69,9 @@ for v in declared:
     except Exception as e:
         errs.append("%s.tgz is not a readable gzip/tar archive (%s)" % (v, e))
     listing[v] = sorted(names)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _backup_scan                      # slice-1j (step 4): a backup carrying a Vault root (or any) token is refused
+errs += ["%s (a backup must never carry a Vault token)" % h for h in _backup_scan.scan(d)]
 if errs:
     raise SystemExit("✗ archive scan failed — refusing to restore:\n    " + "\n    ".join(errs[:20]))
 import tempfile

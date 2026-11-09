@@ -20,14 +20,16 @@ is not healthy (slice-1i DEBT-B124/B126; slice-1j DEBT-B139/B140). Live; takes O
     15. a relative symlink that escapes the volume (../../etc)
     16. an archive that scans clean but FAILS TO EXTRACT (a file, then a member under it) — caught in the STAGE
   restore must ROLL BACK — exit non-zero, the PREVIOUS state back and healthy:
-    17. a backup that validates and stages but whose stack cannot become healthy (decision's secret-id wrong, rehashed);
+    17. (slice-1j step 4) a Vault ROOT TOKEN in the vault archive's init.json; 18. a token literal in a host file;
+    19. a token literal in another volume's archive — and the real backup itself must carry NO root token
+    20. a backup that validates and stages but whose stack cannot become healthy (decision's secret-id wrong, rehashed);
         a marker written AFTER the backup must still be there afterwards
   backup must FAIL LOUDLY and RESTART the stack:
-    18. a volume missing mid-backup
-    19. an output directory inside the repository that is not the gitignored default
+    21. a volume missing mid-backup
+    22. an output directory inside the repository that is not the gitignored default
 RESTORE=<path> runs another restore script (e.g. the slice-1i one, to show what it missed). Exit 1 on failure.
 """
-import hashlib, io, json, os, shutil, subprocess, sys, tarfile, tempfile
+import hashlib, io, json, os, re, shutil, subprocess, sys, tarfile, tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LD = os.path.join(ROOT, "deploy/local-dev")
@@ -128,6 +130,14 @@ with tempfile.TemporaryDirectory(prefix="aos-brst-") as td:
     check("a real backup succeeds and the stack is running again", b.returncode == 0 and all(" running" in x for x in stack()),
           (b.stdout + b.stderr).strip().splitlines()[-1][:120])
 
+    sys.path.insert(0, LD)
+    import _backup_scan
+    vr = sh("docker", "exec", "airawat-ld-vault", "sh", "-c", "tr -d '\\n ' < /vault/data/init.json | sed -n 's/.*\"root_token\":\"\\([^\"]*\\)\".*/\\1/p'").stdout.strip()
+    hits = _backup_scan.scan(bk, vr)
+    blank = b'"root_token": ""' in tarfile.open(os.path.join(bk, "localdev_vault.tgz"), "r:gz").extractfile("./init.json").read()
+    check("the backup carries NO Vault root token (init.json root_token blank; no token anywhere; the live root's value absent)",
+          bool(vr) and blank and not hits, "live root known %s; archived root_token blank %s; hits %s" % (bool(vr), blank, hits or "none"))
+
     def copy(fn):
         c = os.path.join(td, "c"); shutil.rmtree(c, ignore_errors=True); shutil.copytree(bk, c); fn(c); return c
 
@@ -148,6 +158,11 @@ with tempfile.TemporaryDirectory(prefix="aos-brst-") as td:
         ("archive member: hardlink to /etc/passwd", lambda c: add_members(c, "localdev_netfiles", [("./hl", "lnk", "/etc/passwd")])),
         ("archive member: relative symlink escaping the volume", lambda c: add_members(c, "localdev_netfiles", [("./d/up", "sym", "../../etc")])),
         ("archive that scans clean but fails to EXTRACT (file, then a member under it)", lambda c: add_members(c, "localdev_netfiles", [("./blk", "file", "x"), ("./blk/under", "file", "y")])),
+        # slice-1j step 4: a backup must never carry a Vault root (or any) token
+        ("a Vault ROOT TOKEN in the vault archive's init.json (the reviewers' backups)",
+         lambda c: edit_member(c, "localdev_vault", "init.json", lambda d: re.sub(rb'"root_token": *"[^"]*"', b'"root_token": "hvs.SELFTESTROOTTOKEN0123456789abcd"', d))),
+        ("a Vault token literal in a host file (.env)", lambda c: (open(os.path.join(c, "host/.env"), "a").write("VAULT_TOKEN=hvs.SELFTESTTOKEN0123456789abcdefgh\n"), rehash(c))),
+        ("a Vault token literal inside another volume's archive", lambda c: add_members(c, "localdev_netfiles", [("./notes.txt", "file", "root=hvs.SELFTESTTOKEN0123456789abcdefgh")])),
     ]
     for name, fn in refuse:
         before = stack()
@@ -160,7 +175,7 @@ with tempfile.TemporaryDirectory(prefix="aos-brst-") as td:
         if before != after and not healthy():
             print("    ↳ the stack was changed — recovering with a restore of the good backup", flush=True)
             sh(os.path.join(LD, "restore.sh"), bk)
-    # 17. rollback
+    # 20. rollback
     sh("docker", "exec", "--user", "0:0", "airawat-ld-filestore", "sh", "-c", "echo after-backup > /data/filestore/.brst-mark")
     c = copy(wrong_secret)
     r = sh(RESTORE, c, env=dict(os.environ, AOS_RESTORE_WAIT_S="75"))

@@ -6,7 +6,9 @@
 # sha256 of EVERY archive and EVERY host file (restore.sh refuses anything that does not match it exactly).
 # slice-1i (DEBT-B126): the stack is ALWAYS restarted (EXIT trap) and ANY failure is reported (✗) with a non-zero exit —
 # a failed backup never leaves the stack stopped or silently claims success. A backup directory inside the repository
-# is refused unless it is the gitignored default (the backup holds the Vault root token and unseal key).
+# is refused unless it is the gitignored default (the backup holds the Vault unseal key and every service secret).
+# slice-1j (step 4): the backup NEVER holds a Vault root token — blanked in the archived init.json, and the finished backup
+# is scanned (_backup_scan.py: any root_token value, the live root token, any Vault token literal) or it FAILS.
 set -Eeuo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"; REPO="$(cd "$HERE/../.." && pwd)"
 P="${AOS_LD_PROJECT:-airawatos-localdev}"
@@ -36,7 +38,15 @@ STEP="stop the stack"; "${C[@]}" stop >/dev/null; STOPPED=1
 for v in $VOLS; do
   STEP="archive volume $v"
   docker volume inspect "${P}_$v" >/dev/null 2>&1 || { echo "✗ volume ${P}_$v missing" >&2; exit 1; }
-  docker run --rm --user 0:0 --entrypoint tar -v "${P}_$v":/src:ro -v "$OUT":/b "$TAR_IMG" czf "/b/$v.tgz" -C /src .
+  # slice-1j (step 4): a backup NEVER carries the Vault root token — the local-dev Vault keeps its init output (root token
+  # included) as init.json on its own data volume; the archived copy has the root token BLANKED (the unseal key stays: it
+  # is what a restore needs; vault/entrypoint.sh regenerates a root token from it after a restore).
+  docker run --rm --user 0:0 --entrypoint sh -v "${P}_$v":/src:ro -v "$OUT":/b "$TAR_IMG" -c '
+    D=/src
+    if [ -f /src/init.json ]; then
+      mkdir /w && cp -a /src/. /w/ && sed -i "s/\"root_token\": *\"[^\"]*\"/\"root_token\": \"\"/" /w/init.json && D=/w || exit 1
+    fi
+    tar czf "/b/$0.tgz" -C "$D" .' "$v"
 done
 STEP="copy host secrets"
 cp "$HERE/.env" "$OUT/host/.env"
@@ -52,5 +62,9 @@ m = {"created": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "volumes": {
      "host": {h: sha(os.path.join(out, h)) for h in host}}
 json.dump(m, open(os.path.join(out, "manifest.json"), "w"), indent=1)
 PY
+STEP="verify: no Vault root token in the backup"
+AOS_ROOT_TOKEN="$(docker exec "$(docker ps -q --filter "label=com.docker.compose.project=$P" --filter "label=com.docker.compose.service=vault" | head -1)" sh -c \
+  "tr -d '\n ' < /vault/data/init.json 2>/dev/null | sed -n 's/.*\"root_token\":\"\([^\"]*\)\".*/\1/p'" 2>/dev/null || true)" \
+  python3 "$HERE/_backup_scan.py" "$OUT"
 DONE=1
 echo "✓ backup complete: $(echo $VOLS | wc -w | tr -d ' ') volumes + $(find "$OUT/host" -type f | wc -l | tr -d ' ') host secret files in $(( $(date +%s) - t0 ))s (the stack was stopped for the copy)"

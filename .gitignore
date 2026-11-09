@@ -27,7 +27,7 @@ deploy/ec2/.env
 deploy/**/init.json
 .DS_Store
 
-# slice-1h (DEBT-B102): backups hold the full credential set (Vault root token + unseal key) — never committed
+# slice-1h (DEBT-B102): backups hold the credential set (Vault unseal key, service secrets; never a root token — slice-1j) — never committed
 deploy/local-dev/backups/
 # slice-1j: restore keeps the previous host secrets here until the restored stack is healthy
 deploy/local-dev/.restore-prev/

@@ -9,7 +9,7 @@ changes what "restore" must keep consistent and adds a per-service rotation proc
 
 | Store | Holds | Backup |
 |---|---|---|
-| **Vault volume** (`localdev_vault` / prod EBS) | `/vault/data/init.json` (root token **and the unseal key** — a backup of this volume is a full plaintext compromise; store it as a secret), AppRole **auth** + per-service **roles** + **secret-ids**, **policies**, KV secrets (DB passwords, provider keys), **transit** keys (identity issuer, network authority). **File storage, owned uid 100 / gid 1000** (Vault 2.x runs as `vault`) | Stop Vault, then copy the volume (EBS snapshot with the instance quiesced, or `docker run --rm --user 0:0 -v <proj>_localdev_vault:/src:ro -v "$PWD":/b <vault-image> tar czf /b/vault-$(date +%F).tgz -C /src .`). `vault operator raft snapshot` does **not** apply (no raft). |
+| **Vault volume** (`localdev_vault` / prod EBS) | `/vault/data/init.json` (root token **and the unseal key**; `backup.sh` BLANKS the root token in the archived copy — slice-1j — but the unseal key remains, so a backup of this volume can still decrypt all of Vault; store it as a secret), AppRole **auth** + per-service **roles** + **secret-ids**, **policies**, KV secrets (DB passwords, provider keys), **transit** keys (identity issuer, network authority). **File storage, owned uid 100 / gid 1000** (Vault 2.x runs as `vault`) | Stop Vault, then copy the volume (EBS snapshot with the instance quiesced, or `docker run --rm --user 0:0 -v <proj>_localdev_vault:/src:ro -v "$PWD":/b <vault-image> tar czf /b/vault-$(date +%F).tgz -C /src .`). `vault operator raft snapshot` does **not** apply (no raft). |
 | **Postgres volume** (`localdev_pg` / RDS) | the registry + the DB **roles** `kernel_app`/`network_app`/`identity_lockout`/`migrator` and their passwords (which must match the values in Vault) | `pg_dump -Fc` + volume snapshot (RELEASE-PLAN Stage 0) |
 | **Host** `deploy/local-dev/vault/approle/<svc>.env` | each service's **role-id + secret-id** (must match the Vault AppRole roles) — gitignored, per-service | file backup alongside the vault snapshot, OR regenerate (below) |
 | **Host** `deploy/local-dev/.env` | `POSTGRES_PASSWORD` (Postgres superuser, generated once per install) | back up with the Postgres snapshot — without it the installer refuses a restored DB volume and `_split_roles.py` cannot run |
@@ -45,8 +45,14 @@ deploy/local-dev/restore.sh <dir>   # validate → stage → switch → healthy,
    `-prev-<vol>` back into `<project>_<vol>` by hand.
 Proven by `verify/backup_restore_selftest.py` (in `make restore-drill`): 16 refusal cases (incl. the conditions review's
 six-of-seven-volume backup, a backup without AppRole files, an absolute-symlink member) and a rollback case.
-The backup directory is created 0700 and is gitignored (`deploy/local-dev/backups/`): it holds the Vault root token and
-unseal key — store it as a secret. **Drill** (`python3 verify/restore_drill.py`, 2026-11-08): marks in identity, Vault KV,
+The backup directory is created 0700 and is gitignored (`deploy/local-dev/backups/`): it holds the Vault unseal key and
+every service secret — store it as a secret. **It never holds a Vault root token (slice-1j):** the local-dev Vault keeps its
+init output (root token included) as `init.json` on its own data volume, so `backup.sh` blanks `root_token` in the archived
+copy, and the finished backup is scanned (`deploy/local-dev/_backup_scan.py`: any `root_token` value, the live root token's
+value, any `hvs.`/`hvb.` token literal) — a hit FAILS the backup, and `restore.sh` REFUSES such a backup. After a restore
+the Vault entrypoint regenerates a root token from the unseal key (Vault `generate-root`) on the restored volume only.
+**Production by design:** Vault auto-unseals (KMS/HSM) and keeps no root token at rest; an operator runs `generate-root`
+with the recovery keys when one is needed and revokes it afterwards — so there is no root token for any backup to capture. **Drill** (`python3 verify/restore_drill.py`, 2026-11-08): marks in identity, Vault KV,
 Postgres, filestore and app-bundles → backup (48 s, stack stopped) → `down -v` (0 containers, 0 volumes) → restore →
 every mark identical, identity JWKS identical (pre-restore tokens still verify), every service reads its own Vault paths.
 **RTO 22 s** on local-dev. The manual steps below remain for single-volume recoveries.
