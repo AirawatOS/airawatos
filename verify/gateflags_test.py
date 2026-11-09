@@ -125,15 +125,23 @@ for k in ("unset", "production"):
 check("positive: under declared development the gate honours the shadow flag", not res[("gatedev", "development")],
       "gate %s" % ("ENFORCE" if res[("gatedev", "development")] else "SHADOW"))
 # slice-1i (DEBT-B116): the BAKED allow-list refuses every unsafe or unlisted command in production, in any spelling
+import uuid as _uuid
+
+
 def real(cmdline, env=None, entry=None, image="reference"):
-    c = ["docker", "run", "--rm", "--network", "none", "-e", "AIRAWAT_ENV=" + ((env or {}).get("AIRAWAT_ENV", "production"))]
+    name = "aos-gf-" + _uuid.uuid4().hex[:10]          # a command that STARTS keeps running: stop it and say so
+    c = ["docker", "run", "--rm", "--name", name, "--network", "none", "-e", "AIRAWAT_ENV=" + ((env or {}).get("AIRAWAT_ENV", "production"))]
     for k, v in (env or {}).items():
         if k != "AIRAWAT_ENV":
             c += ["-e", "%s=%s" % (k, v)]
     if entry:
         c += ["--entrypoint", entry]
-    r = subprocess.run(c + [IMG[image]] + cmdline, capture_output=True, text=True, timeout=60)
-    return r.returncode, (r.stderr + r.stdout)
+    try:
+        r = subprocess.run(c + [IMG[image]] + cmdline, capture_output=True, text=True, timeout=25)
+        return r.returncode, (r.stderr + r.stdout)
+    except subprocess.TimeoutExpired:
+        subprocess.run(["docker", "rm", "-f", name], capture_output=True)
+        return None, "STARTED — the service was running in production after 25 s (not refused)"
 B116 = [
     ("app_host --no (final-review case: an abbreviation of --no-verify-cert)", ["python", "reference/app_host.py", "/a", "--no"]),
     ("app_host --no-v", ["python", "reference/app_host.py", "/a", "--no-v"]),
