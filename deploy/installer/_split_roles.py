@@ -92,8 +92,15 @@ for r in ("kernel_app", "network_app"):
 AUDIT_TABLES = ("kernel_admin_audit", "kernel_authz_decision")
 for t in [x for x in KERNEL_TABLES if table_exists(x)]:
     cur.execute(f"GRANT SELECT, INSERT{'' if t in AUDIT_TABLES else ', UPDATE, DELETE'} ON {t} TO kernel_app")
+# slice-1i (DEBT-B131/B123): sequences are used only through column defaults (nextval needs USAGE) — UPDATE would allow
+# setval(), which survives ROLLBACK and lets the runtime role make future audit inserts collide. USAGE only.
 for s in [x for x in SEQS if seq_exists(x)]:
-    cur.execute(f"GRANT USAGE, SELECT, UPDATE ON SEQUENCE {s} TO kernel_app")
+    cur.execute(f"GRANT USAGE ON SEQUENCE {s} TO kernel_app")
+# slice-1i (DEBT-B131): no service role may inherit privileges from another role — drop every membership it holds
+for r in ("kernel_app", "network_app", "identity_lockout"):
+    cur.execute("select g.rolname from pg_auth_members m join pg_roles g on g.oid = m.roleid join pg_roles u on u.oid = m.member where u.rolname = %s", (r,))
+    for (g,) in cur.fetchall():
+        cur.execute(f'REVOKE "{g}" FROM {r}')
 if table_exists("network_kv"):
     cur.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON network_kv TO network_app")
 

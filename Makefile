@@ -92,3 +92,4 @@ restore-drill:   ## B102 — back up, DESTROY (down -v), restore, prove every st
 
 dbgrants:        ## B93/ARC-3 — DB-grant audit: least-privilege roles, only kernel/network/identity reach the fact store
 	python3 verify/db_grant_audit.py
+	python3 verify/db_grant_audit_selftest.py
