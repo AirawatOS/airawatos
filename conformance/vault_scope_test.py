@@ -188,6 +188,121 @@ def _vroot(*args, root=""):
                           + list(args), capture_output=True, text=True)
 
 
+# slice-1j (DEBT-B138): EXACT configuration match — the FIRST line. The live Vault must equal what the repository
+# declares (deploy/local-dev/vault/declared.json + policies/*.hcl), whatever the engine:
+#   · the enabled secret engines (path, type, KV version), auth methods and audit devices — exactly the declared lists;
+#   · the ACL policy NAMES — exactly the declared set; every policy's text, NORMALISED (comments, whitespace and order
+#     ignored; path → sorted capabilities), exactly equal to its .hcl — any extra path or capability (list, sudo, …) fails;
+#   · the AppRole roles — exactly the declared set, each with exactly its declared token_policies / no-default flag;
+#   · every service's LIVE token (lookup-self with its own token): token policies + identity (entity/group) policies
+#     exactly the declared set; no identity groups at all.
+# The live-read probes (actual_read_scope) stay as the second line.
+DECLARED = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "deploy/local-dev/vault/declared.json")
+POLICY_DIR = os.path.join(os.path.dirname(DECLARED), "policies")
+
+
+def norm_policy(text):
+    """HCL ACL policy → ({path: sorted capabilities}, leftover). Anything that is not a `path "…" { capabilities = […] }`
+    stanza is kept (whitespace-normalised) so it can never be silently ignored."""
+    t = _re.sub(r"(?m)(#|//)[^\n]*$", "", text or "")
+    st = {}
+
+    def take(m):
+        body = m.group(2)
+        mm = _re.fullmatch(r'\s*capabilities\s*=\s*\[([^\]]*)\]\s*', body)
+        cs = sorted(x.strip().strip('"') for x in mm.group(1).split(",") if x.strip()) if mm else ["RAW:" + " ".join(body.split())]
+        st.setdefault(m.group(1), set()).update(cs)
+        return ""
+    rest = _re.sub(r'path\s+"([^"]+)"\s*\{([^{}]*)\}', take, t)
+    return {k: sorted(v) for k, v in st.items()}, " ".join(rest.split())
+
+
+def _vjson(*args, root=""):
+    a = list(args)
+    a = a[:1] + ["-format=json"] + a[1:] if a[0] in ("list", "read") else a[:2] + ["-format=json"] + a[2:]   # flags before positionals
+    r = _vroot(*a, root=root)
+    try:
+        return json.loads(r.stdout or "null")
+    except Exception:
+        return None
+
+
+_SELF = (
+    "import json, urllib.request, glob, os\n"
+    "tok = ''\n"
+    "for p in sorted(glob.glob('/proc/[0-9]*/environ'), key=lambda x: int(x.split('/')[2])):\n"
+    "    try: d = open(p, 'rb').read()\n"
+    "    except Exception: continue\n"
+    "    for line in d.split(b'\\0'):\n"
+    "        if line.startswith(b'VAULT_TOKEN=') and not tok: tok = line.split(b'=', 1)[1].decode()\n"
+    "    if tok: break\n"
+    "d = json.loads(urllib.request.urlopen(urllib.request.Request('http://vault:8200/v1/auth/token/lookup-self', headers={'X-Vault-Token': tok}), timeout=6).read())['data']\n"
+    "print(json.dumps({'policies': sorted(d.get('policies') or []), 'identity_policies': sorted(d.get('identity_policies') or [])}))\n"
+)
+
+
+def exact_config(root):
+    ok = True
+    try:
+        dec = json.load(open(DECLARED))
+    except Exception as e:
+        return rec("ARC-7", "the declared Vault configuration is readable (deploy/local-dev/vault/declared.json)", False, str(e))
+    mounts = _vjson("secrets", "list", root=root) or {}
+    live_m = {k: dict({"type": v.get("type")}, **({"version": (v.get("options") or {}).get("version") or "1"} if v.get("type") == "kv" else {}))
+              for k, v in mounts.items()}
+    dm = dec["mounts"]
+    ok &= rec("ARC-7", "secret engines EXACTLY the declared list (path, type, KV version)", live_m == dm,
+              ("extra %s; missing %s; changed %s" % (sorted(set(live_m) - set(dm)), sorted(set(dm) - set(live_m)),
+                                                    sorted(k for k in set(live_m) & set(dm) if live_m[k] != dm[k])))
+              if live_m != dm else "%d engines: %s" % (len(live_m), ", ".join(sorted(live_m))))
+    auths = {k: v.get("type") for k, v in (_vjson("auth", "list", root=root) or {}).items()}
+    ok &= rec("ARC-7", "auth methods EXACTLY the declared list", auths == dec["auth"],
+              ("live %s / declared %s" % (auths, dec["auth"])) if auths != dec["auth"] else ", ".join(sorted(auths)))
+    aud = {k: {"type": v.get("type"), "file_path": (v.get("options") or {}).get("file_path")} for k, v in (_vjson("audit", "list", root=root) or {}).items()}
+    ok &= rec("ARC-7", "audit devices EXACTLY the declared list", aud == dec["audit"],
+              ("live %s / declared %s" % (aud, dec["audit"])) if aud != dec["audit"] else ", ".join(sorted(aud)))
+    names = sorted(_vjson("policy", "list", root=root) or [])
+    want = sorted(dec["policies"])
+    ok &= rec("ARC-7", "ACL policy names EXACTLY the declared set", names == want,
+              ("extra %s; missing %s" % (sorted(set(names) - set(want)), sorted(set(want) - set(names)))) if names != want else "%d policies" % len(names))
+    for pol in want:
+        if pol == "root":
+            continue
+        fp = os.path.join(POLICY_DIR, pol + ".hcl")
+        live = (_vjson("policy", "read", pol, root=root) or {}).get("policy", "")
+        a, b = norm_policy(live), norm_policy(open(fp).read() if os.path.exists(fp) else "")
+        diff = ["%s: live %s / declared %s" % (k, a[0].get(k), b[0].get(k)) for k in sorted(set(a[0]) | set(b[0])) if a[0].get(k) != b[0].get(k)]
+        if a[1] != b[1]:
+            diff.append("non-path content differs: live %r / declared %r" % (a[1][:60], b[1][:60]))
+        ok &= rec("ARC-7", "policy %s: live text EXACTLY its declared .hcl (normalised: every path, every capability)" % pol,
+                  bool(b[0]) and not diff, ("; ".join(diff[:4])) if diff else "%d path stanzas" % len(b[0]))
+    lr = _vjson("list", "auth/approle/role", root=root)
+    roles = sorted(lr if isinstance(lr, list) else [])
+    ok &= rec("ARC-7", "AppRole roles EXACTLY the declared set", roles == sorted(dec["roles"]),
+              ("extra %s; missing %s" % (sorted(set(roles) - set(dec["roles"])), sorted(set(dec["roles"]) - set(roles))))
+              if roles != sorted(dec["roles"]) else "%d roles" % len(roles))
+    for role, rd in sorted(dec["roles"].items()):
+        d = (_vjson("read", "auth/approle/role/" + role, root=root) or {}).get("data", {})
+        got = {"token_policies": sorted(d.get("token_policies") or []), "token_no_default_policy": bool(d.get("token_no_default_policy"))}
+        exp = {"token_policies": sorted(rd["token_policies"]), "token_no_default_policy": rd["token_no_default_policy"]}
+        ok &= rec("ARC-7", "role %s: token policies EXACTLY as declared" % role, got == exp,
+                  ("live %s / declared %s" % (got, exp)) if got != exp else str(exp["token_policies"]))
+    gl = _vjson("list", "identity/group/id", root=root)
+    gk = gl if isinstance(gl, list) else ((gl or {}).get("keys") or [] if isinstance(gl, dict) else [])
+    ok &= rec("ARC-7", "no identity groups (a group would attach policies outside the roles)", not gk, "groups: %s" % (gk or "none"))
+    for svc, role in sorted(dec["service_roles"].items()):
+        r = subprocess.run(["docker", "exec", PFX + svc, "python3", "-c", _SELF], capture_output=True, text=True, timeout=30)
+        try:
+            t = json.loads(r.stdout.strip().splitlines()[-1])
+        except Exception:
+            t = None
+        rr = dec["roles"][role]
+        want_t = {"policies": sorted(rr["token_policies"] + ([] if rr["token_no_default_policy"] else ["default"])), "identity_policies": []}
+        ok &= rec("ARC-7", "%s: its LIVE token carries EXACTLY the declared policies (token + identity)" % svc, t == want_t,
+                  ("live %s / declared %s" % (t, want_t)) if t != want_t else str(want_t["policies"]))
+    return ok
+
+
 def actual_read_scope(root):
     mounts = json.loads(_vroot("secrets", "list", "-format=json", root=root).stdout or "{}")
     kv = [m.rstrip("/") for m, v in mounts.items() if v.get("type") == "kv"]
@@ -339,6 +454,7 @@ def main():
     # into every KV mount; every KV secret + its metadata, every transit key and the system / auth endpoints are then read
     # with each service's OWN token, and the readable set must match that service's ALLOW-LIST. A wildcard grant on any
     # mount (the final review's case: decision reading components/data/*) shows up as a read of the canary.
+    ok_all &= exact_config(ROOT)
     ok_all &= actual_read_scope(ROOT)
 
     for svc in NOVAULT:

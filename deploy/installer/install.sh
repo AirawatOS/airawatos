@@ -140,7 +140,8 @@ _setup_vault_approle() {
   mkdir -p "$LOCALDEV/vault/approle"
   # policy name : service(s) that use it : role name(s)
   # (automation/event-relay/scheduler share the svc-scheduler policy but each gets its OWN role → own creds)
-  for pol in svc-kernel svc-network svc-identity svc-secrets svc-model-gateway svc-scheduler svc-app-host svc-decision svc-workflow svc-runtime-manager; do
+  # slice-1j (DEBT-B138): + svc-base — the only self-service paths a token needs, in place of Vault's built-in `default`
+  for pol in svc-base svc-kernel svc-network svc-identity svc-secrets svc-model-gateway svc-scheduler svc-app-host svc-decision svc-workflow svc-runtime-manager; do
     VROOT "VAULT_TOKEN=$VAULT_TOKEN vault policy write $pol -" < "$LOCALDEV/vault/policies/$pol.hcl" >/dev/null \
       || { echo "✗ vault policy write $pol failed"; exit 1; }
   done
@@ -150,9 +151,11 @@ _setup_vault_approle() {
               automation:svc-scheduler event-relay:svc-scheduler scheduler:svc-scheduler \
               decision:svc-decision workflow:svc-workflow runtime-manager:svc-runtime-manager; do
     role="${pair%%:*}"; pol="${pair##*:}"
+    # slice-1j (DEBT-B138): token policies are EXACTLY <svc policy> + svc-base — never Vault's built-in `default` (cubbyhole,
+    # wrapping, hashing, lease and identity reads); conformance/vault_scope_test.py requires the live tokens to match exactly.
     # slice-1h (DEBT-B96, re-review R4-1): PERIODIC tokens — each service's renewer (vault_renew.py, baked into the image)
     # renews before every period ends, so a token never reaches a fixed max-TTL (it used to die 24 h after start).
-    VROOT "vault write auth/approle/role/$role token_policies=$pol token_period=${AOS_VAULT_TOKEN_PERIOD:-1h} token_ttl=0 token_max_ttl=0 token_num_uses=0 secret_id_num_uses=0 secret_id_ttl=0" >/dev/null \
+    VROOT "vault write auth/approle/role/$role token_policies=$pol,svc-base token_no_default_policy=true token_period=${AOS_VAULT_TOKEN_PERIOD:-1h} token_ttl=0 token_max_ttl=0 token_num_uses=0 secret_id_num_uses=0 secret_id_ttl=0" >/dev/null \
       || { echo "✗ vault approle role $role failed"; exit 1; }
     rid="$(VROOT "vault read -field=role_id auth/approle/role/$role/role-id" | tr -d '\r\n')"
     sid="$(VROOT "vault write -f -field=secret_id auth/approle/role/$role/secret-id" | tr -d '\r\n')"
