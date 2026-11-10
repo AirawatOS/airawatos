@@ -321,7 +321,10 @@ only on 502/503/504/unreachable, never for a streamed body), carries `X-Request-
 with the door's reason and the status to answer with (never 500). `verify/svc_edges.py` keeps `aos_svc/edges.json`
 identical to this table; `verify/banned_patterns.py` (GATED_DOOR_DIRECT) fails any request to these doors outside the
 client. **Doors on the client now:** filestore, model-gateway. The remaining §h doors move in the first post-merge slice
-(DEBT-B179), which then turns on "no raw HTTP to an internal service outside the client".
+(DEBT-B179), which then turns on "no raw HTTP to an internal service outside the client". Also on the client now: the
+notify door (decision, workflow) and notify's ONE kernel write (`inbox_put`; audience `platform` = the platform token).
+The kernel's notify lane admits notify ONLY for platform.inbox_item, ONLY with the originating caller's verified
+svc:notify token and its request id, and records both on the item (notify decision).
 
 <!-- svc-edges:begin -->
 | door | audience | base | operation | request | timeout s | retries | callers |
@@ -333,6 +336,8 @@ client. **Doors on the client now:** filestore, model-gateway. The remaining §h
 | model-gateway | svc:model-gateway | EMBED_URL=http://model-gateway:8104 | transcribe | POST /transcribe | 95 | 0 | app-host |
 | model-gateway | svc:model-gateway | EMBED_URL=http://model-gateway:8104 | provider_key | POST /admin/provider-key | 15 | 0 | app-host |
 | model-gateway | svc:model-gateway | EMBED_URL=http://model-gateway:8104 | healthz | GET /healthz (public) | 10 | 1 | app-host |
+| notify | svc:notify | NOTIFY_URL=http://notify:8094 | notify | POST /notify | 15 | 0 | decision, workflow |
+| kernel | platform | AIRAWAT_API=http://kernel:8080 | inbox_put | POST /v1/registry/objects | 15 | 0 | notify |
 <!-- svc-edges:end -->
 
 #### Network internal doors — declared callers (slice-1g, DEBT-B86)

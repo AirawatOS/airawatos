@@ -141,7 +141,7 @@ _setup_vault_approle() {
   # policy name : service(s) that use it : role name(s)
   # (automation/event-relay/scheduler share the svc-scheduler policy but each gets its OWN role → own creds)
   # slice-1j (DEBT-B138): + svc-base — the only self-service paths a token needs, in place of Vault's built-in `default`
-  for pol in svc-base svc-kernel svc-network svc-identity svc-secrets svc-model-gateway svc-scheduler svc-app-host svc-decision svc-workflow svc-runtime-manager; do
+  for pol in svc-base svc-kernel svc-network svc-identity svc-secrets svc-model-gateway svc-scheduler svc-app-host svc-decision svc-workflow svc-notify svc-runtime-manager; do
     VROOT "VAULT_TOKEN=$VAULT_TOKEN vault policy write $pol -" < "$LOCALDEV/vault/policies/$pol.hcl" >/dev/null \
       || { echo "✗ vault policy write $pol failed"; exit 1; }
   done
@@ -149,7 +149,7 @@ _setup_vault_approle() {
   for pair in kernel:svc-kernel network:svc-network identity:svc-identity secrets:svc-secrets \
               model-gateway:svc-model-gateway app-host:svc-app-host \
               automation:svc-scheduler event-relay:svc-scheduler scheduler:svc-scheduler \
-              decision:svc-decision workflow:svc-workflow runtime-manager:svc-runtime-manager; do
+              decision:svc-decision workflow:svc-workflow notify:svc-notify runtime-manager:svc-runtime-manager; do
     role="${pair%%:*}"; pol="${pair##*:}"
     # slice-1j (DEBT-B138): token policies are EXACTLY <svc policy> + svc-base — never Vault's built-in `default` (cubbyhole,
     # wrapping, hashing, lease and identity reads); conformance/vault_scope_test.py requires the live tokens to match exactly.
@@ -479,6 +479,7 @@ PRINCIPALS = {
     "decision": ["svc:notify", "svc:network"],                             # +1f: keys/resolve (signature verify)
     "workflow": ["svc:notify", "svc:network"],                             # +1f: keys/resolve (signature verify)
     "launcher": ["svc:filestore", "svc:secrets", "svc:network"],           # (runtime manager) source fetch + /materialize + runtime attest (step 5)
+    "notify":   [],                                                        # platform audience only: writes platform.inbox_item through the kernel's notify lane
 }
 _FAILS=[]
 import atexit as _ax, os as _os

@@ -21,10 +21,10 @@ P = "airawatos-localdev"
 C = ["docker", "compose", "-p", P, "--project-directory", os.path.join(ROOT, "deploy/local-dev"), "-f",
      os.path.join(ROOT, "deploy/local-dev/docker-compose.dev.yml")]
 ROLES = ["kernel", "network", "identity", "secrets", "model-gateway", "app-host", "automation", "event-relay", "scheduler",
-         "decision", "workflow", "runtime-manager"]
+         "decision", "workflow", "notify", "runtime-manager"]
 POL = {"kernel": "svc-kernel", "network": "svc-network", "identity": "svc-identity", "secrets": "svc-secrets",
        "model-gateway": "svc-model-gateway", "app-host": "svc-app-host", "automation": "svc-scheduler",
-       "event-relay": "svc-scheduler", "scheduler": "svc-scheduler", "decision": "svc-decision", "workflow": "svc-workflow",
+       "event-relay": "svc-scheduler", "scheduler": "svc-scheduler", "decision": "svc-decision", "workflow": "svc-workflow", "notify": "svc-notify",
        "runtime-manager": "svc-runtime-manager"}
 PERIODS = int(os.environ.get("RENEWAL_PERIODS", "5"))
 VICTIM = os.environ.get("RENEWAL_VICTIM", "decision")

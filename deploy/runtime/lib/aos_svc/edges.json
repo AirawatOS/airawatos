@@ -1,8 +1,11 @@
 {
  "callers": [
   "app-host",
+  "decision",
   "kernel",
-  "launcher"
+  "launcher",
+  "notify",
+  "workflow"
  ],
  "doors": {
   "filestore": {
@@ -32,6 +35,23 @@
      "public": false,
      "retries": 2,
      "timeout": 60
+    }
+   }
+  },
+  "kernel": {
+   "audience": "platform",
+   "base_default": "http://kernel:8080",
+   "base_env": "AIRAWAT_API",
+   "operations": {
+    "inbox_put": {
+     "callers": [
+      "notify"
+     ],
+     "method": "POST",
+     "path": "/v1/registry/objects",
+     "public": false,
+     "retries": 0,
+     "timeout": 15
     }
    }
   },
@@ -91,6 +111,24 @@
      "public": false,
      "retries": 0,
      "timeout": 95
+    }
+   }
+  },
+  "notify": {
+   "audience": "svc:notify",
+   "base_default": "http://notify:8094",
+   "base_env": "NOTIFY_URL",
+   "operations": {
+    "notify": {
+     "callers": [
+      "decision",
+      "workflow"
+     ],
+     "method": "POST",
+     "path": "/notify",
+     "public": false,
+     "retries": 0,
+     "timeout": 15
     }
    }
   }

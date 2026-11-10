@@ -121,7 +121,8 @@ class Door:
         h = dict(extra or {})
         h["X-Request-Id"] = rid
         if not o.get("public"):
-            t = tokens.token(self._principal, self._tenant, self.audience)
+            # audience "platform" = the platform token (identity's default audience), e.g. a kernel registry write
+            t = tokens.token(self._principal, self._tenant, None if self.audience == "platform" else self.audience)
             if not t:
                 raise DoorError(self.name, op, 0, "%s holds no %s service token (credential missing) — not sent"
                                 % (self.caller, self.audience), rid)

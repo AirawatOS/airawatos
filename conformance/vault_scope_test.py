@@ -29,6 +29,8 @@ TIGHT = {
     # svc-workflow policies grant only their own password path).
     "decision":    ("secret/data/localdev-operator/decision/password",     "secret/data/localdev/kernel-app/password"),
     "workflow":    ("secret/data/localdev-operator/workflow/password",     "secret/data/localdev/kernel-app/password"),
+    # notify decision: notify now holds its OWN service identity (writes inbox items through the kernel's notify lane).
+    "notify":      ("secret/data/localdev-operator/notify/password",       "secret/data/localdev/kernel-app/password"),
     # slice-1c-iv step 2: the runtime manager reads ONLY the launcher password (moved off the scheduler).
     "runtime-manager": ("secret/data/localdev-operator/launcher/password", "secret/data/localdev-operator/scheduler/password"),
 }
@@ -40,14 +42,14 @@ COMPONENT_MOUNT = "components"
 BROKERS = {"secrets": "localdev/ds%3Aslice1g%3Aprobe/api_key", "model-gateway": "localdev/ds%3Aslice1g%3Aprobe/api_key"}
 PLATFORM_CREDS = (["secret/data/localdev/%s/password" % u for u in ("kernel-app", "migrator", "network-app", "identity-lockout")]
                   + ["secret/data/localdev-operator/%s/password" % u for u in
-                     ("provisioner", "admin", "scheduler", "launcher", "kernel", "app-host", "decision", "workflow", "svcprobe")]
+                     ("provisioner", "admin", "scheduler", "launcher", "kernel", "app-host", "decision", "workflow", "notify", "svcprobe")]
                   + ["secret/data/localdev-network/%s/password" % u for u in ("trust-writer", "trust-reader", "component-publisher", "platauth")]
                   + ["secret/data/localdev-network/trust-plane/audit_hmac"])
 # app-host is not a broker, but held localdev-operator/* (review K3): it may read only its OWN credentials.
 APP_HOST_OWN = {"secret/data/localdev-operator/app-host/password", "secret/data/localdev-network/component-publisher/password"}
 # services with no Vault door — must carry no Vault token at all (slice-1c-ii: decision + workflow moved to
 # TIGHT — they now mint svc:notify; notify VERIFIES tokens via JWKS, not Vault, so it stays here).
-NOVAULT = ["notify", "filestore"]
+NOVAULT = ["filestore"]   # notify decision: notify moved to TIGHT (its own service identity)
 
 RESULTS = []
 def rec(rule, name, ok, detail, kind="testable"):
@@ -135,7 +137,7 @@ def granted(c, write=False):
 # keys ONLY by the network; every other service touches no transit key.
 TRANSIT_KEYS = {"airawat-identity": "identity", "airawat-authority": "network", "steward-localdev": "network"}
 TRANSIT_SERVICES = ["kernel", "network", "identity", "app-host", "scheduler", "secrets", "model-gateway", "decision",
-                    "workflow", "automation", "event-relay", "runtime-manager"]
+                    "workflow", "notify", "automation", "event-relay", "runtime-manager"]
 
 
 import re as _re
@@ -154,6 +156,7 @@ READ_ALLOW = {   # service -> regexes of the ONLY Vault paths it may read (data 
                  r"^secret/data/localdev-developer/dev-sandbox/"],
     "decision": [r"^secret/(data|metadata)/localdev-operator/decision/"],
     "workflow": [r"^secret/(data|metadata)/localdev-operator/workflow/"],
+    "notify": [r"^secret/(data|metadata)/localdev-operator/notify/"],
     "runtime-manager": [r"^secret/(data|metadata)/localdev-operator/launcher/"],
     "secrets": [r"^components/(data|metadata)/"],
     "model-gateway": [r"^components/(data|metadata)/"],

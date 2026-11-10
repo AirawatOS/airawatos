@@ -263,10 +263,14 @@ services:
   notify:
     <<: *ref
     container_name: airawat-ld-notify
-    networks: [aos-svc]
+    env_file:
+      - path: ./vault/approle/notify.env     # notify decision: its OWN service principal (installer-seeded AppRole); required:false pre-install
+        required: false
+    networks: [aos-svc, aos-data-secrets]
     command: ["python","reference/notify.py","--kernel","http://kernel:8080"]
-    # slice-1c-ii: ENFORCE (shadow flag removed) — decision + workflow now mint svc:notify.
-    environment: { <<: *devenv, IDENTITY_URL: http://identity:8093 }
+    # slice-1c-ii: ENFORCE (shadow flag removed) — decision + workflow mint svc:notify. notify decision: notify writes the
+    # inbox item AS ITSELF (platform audience) through the kernel's notify lane, forwarding the originating caller's token.
+    environment: { <<: *svcid, SERVICE_PRINCIPAL: notify }
   workflow:
     <<: *ref
     container_name: airawat-ld-workflow
