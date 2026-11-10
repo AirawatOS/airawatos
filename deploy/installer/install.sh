@@ -1024,9 +1024,9 @@ except urllib.error.HTTPError as e:
 print(f"  ✓ {oid} registered (dev_stub)")
 PY
   XAPP env INSTANCE="$INSTANCE" python3 -c '
-import os, secrets, sys; sys.path.insert(0, "/app/reference"); import hostcore
+import os, sys; sys.path.insert(0, "/app/reference"); import hostcore   # (not `secrets`: /app/reference/secrets.py is the secrets SERVICE)
 i = os.environ["INSTANCE"]
-hostcore.SVC.model_gateway.provider_key({"tenant": i, "component": "ds:%s-operator:provider/devstub" % i, "key_secret": "DEVSTUB_KEY", "value": "devstub-" + secrets.token_hex(12)})
+hostcore.SVC.model_gateway.provider_key({"tenant": i, "component": "ds:%s-operator:provider/devstub" % i, "key_secret": "DEVSTUB_KEY", "value": "devstub-" + os.urandom(12).hex()})
 print("  ✓ stub provider key set through app-host → model-gateway /admin/provider-key")' || { echo "✗ Phase 15: could not set the stub provider key"; exit 1; }
   _EPS="$(python3 -c "import urllib.parse,sys; print('%s/%s/EDGE_PROBE_SECRET' % (sys.argv[1], urllib.parse.quote('ds:%s-developer:fixture/edge-probe' % sys.argv[1], safe='')))" "$INSTANCE")"
   VROOT "vault kv put -mount=components '$_EPS' value=dev-fixture-$(openssl rand -hex 8 2>/dev/null || date +%s) >/dev/null" \
