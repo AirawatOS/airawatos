@@ -33,7 +33,8 @@ DECLARED = {
     "airawat-ld-secrets":         {"aos-svc", "aos-data-secrets"},
     "airawat-ld-filestore":       {"aos-svc"},
     "airawat-ld-model-gateway":   {"aos-svc", "aos-data-secrets", "aos-egress"},
-    "airawat-ld-notify":          {"aos-svc"},
+    "airawat-ld-notify":          {"aos-svc", "aos-data-secrets"},   # notify decision: its own service identity (Vault, own password only)
+    "airawat-ld-stub-provider":   {"aos-svc"},                        # DEV-ONLY stub model provider (fixtures decision): no egress, no Vault
     "airawat-ld-workflow":        {"aos-svc", "aos-data-secrets"},
     "airawat-ld-decision":        {"aos-svc", "aos-data-secrets"},
     "airawat-ld-automation":      {"aos-svc", "aos-data-secrets"},
@@ -49,7 +50,7 @@ PORT = {"airawat-ld-nginx": 80, "airawat-ld-app-host": 8099, "airawat-ld-network
         "airawat-ld-model-gateway": 8104, "airawat-ld-notify": 8094, "airawat-ld-workflow": 8097,
         "airawat-ld-decision": 8096, "airawat-ld-automation": 8098, "airawat-ld-event-relay": 8101,
         "airawat-ld-scheduler": 8103, "airawat-ld-runtime-manager": 8105, "airawat-ld-postgres": 5432,
-        "airawat-ld-vault": 8200}
+        "airawat-ld-vault": 8200, "airawat-ld-stub-provider": 8110}
 OUTSIDE = [("1.1.1.1", 443, "internet"), ("8.8.8.8", 53, "internet"),
            ("host.docker.internal", 8080, "host"), ("host.docker.internal", 8093, "host")]
 # edges the platform cannot work without — must be reachable (the rest of the shared-network pairs are allowed, not required)

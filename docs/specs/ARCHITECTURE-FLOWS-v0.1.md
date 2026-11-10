@@ -260,7 +260,10 @@ root token is used only during install, then kept off every running service (ste
 | scheduler / automation / event-relay | `svc-scheduler` | `secret/data/localdev-operator/scheduler/*` (one principal pw) | no |
 | runtime-manager | `svc-runtime-manager` | `secret/data/localdev-operator/launcher/*` (the launcher principal pw — moved off svc-scheduler, 1c-iv step 2) | no |
 | app-host | `svc-app-host` | `localdev-operator/*`, `localdev-network/component-publisher/*`, `localdev-developer/*` | modest — scoped to the 3 principal-bearing tenants, not exact principal names |
-| filestore, notify, workflow, decision | *(none)* | — they use no Vault door | n/a |
+| decision / workflow | `svc-decision` / `svc-workflow` | their own principal pw (slice-1c-ii: mint svc:notify) | no |
+| notify | `svc-notify` | `secret/data/localdev-operator/notify/*` — its own principal pw only (notify decision: it writes inbox items as itself through the kernel's notify lane) | no |
+| filestore | *(none)* | — it uses no Vault door | n/a |
+| stub-provider (DEV-ONLY) | *(none)* | — no Vault, no egress; on `aos-svc` only, reachable by the model gateway | n/a |
 
 **Widened policies, recorded (step 7 — "never widen without recording why"):** `svc-secrets` and
 `svc-model-gateway` are broad on the KV data plane because both are *secret brokers* by design (ADR-0124) —
