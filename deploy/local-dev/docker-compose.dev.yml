@@ -29,7 +29,7 @@ x-logging: &logging
 x-ref: &ref                          # one source-built reference image; many services (per-service command)
   logging: *logging
   init: true                          # slice-1i B128: the service is not PID 1 → a controlled restart can stop it
-  image: manishsv/airawatos-reference:1j   # + slice-1e (user-create/reset name the tenant) + 1c-iv-c (svc:identity) + step 2 (runtime-manager) + step 3 (scheduler-owned pipelines) + step 4 (gateway secret in Vault) + step 5 (launcher attests svc:network)
+  image: manishsv/airawatos-reference:1k   # + slice-1e (user-create/reset name the tenant) + 1c-iv-c (svc:identity) + step 2 (runtime-manager) + step 3 (scheduler-owned pipelines) + step 4 (gateway secret in Vault) + step 5 (launcher attests svc:network)
   restart: unless-stopped
   # slice-1h (DEBT-B97): the production guard is the image's own ENTRYPOINT (/opt/airawat/airawat-entrypoint.sh) — no
   # compose override, no mount. slice-1h (DEBT-B96): UNHEALTHY when the service's Vault token is invalid or renewal fails.
@@ -82,7 +82,7 @@ services:
   kernel:
     logging: *logging
     init: true                        # slice-1i B128: controlled restart on a dead Vault token
-    image: manishsv/airawatos-kernel:1j   # + slice-1c-iv step 3: scheduler-only /v1/components/run-token + slice-1e: steward-key miss not cached
+    image: manishsv/airawatos-kernel:1k   # + slice-1c-iv step 3: scheduler-only /v1/components/run-token + slice-1e: steward-key miss not cached
     container_name: airawat-ld-kernel
     env_file: [ ./vault/approle/kernel.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
     networks: [aos-svc, aos-data-facts, aos-data-secrets, aos-component, aos-egress]  # +aos-egress (B87): the broker's declared egress; aos-component: the broker is the ONLY door a placed component can reach (step 3)
@@ -135,7 +135,7 @@ services:
   network:
     logging: *logging
     init: true                        # slice-1i B128: controlled restart on a dead Vault token
-    image: manishsv/airawatos-network:1j   # slice-1e: installer-signed tenants register ds:<t>:steward (B62); 1c-iv-c: join→provision mints svc:identity; step 5: /v1/runtime/attest → svc:network (literal retired)
+    image: manishsv/airawatos-network:1k   # slice-1e: installer-signed tenants register ds:<t>:steward (B62); 1c-iv-c: join→provision mints svc:identity; step 5: /v1/runtime/attest → svc:network (literal retired)
     container_name: airawat-ld-network
     env_file: [ ./vault/approle/network.env ]   # L1-1b: per-service Vault AppRole (role-id+secret-id); replaces shared VAULT_TOKEN
     networks: [aos-edge, aos-svc, aos-data-facts, aos-data-secrets, aos-egress]   # +aos-egress (B87): email / federation

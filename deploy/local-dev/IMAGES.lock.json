@@ -4,7 +4,7 @@
   "amd64": "native amd64 build still required (DEBT-B114, pre-production)."
  },
  "images": {
-  "manishsv/airawatos-reference:1j": {
+  "manishsv/airawatos-reference:1k": {
    "dockerfile": "platform-spec/Dockerfile.reference",
    "base": "python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535",
    "os_packages": [
@@ -130,7 +130,7 @@
     "zlib1g=1:1.3.dfsg+really1.3.1-1+deb13u1"
    ]
   },
-  "manishsv/airawatos-kernel:1j": {
+  "manishsv/airawatos-kernel:1k": {
    "dockerfile": "kernel/deploy/Dockerfile",
    "base": "python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535",
    "os_packages": [
@@ -223,7 +223,7 @@
     "zlib1g=1:1.3.dfsg+really1.3.1-1+deb13u1"
    ]
   },
-  "manishsv/airawatos-network:1j": {
+  "manishsv/airawatos-network:1k": {
    "dockerfile": "network/deploy/Dockerfile",
    "base": "python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535",
    "os_packages": [
