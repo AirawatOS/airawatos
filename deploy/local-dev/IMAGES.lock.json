@@ -1,10 +1,12 @@
 {
  "_meta": {
-  "note": "slice-1h (DEBT-B101): built FROM GIT ONLY by deploy/build-images.sh (git archive of each repo's committed HEAD; nothing untracked can enter). image_id = local image config digest. verify/images_test.py checks the tag, the running containers and that /app equals the git tree.",
+  "note": "Layer 1 merge: the PINNED INPUTS every build of these tags must reproduce \u2014 Dockerfile, base, installed OS packages (Python: the repo's requirements lock). verify/images_test.py checks image CONTENT against these and against the git HEADs; machine-specific ids live in the untracked IMAGES.built.json.",
   "amd64": "native amd64 build still required (DEBT-B114, pre-production)."
  },
  "images": {
   "manishsv/airawatos-reference:1j": {
+   "dockerfile": "platform-spec/Dockerfile.reference",
+   "base": "python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535",
    "os_packages": [
     "adduser=3.152",
     "apt=3.0.4",
@@ -126,21 +128,11 @@
     "tzdata=2026f-0+deb13u1",
     "util-linux=2.41.5-0+deb13u1",
     "zlib1g=1:1.3.dfsg+really1.3.1-1+deb13u1"
-   ],
-   "dockerfile": "platform-spec/Dockerfile.reference",
-   "context": "git archive (workspace)",
-   "git_revision": "be155c9b98305deabd2e30b8d3ab5dba1b23b535",
-   "sources": {
-    "root": "909fa0e01025b6f0e467c4fa05715b26796a813e",
-    "platform-spec": "be155c9b98305deabd2e30b8d3ab5dba1b23b535",
-    "components": "8cef04a15c2ac31ea42d4a6a5e1cdcc617e56f94"
-   },
-   "image_id": "sha256:e1f3bc795a33316035d3129bfb5d186e82f2c0632c0f0e3b2b0bc83e99a0cddd",
-   "platform": "linux/arm64",
-   "base": "python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535",
-   "built": "2026-11-09"
+   ]
   },
   "manishsv/airawatos-kernel:1j": {
+   "dockerfile": "kernel/deploy/Dockerfile",
+   "base": "python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535",
    "os_packages": [
     "adduser=3.152",
     "apt=3.0.4",
@@ -229,21 +221,11 @@
     "tzdata=2026f-0+deb13u1",
     "util-linux=2.41.5-0+deb13u1",
     "zlib1g=1:1.3.dfsg+really1.3.1-1+deb13u1"
-   ],
-   "dockerfile": "kernel/deploy/Dockerfile",
-   "context": "git archive (kernel)",
-   "git_revision": "b3b6373477bf09f22ed64528b69b04b0ed8ef5fc",
-   "sources": {
-    "root": "909fa0e01025b6f0e467c4fa05715b26796a813e",
-    "platform-spec": "be155c9b98305deabd2e30b8d3ab5dba1b23b535",
-    "kernel": "b3b6373477bf09f22ed64528b69b04b0ed8ef5fc"
-   },
-   "image_id": "sha256:a149a74c7bce2025584148405021faba07fdf2e2dc37d720fe126f3faf483876",
-   "platform": "linux/arm64",
-   "base": "python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535",
-   "built": "2026-11-09"
+   ]
   },
   "manishsv/airawatos-network:1j": {
+   "dockerfile": "network/deploy/Dockerfile",
+   "base": "python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535",
    "os_packages": [
     "adduser=3.152",
     "apt=3.0.4",
@@ -332,19 +314,7 @@
     "tzdata=2026f-0+deb13u1",
     "util-linux=2.41.5-0+deb13u1",
     "zlib1g=1:1.3.dfsg+really1.3.1-1+deb13u1"
-   ],
-   "dockerfile": "network/deploy/Dockerfile",
-   "context": "git archive (network)",
-   "git_revision": "030e4ae20185b556e5f23b3c694598931c4d7a82",
-   "sources": {
-    "root": "909fa0e01025b6f0e467c4fa05715b26796a813e",
-    "platform-spec": "be155c9b98305deabd2e30b8d3ab5dba1b23b535",
-    "network": "030e4ae20185b556e5f23b3c694598931c4d7a82"
-   },
-   "image_id": "sha256:c8a200f6ac912da9fc5e53014e694d57c747fe2013f716072dcc482ad0f5b366",
-   "platform": "linux/arm64",
-   "base": "python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535",
-   "built": "2026-11-09"
+   ]
   }
  }
 }
