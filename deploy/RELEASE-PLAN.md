@@ -137,6 +137,27 @@ is acceptable in production.
         an EBS snapshot.
       - Verified by: a backup during a load test shows no failed request; the Stage-0 restore drill restores that backup
         to a recorded RPO and RTO.
+- [ ] **The Vault KMS key cannot be lost.** It is the auto-unseal key. Without it, Vault cannot unseal, and neither the
+      live data nor any backup can be decrypted.
+      - Deletion protection at the **maximum** window: a 30-day `PendingWindowInDays` on every scheduled deletion, with an
+        alarm on `ScheduleKeyDeletion` and `DisableKey`.
+      - The key policy grants use **only** to the Vault server's instance role (`Encrypt`/`Decrypt`/`DescribeKey`).
+        Administration goes **only** to a named key-admin role, which has no `Decrypt`. There is no account-root
+        wildcard beyond the AWS-required minimum, and no other principal.
+      - Every use is logged (CloudTrail management and KMS data events, sent to a separate, restricted log account) and
+        reviewed.
+      - Verified by: the key policy reviewed against these rules; a `Decrypt` attempt from any other role is denied; a
+        test `ScheduleKeyDeletion` is caught by the alarm and cancelled.
+- [ ] **Every backup's dependence on that key is documented and proven.** The documentation is in
+      `docs/operator/RESTORE-AND-ROTATION.md` § *Production backups depend on the Vault KMS key*. The rehearsal restore
+      drill (Stage 1) restores from a backup **using the production key** (or its documented cross-account grant) and
+      records it. A restore with the key unavailable is shown to fail closed, and the runbook says what to do.
+- [ ] **Recovery-key re-issue (rekey) when a holder leaves — drilled once.**
+      - On the rehearsal host, run `vault operator rekey -target=recovery` with the 3-of-5 quorum.
+      - Issue new PGP-encrypted shares to the new set of holders.
+      - Prove that a share issued before the rekey no longer works for `generate-root`.
+      - Update the custody register.
+      - Record the drill with its date. Repeat it whenever a holder leaves.
 
 ## 0b. Stage 0b — housekeeping (remove ambiguity before rehearsal)
 

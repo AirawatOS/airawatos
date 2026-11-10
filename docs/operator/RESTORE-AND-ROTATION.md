@@ -218,6 +218,34 @@ Production keeps **no root token at rest** (DEBT-B153 tracks the installer gap).
 7. **Rehearsed.** The break-glass drill (RELEASE-PLAN, rehearsal gate) runs this procedure end to end on the rehearsal
    host before first production and after any change of holders.
 
+### Production backups depend on the Vault KMS key
+In production Vault auto-unseals with an AWS KMS key. **Every** backup depends on that key:
+- the Vault data volume or snapshot;
+- each service's AppRole credentials;
+- the Vault-held DB-role passwords;
+- the transit signing keys;
+- the KMS-encrypted backup artifacts themselves (RELEASE-PLAN gate: backups encrypted at rest).
+
+A backup restored without the key is unreadable: Vault stays sealed, so no service can log in.
+
+Consequences, and what to do:
+1. **The key is never deleted or disabled.** Deletion protection is at the maximum 30-day window, and an alarm fires on
+   `ScheduleKeyDeletion` and `DisableKey`. A scheduled deletion is **cancelled immediately**
+   (`aws kms cancel-key-deletion`).
+2. **A restore to another account or region** needs the key there too: a documented cross-account grant, or a
+   multi-Region replica key created **before** it is needed. Record which in the custody register.
+3. **Key rotation** (automatic yearly KMS rotation) keeps the old key material, so old backups stay readable. Never
+   replace the key with a new key id unless Vault has been re-sealed to the new key **and** a new backup has been taken
+   and restore-tested.
+4. **If the key is lost**, every backup taken under it is lost with it. Treat that as a full rebuild:
+   - reinstall;
+   - re-issue every credential;
+   - re-register every tenant.
+
+   That is why the gates above exist.
+5. **Proof:** the Stage 1 rehearsal restore drill restores a backup with the production key. It records the key ARN and
+   the grant it used.
+
 ### Rotate a transit key (identity issuer / network authority)
 ```
 vault write -f transit/keys/<key>/rotate        # new version; old versions still verify prior signatures
