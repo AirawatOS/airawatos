@@ -19,7 +19,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOCK = os.path.join(ROOT, "deploy/local-dev/IMAGES.lock.json")
 DOCKERFILES = {"platform-spec/Dockerfile.reference": "platform-spec/requirements.reference.lock",
                "kernel/deploy/Dockerfile": "kernel/deploy/requirements.lock",
-               "network/deploy/Dockerfile": "network/deploy/requirements.lock"}
+               "network/deploy/Dockerfile": "network/deploy/requirements.lock",
+               "deploy/local-dev/devstub/Dockerfile": "deploy/local-dev/devstub/requirements.lock"}   # DEV-ONLY stub provider
 bad = []
 
 
@@ -66,7 +67,7 @@ compose = open(os.path.join(ROOT, "deploy/local-dev/docker-compose.dev.yml")).re
 # Layer 1 merge: the image is verified by its CONTENT against git and the pinned inputs — never by a machine-specific image
 # id. The lock holds only what a build must reproduce (base, Dockerfile, the installed Python and OS package sets); the
 # ids/dates of the last local build are informational (deploy/local-dev/IMAGES.built.json, untracked).
-PRIMARY = {"reference": "platform-spec", "kernel": "kernel", "network": "network"}
+PRIMARY = {"reference": "platform-spec", "kernel": "kernel", "network": "network", "devstub": "."}   # devstub: DEV-ONLY, root repo
 
 
 def kind_of(img):
@@ -117,6 +118,17 @@ for img in sorted(set(re.findall(r"^\s*image:\s*([^\s#]+)", compose, re.M))):
         want.update({"/app/components/" + p: h for p, h in git_tree("components").items() if p.split("/")[0] not in STRIP})
         got = image_files(test_img, "/app/reference", "/app/components")
         exact = True
+    elif k == "devstub":                                      # DEV-ONLY: exactly its own directory, no platform runtime
+        want = {"/app/" + p: h for p, h in git_tree(".", "deploy/local-dev/devstub").items() if p != "Dockerfile"}
+        got = image_files(test_img, "/app")
+        check(r.get("dev_only") is True, f"{test_img}: recorded DEV-ONLY in IMAGES.lock.json (never a shipped image)")
+        untracked = sorted(p for p in got if want.get(p) is None)
+        changed = sorted(p for p in got if want.get(p) is not None and got[p] != want[p])
+        missing = sorted(p for p in want if p not in got)
+        check(bool(got) and not untracked and not changed and not missing,
+              f"{test_img}: code equals deploy/local-dev/devstub at the CURRENT root HEAD BY CONTENT ({len(got)} files; "
+              f"untracked: {untracked[:3]}; differs: {changed[:3]}; missing: {missing[:3]})")
+        continue
     else:
         repo = git_tree(PRIMARY[k])
         got = image_files(test_img, "/app")
@@ -143,7 +155,7 @@ for img in sorted(set(re.findall(r"^\s*image:\s*([^\s#]+)", compose, re.M))):
 # slice-1i (DEBT-B133): check what IS INSTALLED, not how the Dockerfile spells the install — every image's
 # pip freeze --all must EQUAL its lock + the pinned tooling, and its OS packages must EQUAL the list recorded at build.
 LOCKS = {"reference": "platform-spec/requirements.reference.lock", "kernel": "kernel/deploy/requirements.lock",
-         "network": "network/deploy/requirements.lock"}
+         "network": "network/deploy/requirements.lock", "devstub": "deploy/local-dev/devstub/requirements.lock"}
 for img, r in rec["images"].items():
     kind = next((k for k in LOCKS if "airawatos-%s:" % k in img), None)
     test_img = os.environ.get("IMG_OVERRIDE_" + kind.upper(), img) if kind else img

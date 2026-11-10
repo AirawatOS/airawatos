@@ -76,7 +76,7 @@ files = sorted(glob.glob(os.path.join(RESULTS_DIR, "*.json")))
 STRICT = "--strict" in sys.argv
 RUN_ID = os.environ.get("AOS_RUN_ID", "")
 REQUIRED = ["banned", "gtwstatic", "knownviolations", "functional", "external", "internal", "flowmap", "vaultscope",
-            "netdoors", "routes", "listen", "scans", "vaultrenewal", "dbgrants", "ops", "restoredrill"]
+            "netdoors", "edges", "routes", "listen", "scans", "vaultrenewal", "dbgrants", "ops", "restoredrill"]
 KINDS = {"PASS", "FAIL", "XFAIL", "XPASS", "SKIP_BUILD", "SKIP_CREDS", "needs-build", "needs-creds"}
 problems, seen_modes = [], set()
 # slice-1i (DEBT-B117): every file's recorded git heads must EQUAL the current HEAD of all five repositories, clean

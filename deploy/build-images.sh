@@ -30,6 +30,10 @@ for svc in kernel network; do
     --build-context runtime="$WS/ws/deploy/runtime" --build-context pspec="$WS/ws/platform-spec/reference" \
     -t "manishsv/airawatos-$svc:$TAG" "$WS/ws/$svc"
 done
+# DEV-ONLY: the stub model provider (model-gateway south-side contract) — its own image, never shipped; only the
+# local-dev stack runs it, and it refuses AIRAWAT_ENV=production.
+"${B[@]}" -f "$WS/ws/deploy/local-dev/devstub/Dockerfile" --build-arg GIT_SHA="$S_ROOT" \
+  -t "manishsv/airawatos-devstub:$TAG" "$WS/ws/deploy/local-dev/devstub"
 python3 - "$TAG" "$S_ROOT" "$S_PS" "$S_K" "$S_N" "$S_C" <<'PY'
 # Layer 1 merge: the TRACKED lock (IMAGES.lock.json) holds only the PINNED INPUTS a build must reproduce — the Dockerfile,
 # the base, the installed OS package set (the Python set is the repo's requirements lock). Machine-specific facts of THIS
@@ -46,15 +50,19 @@ old = json.load(open(LOCK)) if os.path.exists(LOCK) else {"images": {}}
 inputs, info = {}, {}
 for name, df, rev, srcs in (("reference", "platform-spec/Dockerfile.reference", ps, {"root": root, "platform-spec": ps, "components": c}),
                             ("kernel", "kernel/deploy/Dockerfile", k, {"root": root, "platform-spec": ps, "kernel": k}),
-                            ("network", "network/deploy/Dockerfile", n, {"root": root, "platform-spec": ps, "network": n})):
+                            ("network", "network/deploy/Dockerfile", n, {"root": root, "platform-spec": ps, "network": n}),
+                            ("devstub", "deploy/local-dev/devstub/Dockerfile", root, {"root": root})):   # DEV-ONLY
     t = "manishsv/airawatos-%s:%s" % (name, tag)
     osp = subprocess.run(["docker", "run", "--rm", "--network", "none", "--entrypoint", "sh", t, "-c",
                           "dpkg-query -W -f='${Package}=${Version}\\n'"], capture_output=True, text=True).stdout.split()
     inputs[t] = {"dockerfile": df, "base": base, "os_packages": sorted(osp)}
+    if name == "devstub":
+        inputs[t]["dev_only"] = True          # never shipped: images_test + the banned DEV_STUB_IN_PROD check hold it to local-dev
     info[t] = {"image_id": iid(t), "git_revision": rev, "sources": srcs, "platform": plat(t), "built": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
 json.dump({"_meta": {"note": "UNTRACKED, informational: the last LOCAL build (image ids are machine-specific)."}, "images": info},
           open(BUILT, "w"), indent=1)
-same = all({kk: (old["images"].get(t) or {}).get(kk) for kk in ("dockerfile", "base", "os_packages")} == v for t, v in inputs.items())
+_K = ("dockerfile", "base", "os_packages", "dev_only")
+same = all({kk: (old["images"].get(t) or {}).get(kk) for kk in _K if kk in v or (old["images"].get(t) or {}).get(kk)} == v for t, v in inputs.items())
 if same:
     print("  ✓ pinned inputs unchanged — IMAGES.lock.json not rewritten (this build's ids: %s)" % BUILT)
 elif os.environ.get("AOS_RECORD_LOCK") == "1":
@@ -65,7 +73,7 @@ elif os.environ.get("AOS_RECORD_LOCK") == "1":
               open(LOCK, "w"), indent=1)
     print("  ✓ IMAGES.lock.json RECORDED (AOS_RECORD_LOCK=1) — commit it with the change that altered the inputs")
 else:
-    ch = [t for t, v in inputs.items() if {kk: (old["images"].get(t) or {}).get(kk) for kk in ("dockerfile", "base", "os_packages")} != v]
+    ch = [t for t, v in inputs.items() if {kk: (old["images"].get(t) or {}).get(kk) for kk in _K if kk in v or (old["images"].get(t) or {}).get(kk)} != v]
     print("  ✗ the pinned inputs of %s differ from IMAGES.lock.json — if intended, rebuild with AOS_RECORD_LOCK=1 and commit the lock" % ch)
 for t, r in info.items(): print("  ✓ %-38s %s  (%s)" % (t, r["image_id"][:19], ", ".join("%s@%s" % (a, b[:10]) for a, b in r["sources"].items())))
 PY

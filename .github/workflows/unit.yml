@@ -23,5 +23,7 @@ jobs:
         run: python3 verify/installer_test.py
       - name: Shared internal service client (aos_svc) — behaviour (fake door, no stack)
         run: python3 verify/aos_svc_test.py
+      - name: Dev-only stub model provider (south-side contract; refuses production)
+        run: python3 verify/devstub_test.py
       - name: Every script compiles
         run: python3 -m compileall -q deploy verify conformance

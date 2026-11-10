@@ -340,6 +340,35 @@ svc:notify token and its request id, and records both on the item (notify decisi
 | kernel | platform | AIRAWAT_API=http://kernel:8080 | inbox_put | POST /v1/registry/objects | 15 | 0 | notify |
 <!-- svc-edges:end -->
 
+#### Declared edges not yet on the shared client — machine-readable (the declared-edges net)
+
+The §h edges whose callers still build their own requests (they move onto `aos_svc` in DEBT-B179; their rows then move
+to `svc-edges`). Together with `svc-edges` above and `net-doors` below, this is EVERY caller→door edge:
+`conformance/declared_edges_test.py` parses all three and proves, live, that each caller makes a real, PERMITTED call
+through each of its doors and that it SUCCEEDS (2xx) — permission proven, not only refusal. An edge it cannot prove in
+local-dev is listed in that net as a known failure WITH a DEBT id (today: kernel → runtime-manager ensure-connector,
+DEBT-B181), never silently skipped.
+
+<!-- declared-edges:begin -->
+| door | operation | request | callers |
+|---|---|---|---|
+| scheduler | reload | POST /reload | app-host |
+| scheduler | run | POST /run | app-host |
+| automation | events | POST /events | event-relay |
+| secrets | fetch | POST /fetch | kernel |
+| secrets | materialize | POST /materialize | launcher |
+| runtime-manager | invoke | POST /v1/invoke | scheduler, launcher |
+| runtime-manager | ensure_connector | POST /v1/ensure-connector | kernel |
+| identity | realms | GET /realms | provisioner, app-host |
+| identity | realm_users | GET /realms/{tenant}/users | provisioner, app-host |
+| identity | users_list | GET /users | provisioner, app-host |
+| identity | users_write | POST /users | provisioner, app-host |
+| identity | set_password | POST /set-password | provisioner, app-host |
+| identity | prefs | POST /prefs | provisioner, app-host |
+| kernel | run_token | POST /v1/components/run-token | scheduler |
+| network | runtime_attest | POST /v1/runtime/attest | launcher |
+<!-- declared-edges:end -->
+
 #### Network internal doors — declared callers (slice-1g, DEBT-B86)
 
 The authoritative caller set for every Network internal door and for the service mode of every gated list. Each door

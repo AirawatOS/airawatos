@@ -160,6 +160,14 @@ s, d = req("GET", f"{KRN}/v1/registry/objects/ds:{TENANT}:governance/role_assign
 hist2 = (d.get("history") or []) if isinstance(d, dict) else []
 res("nothing was stored under the reserved kind", not hist2, f"{s} {str(d)[:160]}")
 
+# fixture for the declared-edges net (dev): install the edge-probe-reader → a REAL steward-signed READ-grant, so
+# kernel → network /v1/receipts/data-read can succeed for it (a receipt is only ever minted for a grant-backed read)
+CID3 = f"ds:{INSTANCE}-developer:engine/edge-probe-reader"
+s, d = req("POST", f"{KRN}/v1/components/install", {"component_id": CID3}, headers=H, timeout=60)
+s2, d2 = req("POST", f"{NET}/v1/grants/resolve", {"tenant": TENANT, "component_id": CID3}, headers=NH)
+rg = [g for g in ((d2 or {}).get("grants") or []) if "platform.inbox_item" in (g.get("reads") or [])] if isinstance(d2, dict) else []
+res("the edge-probe-reader fixture installs with a steward-signed READ-grant (declared-edges net)", s == 200 and bool(rg), f"{s} {str(d)[:160]} · {s2} {str(d2)[:160]}")
+
 # ── D · files, as a user does it (DEBT-B174) ──────────────────────────────────────────────────────────────
 # The file-explorer upload (browser path, the App Host's /bridge/file-upload → filestore through the shared client) and
 # `aos upload` (the real CLI, run by install.sh in the app-host container BEFORE this proof; its file_id arrives in
@@ -193,6 +201,18 @@ s, d = req("GET", f"{KRN}/v1/registry/objects/{_rec}/history", headers=H) if _re
 hist = (d.get("history") or []) if isinstance(d, dict) else []
 res("…and its platform.file record is in the tenant's Files, pointing at that file_id",
     s == 200 and hist and _aos in json.dumps(hist[-1]), f"{s} {str(d)[:200]}")
+
+# ── E · an AI request, as a user makes it (DEBT-B174 + fixtures decision) ─────────────────────────────────────
+# The AI analyst drawer (/bridge/ai-assist) → app-host → model gateway (svc:model-gateway, through the shared client) →
+# the DEV-ONLY stub provider (south-side contract), whose key the gateway reads from Vault. Used to fail 502 ("the AI
+# model is unavailable: HTTP 403") — the App Host sent no token — and, with no provider at all, 501.
+print("▶ E · AI request through the model gateway to the stub provider (dev-only)")
+_RULES[:] = ["FND-9", "ARC-1"]
+s, d = req("POST", f"{EDGE}/bridge/ai-assist", {"prompt": "Which ward has the most complaints?", "context": "Ward 1: 7, Ward 2: 3",
+                                                "format": "text"}, opener=adm, timeout=90)
+txt = json.dumps(d) if isinstance(d, (dict, list)) else str(d)
+res("the AI drawer (/bridge/ai-assist) answers through the model gateway", s == 200 and "[stub-provider]" in txt, f"{s} {txt[:240]}")
+# (an object `context` still crashes app-host — DEBT-B176, Layer 5; not exercised here: it would drop every session)
 
 # ── F · Capabilities & Grants, as the Network Console drives it (DEBT-B175) ────────────────────────────────
 # The platform authority (admin@<inst>-operator) assigns the network admin its steward roles; the network admin then

@@ -991,13 +991,72 @@ fi
 if [ "$PROFILE" = dev ] && [ "$SEED_DATA_TENANT" = 1 ]; then
   _PHASE="Phase 15 · functional proof (onboard a user via the App Host; installed component writes within its grant) · DEV-ONLY"; _fault; echo "── Phase 15 · functional proof (onboard a user via the App Host; installed component writes within its grant) · DEV-ONLY ──"
   XAPP sh -lc 'rm -rf /app/_seed3 && mkdir -p /app/_seed3/engines'
-  for fx in pipeline-probe-step reserved-kind-probe; do      # B: within-grant write · C: FND-19 core-reserved kinds
+  for fx in pipeline-probe-step reserved-kind-probe edge-probe-reader; do      # B: within-grant write · C: FND-19 core-reserved kinds · edges: a read-grant
     COMPOSE cp ../../components/engines/$fx app-host:/app/_seed3/engines/$fx >/dev/null \
       || { echo "✗ Phase 15: fixture engines/$fx not found in components/"; exit 1; }
   done
-  XAPP env INSTANCE="$INSTANCE" OPERATOR_PASSWORD="$OPERATOR_PASSWORD" COMPS=engines/pipeline-probe-step,engines/reserved-kind-probe python3 - < "$SCRIPT_DIR/_deliver_fixture.py" \
+  XAPP env INSTANCE="$INSTANCE" OPERATOR_PASSWORD="$OPERATOR_PASSWORD" COMPS=engines/pipeline-probe-step,engines/reserved-kind-probe,engines/edge-probe-reader python3 - < "$SCRIPT_DIR/_deliver_fixture.py" \
     || { echo "✗ Phase 15: could not deliver the fixture components"; exit 1; }
   XNET env INSTANCE="$INSTANCE" python3 /app/mint_base_listings.py >/dev/null || { echo "✗ Phase 15: listing mint failed"; exit 1; }
+  # ── DEV FIXTURES (fixtures decision; dev profile only) — so every declared edge has a call that can SUCCEED ──
+  #  · the DEV-ONLY stub model provider (its own image, stub-provider) registered as an intelligence.provider flagged
+  #    dev_stub (the gateway drops it in production) + its key set through app-host → model-gateway /admin/provider-key
+  #    (the real declared edge), for /complete, /embed and /transcribe;
+  #  · a dummy component secret for secrets /materialize; a private runtime listing for network /v1/runtime/attest.
+  echo "  · dev fixtures: stub model provider, its key, a dummy component secret, a probe runtime listing (DEV-ONLY)"
+  XNET env INSTANCE="$INSTANCE" OPERATOR_PASSWORD="$OPERATOR_PASSWORD" python3 - <<'PY' || { echo "✗ Phase 15: could not register the dev stub provider"; exit 1; }
+import json, os, urllib.request, urllib.error
+inst, pw = os.environ["INSTANCE"], os.environ["OPERATOR_PASSWORD"]
+def post(url, body, tok=None):
+    h = {"Content-Type": "application/json", **({"Authorization": "Bearer " + tok} if tok else {})}
+    return json.loads(urllib.request.urlopen(urllib.request.Request(url, data=json.dumps(body).encode(), headers=h, method="POST"), timeout=20).read() or b"{}")
+tok = post(f"http://identity:8093/realms/{inst}-operator/login", {"username": "admin", "password": pw}).get("access_token")
+oid = f"ds:{inst}-operator:intelligence/provider/devstub"
+rec = {"schema": "intelligence.provider", "id": oid, "provider_id": "devstub", "title": "DEV-ONLY stub model provider",
+       "base_url": "http://stub-provider:8110/v1", "protocol": "openai", "enabled": True, "dev_stub": True, "default_chat": True,
+       "tenant": inst, "component": f"ds:{inst}-operator:provider/devstub", "key_secret": "DEVSTUB_KEY",
+       "models": [{"name": "stub-chat", "task": "chat"}, {"name": "stub-code", "task": "code"},
+                  {"name": "stub-embed", "task": "embed"}, {"name": "stub-transcribe", "task": "transcribe", "vad": False}]}
+try:
+    post("http://kernel:8080/v1/registry/objects", {"id": oid, "object": rec}, tok)
+except urllib.error.HTTPError as e:
+    raise SystemExit(f"✗ provider record refused: {e.code} {e.read()[:200]}")
+print(f"  ✓ {oid} registered (dev_stub)")
+PY
+  XAPP env INSTANCE="$INSTANCE" python3 -c '
+import os, secrets, sys; sys.path.insert(0, "/app/reference"); import hostcore
+i = os.environ["INSTANCE"]
+hostcore.SVC.model_gateway.provider_key({"tenant": i, "component": "ds:%s-operator:provider/devstub" % i, "key_secret": "DEVSTUB_KEY", "value": "devstub-" + secrets.token_hex(12)})
+print("  ✓ stub provider key set through app-host → model-gateway /admin/provider-key")' || { echo "✗ Phase 15: could not set the stub provider key"; exit 1; }
+  _EPS="$(python3 -c "import urllib.parse,sys; print('%s/%s/EDGE_PROBE_SECRET' % (sys.argv[1], urllib.parse.quote('ds:%s-developer:fixture/edge-probe' % sys.argv[1], safe='')))" "$INSTANCE")"
+  VROOT "vault kv put -mount=components '$_EPS' value=dev-fixture-$(openssl rand -hex 8 2>/dev/null || date +%s) >/dev/null" \
+    || { echo "✗ Phase 15: could not seed the dummy component secret"; exit 1; }
+  echo "  ✓ dummy component secret seeded (components/$_EPS)"
+  XNET env INSTANCE="$INSTANCE" python3 -c '
+import os, sys; sys.path.insert(0, "/app"); import api
+i = os.environ["INSTANCE"]; rid = "ds:%s-developer:runtime/edge-probe" % i
+if not api.STORE.get(rid):
+    api.STORE.publish(component_id=rid, kind="runtime", version="0.0.1", provider="%s-developer" % i,
+                      certificate={"status": "dev-fixture", "evidence_digest": "dev-fixture"}, visibility="private",
+                      title="Declared-edges probe runtime (DEV FIXTURE)", description="dev-only fixture: lets the declared-edges net prove launcher -> network /v1/runtime/attest",
+                      published_by="installer-dev-fixtures", published_at=api._now())
+print("  ✓ probe runtime listed:", rid)
+# the network internal doors a fresh install has NO data for — one marked DEV FIXTURE record each, so each declared caller
+# can make a real lookup that SUCCEEDS: an interface, a jurisdiction, a (retired) service offering, an actor key whose
+# private half was generated and discarded here (nobody can sign with it)
+import base64
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+api.INTERFACES["dev.edge-probe@0.1.0"] = {"interface_id": "dev.edge-probe", "version": "0.1.0", "title": "Declared-edges probe (DEV FIXTURE)", "dev_fixture": True}
+api.JURISDICTIONS["DEV-EDGE"] = {"code": "DEV-EDGE", "name": "Declared-edges probe (DEV FIXTURE)", "level": "fixture", "dev_fixture": True}
+oid = "ds:%s:service_offering/dev-edge-probe" % i
+api.SERVICE_OFFERINGS[oid] = {"offering_id": oid, "service_id": "dev-edge-probe", "tenant": i, "title": "Declared-edges probe (DEV FIXTURE)",
+                              "status": "retired", "dev_fixture": True}
+pk = Ed25519PrivateKey.generate().public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+aid = "user://%s-operator/edge-probe" % i
+api.ACTOR_KEYS[aid] = {"id": aid, "keys": [{"public_key": "z" + base64.b64encode(pk).decode(), "status": "active"}], "dev_fixture": True,
+                       "note": "DEV FIXTURE: private half discarded at install"}
+print("  ✓ network lookup fixtures: interface dev.edge-probe, jurisdiction DEV-EDGE, retired offering, actor key", aid)' || { echo "✗ Phase 15: could not seed the network lookup fixtures"; exit 1; }
   # the functional proof is a TEST, not a write helper: it deliberately makes refused calls (wrong password → 401, a user on
 # hold → 403, anonymous lookup → 401) and asserts them itself — it runs WITHOUT the write guard; its own exit code decides.
 # D (DEBT-B174): `aos upload` exactly as a user runs it — the real CLI, in the app-host container, a 27 MB file (past the

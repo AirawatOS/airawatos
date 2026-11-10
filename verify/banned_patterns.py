@@ -361,6 +361,28 @@ def selftest_gated_door():
         print("    WRONG ON:", b)
     return not bad
 
+
+# ── DEV_STUB_OUTSIDE_LOCALDEV (fixtures decision) ────────────────────────────────────────────────────────────────
+# The stub model provider is DEV-ONLY: its image (airawatos-devstub), its host (stub-provider) and its code may be named
+# ONLY by the local-dev stack, the image build, the dev-profile installer fixtures and the verification nets. Any other
+# tracked file naming it — a production compose / manifest, a shipped Dockerfile, a service's code — fails. (At runtime
+# the stub also refuses AIRAWAT_ENV=production, and the gateway drops a dev_stub provider in production.)
+DEV_STUB_REF = re.compile(r"airawatos-devstub|stub[-_]provider")
+DEV_STUB_ALLOWED = ("deploy/local-dev/", "deploy/build-images.sh", "deploy/installer/", "verify/", "conformance/", "docs/",
+                    "platform-spec/reference/model_gateway.py",          # the production REFUSAL itself
+                    "platform-spec/reference/test_", ".github/")
+
+
+def check_dev_stub_outside_localdev():
+    hits = []
+    for f in sorted(_tracked()):
+        if f.startswith(DEV_STUB_ALLOWED) or any(p in SKIP_DIRS for p in f.split("/")) or f.endswith((".png", ".jpg", ".pdf", ".gz")):
+            continue
+        for i, l in enumerate(lines(f), 1):
+            if DEV_STUB_REF.search(l):
+                hits.append((f, i, l.strip()[:120], "dev-only stub provider named outside local-dev"))
+    return hits
+
 CHECKS = [  # name, rule protected, fn, baselined?
     ("TOKEN_ROLES", "FND-1/FND-2 (identity carries no authority; authority only from recorded state) — DEBT-B1", check_token_roles, True),
     ("UNDECLARED_ROUTE", "FND-8 (every privileged endpoint declared + authenticated) — §0 net 4", check_undeclared_routes, False),
@@ -369,6 +391,7 @@ CHECKS = [  # name, rule protected, fn, baselined?
     ("FAIL_OPEN_GATE", "FND-8 (fail-closed) — baseline 0 since slice-1f fixed DEBT-B47 (the account-hold check)", check_fail_open, True),
     ("SUPERUSER_DB", "ARC-3 / FND-10 (per-service least-privilege DB roles) — DEBT-B57", check_superuser_db, False),
     ("PROD_SHADOW_OR_INPROCESS", "FND-16 (enforce by default) + CMP-5 (confinement) — DEBT-A72/B51; RELEASE-PLAN §5", check_prod_shadow, True),
+    ("DEV_STUB_OUTSIDE_LOCALDEV", "FND-16 (no dev convenience in production) — fixtures decision: the stub model provider is dev-only", check_dev_stub_outside_localdev, False),
     ("GATED_DOOR_DIRECT", "FND-9 (audience-bound service tokens on every internal call) + ARC-1 (declared edges only) — DEBT-B174", check_gated_door_direct, False),
 ]
 
