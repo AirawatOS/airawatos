@@ -1037,7 +1037,7 @@ import os, sys; sys.path.insert(0, "/app"); import api
 i = os.environ["INSTANCE"]; rid = "ds:%s-developer:runtime/edge-probe" % i
 if not api.STORE.get(rid):
     api.STORE.publish(component_id=rid, kind="runtime", version="0.0.1", provider="%s-developer" % i,
-                      certificate={"status": "dev-fixture", "evidence_digest": "dev-fixture"}, visibility="private",
+                      certificate={"id": "dev-fixture:" + rid, "status": "dev-fixture", "evidence_digest": "dev-fixture", "issued_at": api._now()}, visibility="private",
                       title="Declared-edges probe runtime (DEV FIXTURE)", description="dev-only fixture: lets the declared-edges net prove launcher -> network /v1/runtime/attest",
                       published_by="installer-dev-fixtures", published_at=api._now())
 print("  ✓ probe runtime listed:", rid)
