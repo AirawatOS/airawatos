@@ -83,15 +83,18 @@ Open **http://127.0.0.1:8080/login** (or `http://localhost:8080/login`). Note th
 | User | `admin` |
 | Password | your `OPERATOR_PASSWORD`, or the one in `conformance/.creds.json` |
 
-**First password.** The installer's bootstrap password for `admin` is single use (ADR-0131):
+**First password.** The installer's bootstrap password for `admin` is single use (ADR-0131). This was verified by
+following this guide from a fresh clone:
 - It is removed from Vault at the end of the install.
-- If the sign-in page asks you to set a new password, do so. It is the only admin password from then on, and nobody
-  else knows it.
+- Your first sign-in succeeds and the page asks you to **set a new password** (`must_reset`). From then on the new
+  password works and the bootstrap password is refused. Nobody else knows the new one.
 - Keep it in your password manager. If you lose it, reset the install (section 6).
 
-The same `admin` account also signs in to the `localdev-network` realm (network administration). The dev profile also
-creates the `localdev`, `localdev-developer` and `localdev-network` realms with test users, for conformance. Those users'
-passwords are in `conformance/.creds.json`.
+`localdev-network` (network administration) has its **own** `admin` account. It starts with the same bootstrap
+password and also asks for a new one at its first sign-in. Changing one realm's password does not change the other.
+
+The dev profile also creates the `localdev` (data tenant) and `localdev-developer` realms, plus test users for
+conformance. Their initial passwords are in `conformance/.creds.json`.
 
 ## 5. Everyday use
 
