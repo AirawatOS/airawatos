@@ -49,13 +49,40 @@ This file applies to all five; each nested repository's `CONTRIBUTING.md` points
    - authz;
    - `deploy/installer`;
    - Vault configuration (`deploy/local-dev/vault/`, `deploy/runtime/`).
-6. **Required checks.** The verification status must be green on the pull request's head commit. New commits invalidate
-   earlier approvals.
+6. **Required checks.** The repository's **fast check** must be green on the pull request's head commit; see
+   *Verification tiers* below. The author's local `make verify` run id must be in the description. New commits
+   invalidate earlier approvals.
 7. **Merge with a merge commit.** No squash, no rebase-merge: history is preserved, and evidence names the exact commits.
    Merge in the order above.
 
 Layer exits follow the standard in `docs/consolidation/FIX-PLAN.md` § *Layer exit standard*: one deep review, a
 scope-frozen re-review of its conditions, and debt registered with an owner and a deadline.
+
+## Verification tiers — what GitHub runs and what you run
+
+GitHub Actions cannot run the full `make verify`. That needs Docker with the whole stack, a proven-empty host and about
+2.5 hours. So there are two tiers until verify tiering lands:
+
+**Tier 1, the fast check: a required status check on every pull request, run in GitHub Actions.** It is hermetic: no
+stack, no secrets, a few minutes.
+
+| Repository | Required check (job) | What it runs |
+|---|---|---|
+| kernel | `kernel-tests / pytest` (exists: `.github/workflows/tests.yml`) | `pip install -r deploy/requirements-dev.txt`; `pytest` (tests/, hermetic); `python services/authz/test_decide.py` |
+| network | `network-unit` | Python 3.11; `pip install -r deploy/requirements.lock`; every tracked `test_*.py`, each run as a script (exit 0 = pass) |
+| platform-spec | `platform-spec-unit` | Python 3.11; `pip install -r requirements.reference.lock`; every tracked `reference/test_*.py`, each run as a script |
+| components | `components-unit` | Python 3.11; platform-spec's `requirements.reference.lock` (the reference image's dependencies); every tracked `test_*.py` and `_common/aos/selftest_*.py`, each run as a script, with `PYTHONPATH=_common` |
+| airawatos (root) | `static-nets` | Checks out the four sibling repositories (the same branch name if it exists, otherwise `main`), then runs `verify/banned_patterns.py`, `verify/gtw_static.py`, `verify/known_violations.py`, `verify/write_guard_test.py`, `verify/installer_test.py` (static part, no `--live`) and `python -m compileall -q deploy verify conformance` |
+
+These are the same files `make verify` runs locally (`verify/unit_suites.py` runs the four unit suites inside the service
+images). The fast check catches a broken test or a broken static rule before review.
+
+**Tier 2, the full `make verify`: a LOCAL pre-merge requirement, not enforced by GitHub.** Before a pull request is
+approved, its author runs `make verify` on a proven-empty slate with no other containers on the host. The pull request
+description gives the green run id. A reviewer may ask for a re-run after any new commit. The person who merges confirms
+that the run id is for the head commit, or for a commit whose difference from the head is only documentation.
+
+When verify tiering lands, with a self-hosted runner able to run the stack, Tier 2 becomes a required check too.
 
 ## Image policy
 
