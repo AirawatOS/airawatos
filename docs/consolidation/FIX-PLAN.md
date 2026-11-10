@@ -100,6 +100,10 @@ neighbours, and no High-severity Layer 1 finding exists.
 > rollback removes only the new set; journal + `--recover`); B160/B161 — root on demand only, the drill proves the services on
 > their own tokens before any root exists, revokes every root token and fails if one remains; break-glass procedure + rehearsal
 > gate; backup encryption/access and online-backup gates before first production. Next: re-check of condition 4 and B160 only.
+>
+> **Re-check 2 (2026-11-10): PASS** — see [LAYER1-EXIT-RECHECK-2](../reviews/LAYER1-EXIT-RECHECK-2.md). Condition 4 holds (the
+> previous set byte-identical in every failure, signal and parallel case), B160 is met, no High. Registered, non-blocking:
+> B163, B164 (Med, before Layer 2 exit), B165, B167–B169 (Low), B166, B170 (Info).
 
 ## Layer 1 — Installation + infrastructure
 
