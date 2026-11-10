@@ -51,7 +51,7 @@ print("▶ strict-matrix self-test (B117/B118) — matrix under test: %s" % os.p
 with tempfile.TemporaryDirectory() as td:
     os.makedirs(os.path.join(td, "r"))
     # a complete, coherent SYNTHETIC evidence set (every required net), stamped with the current HEAD and this run id
-    req = ["banned", "gtwstatic", "knownviolations", "functional", "external", "internal", "flowmap", "vaultscope", "netdoors",
+    req = ["banned", "gtwstatic", "knownviolations", "functional", "external", "internal", "flowmap", "vaultscope", "netdoors", "edges",
            "routes", "listen", "scans", "vaultrenewal", "dbgrants", "ops", "restoredrill"]
     for m in req:
         cases = [{"case": "%s case %d" % (m, i), "rules": ["ARC-7"], "result": "PASS"} for i in range(8)]

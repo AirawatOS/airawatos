@@ -4,7 +4,15 @@
  },
  "banned": {
   "cases": {
+   "banned pattern DEV_STUB_OUTSIDE_LOCALDEV: no occurrence": {
+    "count": 1,
+    "pass": 1
+   },
    "banned pattern FAIL_OPEN_GATE: no occurrence": {
+    "count": 1,
+    "pass": 1
+   },
+   "banned pattern GATED_DOOR_DIRECT: no occurrence": {
     "count": 1,
     "pass": 1
    },
@@ -94,6 +102,279 @@
     "pass": 1
    },
    "the login roles are exactly the declared set": {
+    "count": 1,
+    "pass": 1
+   }
+  },
+  "skip_build_ceiling": 0
+ },
+ "edges": {
+  "cases": {
+   "app-host \u2192 filestore get (GET /files/{id})": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host \u2192 filestore put (POST /files)": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host \u2192 identity prefs (POST /prefs)": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host \u2192 identity realm_users (GET /realms/{tenant}/users)": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host \u2192 identity realms (GET /realms)": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host \u2192 identity set_password (POST /set-password)": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host \u2192 identity users_list (GET /users)": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host \u2192 identity users_write (POST /users)": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host \u2192 model-gateway complete (POST /complete)": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host \u2192 model-gateway embed (POST /embed)": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host \u2192 model-gateway healthz (GET /healthz)": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host \u2192 model-gateway provider_key (POST /admin/provider-key)": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host \u2192 model-gateway transcribe (POST /transcribe)": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host \u2192 network /v#/directory/resolve (POST /v#/directory/resolve)": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host \u2192 network /v#/grants/resolve (POST /v#/grants/resolve)": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host \u2192 network /v#/interfaces/bindings (GET /v#/interfaces/bindings)": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host \u2192 network /v#/interfaces/resolve (POST /v#/interfaces/resolve)": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host \u2192 network /v#/join (GET /v#/join)": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host \u2192 network /v#/jurisdictions/resolve (POST /v#/jurisdictions/resolve)": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host \u2192 network /v#/schemas/resolve (POST /v#/schemas/resolve)": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host \u2192 network /v#/service-offerings/resolve (POST /v#/service-offerings/resolve)": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host \u2192 network /v#/store/resolve (POST /v#/store/resolve)": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host \u2192 network /v#/tenants (GET /v#/tenants)": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host \u2192 network /v#/tenants/resolve (POST /v#/tenants/resolve)": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host \u2192 scheduler reload (POST /reload)": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host \u2192 scheduler run (POST /run)": {
+    "count": 1,
+    "pass": 1
+   },
+   "decision \u2192 network /v#/keys/resolve (POST /v#/keys/resolve)": {
+    "count": 1,
+    "pass": 1
+   },
+   "decision \u2192 notify notify (POST /notify)": {
+    "count": 1,
+    "pass": 1
+   },
+   "event-relay \u2192 automation events (POST /events)": {
+    "count": 1,
+    "pass": 1
+   },
+   "every declared caller is a running service this net can act as": {
+    "count": 1,
+    "pass": 1
+   },
+   "every declared edge has a probe, and every probe an edge": {
+    "count": 1,
+    "pass": 1
+   },
+   "identity \u2192 network /v#/tenants/resolve (POST /v#/tenants/resolve)": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel \u2192 filestore get (GET /files/{id})": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel \u2192 filestore put (POST /files)": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel \u2192 model-gateway complete (POST /complete)": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel \u2192 model-gateway embed (POST /embed)": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel \u2192 network /v#/directory/resolve (POST /v#/directory/resolve)": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel \u2192 network /v#/grants/resolve (POST /v#/grants/resolve)": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel \u2192 network /v#/interfaces/resolve (POST /v#/interfaces/resolve)": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel \u2192 network /v#/receipts/data-read (POST /v#/receipts/data-read)": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel \u2192 network /v#/resolve (POST /v#/resolve)": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel \u2192 network /v#/schemas/resolve (POST /v#/schemas/resolve)": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel \u2192 network /v#/store/resolve (POST /v#/store/resolve)": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel \u2192 network /v#/tenants (GET /v#/tenants)": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel \u2192 network /v#/tenants/resolve (POST /v#/tenants/resolve)": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel \u2192 runtime-manager ensure_connector (POST /v#/ensure-connector)": {
+    "count": 1,
+    "pass": 0
+   },
+   "kernel \u2192 secrets fetch (POST /fetch)": {
+    "count": 1,
+    "pass": 1
+   },
+   "launcher \u2192 filestore get (GET /files/{id})": {
+    "count": 1,
+    "pass": 1
+   },
+   "launcher \u2192 network /v#/certificates/resolve (POST /v#/certificates/resolve)": {
+    "count": 1,
+    "pass": 1
+   },
+   "launcher \u2192 network /v#/store/resolve (POST /v#/store/resolve)": {
+    "count": 1,
+    "pass": 1
+   },
+   "launcher \u2192 network runtime_attest (POST /v#/runtime/attest)": {
+    "count": 1,
+    "pass": 1
+   },
+   "launcher \u2192 secrets materialize (POST /materialize)": {
+    "count": 1,
+    "pass": 1
+   },
+   "notify \u2192 kernel inbox_put (POST /v#/registry/objects)": {
+    "count": 1,
+    "pass": 1
+   },
+   "provisioner \u2192 identity prefs (POST /prefs)": {
+    "count": 1,
+    "pass": 1
+   },
+   "provisioner \u2192 identity realm_users (GET /realms/{tenant}/users)": {
+    "count": 1,
+    "pass": 1
+   },
+   "provisioner \u2192 identity realms (GET /realms)": {
+    "count": 1,
+    "pass": 1
+   },
+   "provisioner \u2192 identity set_password (POST /set-password)": {
+    "count": 1,
+    "pass": 1
+   },
+   "provisioner \u2192 identity users_list (GET /users)": {
+    "count": 1,
+    "pass": 1
+   },
+   "provisioner \u2192 identity users_write (POST /users)": {
+    "count": 1,
+    "pass": 1
+   },
+   "scheduler \u2192 kernel run_token (POST /v#/components/run-token)": {
+    "count": 1,
+    "pass": 1
+   },
+   "scheduler \u2192 network /v#/certificates/resolve (POST /v#/certificates/resolve)": {
+    "count": 1,
+    "pass": 1
+   },
+   "scheduler \u2192 network /v#/directory/resolve (POST /v#/directory/resolve)": {
+    "count": 1,
+    "pass": 1
+   },
+   "scheduler \u2192 network /v#/interfaces/bindings (GET /v#/interfaces/bindings)": {
+    "count": 1,
+    "pass": 1
+   },
+   "scheduler \u2192 network /v#/store/resolve (POST /v#/store/resolve)": {
+    "count": 1,
+    "pass": 1
+   },
+   "scheduler \u2192 runtime-manager invoke (POST /v#/invoke)": {
+    "count": 1,
+    "pass": 1
+   },
+   "workflow \u2192 network /v#/keys/resolve (POST /v#/keys/resolve)": {
+    "count": 1,
+    "pass": 1
+   },
+   "workflow \u2192 notify notify (POST /notify)": {
     "count": 1,
     "pass": 1
    }
@@ -428,6 +709,10 @@
     "count": 1,
     "pass": 1
    },
+   "a role assignment with no principal is refused with # and its reason (was #)": {
+    "count": 1,
+    "pass": 1
+   },
    "admin creates fnuser# in its own tenant (/bridge/user-create \u2192 identity, app-host svc:identity)": {
     "count": 1,
     "pass": 1
@@ -436,7 +721,23 @@
     "count": 1,
     "pass": 1
    },
+   "after the revoke the grant is no longer active": {
+    "count": 1,
+    "pass": 1
+   },
+   "an empty upload is refused with # (the app shows the reason)": {
+    "count": 1,
+    "pass": 1
+   },
+   "aos upload (the real CLI, past the # MB browser cap) stored the file \u2192 file_id": {
+    "count": 1,
+    "pass": 1
+   },
    "declared write (platform.inbox_item) ACCEPTED by the kernel broker": {
+    "count": 1,
+    "pass": 1
+   },
+   "file-explorer upload (/bridge/file-upload) stores the file \u2192 file_id": {
     "count": 1,
     "pass": 1
    },
@@ -464,7 +765,43 @@
     "count": 1,
     "pass": 1
    },
+   "network admin (membership.steward) approves ds:localdev:steward as a member": {
+    "count": 1,
+    "pass": 1
+   },
+   "network admin admin@localdev-network signs in at the App Host": {
+    "count": 1,
+    "pass": 1
+   },
+   "network admin defines a capability (gov-define-capability)": {
+    "count": 1,
+    "pass": 1
+   },
+   "network admin issues a grant to the member (gov-issue-grant)": {
+    "count": 1,
+    "pass": 1
+   },
+   "network admin revokes it (gov-revoke-grant)": {
+    "count": 1,
+    "pass": 1
+   },
    "nothing was stored under the reserved kind": {
+    "count": 1,
+    "pass": 1
+   },
+   "platform authority admin@localdev-operator signs in at the App Host": {
+    "count": 1,
+    "pass": 1
+   },
+   "platform authority assigns capability.steward to the network admin (gov-assign-role)": {
+    "count": 1,
+    "pass": 1
+   },
+   "platform authority assigns grant.steward to the network admin (gov-assign-role)": {
+    "count": 1,
+    "pass": 1
+   },
+   "platform authority assigns membership.steward to the network admin (gov-assign-role)": {
     "count": 1,
     "pass": 1
    },
@@ -492,6 +829,10 @@
     "count": 1,
     "pass": 1
    },
+   "the AI drawer (/bridge/ai-assist) answers through the model gateway": {
+    "count": 1,
+    "pass": 1
+   },
    "the Network's internal lookup refuses an anonymous caller (slice-#)": {
     "count": 1,
     "pass": 1
@@ -500,7 +841,27 @@
     "count": 1,
     "pass": 1
    },
+   "the catalog (gov-capabilities) lists it": {
+    "count": 1,
+    "pass": 1
+   },
+   "the console's members read (gov-members) lists the member": {
+    "count": 1,
+    "pass": 1
+   },
+   "the console's network selector (networks-mine) lists the admin's network": {
+    "count": 1,
+    "pass": 1
+   },
+   "the edge-probe-reader fixture installs with a steward-signed READ-grant (declared-edges net)": {
+    "count": 1,
+    "pass": 1
+   },
    "the kernel REFUSES the granted governance.role_assignment write (core-reserved, FND-#)": {
+    "count": 1,
+    "pass": 1
+   },
+   "the member's grants (gov-grants) show it": {
     "count": 1,
     "pass": 1
    },
@@ -517,6 +878,14 @@
     "pass": 1
    },
    "undeclared write (platform.schedule) REFUSED": {
+    "count": 1,
+    "pass": 1
+   },
+   "\u2026and its platform.file record is in the tenant's Files, pointing at that file_id": {
+    "count": 1,
+    "pass": 1
+   },
+   "\u2026and reads it back byte-identical (/bridge/file)": {
     "count": 1,
     "pass": 1
    }
@@ -1115,6 +1484,10 @@
     "count": 1,
     "pass": 0
    },
+   "audit tables are append-only for every runtime role by effect, through views and rules too (conditions C#-N#, DEBT-B#)": {
+    "count": 1,
+    "pass": 0
+   },
    "external issuers are bound to a recorded tenant AND network; authority never widens by issuer": {
     "count": 1,
     "pass": 0
@@ -1128,6 +1501,18 @@
     "pass": 0
    },
    "participant registration records roles sought, conformance status and its service accounts": {
+    "count": 1,
+    "pass": 0
+   },
+   "production starts only allow-listed configuration, environment-borne server options included (conditions C#-N#, DEBT-B#)": {
+    "count": 1,
+    "pass": 0
+   },
+   "pruning a set can never remove the active set or anything outside sets/ (re-check-# F-C#-#, DEBT-B#)": {
+    "count": 1,
+    "pass": 0
+   },
+   "restore --recover never deletes the active or previous set, whatever the journal says (re-check-# F-C#-#, DEBT-B#)": {
     "count": 1,
     "pass": 0
    },
@@ -1311,11 +1696,83 @@
  },
  "restoredrill": {
   "cases": {
+   "BEFORE root: app-host reads its own Vault path with its OWN token (and not a foreign one)": {
+    "count": 1,
+    "pass": 1
+   },
+   "BEFORE root: automation reads its own Vault path with its OWN token (and not a foreign one)": {
+    "count": 1,
+    "pass": 1
+   },
+   "BEFORE root: decision reads its own Vault path with its OWN token (and not a foreign one)": {
+    "count": 1,
+    "pass": 1
+   },
+   "BEFORE root: event-relay reads its own Vault path with its OWN token (and not a foreign one)": {
+    "count": 1,
+    "pass": 1
+   },
+   "BEFORE root: every service healthy": {
+    "count": 1,
+    "pass": 1
+   },
+   "BEFORE root: identity reads its own Vault path with its OWN token (and not a foreign one)": {
+    "count": 1,
+    "pass": 1
+   },
+   "BEFORE root: kernel reads its own Vault path with its OWN token (and not a foreign one)": {
+    "count": 1,
+    "pass": 1
+   },
+   "BEFORE root: model-gateway may read+write its component mount with its OWN token": {
+    "count": 1,
+    "pass": 1
+   },
+   "BEFORE root: network reads its own Vault path with its OWN token (and not a foreign one)": {
+    "count": 1,
+    "pass": 1
+   },
+   "BEFORE root: notify reads its own Vault path with its OWN token (and not a foreign one)": {
+    "count": 1,
+    "pass": 1
+   },
+   "BEFORE root: runtime-manager reads its own Vault path with its OWN token (and not a foreign one)": {
+    "count": 1,
+    "pass": 1
+   },
+   "BEFORE root: scheduler reads its own Vault path with its OWN token (and not a foreign one)": {
+    "count": 1,
+    "pass": 1
+   },
+   "BEFORE root: secrets may read+write its component mount with its OWN token": {
+    "count": 1,
+    "pass": 1
+   },
+   "BEFORE root: workflow reads its own Vault path with its OWN token (and not a foreign one)": {
+    "count": 1,
+    "pass": 1
+   },
+   "NO root token remains at the end of the drill (probe enumeration finds none; init.json blank)": {
+    "count": 1,
+    "pass": 1
+   },
+   "a root token generated ON DEMAND (generate-root with the unseal key) for the root-only checks": {
+    "count": 1,
+    "pass": 1
+   },
    "after the restore every service reads its own Vault paths (AppRole logins intact)": {
     "count": 1,
     "pass": 1
    },
+   "after the restore the Vault holds NO root token at rest (none regenerated at start)": {
+    "count": 1,
+    "pass": 1
+   },
    "backup.sh took a consistent backup of every volume + host secrets": {
+    "count": 1,
+    "pass": 1
+   },
+   "every root token REVOKED by accessor enumeration as soon as the post-restore checks finished (incl. the pre-backup root)": {
     "count": 1,
     "pass": 1
    },
@@ -1479,6 +1936,14 @@
  },
  "vaultscope": {
   "cases": {
+   "ACL policy names EXACTLY the declared set": {
+    "count": 1,
+    "pass": 1
+   },
+   "AppRole roles EXACTLY the declared set": {
+    "count": 1,
+    "pass": 1
+   },
    "app-host ACTUALLY reads only its allow-listed Vault paths (# paths across # mounts tried)": {
     "count": 1,
     "pass": 1
@@ -1512,6 +1977,10 @@
     "pass": 1
    },
    "app-host CANNOT read or write platform credential localdev-operator/launcher/password": {
+    "count": 1,
+    "pass": 1
+   },
+   "app-host CANNOT read or write platform credential localdev-operator/notify/password": {
     "count": 1,
     "pass": 1
    },
@@ -1563,11 +2032,23 @@
     "count": 2,
     "pass": 2
    },
+   "app-host: its LIVE token carries EXACTLY the declared policies (token + identity)": {
+    "count": 1,
+    "pass": 1
+   },
    "app-host: no static VAULT_TOKEN in container config": {
     "count": 2,
     "pass": 2
    },
    "app-host: transit limited to its own keys (cannot sign with, rotate or configure another service's key)": {
+    "count": 1,
+    "pass": 1
+   },
+   "audit devices EXACTLY the declared list": {
+    "count": 1,
+    "pass": 1
+   },
+   "auth methods EXACTLY the declared list": {
     "count": 1,
     "pass": 1
    },
@@ -1588,6 +2069,10 @@
     "pass": 1
    },
    "automation: holds a scoped (non-root) Vault token": {
+    "count": 1,
+    "pass": 1
+   },
+   "automation: its LIVE token carries EXACTLY the declared policies (token + identity)": {
     "count": 1,
     "pass": 1
    },
@@ -1619,6 +2104,10 @@
     "count": 1,
     "pass": 1
    },
+   "decision: its LIVE token carries EXACTLY the declared policies (token + identity)": {
+    "count": 1,
+    "pass": 1
+   },
    "decision: no static VAULT_TOKEN in container config": {
     "count": 1,
     "pass": 1
@@ -1644,6 +2133,10 @@
     "pass": 1
    },
    "event-relay: holds a scoped (non-root) Vault token": {
+    "count": 1,
+    "pass": 1
+   },
+   "event-relay: its LIVE token carries EXACTLY the declared policies (token + identity)": {
     "count": 1,
     "pass": 1
    },
@@ -1679,6 +2172,10 @@
     "count": 1,
     "pass": 1
    },
+   "identity: its LIVE token carries EXACTLY the declared policies (token + identity)": {
+    "count": 1,
+    "pass": 1
+   },
    "identity: no static VAULT_TOKEN in container config": {
     "count": 1,
     "pass": 1
@@ -1708,6 +2205,10 @@
     "pass": 1
    },
    "kernel: holds a scoped (non-root) Vault token": {
+    "count": 1,
+    "pass": 1
+   },
+   "kernel: its LIVE token carries EXACTLY the declared policies (token + identity)": {
     "count": 1,
     "pass": 1
    },
@@ -1767,6 +2268,10 @@
     "count": 1,
     "pass": 1
    },
+   "model-gateway CANNOT read or write platform credential localdev-operator/notify/password": {
+    "count": 1,
+    "pass": 1
+   },
    "model-gateway CANNOT read or write platform credential localdev-operator/provisioner/password": {
     "count": 1,
     "pass": 1
@@ -1800,6 +2305,10 @@
     "pass": 1
    },
    "model-gateway: holds a scoped (non-root) Vault token": {
+    "count": 1,
+    "pass": 1
+   },
+   "model-gateway: its LIVE token carries EXACTLY the declared policies (token + identity)": {
     "count": 1,
     "pass": 1
    },
@@ -1843,6 +2352,10 @@
     "count": 1,
     "pass": 1
    },
+   "network: its LIVE token carries EXACTLY the declared policies (token + identity)": {
+    "count": 1,
+    "pass": 1
+   },
    "network: no static VAULT_TOKEN in container config": {
     "count": 1,
     "pass": 1
@@ -1851,7 +2364,147 @@
     "count": 1,
     "pass": 1
    },
-   "notify: no Vault identity (uses no Vault door)": {
+   "no identity groups (a group would attach policies outside the roles)": {
+    "count": 1,
+    "pass": 1
+   },
+   "notify ACTUALLY reads only its allow-listed Vault paths (# paths across # mounts tried)": {
+    "count": 1,
+    "pass": 1
+   },
+   "notify reads ONLY its own platform credentials (all # checked)": {
+    "count": 1,
+    "pass": 1
+   },
+   "notify: CAN read its own path": {
+    "count": 1,
+    "pass": 1
+   },
+   "notify: CANNOT read a foreign service's path": {
+    "count": 1,
+    "pass": 1
+   },
+   "notify: holds a scoped (non-root) Vault token": {
+    "count": 1,
+    "pass": 1
+   },
+   "notify: its LIVE token carries EXACTLY the declared policies (token + identity)": {
+    "count": 1,
+    "pass": 1
+   },
+   "notify: no static VAULT_TOKEN in container config": {
+    "count": 1,
+    "pass": 1
+   },
+   "notify: transit limited to its own keys (cannot sign with, rotate or configure another service's key)": {
+    "count": 1,
+    "pass": 1
+   },
+   "policy default-ceiling: live text EXACTLY its declared .hcl (normalised: every path, every capability)": {
+    "count": 1,
+    "pass": 1
+   },
+   "policy default: live text EXACTLY its declared .hcl (normalised: every path, every capability)": {
+    "count": 1,
+    "pass": 1
+   },
+   "policy svc-app-host: live text EXACTLY its declared .hcl (normalised: every path, every capability)": {
+    "count": 1,
+    "pass": 1
+   },
+   "policy svc-base: live text EXACTLY its declared .hcl (normalised: every path, every capability)": {
+    "count": 1,
+    "pass": 1
+   },
+   "policy svc-decision: live text EXACTLY its declared .hcl (normalised: every path, every capability)": {
+    "count": 1,
+    "pass": 1
+   },
+   "policy svc-identity: live text EXACTLY its declared .hcl (normalised: every path, every capability)": {
+    "count": 1,
+    "pass": 1
+   },
+   "policy svc-kernel: live text EXACTLY its declared .hcl (normalised: every path, every capability)": {
+    "count": 1,
+    "pass": 1
+   },
+   "policy svc-model-gateway: live text EXACTLY its declared .hcl (normalised: every path, every capability)": {
+    "count": 1,
+    "pass": 1
+   },
+   "policy svc-network: live text EXACTLY its declared .hcl (normalised: every path, every capability)": {
+    "count": 1,
+    "pass": 1
+   },
+   "policy svc-notify: live text EXACTLY its declared .hcl (normalised: every path, every capability)": {
+    "count": 1,
+    "pass": 1
+   },
+   "policy svc-runtime-manager: live text EXACTLY its declared .hcl (normalised: every path, every capability)": {
+    "count": 1,
+    "pass": 1
+   },
+   "policy svc-scheduler: live text EXACTLY its declared .hcl (normalised: every path, every capability)": {
+    "count": 1,
+    "pass": 1
+   },
+   "policy svc-secrets: live text EXACTLY its declared .hcl (normalised: every path, every capability)": {
+    "count": 1,
+    "pass": 1
+   },
+   "policy svc-workflow: live text EXACTLY its declared .hcl (normalised: every path, every capability)": {
+    "count": 1,
+    "pass": 1
+   },
+   "role app-host: token policies EXACTLY as declared": {
+    "count": 1,
+    "pass": 1
+   },
+   "role automation: token policies EXACTLY as declared": {
+    "count": 1,
+    "pass": 1
+   },
+   "role decision: token policies EXACTLY as declared": {
+    "count": 1,
+    "pass": 1
+   },
+   "role event-relay: token policies EXACTLY as declared": {
+    "count": 1,
+    "pass": 1
+   },
+   "role identity: token policies EXACTLY as declared": {
+    "count": 1,
+    "pass": 1
+   },
+   "role kernel: token policies EXACTLY as declared": {
+    "count": 1,
+    "pass": 1
+   },
+   "role model-gateway: token policies EXACTLY as declared": {
+    "count": 1,
+    "pass": 1
+   },
+   "role network: token policies EXACTLY as declared": {
+    "count": 1,
+    "pass": 1
+   },
+   "role notify: token policies EXACTLY as declared": {
+    "count": 1,
+    "pass": 1
+   },
+   "role runtime-manager: token policies EXACTLY as declared": {
+    "count": 1,
+    "pass": 1
+   },
+   "role scheduler: token policies EXACTLY as declared": {
+    "count": 1,
+    "pass": 1
+   },
+   "role secrets: token policies EXACTLY as declared": {
+    "count": 1,
+    "pass": 1
+   },
+   "role workflow: token policies EXACTLY as declared": {
     "count": 1,
     "pass": 1
    },
@@ -1876,6 +2529,10 @@
     "pass": 1
    },
    "runtime-manager: holds a scoped (non-root) Vault token": {
+    "count": 1,
+    "pass": 1
+   },
+   "runtime-manager: its LIVE token carries EXACTLY the declared policies (token + identity)": {
     "count": 1,
     "pass": 1
    },
@@ -1907,11 +2564,19 @@
     "count": 1,
     "pass": 1
    },
+   "scheduler: its LIVE token carries EXACTLY the declared policies (token + identity)": {
+    "count": 1,
+    "pass": 1
+   },
    "scheduler: no static VAULT_TOKEN in container config": {
     "count": 1,
     "pass": 1
    },
    "scheduler: transit limited to its own keys (cannot sign with, rotate or configure another service's key)": {
+    "count": 1,
+    "pass": 1
+   },
+   "secret engines EXACTLY the declared list (path, type, KV version)": {
     "count": 1,
     "pass": 1
    },
@@ -1963,6 +2628,10 @@
     "count": 1,
     "pass": 1
    },
+   "secrets CANNOT read or write platform credential localdev-operator/notify/password": {
+    "count": 1,
+    "pass": 1
+   },
    "secrets CANNOT read or write platform credential localdev-operator/provisioner/password": {
     "count": 1,
     "pass": 1
@@ -1999,6 +2668,10 @@
     "count": 1,
     "pass": 1
    },
+   "secrets: its LIVE token carries EXACTLY the declared policies (token + identity)": {
+    "count": 1,
+    "pass": 1
+   },
    "secrets: no static VAULT_TOKEN in container config": {
     "count": 1,
     "pass": 1
@@ -2024,6 +2697,10 @@
     "pass": 1
    },
    "workflow: holds a scoped (non-root) Vault token": {
+    "count": 1,
+    "pass": 1
+   },
+   "workflow: its LIVE token carries EXACTLY the declared policies (token + identity)": {
     "count": 1,
     "pass": 1
    },
