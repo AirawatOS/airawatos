@@ -116,6 +116,16 @@ xfail(["NET-12"], "a citizen sees only its own rows — never a tenant's by a us
 # and rolls back; proven by verify/backup_restore_selftest.py and verify/restore_drill.py. Cases removed.
 # slice-1k: re-check F-C4-3 (DEBT-B154, High) FIXED — restore never works in place (volume sets + atomic pointer; the
 # previous set is never written or deleted); proven by verify/backup_restore_selftest.py. Case removed.
+# Layer 1 RE-CHECK-2 (2026-11-10) — reproduced LIVE by the reviewer (docs/reviews/LAYER1-EXIT-RECHECK-2.md):
+_sp = code("deploy/local-dev/_sets.py"); _rs = read("deploy/local-dev/restore.sh")
+xfail(["ARC-3"], "restore --recover never deletes the active or previous set, whatever the journal says (re-check-2 F-C4-6, DEBT-B163)",
+      'case "$S" in "$P"-r*)' in _rs and "realpath" not in _rs,
+      "--recover checks only that the journal's NEW starts with <project>-r: NEW = the active set deleted its volumes and host "
+      "secrets; NEW = PREV deleted the previous set; a ../ name deleted another directory")
+xfail(["ARC-3"], "pruning a set can never remove the active set or anything outside sets/ (re-check-2 F-C4-7, DEBT-B164)",
+      "if s == active():" in _sp and "realpath" not in _sp,
+      "_sets.py prune compares the raw argument: ./<active>, x/../<active> deleted the live set's host secrets; '' deleted "
+      "sets/; '..' deleted deploy/local-dev (scratch copy)")
 ga = code("verify/db_grant_audit.py")
 xfail(["ARC-3"], "audit tables are append-only for every runtime role by effect, through views and rules too (conditions C1-N1, DEBT-B144)",
       "pg_rewrite" not in ga and "relkind" not in ga,
