@@ -11,12 +11,12 @@ AOS_RUN_ID := $(shell python3 verify/evidence.py new-run-id)
 endif
 export AOS_RUN_ID
 
-.PHONY: unit matrix-fast clean-results vault-renewal dbgrants ops restore-drill listen verify verify-fast banned gtw-static known-violations fresh-install conformance flowmap vaultscope routes scans matrix decide-unit secret-names gateflags netdoors build-context images installer
+.PHONY: svcclient unit matrix-fast clean-results vault-renewal dbgrants ops restore-drill listen verify verify-fast banned gtw-static known-violations fresh-install conformance flowmap vaultscope routes scans matrix decide-unit secret-names gateflags netdoors build-context images installer
 
-verify: clean-results banned gtw-static known-violations decide-unit unit secret-names gateflags build-context images installer fresh-install conformance flowmap vaultscope vault-renewal netdoors dbgrants routes listen ops scans restore-drill matrix
+verify: clean-results banned svcclient gtw-static known-violations decide-unit unit secret-names gateflags build-context images installer fresh-install conformance flowmap vaultscope vault-renewal netdoors dbgrants routes listen ops scans restore-drill matrix
 	@echo "✓ make verify: all assurance nets green"
 
-verify-fast: clean-results banned gtw-static known-violations decide-unit secret-names gateflags build-context images conformance flowmap vaultscope vault-renewal netdoors dbgrants routes listen ops scans restore-drill matrix-fast
+verify-fast: clean-results banned svcclient gtw-static known-violations decide-unit secret-names gateflags build-context images conformance flowmap vaultscope vault-renewal netdoors dbgrants routes listen ops scans restore-drill matrix-fast
 	@echo "✓ make verify-fast: all assurance nets green (no fresh install)"
 
 clean-results:   ## slice-1h B99 — delete the previous run's evidence so only THIS run's can reach the matrix
@@ -25,6 +25,10 @@ clean-results:   ## slice-1h B99 — delete the previous run's evidence so only 
 
 banned:          ## net 6 — banned patterns (static), each mapped to its rule
 	python3 verify/banned_patterns.py --json conformance/results/local-dev-banned.json
+
+svcclient:       ## B174 — the shared internal service client (aos_svc): edges == ARCHITECTURE-FLOWS table, CI pins current, behaviour
+	python3 verify/svc_edges.py
+	python3 verify/aos_svc_test.py
 
 gtw-static:      ## GTW — static evidence for gateway rules no black-box case reaches (XFAIL = known violation)
 	python3 verify/gtw_static.py

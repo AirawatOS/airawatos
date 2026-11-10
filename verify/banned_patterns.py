@@ -238,6 +238,129 @@ def check_undeclared_routes():
     return hits
 
 
+
+# ── GATED_DOOR_DIRECT (DEBT-B174 class fix) ──────────────────────────────────────────────────────────────────────
+# The filestore (svc:filestore) and the model gateway (svc:model-gateway) ENFORCE an audience-bound token from a
+# declared caller (ARCHITECTURE-FLOWS §h). Each calling service reaches them ONLY through its one client, which always
+# attaches its token — the shared aos_svc package; ~35 hand-built requests that forgot it broke upload, aos upload and
+# the AI drawer. HARD: any
+# other use of a door's URL to BUILD a request fails — a variable bound to the door's env var (FILESTORE_URL /
+# EMBED_URL / …, or imported from hostcore) used in a URL expression or call, or a literal door host — in EVERY
+# repository (components included: a component is not a declared caller at all; it goes through the broker).
+# Presence tests (`if not FILESTORE_URL:`) and assignments are not calls and are allowed.
+GATED_DOOR_ENVS = {"FILESTORE_URL", "FILESTORE", "EMBED_URL", "MODEL_GATEWAY_URL", "MODELGW_URL"}
+GATED_DOOR_HOST = re.compile(r"https?://(?:airawat-[a-z-]*)?(?:filestore|model-gateway|embed)(?::\d+)?(?:/|$)")
+GATED_DOOR_SCOPE = ["kernel", "network", "platform-spec/reference", "components", "deploy"]
+GATED_DOOR_CLIENTS = {   # the ONE shared internal service client (every platform image, /opt/airawat/lib) — nothing else
+    "deploy/runtime/lib/aos_svc/__init__.py": {"*"}, "deploy/runtime/lib/aos_svc/tokens.py": {"*"},
+}
+GATED_DOOR_HANDOFFS = {  # (file, function): why a door URL is passed on rather than called
+    ("platform-spec/reference/app_host.py", "_engine_ctx"): "ctx['embed_url'] for in-process engines — their ctx['http'] goes through Handler._http, which hands any door URL to hostcore.SVC (aos_svc)",
+}
+GATED_DOOR_RECORDED = {  # legacy dev tools against the retired deploy/local stack — listed every run, debt DEBT-B178
+    "platform-spec/reference/tools/republish_portal.py", "components/engines/lifecycle-engine/publish_governed.py",
+    "components/drivers/crowd-sim-vision/tools/harvest_sprites.py",
+    "components/tools/deploy_component.py", "components/tools/stage_and_publish.py", "components/tools/upload_bind_run.py",   # EC2-era operator scripts
+}
+
+
+def _gated_door_hits_in(src, path="<src>"):
+    import ast, warnings
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            tree = ast.parse(src)
+    except SyntaxError:
+        return []
+    parent = {}
+    for n in ast.walk(tree):
+        for c in ast.iter_child_nodes(n):
+            parent[c] = n
+    def env_door(v):           # os.environ.get("FILESTORE_URL", …) / os.getenv(…) / os.environ["…"] anywhere in v
+        for n in ast.walk(v):
+            if isinstance(n, ast.Call) and n.args and isinstance(n.args[0], ast.Constant) and n.args[0].value in GATED_DOOR_ENVS:
+                f = n.func
+                if (isinstance(f, ast.Attribute) and f.attr in ("get", "getenv")) or (isinstance(f, ast.Name) and f.id == "getenv"):
+                    return True
+            if isinstance(n, ast.Subscript) and isinstance(n.slice, ast.Constant) and n.slice.value in GATED_DOOR_ENVS:
+                return True
+        return False
+    doorvars = set(GATED_DOOR_ENVS)
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Assign) and env_door(n.value):
+            doorvars |= {t.id for t in n.targets if isinstance(t, ast.Name)}
+    def func_of(n):
+        while n in parent:
+            n = parent[n]
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                return n.name
+        return None
+    def env_default(n):        # the literal default inside os.environ.get("X", "<here>")
+        p = parent.get(n)
+        return isinstance(p, ast.Call) and n in p.args[1:] and env_door(p)
+    def docstring(n):
+        p = parent.get(n)
+        return isinstance(p, ast.Expr)
+    def presence_only(n):      # if X: / if not X: / X and … — not a call
+        p = parent.get(n)
+        return isinstance(p, (ast.If, ast.IfExp, ast.While, ast.BoolOp, ast.UnaryOp, ast.Compare)) and getattr(p, "test", n) is n or \
+               (isinstance(p, (ast.BoolOp, ast.UnaryOp, ast.Compare)))
+    hits = []
+    for n in ast.walk(tree):
+        use = None
+        if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load) and n.id in doorvars:
+            use = n.id
+        elif isinstance(n, ast.Attribute) and isinstance(n.ctx, ast.Load) and n.attr in GATED_DOOR_ENVS:
+            use = n.attr
+        elif isinstance(n, ast.Constant) and isinstance(n.value, str) and GATED_DOOR_HOST.search(n.value) \
+                and not env_default(n) and not docstring(n):
+            use = "literal " + n.value[:60]
+        if not use or (not use.startswith("literal") and presence_only(n)):
+            continue
+        hits.append((path, getattr(n, "lineno", 0), use, func_of(n)))
+    return hits
+
+
+def check_gated_door_direct():
+    hits = []
+    for f in sorted(_tracked()):
+        if not f.endswith(".py") or not any(f.startswith(t + "/") for t in GATED_DOOR_SCOPE):
+            continue
+        parts = f.split("/")
+        if any(p in SKIP_DIRS for p in parts) or parts[-1].startswith(("test_", "selftest_")):
+            continue
+        allowed = GATED_DOOR_CLIENTS.get(f, set())
+        if "*" in allowed:
+            continue
+        for path, ln, use, fn in _gated_door_hits_in("\n".join(lines(f)), f):
+            if fn in allowed or (f, fn) in GATED_DOOR_HANDOFFS:
+                continue
+            if f in GATED_DOOR_RECORDED:
+                print(f"      recorded exception (DEBT-B178, legacy dev tool): {f}:{ln} {use}")
+                continue
+            hits.append((f, ln, f"{use} in {fn or '<module>'}", "direct request to a gated door outside its client"))
+    return hits
+
+
+GATED_DOOR_SELFTEST = [  # (source, must_hit)
+    ('import os, urllib.request\nFS = os.environ.get("FILESTORE_URL", "http://filestore:8095")\ndef f(b):\n    return urllib.request.urlopen(FS + "/files", data=b)\n', True),
+    ('from hostcore import EMBED_URL\ndef f(r):\n    return urllib.request.Request(EMBED_URL + "/complete", data=r)\n', True),
+    ('import hostcore\ndef f(fid):\n    return urlopen(f"{hostcore.FILESTORE_URL}/files/{fid}")\n', True),
+    ('def f():\n    return urlopen("http://model-gateway:8104/complete")\n', True),
+    ('import os\nFILESTORE = os.getenv("FILESTORE_URL")\ndef f(x):\n    return _http("GET", FILESTORE + "/files/" + x)\n', True),
+    ('import os\nFILESTORE_URL = os.environ.get("FILESTORE_URL", "http://filestore:8095")\ndef f():\n    if not FILESTORE_URL:\n        raise X()\n', False),
+    ('import hostcore, os\nhostcore.FILESTORE_URL = os.environ.get("FILESTORE_URL", "http://filestore:8095")\n', False),
+    ('def f():\n    """Calls http://filestore:8095 via the broker."""\n    return broker.put(b)\n', False),
+]
+
+
+def selftest_gated_door():
+    bad = [src.split("\n")[-2].strip() for src, must in GATED_DOOR_SELFTEST if bool(_gated_door_hits_in(src)) != must]
+    print(("✓" if not bad else "✗") + f" GATED_DOOR_DIRECT self-test: {len(GATED_DOOR_SELFTEST) - len(bad)}/{len(GATED_DOOR_SELFTEST)}")
+    for b in bad:
+        print("    WRONG ON:", b)
+    return not bad
+
 CHECKS = [  # name, rule protected, fn, baselined?
     ("TOKEN_ROLES", "FND-1/FND-2 (identity carries no authority; authority only from recorded state) — DEBT-B1", check_token_roles, True),
     ("UNDECLARED_ROUTE", "FND-8 (every privileged endpoint declared + authenticated) — §0 net 4", check_undeclared_routes, False),
@@ -246,6 +369,7 @@ CHECKS = [  # name, rule protected, fn, baselined?
     ("FAIL_OPEN_GATE", "FND-8 (fail-closed) — baseline 0 since slice-1f fixed DEBT-B47 (the account-hold check)", check_fail_open, True),
     ("SUPERUSER_DB", "ARC-3 / FND-10 (per-service least-privilege DB roles) — DEBT-B57", check_superuser_db, False),
     ("PROD_SHADOW_OR_INPROCESS", "FND-16 (enforce by default) + CMP-5 (confinement) — DEBT-A72/B51; RELEASE-PLAN §5", check_prod_shadow, True),
+    ("GATED_DOOR_DIRECT", "FND-9 (audience-bound service tokens on every internal call) + ARC-1 (declared edges only) — DEBT-B174", check_gated_door_direct, False),
 ]
 
 
@@ -309,7 +433,7 @@ def selftest():
 
 def main():
     update = "--update-baseline" in sys.argv
-    if not selftest():
+    if not (selftest() & selftest_gated_door()):
         sys.exit(2)
     base = json.load(open(BASELINE)) if os.path.exists(BASELINE) else {}
     failed = 0; cases = []; new_base = {}

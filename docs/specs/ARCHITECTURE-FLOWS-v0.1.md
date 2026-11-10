@@ -311,6 +311,30 @@ production cannot run with a gate open.
 | workflow `/instantiate`,`/complete-task` | user-token authn (`tokens.verify`) | user bearer | authenticated **users** | authn-only | authn-only — user-facing door |
 | decision/workflow `/verify`, model-gateway/embed `/healthz` | **none (public by design)** | — | anyone | none (intended) | none (public verify / liveness — documented, not debt) |
 
+#### Internal service client — declared caller→door edges (DEBT-B174)
+
+Every platform service reaches an internal door through ONE shared client, `aos_svc` (root `deploy/runtime/lib/aos_svc`,
+shipped in every platform image). The client's methods are **generated from this table**: `aos_svc.client_for(caller)`
+has an operation only when the caller is listed for it; anything else raises `NotDeclared`. Each call mints the
+audience-bound token for the door, attaches it (never sends without one), applies the timeout and retries below (retries
+only on 502/503/504/unreachable, never for a streamed body), carries `X-Request-Id`, and maps any refusal to a `DoorError`
+with the door's reason and the status to answer with (never 500). `verify/svc_edges.py` keeps `aos_svc/edges.json`
+identical to this table; `verify/banned_patterns.py` (GATED_DOOR_DIRECT) fails any request to these doors outside the
+client. **Doors on the client now:** filestore, model-gateway. The remaining §h doors move in the first post-merge slice
+(DEBT-B179), which then turns on "no raw HTTP to an internal service outside the client".
+
+<!-- svc-edges:begin -->
+| door | audience | base | operation | request | timeout s | retries | callers |
+|---|---|---|---|---|---|---|---|
+| filestore | svc:filestore | FILESTORE_URL=http://filestore:8095 | put | POST /files | 60 | 2 | app-host, kernel |
+| filestore | svc:filestore | FILESTORE_URL=http://filestore:8095 | get | GET /files/{id} | 30 | 2 | app-host, kernel, launcher |
+| model-gateway | svc:model-gateway | EMBED_URL=http://model-gateway:8104 | complete | POST /complete | 90 | 3 | app-host, kernel |
+| model-gateway | svc:model-gateway | EMBED_URL=http://model-gateway:8104 | embed | POST /embed | 30 | 2 | app-host, kernel |
+| model-gateway | svc:model-gateway | EMBED_URL=http://model-gateway:8104 | transcribe | POST /transcribe | 95 | 0 | app-host |
+| model-gateway | svc:model-gateway | EMBED_URL=http://model-gateway:8104 | provider_key | POST /admin/provider-key | 15 | 0 | app-host |
+| model-gateway | svc:model-gateway | EMBED_URL=http://model-gateway:8104 | healthz | GET /healthz (public) | 10 | 1 | app-host |
+<!-- svc-edges:end -->
+
 #### Network internal doors — declared callers (slice-1g, DEBT-B86)
 
 The authoritative caller set for every Network internal door and for the service mode of every gated list. Each door

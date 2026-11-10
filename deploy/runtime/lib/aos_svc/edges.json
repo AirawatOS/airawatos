@@ -1,0 +1,99 @@
+{
+ "callers": [
+  "app-host",
+  "kernel",
+  "launcher"
+ ],
+ "doors": {
+  "filestore": {
+   "audience": "svc:filestore",
+   "base_default": "http://filestore:8095",
+   "base_env": "FILESTORE_URL",
+   "operations": {
+    "get": {
+     "callers": [
+      "app-host",
+      "kernel",
+      "launcher"
+     ],
+     "method": "GET",
+     "path": "/files/{id}",
+     "public": false,
+     "retries": 2,
+     "timeout": 30
+    },
+    "put": {
+     "callers": [
+      "app-host",
+      "kernel"
+     ],
+     "method": "POST",
+     "path": "/files",
+     "public": false,
+     "retries": 2,
+     "timeout": 60
+    }
+   }
+  },
+  "model-gateway": {
+   "audience": "svc:model-gateway",
+   "base_default": "http://model-gateway:8104",
+   "base_env": "EMBED_URL",
+   "operations": {
+    "complete": {
+     "callers": [
+      "app-host",
+      "kernel"
+     ],
+     "method": "POST",
+     "path": "/complete",
+     "public": false,
+     "retries": 3,
+     "timeout": 90
+    },
+    "embed": {
+     "callers": [
+      "app-host",
+      "kernel"
+     ],
+     "method": "POST",
+     "path": "/embed",
+     "public": false,
+     "retries": 2,
+     "timeout": 30
+    },
+    "healthz": {
+     "callers": [
+      "app-host"
+     ],
+     "method": "GET",
+     "path": "/healthz",
+     "public": true,
+     "retries": 1,
+     "timeout": 10
+    },
+    "provider_key": {
+     "callers": [
+      "app-host"
+     ],
+     "method": "POST",
+     "path": "/admin/provider-key",
+     "public": false,
+     "retries": 0,
+     "timeout": 15
+    },
+    "transcribe": {
+     "callers": [
+      "app-host"
+     ],
+     "method": "POST",
+     "path": "/transcribe",
+     "public": false,
+     "retries": 0,
+     "timeout": 95
+    }
+   }
+  }
+ },
+ "generated_from": "docs/specs/ARCHITECTURE-FLOWS-v0.1.md#svc-edges \u2014 do not edit; run verify/svc_edges.py --write"
+}

@@ -21,5 +21,7 @@ jobs:
         run: python3 verify/write_guard_test.py
       - name: Installer (static — every phase named, loud EXIT trap, no swallowed writes, guard baked + fail-closed)
         run: python3 verify/installer_test.py
+      - name: Shared internal service client (aos_svc) — behaviour (fake door, no stack)
+        run: python3 verify/aos_svc_test.py
       - name: Every script compiles
         run: python3 -m compileall -q deploy verify conformance
