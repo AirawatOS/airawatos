@@ -1,5 +1,9 @@
 # Install AirawatOS on your local machine
 
+> **⚠️ LEGACY — do not follow.** This describes the old `deploy/local/` prebuilt-image install. Use
+> [`docs/operator/INSTALL-LOCAL.md`](../../docs/operator/INSTALL-LOCAL.md) instead.
+
+
 A single command brings up a fresh, self-contained AirawatOS instance: the four realms (operator / network /
 data tenant / developer), an admin login for each, and the **Base-OS app suite** on every admin desktop
 (Admin · Settings · Files · Console · Inbox · Personal Assistant · Marketplace, plus Network Admin on the

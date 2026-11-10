@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# ⚠️ LEGACY (Layer 1 merge, 2026-11-10): this is the OLD install path. Use docs/operator/INSTALL-LOCAL.md
+# (deploy/build-images.sh + deploy/installer/install.sh --profile dev). Refuses to run unless AIRAWATOS_LEGACY=1.
+if [ "${AIRAWATOS_LEGACY:-}" != 1 ]; then
+  echo "✗ LEGACY installer (deploy/local/) — not what main runs. Follow docs/operator/INSTALL-LOCAL.md instead." >&2
+  echo "  (set AIRAWATOS_LEGACY=1 only if you really need the old prebuilt-image demo)" >&2
+  exit 2
+fi
 # ============================================================================================================
 # ⚠️  SUPERSEDED (2026-11-06) — do not extend. The canonical installer is the profiled, idempotent
 #     deploy/local-dev/install.sh  (--profile production | rehearsal | dev), documented in

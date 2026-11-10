@@ -1,5 +1,9 @@
 # Install AirawatOS on your laptop (local test)
 
+> **⚠️ LEGACY — do not follow.** This describes the old `deploy/local/` prebuilt-image install. Use
+> [`docs/operator/INSTALL-LOCAL.md`](operator/INSTALL-LOCAL.md) instead.
+
+
 Stand up the whole platform on your machine from the **same pinned images that run in production**, so you can
 test the install end-to-end. This brings up the core + active-loop engines; it does **not** reproduce the live
 site's data — a fresh stack is a *bare* platform (empty registry/DB) you then log into and populate.
