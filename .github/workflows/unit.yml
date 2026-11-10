@@ -1,0 +1,25 @@
+name: airawatos-unit
+
+# Layer 1 merge — the required pull-request check for the root repository (CONTRIBUTING.md § Verification tiers, Tier 1):
+# its OWN tests that need no sibling repository and no stack. The static nets that scan the four sibling repositories
+# (banned patterns, gtw-static, known violations) need a read token for the private repositories; they run in the local
+# `make verify` until that token is configured (see CONTRIBUTING.md).
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Installer write guard (a failed write in any spelling fails the helper)
+        run: python3 verify/write_guard_test.py
+      - name: Installer (static — every phase named, loud EXIT trap, no swallowed writes, guard baked + fail-closed)
+        run: python3 verify/installer_test.py
+      - name: Every script compiles
+        run: python3 -m compileall -q deploy verify conformance
