@@ -46,6 +46,7 @@
   "svc-kernel",
   "svc-model-gateway",
   "svc-network",
+  "svc-notify",
   "svc-runtime-manager",
   "svc-scheduler",
   "svc-secrets",
@@ -135,6 +136,13 @@
     "svc-runtime-manager"
    ],
    "token_no_default_policy": true
+  },
+  "notify": {
+   "token_policies": [
+    "svc-base",
+    "svc-notify"
+   ],
+   "token_no_default_policy": true
   }
  },
  "service_roles": {
@@ -149,6 +157,7 @@
   "scheduler": "scheduler",
   "decision": "decision",
   "workflow": "workflow",
-  "runtime-manager": "runtime-manager"
+  "runtime-manager": "runtime-manager",
+  "notify": "notify"
  }
 }

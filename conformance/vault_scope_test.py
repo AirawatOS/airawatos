@@ -397,6 +397,7 @@ def main():
         "event-relay": {"localdev-operator/scheduler"},
         "app-host": {"localdev-operator/app-host", "localdev-network/component-publisher"},
         "decision": {"localdev-operator/decision"}, "workflow": {"localdev-operator/workflow"},
+        "notify": {"localdev-operator/notify"},
         "runtime-manager": {"localdev-operator/launcher"},
     }
     for svc, own in OWN.items():
