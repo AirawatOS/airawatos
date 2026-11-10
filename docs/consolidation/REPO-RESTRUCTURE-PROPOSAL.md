@@ -126,6 +126,38 @@ airawatos/                      (single repo)
 Kept **outside** the repo and ignored: `.filestore-data/` (runtime blob store), all `dist/`/`build/` outputs,
 all `*.env` (per-install secrets), `init.json`, `*.pem`/`*.key`, conformance `results/` and `.creds.json`.
 
+### 2.1 Image naming by tier (owner decision, 2026-11-10 — implement DURING the restructure, not before)
+
+Images follow the architecture tiers too. **No image ships code from another tier.** Today the single `reference` image
+carries core services, gateways and component code (`/app/components`) together. The images are cut along the
+tiers:
+
+| Image | Tier | Holds | From today's image |
+|---|---|---|---|
+| `airawatos-kernel` | core | the kernel | `airawatos-kernel` (unchanged) |
+| `airawatos-network` | core | the network / trust plane | `airawatos-network` (unchanged) |
+| `airawatos-core` | core | identity, app-host, secrets, filestore, scheduler, runtime-manager, automation, event-relay, decision, **workflow** (until the workflow engine moves out to a system component per ADR-0130 §2–§3; decision records stay core) | `airawatos-reference` (core part) |
+| `airawatos-gateway` | gateway | notify, model-gateway. Becomes **one image per gateway** (`airawatos-gateway-<name>`) once provider adapters arrive. | `airawatos-reference` (gateway part) |
+| `airawatos-runtime-<kind>` | component runtime | one image per component runtime profile, e.g. `airawatos-runtime-modeling`, `-geospatial`, `-vision`, `-earth-observation`, `-media`, `-connector` (ADR-0030) | `components/runtimes/<kind>` images |
+| infra | third-party | Postgres, Vault, nginx: never rebuilt by us, **digest-pinned** | unchanged |
+
+Rules that follow:
+- **Mapping of today's `reference` image.** It splits into `airawatos-core` (identity, app-host, secrets, filestore,
+  scheduler, runtime-manager, automation, event-relay, decision, workflow) and `airawatos-gateway` (notify,
+  model-gateway). Neither ships component code: no `/app/components` beyond the SDK the core needs to place
+  components. Engines, apps, drivers and the rest are delivered through the filestore and run in an
+  `airawatos-runtime-<kind>`.
+- **No image ships code from another tier.** A core image carries no gateway or component code, a gateway image no
+  core-service or component code, and a runtime image no platform-service code. Each image's content check
+  (`verify/images_test.py`) compares only its own tier's source tree.
+- **Dependencies follow the code.** A tier's lock holds only what that tier imports. The DEBT-B114 cleanup (no ML
+  libraries in the platform image; they live in `airawatos-runtime-modeling`) is the first instance.
+- **The tag and the lock** stay as the image policy defines them (CONTRIBUTING.md): one compose-pinned tag, pinned
+  inputs in `IMAGES.lock.json`, content verified against git.
+- **Not before the restructure.** Splitting images first would mean two rounds of compose, installer and
+  verification changes. It is done as part of the restructure's deploy step (§5), with the same build-and-boot-all
+  gate before merge (§6).
+
 ---
 
 ## 3. Full mapping table
