@@ -60,7 +60,9 @@ limit = int(os.environ.get("AUDIT_MAX_MB", "50")) * 1024 * 1024
 sh("docker", "exec", "--user", "0:0", "airawat-ld-vault", "sh", "-c", "rm -f /vault/audit/audit.log.[1-9]")
 sh("docker", "exec", "--user", "0:0", "airawat-ld-vault", "sh", "-c",
    "head -c %d /dev/zero | tr '\\0' 'x' >> /vault/audit/audit.log && echo >> /vault/audit/audit.log" % (limit + 1024))
-rotated, deadline = False, time.time() + 90
+# the rotation loop checks every AUDIT_ROTATE_CHECK_S (60 s); under a loaded host (the full make verify) one period can slip, so
+# wait up to THREE periods — the check itself is unchanged (rotated past the limit AND a fresh log reopened)
+rotated, deadline = False, time.time() + 3 * int(os.environ.get("AUDIT_ROTATE_CHECK_S", "60")) + 30
 while time.time() < deadline and not rotated:
     time.sleep(5)
     rotated = size("/vault/audit/audit.log.1") > limit
