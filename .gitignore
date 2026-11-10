@@ -6,6 +6,8 @@
 !/docker-compose.yml
 !/README.md
 !/LIMITATIONS.md
+!/CONTRIBUTING.md
+!/CODEOWNERS
 !/ALPHA-RELEASE-PLAN.md
 !/deploy/
 # conformance suite (run.py, flow-map, vault-scope, matrix) — tracked; its own .gitignore keeps the generated
