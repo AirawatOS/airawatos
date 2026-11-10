@@ -20,7 +20,7 @@ Prints `MATRIX_RESULTS <json>` (cases tagged with the rules they prove) and `DEC
 
 Env: INSTANCE, OPERATOR_PASSWORD (the install's admin password, held by the installer shell), VAULT_ADDR, VAULT_TOKEN.
 """
-import base64, http.cookiejar, json, os, secrets, sys, time, urllib.error, urllib.request
+import base64, http.cookiejar, json, os, secrets, sys, time, urllib.error, urllib.parse, urllib.request
 
 INSTANCE = os.environ["INSTANCE"]; APW = os.environ["OPERATOR_PASSWORD"]
 VA = (os.environ.get("VAULT_ADDR") or "http://vault:8200").rstrip("/"); VT = os.environ["VAULT_TOKEN"]
@@ -159,6 +159,91 @@ res("the kernel REFUSES the granted governance.role_assignment write (core-reser
 s, d = req("GET", f"{KRN}/v1/registry/objects/ds:{TENANT}:governance/role_assignment/reserved-probe-{RUN}/history", headers=H)
 hist2 = (d.get("history") or []) if isinstance(d, dict) else []
 res("nothing was stored under the reserved kind", not hist2, f"{s} {str(d)[:160]}")
+
+# ── D · files, as a user does it (DEBT-B174) ──────────────────────────────────────────────────────────────
+# The file-explorer upload (browser path, the App Host's /bridge/file-upload → filestore through the shared client) and
+# `aos upload` (the real CLI, run by install.sh in the app-host container BEFORE this proof; its file_id arrives in
+# AOS_UPLOAD_FILE_ID). Both used to fail 502 ("filestore upload failed: Broken pipe") — the App Host sent no token.
+print("▶ D · files: file-explorer upload + aos upload (filestore through the shared service client)")
+_RULES[:] = ["FND-9", "ARC-1"]
+blob = ("functional check %s — %s\n" % (RUN, secrets.token_hex(16))).encode()
+r = urllib.request.Request(f"{EDGE}/bridge/file-upload?name=fn-{RUN}.txt&type=text/plain", data=blob, method="POST",
+                           headers={"Content-Type": "application/octet-stream"})
+try:
+    x = adm.open(r, timeout=60); s, d = x.status, json.loads(x.read() or b"{}")
+except urllib.error.HTTPError as e:
+    s, d = e.code, (e.read() or b"")[:300].decode(errors="replace")
+fid = (d or {}).get("file_id") if isinstance(d, dict) else None
+res("file-explorer upload (/bridge/file-upload) stores the file → file_id", s == 200 and bool(fid), f"{s} {d}")
+try:
+    back = adm.open(f"{EDGE}/bridge/file?id={urllib.parse.quote(fid or '')}&name=x.txt", timeout=30).read()
+except Exception as e:
+    back = str(e).encode()
+res("…and reads it back byte-identical (/bridge/file)", back == blob, back[:80])
+r = urllib.request.Request(f"{EDGE}/bridge/file-upload?name=empty.txt", data=b"", method="POST", headers={"Content-Type": "application/octet-stream"})
+try:
+    adm.open(r, timeout=30); s = 200
+except urllib.error.HTTPError as e:
+    s = e.code
+res("an empty upload is refused with 400 (the app shows the reason)", s == 400, s)
+_aos = os.environ.get("AOS_UPLOAD_FILE_ID") or ""
+res("aos upload (the real CLI, past the 25 MB browser cap) stored the file → file_id", _aos.startswith("sha2-256:"), _aos or os.environ.get("AOS_UPLOAD_LOG", "")[-300:])
+_rec = os.environ.get("AOS_UPLOAD_RECORD") or ""
+s, d = req("GET", f"{KRN}/v1/registry/objects/{_rec}/history", headers=H) if _rec else (0, "aos printed no platform.file record id")
+hist = (d.get("history") or []) if isinstance(d, dict) else []
+res("…and its platform.file record is in the tenant's Files, pointing at that file_id",
+    s == 200 and hist and _aos in json.dumps(hist[-1]), f"{s} {str(d)[:200]}")
+
+# ── F · Capabilities & Grants, as the Network Console drives it (DEBT-B175) ────────────────────────────────
+# The platform authority (admin@<inst>-operator) assigns the network admin its steward roles; the network admin then
+# approves a member, defines a capability, issues a grant, lists it and revokes it — all through the App Host bridges
+# the console uses (membership approval through the Network's governance API: the console has no bridge for it yet).
+# gov-assign-role used to 500 (the kernel refused every stewardship role_assignment: `scope` missing).
+NETR = f"{INSTANCE}-network"
+print(f"▶ F · Capabilities & Grants (platform authority → network admin @ {NETR})")
+_RULES[:] = ["PLT-5", "FND-3"]
+pa = browser()
+s, d = req("POST", f"{EDGE}/login", {"realm": OPERATOR, "username": "admin", "password": APW}, opener=pa)
+res(f"platform authority admin@{OPERATOR} signs in at the App Host", s == 200 and d.get("ok"), f"{s} {d}")
+na = browser()
+s, d = req("POST", f"{EDGE}/login", {"realm": NETR, "username": "admin", "password": APW}, opener=na)
+NA_SUB = (d or {}).get("sub") if isinstance(d, dict) else None
+res(f"network admin admin@{NETR} signs in at the App Host", s == 200 and NA_SUB, f"{s} {d}")
+s, d = req("GET", f"{EDGE}/bridge/networks-mine", opener=na)
+nets = (d or {}).get("result") or [] if isinstance(d, dict) else []
+GNET = (nets[0] if nets else {}).get("network")
+res("the console's network selector (networks-mine) lists the admin's network", s == 200 and bool(GNET), f"{s} {str(d)[:200]}")
+for role in ("membership.steward", "capability.steward", "grant.steward"):
+    s, d = req("POST", f"{EDGE}/bridge/gov-assign-role", {"network": GNET, "principal": NA_SUB, "role": role, "status": "active"}, opener=pa)
+    res(f"platform authority assigns {role} to the network admin (gov-assign-role)", s == 200, f"{s} {str(d)[:240]}")
+s, d = req("POST", f"{EDGE}/bridge/gov-assign-role", {"network": GNET, "role": "grant.steward"}, opener=pa)
+res("a role assignment with no principal is refused with 400 and its reason (was 500)", s == 400 and "principal" in json.dumps(d), f"{s} {d}")
+s, d = req("POST", f"{IDN}/realms/{NETR}/login", {"username": "admin", "password": APW})
+NAT = (d or {}).get("access_token") if s == 200 else None
+MEMBER = spid or f"ds:{TENANT}:steward"
+s, d = req("POST", f"{NET}/v1/governance/memberships", {"network": GNET, "participant": MEMBER, "status": "approved"},
+           headers={"Authorization": "Bearer " + (NAT or "")})
+res(f"network admin (membership.steward) approves {MEMBER} as a member", s == 200, f"{s} {str(d)[:240]}")
+s, d = req("POST", f"{EDGE}/bridge/gov-members", {"network": GNET}, opener=na)
+res("the console's members read (gov-members) lists the member", s == 200 and MEMBER in json.dumps(d), f"{s} {str(d)[:200]}")
+CAP = "fncheck.c" + RUN
+s, d = req("POST", f"{EDGE}/bridge/gov-define-capability", {"network": GNET, "capability": CAP, "version": 1, "description": "functional check",
+                                                            "scope_types_allowed": ["service"], "wildcard": False, "status": "active"}, opener=na)
+res("network admin defines a capability (gov-define-capability)", s == 200, f"{s} {str(d)[:240]}")
+s, d = req("POST", f"{EDGE}/bridge/gov-capabilities", {"network": GNET}, opener=na)
+res("the catalog (gov-capabilities) lists it", s == 200 and CAP in json.dumps(d), f"{s} {str(d)[:200]}")
+s, d = req("POST", f"{EDGE}/bridge/gov-issue-grant", {"network": GNET, "grantee": MEMBER, "capability": CAP, "capability_version": 1,
+                                                      "scope": {"type": "service", "services": ["fncheck"]}}, opener=na)
+res("network admin issues a grant to the member (gov-issue-grant)", s == 200, f"{s} {str(d)[:240]}")
+s, d = req("POST", f"{EDGE}/bridge/gov-grants", {"network": GNET, "grantee": MEMBER}, opener=na)
+mine = [g for g in (((d or {}).get("result") or []) if isinstance(d, dict) else []) if g.get("capability") == CAP]
+res("the member's grants (gov-grants) show it", s == 200 and bool(mine), f"{s} {str(d)[:200]}")
+GID = (mine[0].get("id") or mine[0].get("grant_id")) if mine else ""
+s, d = req("POST", f"{EDGE}/bridge/gov-revoke-grant", {"network": GNET, "grant_id": GID, "business_reason": "functional check"}, opener=na)
+res("network admin revokes it (gov-revoke-grant)", s == 200 and bool(GID), f"{s} {str(d)[:200]}")
+s, d = req("POST", f"{EDGE}/bridge/gov-grants", {"network": GNET, "grantee": MEMBER}, opener=na)
+live = [g for g in (((d or {}).get("result") or []) if isinstance(d, dict) else []) if g.get("capability") == CAP and (g.get("status") or "active") == "active"]
+res("after the revoke the grant is no longer active", s == 200 and not live, f"{s} {live[:1]}")
 
 print("MATRIX_RESULTS " + json.dumps({"env": "local-dev", "mode": "functional",
       "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "git_sha": "", "cases": CASES}))

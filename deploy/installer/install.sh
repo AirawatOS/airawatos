@@ -999,7 +999,15 @@ if [ "$PROFILE" = dev ] && [ "$SEED_DATA_TENANT" = 1 ]; then
   XNET env INSTANCE="$INSTANCE" python3 /app/mint_base_listings.py >/dev/null || { echo "✗ Phase 15: listing mint failed"; exit 1; }
   # the functional proof is a TEST, not a write helper: it deliberately makes refused calls (wrong password → 401, a user on
 # hold → 403, anonymous lookup → 401) and asserts them itself — it runs WITHOUT the write guard; its own exit code decides.
-_FC_RC=0; _FC_OUT="$(XNET env PYTHONPATH=/app INSTANCE="$INSTANCE" OPERATOR_PASSWORD="$OPERATOR_PASSWORD" python3 - < "$SCRIPT_DIR/functional_check.py")" || _FC_RC=$?
+# D (DEBT-B174): `aos upload` exactly as a user runs it — the real CLI, in the app-host container, a 27 MB file (past the
+# browser's 25 MB cap) pushed through the edge. Its file_id + platform.file record go to the proof, which checks them.
+_AOS_LOG="$(XAPP env PYTHONPATH=/app/components/_common HOME=/tmp/fn-aos-home AIRAWAT_APP_HOST=http://nginx AIRAWAT_TENANT="$INSTANCE" \
+             AIRAWAT_DEV_USER=admin AIRAWAT_PASSWORD="$OPERATOR_PASSWORD" sh -c \
+             'head -c 27000000 /dev/urandom > /tmp/fn-aos.bin && python3 -m aos upload /tmp/fn-aos.bin --name fn-aos-upload.bin; rc=$?; rm -f /tmp/fn-aos.bin; exit $rc' 2>&1)" || true
+_AOS_FID="$(printf '%s\n' "$_AOS_LOG" | sed -n 's/.*file_id = \(sha2-256:[0-9a-f]*\).*/\1/p' | head -1)"
+_AOS_REC="$(printf '%s\n' "$_AOS_LOG" | sed -n 's/^  platform.file: \([^ ]*\).*/\1/p' | head -1)"
+_FC_RC=0; _FC_OUT="$(XNET env PYTHONPATH=/app INSTANCE="$INSTANCE" OPERATOR_PASSWORD="$OPERATOR_PASSWORD" AOS_UPLOAD_FILE_ID="$_AOS_FID" \
+                     AOS_UPLOAD_RECORD="$_AOS_REC" AOS_UPLOAD_LOG="$(printf '%s' "$_AOS_LOG" | tail -c 400)" python3 - < "$SCRIPT_DIR/functional_check.py")" || _FC_RC=$?
   printf '%s\n' "$_FC_OUT" | grep -vE '^(MATRIX_RESULTS|DECISION_IDS) '
   mkdir -p "$SCRIPT_DIR/../../conformance/results"
   printf '%s\n' "$_FC_OUT" | sed -n 's/^MATRIX_RESULTS //p' > "$SCRIPT_DIR/../../conformance/results/local-dev-functional.json"
