@@ -7,6 +7,7 @@ verify/images_test.py (pointed at the throwaway via IMG_OVERRIDE_KERNEL) to FAIL
   2. `python3 -m pip install idna==<other version>` (a pinned package silently changed)
   3. a wheel installed by path (`pip install /tmp/x.whl`) — no package name on the command line at all
   4. an OS package (`apt-get install`)
+  5. /opt/airawat/commands.json edited  6. an untracked file in /app   (image CODE vs git, by content)
 Then the unmutated image must PASS. Builds with the current context's built-in builder (no builder container).
 Throwaway images are removed. Exit 1 on failure.
 """
@@ -21,6 +22,9 @@ MUT = [
     ("python3 -m pip changes a pinned version", "RUN python3 -m pip install --no-cache-dir --no-deps idna==3.10"),
     ("wheel installed by path", "RUN pip download --no-deps -d /tmp/w six==1.16.0 && pip install --no-cache-dir /tmp/w/*.whl"),
     ("OS package via apt", "RUN apt-get update && apt-get install -y --no-install-recommends less && rm -rf /var/lib/apt/lists/*"),
+    # Layer 1 merge: image CODE is checked against git by content (part of DEBT-B143's gap)
+    ("/opt/airawat/commands.json edited (allow-list widened)", "RUN sed -i 's/\\]/, \\\"--reload\\\"]/' /opt/airawat/commands.json"),
+    ("an untracked file dropped into /app", "RUN echo 'print(1)' > /app/extra_untracked.py"),
 ]
 
 
