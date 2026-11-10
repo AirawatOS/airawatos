@@ -4,10 +4,13 @@
   1. Every Dockerfile that builds an Airawat image (platform-spec/Dockerfile.reference, kernel/deploy/Dockerfile,
      network/deploy/Dockerfile) starts FROM a DIGEST-pinned base and installs Python dependencies only from a lock
      file in which EVERY line is pinned with `==` (no ranges, no bare names), and pins its pip tooling.
-  2. Every image in deploy/local-dev/docker-compose.dev.yml is either digest-pinned (third-party) or recorded in
-     deploy/local-dev/IMAGES.lock.json (built from the repositories: Dockerfile, git revision, image id).
-  3. The local image behind each recorded tag IS the recorded image id, and its OCI revision label is the recorded
-     git revision — and every RUNNING container of the stack runs the recorded image.
+  2. Every image in deploy/local-dev/docker-compose.dev.yml is either digest-pinned (third-party) or has its pinned inputs
+     recorded in deploy/local-dev/IMAGES.lock.json (Dockerfile, base, installed Python + OS package sets).
+  3. Layer 1 merge — CONTENT, not machine ids: each image was built from the CURRENT HEAD (OCI revision label), every
+     file of its code (/app, /opt/airawat) equals the git blob at the current HEADs (untracked / changed files fail),
+     its installed Python packages EQUAL the lock + pinned tooling and its OS packages EQUAL the recorded set, and every
+     RUNNING container runs the image behind its tag. Image ids are machine-specific and only informational
+     (deploy/local-dev/IMAGES.built.json, untracked) — so a fresh build from main verifies without a lock commit.
 Exit 1 on any finding.
 """
 import json, os, re, subprocess, sys
@@ -26,7 +29,7 @@ def check(ok, msg):
         bad.append(msg)
 
 
-print("▶ images test (B80/B94): pinned, recorded, running what was recorded")
+print("▶ images test (B80/B94/B133): pinned inputs; image CONTENT vs git HEAD + lock; running what was verified")
 for df, lock in DOCKERFILES.items():
     txt = open(os.path.join(ROOT, df)).read() if os.path.exists(os.path.join(ROOT, df)) else ""
     froms = re.findall(r"^FROM\s+(\S+)", re.sub(r"\$\{BASE\}", "BASE", txt), re.M)
@@ -60,46 +63,83 @@ for df, lock in DOCKERFILES.items():
 
 rec = json.load(open(LOCK)) if os.path.exists(LOCK) else {"images": {}}
 compose = open(os.path.join(ROOT, "deploy/local-dev/docker-compose.dev.yml")).read()
+# Layer 1 merge: the image is verified by its CONTENT against git and the pinned inputs — never by a machine-specific image
+# id. The lock holds only what a build must reproduce (base, Dockerfile, the installed Python and OS package sets); the
+# ids/dates of the last local build are informational (deploy/local-dev/IMAGES.built.json, untracked).
+PRIMARY = {"reference": "platform-spec", "kernel": "kernel", "network": "network"}
+
+
+def kind_of(img):
+    return next((k for k in PRIMARY if "airawatos-%s:" % k in img), None)
+
+
+def head(repo):
+    return subprocess.run(["git", "-C", os.path.join(ROOT, repo), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+
+
+def git_tree(repo, sub=""):
+    """path (relative to `sub`) -> git blob id at the CURRENT HEAD of `repo`."""
+    out = subprocess.run(["git", "-C", os.path.join(ROOT, repo), "ls-tree", "-r", "HEAD"] + ([sub] if sub else []),
+                         capture_output=True, text=True).stdout.splitlines()
+    res = {}
+    for l in out:
+        meta, path = l.split("\t", 1)
+        res[path[len(sub):].lstrip("/") if sub else path] = meta.split()[2]
+    return res
+
+
+_HASH = ("import hashlib,os,sys\nfor top in sys.argv[1:]:\n for r,_,fs in os.walk(top):\n  if '__pycache__' in r: continue\n"
+         "  for f in fs:\n   p=os.path.join(r,f); b=open(p,'rb').read()\n   print(hashlib.sha1(b'blob %d\\0'%len(b)+b).hexdigest(), p)")
+
+
+def image_files(img, *tops):
+    out = subprocess.run(["docker", "run", "--rm", "--network", "none", "--entrypoint", "python3", img, "-c", _HASH, *tops],
+                         capture_output=True, text=True).stdout.splitlines()
+    return dict(reversed(l.split(" ", 1)) for l in out if " " in l)
+
+
 for img in sorted(set(re.findall(r"^\s*image:\s*([^\s#]+)", compose, re.M))):
     if "@sha256:" in img:
         check(True, f"{img.split('@')[0]}: third-party, digest-pinned"); continue
     r = rec["images"].get(img)
-    check(bool(r), f"{img}: recorded in IMAGES.lock.json (built from {r and r.get('dockerfile')})")
-    if not r:
+    check(bool(r), f"{img}: its pinned inputs are recorded in IMAGES.lock.json (Dockerfile {r and r.get('dockerfile')})")
+    k = kind_of(img)
+    if not r or not k:
         continue
-    iid = subprocess.run(["docker", "image", "inspect", "-f", "{{.Id}}", img], capture_output=True, text=True).stdout.strip()
-    lab = subprocess.run(["docker", "image", "inspect", "-f", "{{index .Config.Labels \"org.opencontainers.image.revision\"}}", img],
+    test_img = os.environ.get("IMG_OVERRIDE_" + k.upper(), img)
+    lab = subprocess.run(["docker", "image", "inspect", "-f", "{{index .Config.Labels \"org.opencontainers.image.revision\"}}", test_img],
                          capture_output=True, text=True).stdout.strip()
-    check(iid == r["image_id"], f"{img}: local image id {iid[:19]} == recorded {r['image_id'][:19]}")
-    check(lab == r["git_revision"], f"{img}: OCI revision label {lab[:10]} == recorded {r['git_revision'][:10]}")
-# slice-1h (DEBT-B101, re-review R2-5): the reference image's /app is EXACTLY the git tree at the recorded commits —
-# no untracked file (the gitignored identity-users.json, local dist/ and egg-info used to ride in)
-STRIP = ("apps", "drivers", "engines", "skills", "experts", "pipelines", "providers", "solutions", "diagnostics", "runtimes")
-for img, r in rec["images"].items():
-    if "airawatos-reference" not in img:
-        continue
-    srcs = r.get("sources") or {}
-    check(all(k in srcs for k in ("root", "platform-spec", "components")), f"{img}: every source repository SHA recorded ({sorted(srcs)})")
-    if not all(k in srcs for k in ("platform-spec", "components")):
-        continue
-    def tree(repo, sha, sub, dest):   # path -> git blob id (content identity)
-        out = subprocess.run(["git", "-C", os.path.join(ROOT, repo), "ls-tree", "-r", sha] + ([sub] if sub else []),
-                             capture_output=True, text=True).stdout.splitlines()
-        res = {}
-        for l in out:
-            meta, path = l.split("\t", 1)
-            res[dest + path[len(sub):]] = meta.split()[2]
-        return res
-    want = tree("platform-spec", srcs["platform-spec"], "reference", "reference")
-    want.update({f: h for f, h in tree("components", srcs["components"], "", "components/").items() if f.split("/")[1] not in STRIP})
-    _H = ("import hashlib,os\nfor d in ('reference','components'):\n for r,_,fs in os.walk('/app/'+d):\n  if '__pycache__' in r: continue\n"
-          "  for f in fs:\n   p=os.path.join(r,f); b=open(p,'rb').read()\n   print(hashlib.sha1(b'blob %d\\0'%len(b)+b).hexdigest(), os.path.relpath(p,'/app'))")
-    got = dict(reversed(l.split(" ", 1)) for l in subprocess.run(["docker", "run", "--rm", "--network", "none", "--entrypoint", "python3", img, "-c", _H],
-                                                                  capture_output=True, text=True).stdout.splitlines() if " " in l)
-    extra, missing = sorted(set(got) - set(want)), sorted(set(want) - set(got))
-    changed = sorted(f for f in set(got) & set(want) if got[f] != want[f])
-    check(bool(got) and not extra and not missing and not changed,
-          f"{img}: /app equals the git tree BY CONTENT ({len(got)} files; untracked: {extra[:4]}; missing: {missing[:4]}; content differs: {changed[:4]})")
+    check(lab == head(PRIMARY[k]), f"{test_img}: built from the CURRENT {PRIMARY[k]} HEAD (revision label {lab[:10]} == HEAD {head(PRIMARY[k])[:10]})")
+    # every file of the image's code equals the git blob at the current HEAD — untracked or changed files fail
+    if k == "reference":
+        STRIP = ("apps", "drivers", "engines", "skills", "experts", "pipelines", "providers", "solutions", "diagnostics", "runtimes")
+        want = {"/app/reference/" + p: h for p, h in git_tree("platform-spec", "reference").items()}
+        want.update({"/app/components/" + p: h for p, h in git_tree("components").items() if p.split("/")[0] not in STRIP})
+        got = image_files(test_img, "/app/reference", "/app/components")
+        exact = True
+    else:
+        repo = git_tree(PRIMARY[k])
+        got = image_files(test_img, "/app")
+        want = {}
+        for path in got:
+            rel = path[len("/app/"):]
+            if rel == "requirements.lock":
+                want[path] = repo.get("deploy/requirements.lock")
+            elif rel == "gateflags.py":
+                want[path] = git_tree("platform-spec", "reference").get("gateflags.py")
+            else:
+                want[path] = repo.get(rel)
+        exact = False
+    rt = git_tree(".", "deploy/runtime")
+    want.update({"/opt/airawat/" + p: h for p, h in rt.items()})
+    want["/opt/airawat/gateflags.py"] = git_tree("platform-spec", "reference").get("gateflags.py")
+    got.update(image_files(test_img, "/opt/airawat"))
+    untracked = sorted(p for p in got if want.get(p) is None)
+    changed = sorted(p for p in got if want.get(p) is not None and got[p] != want[p])
+    missing = sorted(p for p in want if p not in got and (exact or p.startswith("/opt/airawat/")))
+    check(bool(got) and not untracked and not changed and not missing,
+          f"{test_img}: code equals the git trees at the CURRENT HEADs BY CONTENT ({len(got)} files; untracked: {untracked[:3]}; "
+          f"content differs: {changed[:3]}; missing: {missing[:3]})")
 # slice-1i (DEBT-B133): check what IS INSTALLED, not how the Dockerfile spells the install — every image's
 # pip freeze --all must EQUAL its lock + the pinned tooling, and its OS packages must EQUAL the list recorded at build.
 LOCKS = {"reference": "platform-spec/requirements.reference.lock", "kernel": "kernel/deploy/requirements.lock",
@@ -123,10 +163,10 @@ for img, r in rec["images"].items():
 ps = subprocess.run(["docker", "ps", "--filter", "name=airawat-ld-", "--format", "{{.Names}}\t{{.Image}}"], capture_output=True, text=True).stdout
 for line in ps.splitlines():
     name, img = line.split("\t")
-    r = rec["images"].get(img)
-    if not r:
+    if img not in rec["images"]:
         continue
     run_id = subprocess.run(["docker", "inspect", "-f", "{{.Image}}", name], capture_output=True, text=True).stdout.strip()
-    check(run_id == r["image_id"], f"{name} runs the recorded image ({run_id[:19]})")
+    tag_id = subprocess.run(["docker", "image", "inspect", "-f", "{{.Id}}", img], capture_output=True, text=True).stdout.strip()
+    check(run_id == tag_id, f"{name} runs the image currently behind {img} (the one verified above)")
 print(("✗" if bad else "✓") + f" images test: {len(bad)} finding(s)")
 sys.exit(1 if bad else 0)

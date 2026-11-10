@@ -36,6 +36,8 @@ deploy/local-dev/.restore-prev/
 # slice-1k: volume sets — each set's host secrets (.env, approle/*.env) and the restore journal; .env and vault/approle are
 # symlinks into the active set (never commit any of them)
 deploy/local-dev/sets/
+# Layer 1 merge: the last local image build's machine-specific ids (informational; the tracked lock holds pinned inputs)
+deploy/local-dev/IMAGES.built.json
 deploy/local-dev/vault/approle
 
 # compiled Python — never tracked (slice-1i: tracked .pyc dirtied the tree on every test run)

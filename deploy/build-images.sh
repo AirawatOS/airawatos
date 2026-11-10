@@ -31,25 +31,41 @@ for svc in kernel network; do
     -t "manishsv/airawatos-$svc:$TAG" "$WS/ws/$svc"
 done
 python3 - "$TAG" "$S_ROOT" "$S_PS" "$S_K" "$S_N" "$S_C" <<'PY'
-import json, subprocess, sys, time
+# Layer 1 merge: the TRACKED lock (IMAGES.lock.json) holds only the PINNED INPUTS a build must reproduce — the Dockerfile,
+# the base, the installed OS package set (the Python set is the repo's requirements lock). Machine-specific facts of THIS
+# build (image ids, source SHAs, date, platform) go to the UNTRACKED IMAGES.built.json, for information only. So building
+# from main never dirties the tree; the lock changes only when an input really changes, and then only with
+# AOS_RECORD_LOCK=1 (a deliberate, reviewed change in the same pull request).
+import json, os, subprocess, sys, time
 tag, root, ps, k, n, c = sys.argv[1:7]
 def iid(t): return subprocess.run(["docker", "image", "inspect", "-f", "{{.Id}}", t], capture_output=True, text=True).stdout.strip()
 def plat(t): return subprocess.run(["docker", "image", "inspect", "-f", "{{.Os}}/{{.Architecture}}", t], capture_output=True, text=True).stdout.strip()
 base = "python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535"
-imgs = {}
-for name, df, ctx, rev, srcs in (("reference", "platform-spec/Dockerfile.reference", "git archive (workspace)", ps,
-                                  {"root": root, "platform-spec": ps, "components": c}),
-                                 ("kernel", "kernel/deploy/Dockerfile", "git archive (kernel)", k, {"root": root, "platform-spec": ps, "kernel": k}),
-                                 ("network", "network/deploy/Dockerfile", "git archive (network)", n, {"root": root, "platform-spec": ps, "network": n})):
+LOCK, BUILT = "deploy/local-dev/IMAGES.lock.json", "deploy/local-dev/IMAGES.built.json"
+old = json.load(open(LOCK)) if os.path.exists(LOCK) else {"images": {}}
+inputs, info = {}, {}
+for name, df, rev, srcs in (("reference", "platform-spec/Dockerfile.reference", ps, {"root": root, "platform-spec": ps, "components": c}),
+                            ("kernel", "kernel/deploy/Dockerfile", k, {"root": root, "platform-spec": ps, "kernel": k}),
+                            ("network", "network/deploy/Dockerfile", n, {"root": root, "platform-spec": ps, "network": n})):
     t = "manishsv/airawatos-%s:%s" % (name, tag)
     osp = subprocess.run(["docker", "run", "--rm", "--network", "none", "--entrypoint", "sh", t, "-c",
                           "dpkg-query -W -f='${Package}=${Version}\\n'"], capture_output=True, text=True).stdout.split()
-    imgs[t] = {"os_packages": sorted(osp), "dockerfile": df, "context": ctx, "git_revision": rev, "sources": srcs, "image_id": iid(t),
-               "platform": plat(t), "base": base, "built": time.strftime("%Y-%m-%d")}
-json.dump({"_meta": {"note": "slice-1h (DEBT-B101): built FROM GIT ONLY by deploy/build-images.sh (git archive of each repo's "
-                     "committed HEAD; nothing untracked can enter). image_id = local image config digest. verify/images_test.py "
-                     "checks the tag, the running containers and that /app equals the git tree.",
-                     "amd64": "native amd64 build still required (DEBT-B114, pre-production)."},
-           "images": imgs}, open("deploy/local-dev/IMAGES.lock.json", "w"), indent=1)
-for t, r in imgs.items(): print("  ✓ %-38s %s  (%s)" % (t, r["image_id"][:19], ", ".join("%s@%s" % (a, b[:10]) for a, b in r["sources"].items())))
+    inputs[t] = {"dockerfile": df, "base": base, "os_packages": sorted(osp)}
+    info[t] = {"image_id": iid(t), "git_revision": rev, "sources": srcs, "platform": plat(t), "built": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+json.dump({"_meta": {"note": "UNTRACKED, informational: the last LOCAL build (image ids are machine-specific)."}, "images": info},
+          open(BUILT, "w"), indent=1)
+same = all({kk: (old["images"].get(t) or {}).get(kk) for kk in ("dockerfile", "base", "os_packages")} == v for t, v in inputs.items())
+if same:
+    print("  ✓ pinned inputs unchanged — IMAGES.lock.json not rewritten (this build's ids: %s)" % BUILT)
+elif os.environ.get("AOS_RECORD_LOCK") == "1":
+    json.dump({"_meta": {"note": "Layer 1 merge: the PINNED INPUTS every build of these tags must reproduce — Dockerfile, base, "
+                         "installed OS packages (Python: the repo's requirements lock). verify/images_test.py checks image CONTENT "
+                         "against these and against the git HEADs; machine-specific ids live in the untracked IMAGES.built.json.",
+                         "amd64": "native amd64 build still required (DEBT-B114, pre-production)."}, "images": inputs},
+              open(LOCK, "w"), indent=1)
+    print("  ✓ IMAGES.lock.json RECORDED (AOS_RECORD_LOCK=1) — commit it with the change that altered the inputs")
+else:
+    ch = [t for t, v in inputs.items() if {kk: (old["images"].get(t) or {}).get(kk) for kk in ("dockerfile", "base", "os_packages")} != v]
+    print("  ✗ the pinned inputs of %s differ from IMAGES.lock.json — if intended, rebuild with AOS_RECORD_LOCK=1 and commit the lock" % ch)
+for t, r in info.items(): print("  ✓ %-38s %s  (%s)" % (t, r["image_id"][:19], ", ".join("%s@%s" % (a, b[:10]) for a, b in r["sources"].items())))
 PY
