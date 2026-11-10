@@ -1028,10 +1028,17 @@ import os, sys; sys.path.insert(0, "/app/reference"); import hostcore   # (not `
 i = os.environ["INSTANCE"]
 hostcore.SVC.model_gateway.provider_key({"tenant": i, "component": "ds:%s-operator:provider/devstub" % i, "key_secret": "DEVSTUB_KEY", "value": "devstub-" + os.urandom(12).hex()})
 print("  ✓ stub provider key set through app-host → model-gateway /admin/provider-key")' || { echo "✗ Phase 15: could not set the stub provider key"; exit 1; }
-  _EPS="$(python3 -c "import urllib.parse,sys; print('%s/%s/EDGE_PROBE_SECRET' % (sys.argv[1], urllib.parse.quote('ds:%s-developer:fixture/edge-probe' % sys.argv[1], safe='')))" "$INSTANCE")"
-  VROOT "vault kv put -mount=components '$_EPS' value=dev-fixture-$(openssl rand -hex 8 2>/dev/null || date +%s) >/dev/null" \
-    || { echo "✗ Phase 15: could not seed the dummy component secret"; exit 1; }
-  echo "  ✓ dummy component secret seeded (components/$_EPS)"
+  # written over Vault's HTTP API with the platform's own path encoding (secret_names.secret_path — what the secrets broker
+  # reads); the vault CLI would store the percent-encoded segment differently
+  XNET env INSTANCE="$INSTANCE" python3 -c '
+import json, os, urllib.parse, urllib.request
+i = os.environ["INSTANCE"]
+p = "%s/%s/EDGE_PROBE_SECRET" % (i, urllib.parse.quote("ds:%s-developer:fixture/edge-probe" % i, safe=""))
+r = urllib.request.Request(os.environ.get("VAULT_ADDR", "http://vault:8200") + "/v1/components/data/" + p, method="POST",
+    data=json.dumps({"data": {"value": "dev-fixture-" + os.urandom(8).hex()}}).encode(),
+    headers={"X-Vault-Token": os.environ["VAULT_TOKEN"], "Content-Type": "application/json"})
+urllib.request.urlopen(r, timeout=10).read()
+print("  ✓ dummy component secret seeded (components/%s)" % p)' || { echo "✗ Phase 15: could not seed the dummy component secret"; exit 1; }
   XNET env INSTANCE="$INSTANCE" python3 -c '
 import os, sys; sys.path.insert(0, "/app"); import api
 i = os.environ["INSTANCE"]; rid = "ds:%s-developer:runtime/edge-probe" % i

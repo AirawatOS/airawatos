@@ -347,7 +347,7 @@ services:
       runtime-manager: { condition: service_started }
 
   # ── placement authority (slice-1c-iv step 2) ──────────────────────────────────────────────────────────
-  # The ONE holder of execution power (ADR-0030/0058). Gate: svc:runtime-manager from {kernel, launcher, scheduler}
+  # The ONE holder of execution power (ADR-0030/0058). Gate: svc:runtime-manager from {kernel, scheduler}
   # (always enforce; anon 401, wrong-aud/undeclared 403). Declared networks: aos-svc (its callers — scheduler,
   # kernel — and its own calls: identity JWKS, network cert-resolve, filestore source, secrets /materialize) +
   # aos-data-secrets (Vault, ONLY to read the `launcher` principal's password and mint the launcher's

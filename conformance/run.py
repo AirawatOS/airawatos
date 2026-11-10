@@ -693,7 +693,7 @@ def run_internal_cases():
     else:
         record("FOUNDATIONS","FND-9/A71","secrets /fetch refuses a wrong-audience token (another door)","needs-creds","SKIP_CREDS","no svc:automation token")
     # slice-1c-iv step 2 — the runtime manager now RUNS in local-dev (placement authority; the scheduler delegates).
-    # Gate: svc:runtime-manager from {kernel, launcher, scheduler}, always enforce.
+    # Gate: svc:runtime-manager from {kernel, scheduler} (its real callers — declared-edges net), always enforce.
     _RM = T["runtime-manager"] + "/v1/invoke"; _rb = {"component": "__conformance__/absent", "run_token": "x"}
     _ra, _, _ = _req("POST", _RM, _rb)
     if _ra == 0:
