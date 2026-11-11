@@ -261,6 +261,7 @@ GATED_DOOR_RECORDED = {  # legacy dev tools against the retired deploy/local sta
     "platform-spec/reference/tools/republish_portal.py", "components/engines/lifecycle-engine/publish_governed.py",
     "components/drivers/crowd-sim-vision/tools/harvest_sprites.py",
     "components/tools/deploy_component.py", "components/tools/stage_and_publish.py", "components/tools/upload_bind_run.py",   # EC2-era operator scripts
+    "components/tools/publish_to_staging.py",                                                                                 # legacy staging publish (2026-11-11)
 }
 
 
