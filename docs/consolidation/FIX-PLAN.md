@@ -231,9 +231,19 @@ Order: **Layer 1 independent review → MERGE → repository restructure → Lay
   **DEBT-B23** delivery-side (component versions unsigned — shared with Layers 2 & 7).
 - **Missing tests:** directory anon-leak refusal (federation subset); separation-of-duties on authority grant;
   cert/request durability across restart; grantor-chain-to-bootstrap (FND-14).
+- **ADR "Capability and grant model" (DEBT-B182, owner: the user) — FIRST, before ANY Network Console capability/grant
+  change.** Decides: user-defined capabilities beyond `service.provide/call` (e.g. `complaint.resolve`); scopes narrower than
+  a service (area/ward), validity (valid_from/valid_to) and purpose; that a capability may only name a GOVERNED interface
+  (verb); one authority model for data access (nouns) and capability grants, reconciled with ADR-0127 (personal data =
+  grant + consent); and enforcement through the ONE decision function rather than each service calling grants/resolve.
+  **Worked example — a water-complaints network:** members Citizen Helpline, Ward offices 1–20, the City Water
+  Department and an NGO. Capabilities `complaint.file`, `complaint.resolve`, `complaint.read-stats`; grants: Helpline →
+  file (water service); Ward 7 → resolve, scoped to Ward 7 only; Water Department → resolve, all wards; NGO →
+  read-stats (anonymised). The ADR shows each grant, how a ward-scoped resolve is checked and refused outside the ward,
+  revocation, and a capability version bump.
 - **Exit gate:** directory reads scoped; authority grants SoD + last-holder protected (B18); certs/requests
-  durable (FND-5); owned NET/PTC/FED rows HELD or deferred; nets green; independent review; fresh install +
-  conformance pass.
+  durable (FND-5); owned NET/PTC/FED rows HELD or deferred; the capability & grant model ADR accepted (B182); nets
+  green; independent review; fresh install + conformance pass.
 
 - **From the Layer 1 re-review (routed here, slice-1h):** **DEBT-B98** citizen rows — the interim subject-scoping landed in slice-1h; the model question is recorded for an ADR in the account/wallet work: *is a single shared `citizens` tenant the right model, or does each person need their own data boundary (wallet)?*; **DEBT-B107** federated delivery sends launcher bearer tokens to participant-chosen URLs and trusts a self-served certificate (R3-3); anonymous catalog routes overlap gated doors (R1-11); network API docs public at the edge (R4-9); missing body keys → 500 with tracebacks (R4-11). [LAYER1-EXIT-REREVIEW](../reviews/LAYER1-EXIT-REREVIEW.md).
 ---

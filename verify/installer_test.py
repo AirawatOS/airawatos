@@ -64,6 +64,16 @@ _RUN = os.path.join(ROOT, "deploy/runtime/install-guard/run")
 check("install-guard/run is in deploy/runtime (baked into every image at /opt/airawat) and checks the guard's marker",
       os.path.exists(_RUN) and "AOS_INSTALL_WRITE_GUARD" in open(_RUN).read() and "exit 97" in open(_RUN).read())
 check("a missing Phase-8 network record fails the phase", "localdev network not found — skip" not in src)
+# fixtures decision (conditions of approval): every DEV-ONLY fixture (stub provider, dummy secret, probe runtime, the network
+# lookup fixtures, the edge-probe-reader component) is seeded ONLY inside the dev-profile Phase 15 block — never by production
+_L = src.split("\n")
+_start = next((i for i, l in enumerate(_L) if l.startswith('if [ "$PROFILE" = dev ] && [ "$SEED_DATA_TENANT" = 1 ]; then')), None)
+_end = next((i for i in range(_start or 0, len(_L)) if _L[i] == "fi"), None) if _start is not None else None
+_fx = [i for i, l in enumerate(_L) if re.search(r"dev_fixture|edge-probe|stub-provider|DEVSTUB|devstub|EDGE_PROBE", l)]
+_out = [i + 1 for i in _fx if not (_start is not None and _end is not None and _start < i < _end)]
+check("every dev-only fixture is seeded inside the dev-profile Phase 15 block (never by the production profile)",
+      _start is not None and _end is not None and bool(_fx) and not _out,
+      "block lines %s–%s; fixture lines outside it: %s" % (_start and _start + 1, _end and _end + 1, _out or "none"))
 
 # 3. live fault injection
 if "--live" in sys.argv:
