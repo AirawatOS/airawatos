@@ -1,4 +1,19 @@
 #!/usr/bin/env bash
+# ⚠️ LEGACY (Layer 1 merge, 2026-11-10): this is the OLD install path. Use docs/operator/INSTALL-LOCAL.md
+# (deploy/build-images.sh + deploy/installer/install.sh --profile dev). Refuses to run unless AIRAWATOS_LEGACY=1.
+if [ "${AIRAWATOS_LEGACY:-}" != 1 ]; then
+  echo "✗ LEGACY installer (deploy/local/) — not what main runs. Follow docs/operator/INSTALL-LOCAL.md instead." >&2
+  echo "  (set AIRAWATOS_LEGACY=1 only if you really need the old prebuilt-image demo)" >&2
+  exit 2
+fi
+# ============================================================================================================
+# ⚠️  SUPERSEDED (2026-11-06) — do not extend. The canonical installer is the profiled, idempotent
+#     deploy/local-dev/install.sh  (--profile production | rehearsal | dev), documented in
+#     docs/operator/INSTALLER.md. From-source local-dev: `cd deploy/local-dev && ./bootstrap-dev.sh`
+#     (== install.sh --profile dev). This script remains ONLY as a zero-repo, prebuilt-image demo bootstrap
+#     for a bare Docker host (it materialises a compose + brings images up); it is NOT the install logic and
+#     is no longer maintained in step with the installer. Use install.sh for any real install.
+# ============================================================================================================
 # AirawatOS — zero-repo local bootstrap. Run this on a BRAND-NEW machine that has ONLY Docker.
 # It materialises the entire deploy/local/ folder (5 files) into a working dir and brings the stack up.
 # The platform images are PUBLIC on Docker Hub, so no git clone and no registry login are needed.
@@ -72,7 +87,7 @@ services:
       SHARED_SCHEMAS: "knowledge.document,knowledge.version,knowledge.chunk,knowledge.embedding,governance.rule,platform.verb_alias,platform.lifecycle"
       EVENT_SINK: http://automation:8098/events
       SECRETS_URL: http://secrets:8102
-      SECRETS_INTERNAL: airawat-broker-secrets-internal
+      SECRETS_INTERNAL: airawat-broker-secrets-internal   # LEGACY: this stack pins a pre-A71 image whose gate IS this literal; retired in reference dev-hard16+ (svc_authz) — drop on upgrade
       FILESTORE_URL: http://filestore:8095
       EMBED_URL: http://model-gateway:8104
       APPS_OVERLAY: /data/app-bundles/apps
@@ -96,7 +111,6 @@ services:
       VAULT_TOKEN: ${VAULT_TOKEN}
       IDENTITY_JWKS: http://identity:8093/jwks
       IDENTITY_URL: http://identity:8093
-      IDENTITY_INTERNAL: airawat-identity-internal
       ENSURE_DEV_TENANT: "1"
       DEV_TENANT: airawatdeveloper
       DEV_STEWARD: ds:airawatdeveloper:participant/developer
@@ -131,7 +145,7 @@ services:
     environment:
       VAULT_ADDR: http://vault:8200
       VAULT_TOKEN: ${VAULT_TOKEN}
-      SECRETS_INTERNAL: airawat-broker-secrets-internal
+      SECRETS_INTERNAL: airawat-broker-secrets-internal   # LEGACY: this stack pins a pre-A71 image whose gate IS this literal; retired in reference dev-hard16+ (svc_authz) — drop on upgrade
       IDENTITY_JWKS: http://identity:8093/jwks
     depends_on: { vault: { condition: service_healthy } }
 

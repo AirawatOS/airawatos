@@ -1,5 +1,12 @@
 # ADR-0084 — Local OS install as a federated participant of the shared Network
 
+> **⚠️ PARTIALLY SUPERSEDED (2026-11-05).** The premise this ADR builds on — *"tenant login = network
+> citizenship"* and *"the tenant's issuer identity is its citizenship anchor"* (body, incl. §Ties-to-ADR-0039)
+> — is overturned by **ADR-0116** (participant ≠ tenant; membership is tenant-free via `network.participation`).
+> See **PLATFORM-v0.1 P4** (the platform/any tenant confers no authority), **NETWORK-v0.1 N1** (slug/tenant not
+> accepted as network authority), **FOUNDATIONS-v0.1 F3**. Federated participation no longer derives from a
+> realm/tenant. The rest of the ADR (local-OS install, JWKS trust) stands. Body unchanged below.
+
 **Status:** Proposed
 **Relates to:** ADR-0020 (OS / Network split — network authority is its own service+realm), ADR-0039 (federated
 identity — tenant login = network citizenship), ADR-0068 (auth methods — pluggable IdP + per-issuer JWKS), ADR-0038

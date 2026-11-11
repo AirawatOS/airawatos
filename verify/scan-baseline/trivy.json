@@ -1,0 +1,41 @@
+{
+ "_meta": {
+  "rule": "a CRITICAL not listed here fails; HIGH counts are reported",
+  "tool": "aquasec/trivy:0.57.1",
+  "updated": "2026-11-08"
+ },
+ "images": {
+  "hashicorp/vault:2.2.1": {
+   "critical": [],
+   "debt": "DEBT-B79 (closed: 2.2.1 \u2014 0 CRITICAL; 3 HIGH reviewed)",
+   "high_at_baseline": 3
+  },
+  "manishsv/airawatos-kernel:1g": {
+   "critical": [],
+   "debt": "DEBT-B80 (0 CRITICAL; remaining HIGH = Debian 13 base packages with no fixed version published, + 1 stale setuptools record on reference) \u00b7 slice-1g: rebuilt from the repositories (Dockerfile pinned, B94); same profile",
+   "high_at_baseline": 47
+  },
+  "manishsv/airawatos-network:1g": {
+   "critical": [],
+   "debt": "DEBT-B80 (0 CRITICAL; remaining HIGH = Debian 13 base packages with no fixed version published, + 1 stale setuptools record on reference) \u00b7 slice-1g: rebuilt from the repositories (Dockerfile pinned, B94); same profile",
+   "high_at_baseline": 47
+  },
+  "manishsv/airawatos-reference:1g": {
+   "critical": [],
+   "debt": "DEBT-B80 (0 CRITICAL; remaining HIGH = Debian 13 base packages with no fixed version published, + 1 stale setuptools record on reference) \u00b7 slice-1g: rebuilt from the repositories (Dockerfile pinned, B94); same profile",
+   "high_at_baseline": 56
+  },
+  "nginx:alpine": {
+   "critical": [],
+   "debt": "DEBT-B81 (clean)",
+   "high_at_baseline": 0
+  },
+  "postgres:16-alpine": {
+   "critical": [
+    "stdlib:CVE-2025-68121"
+   ],
+   "debt": "DEBT-B81 (gosu Go-stdlib CRITICAL CVE-2025-68121 \u2014 entrypoint privilege-drop helper, not network-reachable; in every current postgres image)",
+   "high_at_baseline": 25
+  }
+ }
+}

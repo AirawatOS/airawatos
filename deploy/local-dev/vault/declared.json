@@ -1,0 +1,163 @@
+{
+ "_note": "slice-1j (DEBT-B138): the Vault configuration the stack DECLARES. conformance/vault_scope_test.py requires the live Vault to equal it EXACTLY: secret engines (path, type, KV version), auth methods, audit devices, ACL policy names (each policy's text = policies/<name>.hcl, normalised), AppRole roles and their token policies, and every service's live token policies. agent-registry/ and the default-ceiling policy are Vault 2.x built-ins (present on every Vault 2.x server; declared, not used).",
+ "mounts": {
+  "agent-registry/": {
+   "type": "agent_registry"
+  },
+  "components/": {
+   "type": "kv",
+   "version": "2"
+  },
+  "cubbyhole/": {
+   "type": "cubbyhole"
+  },
+  "identity/": {
+   "type": "identity"
+  },
+  "secret/": {
+   "type": "kv",
+   "version": "2"
+  },
+  "sys/": {
+   "type": "system"
+  },
+  "transit/": {
+   "type": "transit"
+  }
+ },
+ "auth": {
+  "approle/": "approle",
+  "token/": "token"
+ },
+ "audit": {
+  "file/": {
+   "type": "file",
+   "file_path": "/vault/audit/audit.log"
+  }
+ },
+ "policies": [
+  "default",
+  "default-ceiling",
+  "root",
+  "svc-app-host",
+  "svc-base",
+  "svc-decision",
+  "svc-identity",
+  "svc-kernel",
+  "svc-model-gateway",
+  "svc-network",
+  "svc-notify",
+  "svc-runtime-manager",
+  "svc-scheduler",
+  "svc-secrets",
+  "svc-workflow"
+ ],
+ "roles": {
+  "kernel": {
+   "token_policies": [
+    "svc-base",
+    "svc-kernel"
+   ],
+   "token_no_default_policy": true
+  },
+  "network": {
+   "token_policies": [
+    "svc-base",
+    "svc-network"
+   ],
+   "token_no_default_policy": true
+  },
+  "identity": {
+   "token_policies": [
+    "svc-base",
+    "svc-identity"
+   ],
+   "token_no_default_policy": true
+  },
+  "secrets": {
+   "token_policies": [
+    "svc-base",
+    "svc-secrets"
+   ],
+   "token_no_default_policy": true
+  },
+  "model-gateway": {
+   "token_policies": [
+    "svc-base",
+    "svc-model-gateway"
+   ],
+   "token_no_default_policy": true
+  },
+  "app-host": {
+   "token_policies": [
+    "svc-app-host",
+    "svc-base"
+   ],
+   "token_no_default_policy": true
+  },
+  "automation": {
+   "token_policies": [
+    "svc-base",
+    "svc-scheduler"
+   ],
+   "token_no_default_policy": true
+  },
+  "event-relay": {
+   "token_policies": [
+    "svc-base",
+    "svc-scheduler"
+   ],
+   "token_no_default_policy": true
+  },
+  "scheduler": {
+   "token_policies": [
+    "svc-base",
+    "svc-scheduler"
+   ],
+   "token_no_default_policy": true
+  },
+  "decision": {
+   "token_policies": [
+    "svc-base",
+    "svc-decision"
+   ],
+   "token_no_default_policy": true
+  },
+  "workflow": {
+   "token_policies": [
+    "svc-base",
+    "svc-workflow"
+   ],
+   "token_no_default_policy": true
+  },
+  "runtime-manager": {
+   "token_policies": [
+    "svc-base",
+    "svc-runtime-manager"
+   ],
+   "token_no_default_policy": true
+  },
+  "notify": {
+   "token_policies": [
+    "svc-base",
+    "svc-notify"
+   ],
+   "token_no_default_policy": true
+  }
+ },
+ "service_roles": {
+  "kernel": "kernel",
+  "network": "network",
+  "identity": "identity",
+  "secrets": "secrets",
+  "model-gateway": "model-gateway",
+  "app-host": "app-host",
+  "automation": "automation",
+  "event-relay": "event-relay",
+  "scheduler": "scheduler",
+  "decision": "decision",
+  "workflow": "workflow",
+  "runtime-manager": "runtime-manager",
+  "notify": "notify"
+ }
+}

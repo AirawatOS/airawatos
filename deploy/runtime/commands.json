@@ -1,0 +1,19 @@
+{
+ "_meta": "slice-1i (DEBT-B116): the ONLY commands a production container may run, per program. Every option token must EXACTLY equal an allow-listed option (no abbreviation, no unknown option; --opt=value only for an allow-listed --opt); each listed option takes one value; `positional` = how many bare arguments are allowed. A shell wrapper (sh/bash -c) is allowed only as a single `exec <allow-listed command>`. Cert-skip (--no-verify-cert) and static-token (--vault-token) options are on NO list.",
+ "python": {
+  "reference/app_host.py":       {"options": ["--port", "--network", "--kernel", "--identity", "--scheduler", "--secrets", "--decision", "--workflow"], "positional": 1},
+  "reference/automation.py":     {"options": ["--kernel"], "positional": 0},
+  "reference/decision.py":       {"options": ["--kernel", "--network", "--workflow"], "positional": 0},
+  "reference/event_relay.py":    {"options": ["--kernel", "--automation"], "positional": 0},
+  "reference/filestore.py":      {"options": ["--port"], "positional": 0},
+  "reference/identity.py":       {"options": [], "positional": 0},
+  "reference/model_gateway.py":  {"options": ["--kernel", "--vault"], "positional": 0},
+  "reference/notify.py":         {"options": ["--kernel"], "positional": 0},
+  "reference/runtime_manager.py":{"options": ["--port"], "positional": 0},
+  "reference/scheduler.py":      {"options": ["--components-root", "--kernel", "--network"], "positional": 0},
+  "reference/secrets.py":        {"options": [], "positional": 0},
+  "reference/workflow.py":       {"options": ["--kernel", "--network"], "positional": 0}
+ },
+ "uvicorn": {"api.app:app": {"options": ["--host", "--port"], "positional": 0},
+             "api:app":     {"options": ["--host", "--port"], "positional": 0}}
+}

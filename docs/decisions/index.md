@@ -29,6 +29,7 @@ This is the **go-forward decision record**. It lives alongside the reference imp
 | 0077 | [The media plane: the broker is the only door for *authority*](ADR-0077-camera-media-plane.md) | Proposed |
 | 0082 | [Offline-first capture & edge trust (connectivity tiers)](ADR-0082-offline-first-capture-and-edge-trust.md) | Proposed |
 | 0101 | [Governed verb binding: the app-host is a domain-blind dispatcher](ADR-0101-governed-verb-binding-domain-blind-host.md) | Accepted (live 0.2.47) |
+| 0129 | [Every organisation can spawn networks; vendors and partners are participants](ADR-0129-organisations-spawn-partner-networks.md) | Proposed |
 
 ## Migration backlog — legacy AirOS ADRs to rewrite for AirawatOS
 

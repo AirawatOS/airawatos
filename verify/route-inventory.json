@@ -1,0 +1,2011 @@
+{
+ "_meta": {
+  "classes": {
+   "authority": "a NAMED recorded authority (role/grant) \u2014 `who` names it",
+   "internal": "internal-only: an audience-bound service token or run token from the declared callers \u2014 `who` names them",
+   "login": "any authenticated principal (a session or a verified bearer token)",
+   "public": "callable with no credential \u2014 each carries a `why`; `review` = public today but should not be (the review list)"
+  },
+  "extract": "verify/route_extract.py (stdlib do_* dispatch by AST incl. do_OPTIONS; FastAPI live app.routes) UNION verify/route_discover.py (RUNTIME: every path constant of each compiled stdlib module probed on the live service \u2014 helper- and table-dispatched routes included)",
+  "probe": "verify/route_probe.py calls every non-public route anonymously; it must be refused (401/403). `sample`/`body` reach the gate of a handler that validates before authenticating (an ordering finding, listed in the review).",
+  "spec": "FIX-PLAN \u00a70 net 4 (route inventory), slice-1d"
+ },
+ "app-host": {
+  "GET /": {
+   "class": "public",
+   "why": "desktop shell / login redirect"
+  },
+  "GET /apps": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "GET /apps/*": {
+   "class": "public",
+   "why": "static app bundles (code, no data)"
+  },
+  "GET /auth/callback": {
+   "class": "public",
+   "why": "OIDC redirect target"
+  },
+  "GET /auth/oidc/*": {
+   "class": "public",
+   "why": "OIDC login start"
+  },
+  "GET /auth/options": {
+   "class": "public",
+   "why": "login page realm list"
+  },
+  "GET /bridge/aoi": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "GET /bridge/catalog": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "GET /bridge/change-request-decide": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
+  "GET /bridge/change-requests": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "GET /bridge/city-onboard": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "GET /bridge/component-docs": {
+   "class": "public",
+   "why": "developer docs: a component's packaged docs"
+  },
+  "GET /bridge/component-preview": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "GET /bridge/components": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "GET /bridge/connections": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "GET /bridge/doc-ask": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
+  "GET /bridge/doc-render": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
+  "GET /bridge/doc-review": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
+  "GET /bridge/fetch": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
+  "GET /bridge/file": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "GET /bridge/file-shares": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "GET /bridge/git-binding": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
+  "GET /bridge/market": {
+   "class": "public",
+   "why": "marketplace browse (certified listings, no tenant data)"
+  },
+  "GET /bridge/my-requests": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
+  "GET /bridge/networks-mine": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "GET /bridge/offline-relay": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
+  "GET /bridge/original": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "GET /bridge/query": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
+  "GET /bridge/resolve-citation": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
+  "GET /bridge/retrieve": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
+  "GET /bridge/role-members": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "GET /bridge/role-requests": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "GET /bridge/roles": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "GET /bridge/runs": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "GET /bridge/schedules": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "GET /bridge/schema-advise": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
+  "GET /bridge/service-transactions": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
+  "GET /bridge/tile/*": {
+   "class": "public",
+   "why": "map tile proxy (geo gateway target, GTW-13)"
+  },
+  "GET /bridge/user-roles": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "GET /bridge/users": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "GET /bridge/verbs": {
+   "class": "public",
+   "why": "developer docs: the verb catalogue"
+  },
+  "GET /bridge/vfs": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "GET /bridge/voice-status": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
+  "GET /citizen/apps": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "GET /demo": {
+   "class": "public",
+   "why": "demo landing page"
+  },
+  "GET /demo/*": {
+   "class": "public",
+   "why": "demo assets"
+  },
+  "GET /desktop": {
+   "class": "public",
+   "why": "desktop shell (renders the login page without a session)"
+  },
+  "GET /developer": {
+   "class": "public",
+   "why": "developer portal (public docs)"
+  },
+  "GET /developer/*": {
+   "class": "public",
+   "why": "developer portal (public docs)"
+  },
+  "GET /ekyc": {
+   "class": "public",
+   "why": "eKYC join landing page (ADR-0116)"
+  },
+  "GET /embed/authorize": {
+   "class": "public",
+   "why": "embed OIDC-style authorize (ADR-0112)"
+  },
+  "GET /embed/clients": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "GET /embed/demo": {
+   "class": "public",
+   "why": "embed demo page"
+  },
+  "GET /embed/demo.js": {
+   "class": "public",
+   "why": "embed demo script"
+  },
+  "GET /embed/register": {
+   "class": "public",
+   "why": "developer-portal client registration page"
+  },
+  "GET /embed/register.js": {
+   "class": "public",
+   "why": "registration page script"
+  },
+  "GET /embed/sdk.js": {
+   "class": "public",
+   "why": "embed SDK script"
+  },
+  "GET /embed/services": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "GET /embed/wallet": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "GET /healthz": {
+   "class": "public",
+   "why": "health/liveness probe \u2014 no data"
+  },
+  "GET /link": {
+   "class": "public",
+   "why": "chat account-link page (ADR-0111)"
+  },
+  "GET /login": {
+   "class": "public",
+   "why": "login page"
+  },
+  "GET /media/frame/*": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "GET /open": {
+   "class": "public",
+   "why": "ADR-0103 opener \u2014 a record opens only if it carries an `anyone`/link grant"
+  },
+  "GET /portal": {
+   "class": "public",
+   "why": "citizen portal landing page"
+  },
+  "GET /run": {
+   "class": "public",
+   "why": "standalone app launcher page"
+  },
+  "GET /session": {
+   "class": "public",
+   "why": "reports the caller's own session state (anonymous \u2192 none)"
+  },
+  "GET /shared/*": {
+   "class": "public",
+   "why": "link-shared files (token in the link, ADR-0103)"
+  },
+  "GET /t/*": {
+   "class": "public",
+   "why": "tenant public front door (converse/landing, PLT-15) \u2014 needs the DEBT-B46 rate limit + route separation"
+  },
+  "GET /whoami": {
+   "class": "public",
+   "why": "reports the caller's own identity (anonymous \u2192 none)"
+  },
+  "OPTIONS /embed/*": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/authorize": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/clients": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/demo": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/ekyc-issue": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/login": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/present": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/proof-request": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/register": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/request": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/services": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/signup": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/token": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/uidai-enrol": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/verify-presentation": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "OPTIONS /embed/wallet": {
+   "class": "public",
+   "why": "CORS preflight for the embed SDK (204, no body, no data) \u2014 the actual request is gated; found by runtime discovery, slice-1h"
+  },
+  "POST /admin/reload": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /auth/change-password": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/agent": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/agent-brief": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/ai-assist": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/aoi": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/app-install": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/app-uninstall": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/approve-rule": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/approve-rules": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/asset": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/camera-configure": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/camera-delete": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/catalog": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
+  "POST /bridge/change-request": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/change-request-decide": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/citizen-app-add": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/citizen-app-remove": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/citizen-register": {
+   "class": "public",
+   "why": "citizen self-registration (PLT-15 front door) \u2014 needs DEBT-B46"
+  },
+  "POST /bridge/city-onboard": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/complete": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/component-drift": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/component-publish": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/component-read": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/component-refresh": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/component-save": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/component-scaffold": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/components": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
+  "POST /bridge/compute-run": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/conformance-run": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/connect-network": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/console-ai": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/credential-accept": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/credential-revoke": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/data-schemas": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/decide": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/doc-ask": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/doc-publish": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/doc-render": {
+   "class": "login",
+   "who": "signed-in App Host session (slice-1f \u2014 authoring preview / in-app docs, not designated public)"
+  },
+  "POST /bridge/doc-review": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/doc-save": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/ekyc-join": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/email": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/expert-chat": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/fetch": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/fetch-file": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/file-push": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/file-share": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/file-share/decide": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/file-share/withdraw": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/file-upload": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/git-binding": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/git-push": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/gov": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/gov-assign-role": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/gov-capabilities": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/gov-define-capability": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/gov-grants": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/gov-issue-grant": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/gov-members": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/gov-revoke-grant": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/history": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/i18n-translate": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/ingest-document": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/install": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/interface-request": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/join-network": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/message-intake": {
+   "class": "internal",
+   "who": "inbound channel gateway (Vault-held gateway secret, DEBT-B64)"
+  },
+  "POST /bridge/my-credentials": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/my-networks": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/my-requests": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/my-service-requests": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/network-configure": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/network-decide": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/network-profile": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/network-requests": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/network-services": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/networks": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/offer-network-service": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/offline-relay": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/participant-profile": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/participant-resolve": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/participant-set-kind": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/participants": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/profile-get": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/profile-save": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/project-compose": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/project-delete": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/project-invite": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/project-publish": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/project-test": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/provision-device": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/publish-decide": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/publish-request": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/publish-requests": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/query": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/record-retract": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/registry-archive": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/registry-archives": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/registry-usage": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/registry-vacuum": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/reprocess": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/resolve": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/resolve-citation": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/retrieve": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/role-grant": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/role-request": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/role-request-decide": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/run": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/runs": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
+  "POST /bridge/save": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/schedule": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/schedules": {
+   "class": "login",
+   "who": "signed-in App Host session (BRIDGE_LOGIN_REQUIRED \u2014 the session gate runs before dispatch); found by runtime discovery, slice-1h"
+  },
+  "POST /bridge/schema-advise": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/schema-define": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/schema-history": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/schema-request": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/schemas": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/secret": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/seed-test-data": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/service-apply": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/service-confirm": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/service-consent": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/service-decide": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/service-expert": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/service-init": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/service-offering-manage": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/service-offering-save": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/service-offerings": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/service-route": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/service-search": {
+   "class": "public",
+   "why": "public service offerings only (NET-12 public designation)"
+  },
+  "POST /bridge/service-specs": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/service-status": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/service-transactions": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/set-locale": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/set-theme": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/settings": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/settings-set": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/sms-intake": {
+   "class": "internal",
+   "who": "inbound channel gateway (Vault-held gateway secret, DEBT-B64)"
+  },
+  "POST /bridge/solution-expert": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/solution-generate": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/spec-author": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/spec-compile": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/spec-govern": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/store-deprecate": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/store-revoke": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/suggest-crosswalk": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/transcribe": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/uninstall": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/upload-chunk": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/user-create": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/user-disable": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/user-reset-password": {
+   "class": "authority",
+   "who": "tenant admin (ADMIN_ROLES on the session)"
+  },
+  "POST /bridge/user-search": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /bridge/vfs": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/voice-config": {
+   "class": "public",
+   "why": "retired (410 Gone)"
+  },
+  "POST /bridge/voice-status": {
+   "class": "login",
+   "who": "signed-in App Host session"
+  },
+  "POST /bridge/whatsapp": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /embed/clients": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /embed/ekyc-issue": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /embed/login": {
+   "class": "public",
+   "why": "hosted citizen login door"
+  },
+  "POST /embed/present": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /embed/proof-request": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /embed/request": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /embed/signup": {
+   "class": "public",
+   "why": "citizen self-registration (PLT-15 front door) \u2014 needs DEBT-B46"
+  },
+  "POST /embed/token": {
+   "class": "public",
+   "why": "code\u2192token exchange (PKCE code is the credential)"
+  },
+  "POST /embed/uidai-enrol": {
+   "class": "public",
+   "why": "UIDAI enrolment step of citizen signup \u2014 needs DEBT-B46"
+  },
+  "POST /embed/verify-presentation": {
+   "class": "public",
+   "why": "public credential-presentation verifier"
+  },
+  "POST /login": {
+   "class": "public",
+   "why": "login door"
+  },
+  "POST /logout": {
+   "class": "public",
+   "why": "ends the caller's own session"
+  },
+  "POST /t/*": {
+   "class": "public",
+   "why": "tenant public front door (converse, Telegram webhook \u2014 PLT-15) \u2014 needs DEBT-B46"
+  }
+ },
+ "automation": {
+  "GET /healthz": {
+   "class": "public",
+   "why": "health/liveness probe \u2014 no data"
+  },
+  "POST /events": {
+   "class": "internal",
+   "who": "svc:automation from {event-relay}"
+  }
+ },
+ "decision": {
+  "GET /healthz": {
+   "class": "public",
+   "why": "health/liveness probe \u2014 no data"
+  },
+  "POST /decide": {
+   "class": "login",
+   "who": "bearer user token (the admitting authority)"
+  },
+  "POST /verify": {
+   "class": "public",
+   "why": "anyone may verify a signed decision (offline, against the directory key); a malformed body is a 400 (slice-1f, DEBT-B75)"
+  }
+ },
+ "event-relay": {
+  "GET /healthz": {
+   "class": "public",
+   "why": "health/liveness probe \u2014 no data"
+  }
+ },
+ "filestore": {
+  "GET /files/*": {
+   "class": "internal",
+   "who": "svc:filestore from {app-host, kernel, launcher} (helper-dispatched blob read; 403 anonymous) \u2014 found by runtime discovery, slice-1h"
+  },
+  "GET /healthz": {
+   "class": "public",
+   "why": "health/liveness probe \u2014 no data"
+  },
+  "HEAD /files/*": {
+   "class": "internal",
+   "who": "svc:filestore from {app-host, kernel, launcher} (helper-dispatched blob metadata; 403 anonymous) \u2014 found by runtime discovery, slice-1h"
+  },
+  "POST /files": {
+   "class": "internal",
+   "who": "svc:filestore from {app-host, kernel, launcher}"
+  }
+ },
+ "identity": {
+  "GET /healthz": {
+   "class": "public",
+   "why": "health/liveness probe \u2014 no data"
+  },
+  "GET /jwks": {
+   "class": "public",
+   "why": "public verification keys (JWKS) \u2014 by design"
+  },
+  "GET /realms": {
+   "class": "internal",
+   "who": "svc:identity from {provisioner, app-host} (operator realm)"
+  },
+  "GET /realms/*": {
+   "class": "login",
+   "ordering": "validates/looks up before authenticating \u2014 reorder (auth first)",
+   "sample": "/realms/localdev/users",
+   "who": "svc:identity from {provisioner, app-host} (operator realm) \u2014 /realms/<t>/users"
+  },
+  "GET /users": {
+   "class": "internal",
+   "who": "svc:identity from {provisioner, app-host} (operator realm)"
+  },
+  "POST /login": {
+   "class": "public",
+   "why": "credential door (service principals present a Vault-held password) \u2014 refuses without one"
+  },
+  "POST /prefs": {
+   "class": "internal",
+   "who": "svc:identity from {provisioner, app-host} (operator realm)"
+  },
+  "POST /realms/*": {
+   "class": "public",
+   "why": "realm login door POST /realms/<t>/login \u2014 credential door"
+  },
+  "POST /register": {
+   "class": "public",
+   "why": "self-registration door (reached only via the App Host front door, PLT-15) \u2014 needs the DEBT-B46 rate limit"
+  },
+  "POST /set-password": {
+   "class": "internal",
+   "who": "svc:identity from {provisioner, app-host} (operator realm)"
+  },
+  "POST /users": {
+   "class": "internal",
+   "who": "svc:identity from {provisioner, app-host} (operator realm)"
+  }
+ },
+ "kernel": {
+  "GET /docs": {
+   "class": "public",
+   "why": "API docs \u2014 local-dev profile only; disabled when AIRAWAT_ENV=production (slice-1f, DEBT-B76)"
+  },
+  "GET /openapi.json": {
+   "class": "public",
+   "why": "API docs \u2014 local-dev profile only; disabled when AIRAWAT_ENV=production (slice-1f, DEBT-B76)"
+  },
+  "GET /redoc": {
+   "class": "public",
+   "why": "API docs \u2014 local-dev profile only; disabled when AIRAWAT_ENV=production (slice-1f, DEBT-B76)"
+  },
+  "GET /v1/components": {
+   "class": "authority",
+   "who": "kernel admin (_require_admin: home-issued admin role)"
+  },
+  "GET /v1/context": {
+   "class": "internal",
+   "who": "component run token (X-Run-Token)"
+  },
+  "GET /v1/health": {
+   "class": "public",
+   "why": "health/liveness probe \u2014 no data"
+  },
+  "GET /v1/kernel/conformance": {
+   "class": "public",
+   "why": "kernel conformance statement (metadata)"
+  },
+  "GET /v1/kernel/manifest": {
+   "class": "public",
+   "why": "kernel capability manifest (metadata)"
+  },
+  "GET /v1/registry/capabilities": {
+   "class": "public",
+   "why": "registry capability metadata"
+  },
+  "GET /v1/registry/objects/*/history": {
+   "class": "login",
+   "who": "authenticated principal, scoped to its tenant"
+  },
+  "GET /v1/registry/objects/*/prov": {
+   "class": "login",
+   "who": "authenticated principal, scoped to its tenant"
+  },
+  "GET /v1/registry/open/*": {
+   "class": "public",
+   "why": "ADR-0103 opener \u2014 world-readable/link-granted records only; 404 otherwise (existence-hiding)"
+  },
+  "POST /v1/complete": {
+   "class": "internal",
+   "who": "component run token (X-Run-Token)"
+  },
+  "POST /v1/components/dev-token": {
+   "class": "login",
+   "who": "authenticated principal, scoped to its tenant"
+  },
+  "POST /v1/components/install": {
+   "class": "authority",
+   "who": "kernel admin (_require_admin: home-issued admin role)"
+  },
+  "POST /v1/components/run-token": {
+   "class": "internal",
+   "who": "home-issued platform service principal (_is_platform_service)"
+  },
+  "POST /v1/embed": {
+   "class": "internal",
+   "who": "component run token (X-Run-Token)"
+  },
+  "POST /v1/fetch": {
+   "class": "internal",
+   "who": "component run token (X-Run-Token)"
+  },
+  "POST /v1/file/get": {
+   "class": "internal",
+   "who": "component run token (X-Run-Token)"
+  },
+  "POST /v1/file/put": {
+   "class": "internal",
+   "who": "component run token (X-Run-Token)"
+  },
+  "POST /v1/query": {
+   "class": "internal",
+   "who": "component run token (X-Run-Token)"
+  },
+  "POST /v1/read": {
+   "class": "internal",
+   "who": "component run token (X-Run-Token)"
+  },
+  "POST /v1/receipts/verify": {
+   "class": "public",
+   "why": "public receipt verifier"
+  },
+  "POST /v1/registry/aggregate": {
+   "class": "public",
+   "owner": "FIX-PLAN Layer 2 \u2014 Kernel (DEBT-A1, first item)",
+   "review": "anonymous registry read (DEBT-A1 \u2014 kernel anon reads; ARC-5)",
+   "why": "public today (anonymous call answered 200)"
+  },
+  "POST /v1/registry/archive": {
+   "class": "authority",
+   "who": "kernel admin (_require_admin: home-issued admin role)"
+  },
+  "POST /v1/registry/archives": {
+   "class": "authority",
+   "who": "kernel admin (_require_admin: home-issued admin role)"
+  },
+  "POST /v1/registry/count": {
+   "class": "public",
+   "owner": "FIX-PLAN Layer 2 \u2014 Kernel (DEBT-A1, first item)",
+   "review": "anonymous registry read (DEBT-A1 \u2014 kernel anon reads; ARC-5)",
+   "why": "public today (anonymous call answered 200)"
+  },
+  "POST /v1/registry/datasets": {
+   "class": "public",
+   "owner": "FIX-PLAN Layer 2 \u2014 Kernel (DEBT-A1, first item)",
+   "review": "anonymous registry read (DEBT-A1 \u2014 kernel anon reads; ARC-5)",
+   "why": "public today (anonymous call answered 200)"
+  },
+  "POST /v1/registry/datasets/add": {
+   "class": "login",
+   "who": "authenticated principal, scoped to its tenant"
+  },
+  "POST /v1/registry/exists": {
+   "class": "public",
+   "owner": "FIX-PLAN Layer 2 \u2014 Kernel (DEBT-A1, first item)",
+   "review": "anonymous registry read (DEBT-A1 \u2014 kernel anon reads; ARC-5)",
+   "why": "public today (anonymous call answered 200)"
+  },
+  "POST /v1/registry/objects": {
+   "class": "login",
+   "who": "authenticated principal, scoped to its tenant"
+  },
+  "POST /v1/registry/query": {
+   "class": "public",
+   "owner": "FIX-PLAN Layer 2 \u2014 Kernel (DEBT-A1, first item)",
+   "review": "anonymous registry read (DEBT-A1 \u2014 kernel anon reads; ARC-5)",
+   "why": "public today (anonymous call answered 200)"
+  },
+  "POST /v1/registry/resolve": {
+   "class": "public",
+   "owner": "FIX-PLAN Layer 2 \u2014 Kernel (DEBT-A1, first item)",
+   "review": "anonymous registry read (DEBT-A1 \u2014 kernel anon reads; ARC-5)",
+   "why": "public today (anonymous call answered 200)"
+  },
+  "POST /v1/registry/resolve-by-identifier": {
+   "body": {
+    "value": "probe"
+   },
+   "class": "login",
+   "ordering": "validates/looks up before authenticating \u2014 reorder (auth first)",
+   "who": "authenticated principal, scoped to its tenant"
+  },
+  "POST /v1/registry/retract": {
+   "class": "login",
+   "who": "authenticated principal, scoped to its tenant"
+  },
+  "POST /v1/registry/schema-cache/refresh": {
+   "class": "authority",
+   "who": "kernel admin (_require_admin: home-issued admin role)"
+  },
+  "POST /v1/registry/schemas-present": {
+   "class": "public",
+   "owner": "FIX-PLAN Layer 2 \u2014 Kernel (DEBT-A1, first item)",
+   "review": "anonymous registry read (DEBT-A1 \u2014 kernel anon reads; ARC-5)",
+   "why": "public today (anonymous call answered 200)"
+  },
+  "POST /v1/registry/schemas/local": {
+   "body": {
+    "definition": {},
+    "schema_id": "probe.thing"
+   },
+   "class": "login",
+   "ordering": "validates/looks up before authenticating \u2014 reorder (auth first)",
+   "who": "authenticated principal, scoped to its tenant"
+  },
+  "POST /v1/registry/schemas/provision": {
+   "body": {
+    "schema_code": "probe"
+   },
+   "class": "authority",
+   "ordering": "validates/looks up before authenticating \u2014 reorder (auth first)",
+   "who": "kernel admin (_require_admin: home-issued admin role)"
+  },
+  "POST /v1/registry/usage": {
+   "class": "authority",
+   "who": "kernel admin (_require_admin: home-issued admin role)"
+  },
+  "POST /v1/registry/vacuum": {
+   "class": "authority",
+   "who": "kernel admin (_require_admin: home-issued admin role)"
+  },
+  "POST /v1/resolve-ref": {
+   "class": "public",
+   "owner": "FIX-PLAN Layer 2 \u2014 Kernel (DEBT-A1, first item)",
+   "review": "anonymous registry read (DEBT-A1 \u2014 kernel anon reads; ARC-5)",
+   "why": "public today (anonymous call answered 500)"
+  },
+  "POST /v1/write": {
+   "class": "internal",
+   "who": "component run token (X-Run-Token)"
+  },
+  "POST /v1/write/batch": {
+   "class": "internal",
+   "who": "component run token (X-Run-Token)"
+  }
+ },
+ "model-gateway": {
+  "GET /healthz": {
+   "class": "public",
+   "why": "health/liveness probe \u2014 no data"
+  },
+  "POST /admin/provider-key": {
+   "class": "internal",
+   "who": "svc:model-gateway from {kernel, app-host}"
+  },
+  "POST /complete": {
+   "class": "internal",
+   "who": "svc:model-gateway from {kernel, app-host}"
+  },
+  "POST /embed": {
+   "class": "internal",
+   "who": "svc:model-gateway from {kernel, app-host}"
+  },
+  "POST /transcribe": {
+   "class": "internal",
+   "who": "svc:model-gateway from {kernel, app-host}"
+  }
+ },
+ "network": {
+  "GET /docs": {
+   "class": "public",
+   "why": "API docs \u2014 local-dev profile only; disabled when AIRAWAT_ENV=production (slice-1f, DEBT-B76)"
+  },
+  "GET /join": {
+   "class": "public",
+   "why": "public apply page (PLT-15)"
+  },
+  "GET /openapi.json": {
+   "class": "public",
+   "why": "API docs \u2014 local-dev profile only; disabled when AIRAWAT_ENV=production (slice-1f, DEBT-B76)"
+  },
+  "GET /redoc": {
+   "class": "public",
+   "why": "API docs \u2014 local-dev profile only; disabled when AIRAWAT_ENV=production (slice-1f, DEBT-B76)"
+  },
+  "GET /v1/authority": {
+   "class": "public",
+   "why": "the authority's public key"
+  },
+  "GET /v1/credentials": {
+   "class": "login",
+   "who": "any verified principal \u2014 rows scoped to its own tenant/subject; full list to a declared service (svc:network) or an authority admin (slice-1f)"
+  },
+  "GET /v1/data-requests": {
+   "class": "login",
+   "who": "any verified principal \u2014 rows scoped to its own tenant/subject; full list to a declared service (svc:network) or an authority admin (slice-1f)"
+  },
+  "GET /v1/domains": {
+   "class": "public",
+   "why": "governed domain catalogue (public standards)"
+  },
+  "GET /v1/federation/offerings": {
+   "class": "public",
+   "why": "designated public: an anonymous caller sees ONLY offerings with visibility=public; a signed-in caller the whole catalog (slice-1f)"
+  },
+  "GET /v1/file-shares": {
+   "class": "login",
+   "who": "any verified principal \u2014 rows scoped to its own tenant/subject; full list to a declared service (svc:network) or an authority admin (slice-1f)"
+  },
+  "GET /v1/files/*": {
+   "class": "public",
+   "why": "public marketplace blobs; private file-share blobs require a token inside the handler"
+  },
+  "GET /v1/health": {
+   "class": "public",
+   "why": "health/liveness probe \u2014 no data"
+  },
+  "GET /v1/interface-requests": {
+   "class": "login",
+   "who": "any verified principal \u2014 rows scoped to its own tenant/subject; full list to a declared service (svc:network) or an authority admin (slice-1f)"
+  },
+  "GET /v1/interfaces": {
+   "class": "public",
+   "why": "governed interface catalogue (public standards)"
+  },
+  "GET /v1/interfaces/bindings": {
+   "class": "internal",
+   "who": "the internal verb\u2192endpoint map \u2014 declared services with svc:network only (slice-1f)"
+  },
+  "GET /v1/join": {
+   "class": "authority",
+   "who": "join applications (contact emails): the network authority's admins or a declared service only (slice-1f)"
+  },
+  "GET /v1/jurisdictions": {
+   "class": "public",
+   "why": "jurisdiction catalogue (public reference data)"
+  },
+  "GET /v1/network/profile": {
+   "class": "public",
+   "why": "a network's public profile"
+  },
+  "GET /v1/network/service-requests": {
+   "class": "login",
+   "who": "any authenticated principal (bearer token verified)"
+  },
+  "GET /v1/network/services": {
+   "class": "login",
+   "ordering": "validates/looks up before authenticating \u2014 reorder (auth first)",
+   "sample": "/v1/network/services?network=probe",
+   "who": "any authenticated principal (bearer token verified)"
+  },
+  "GET /v1/networks": {
+   "class": "public",
+   "why": "directory of networks (ADR-0116 public listing)"
+  },
+  "GET /v1/operators": {
+   "class": "public",
+   "why": "platform operators directory (ADR-0116)"
+  },
+  "GET /v1/pack-requests": {
+   "class": "login",
+   "who": "any verified principal \u2014 rows scoped to its own tenant/subject; full list to a declared service (svc:network) or an authority admin (slice-1f)"
+  },
+  "GET /v1/packs": {
+   "class": "public",
+   "why": "governed pack catalogue (public standards)"
+  },
+  "GET /v1/participant/profile": {
+   "class": "login",
+   "who": "any authenticated principal (bearer token verified)"
+  },
+  "GET /v1/participants": {
+   "class": "login",
+   "who": "participant directory \u2014 any verified principal (slice-1f; anonymous refused)"
+  },
+  "GET /v1/participation": {
+   "class": "login",
+   "who": "any authenticated principal (bearer token verified)"
+  },
+  "GET /v1/role-requests": {
+   "class": "login",
+   "who": "any verified principal \u2014 rows scoped to its own tenant/subject; full list to a declared service (svc:network) or an authority admin (slice-1f)"
+  },
+  "GET /v1/roles": {
+   "class": "public",
+   "why": "governed role catalogue (public standards)"
+  },
+  "GET /v1/runtime/attestations": {
+   "class": "login",
+   "who": "node attestations \u2014 any verified principal (slice-1f)"
+  },
+  "GET /v1/schema-requests": {
+   "class": "login",
+   "who": "any verified principal \u2014 rows scoped to its own tenant/subject; full list to a declared service (svc:network) or an authority admin (slice-1f)"
+  },
+  "GET /v1/schemas": {
+   "class": "public",
+   "why": "governed schema catalogue (public standards)"
+  },
+  "GET /v1/service-offerings": {
+   "class": "public",
+   "why": "designated public: an anonymous caller sees ONLY offerings with visibility=public (NET-12); a signed-in caller the active directory (slice-1f)"
+  },
+  "GET /v1/service/transactions": {
+   "class": "login",
+   "who": "any verified principal \u2014 rows scoped to its own tenant/subject; full list to a declared service (svc:network) or an authority admin (slice-1f)"
+  },
+  "GET /v1/solutions": {
+   "class": "public",
+   "why": "marketplace solutions"
+  },
+  "GET /v1/store": {
+   "class": "public",
+   "why": "certified marketplace listings"
+  },
+  "GET /v1/store/publish-requests": {
+   "class": "login",
+   "who": "any verified principal \u2014 rows scoped to its own tenant/subject; full list to a declared service (svc:network) or an authority admin (slice-1f)"
+  },
+  "GET /v1/store/stats": {
+   "class": "public",
+   "why": "marketplace counts"
+  },
+  "GET /v1/tenants": {
+   "class": "login",
+   "who": "any verified principal sees ITS OWN tenant; all tenants to a declared service or an authority admin (slice-1f)"
+  },
+  "POST /v1/certificates/resolve": {
+   "class": "internal",
+   "who": "svc:network from {kernel, app-host, identity (self-issued), scheduler, launcher, decision, workflow} \u2014 operator realm (slice-1f)"
+  },
+  "POST /v1/certificates/retire": {
+   "class": "authority",
+   "who": "component publisher (_require_publisher)"
+  },
+  "POST /v1/certify": {
+   "class": "authority",
+   "who": "component publisher (_require_publisher)"
+  },
+  "POST /v1/credentials/accept": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /v1/credentials/issue": {
+   "body": {
+    "holder": "probe",
+    "issuer_tenant": "probe"
+   },
+   "class": "authority",
+   "ordering": "validates/looks up before authenticating \u2014 reorder (auth first)",
+   "who": "credential issuer of the tenant (_require_issuer)"
+  },
+  "POST /v1/credentials/revoke": {
+   "class": "authority",
+   "who": "credential issuer of the tenant (_require_issuer)"
+  },
+  "POST /v1/credentials/verify": {
+   "class": "public",
+   "why": "public credential verifier"
+  },
+  "POST /v1/data-requests": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /v1/data-requests/decide": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/directory/resolve": {
+   "class": "internal",
+   "who": "svc:network from {kernel, app-host, identity (self-issued), scheduler, launcher, decision, workflow} \u2014 operator realm (slice-1f)"
+  },
+  "POST /v1/domains": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/email/send": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /v1/federation/mail/ack": {
+   "class": "authority",
+   "who": "network member (_require_member)"
+  },
+  "POST /v1/federation/mail/inbox": {
+   "class": "authority",
+   "who": "network member (_require_member)"
+  },
+  "POST /v1/federation/mail/relay": {
+   "class": "authority",
+   "who": "network member (_require_member)"
+  },
+  "POST /v1/federation/offerings": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /v1/federation/offerings/retire": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /v1/file-shares": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /v1/file-shares/decide": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/file-shares/withdraw": {
+   "class": "login",
+   "who": "any authenticated principal (bearer token verified)"
+  },
+  "POST /v1/files": {
+   "class": "login",
+   "who": "any authenticated principal (bearer token verified)"
+  },
+  "POST /v1/grants": {
+   "body": {
+    "grant": {
+     "id": "ds:probe:grant/x",
+     "signature": {}
+    }
+   },
+   "class": "authority",
+   "ordering": "validates/looks up before authenticating \u2014 reorder (auth first)",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/grants/issue": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/grants/resolve": {
+   "class": "internal",
+   "who": "svc:network from {kernel, app-host, identity (self-issued), scheduler, launcher, decision, workflow} \u2014 operator realm (slice-1f)"
+  },
+  "POST /v1/grants/revoke": {
+   "body": {
+    "grant_id": "ds:probe:grant/x"
+   },
+   "class": "authority",
+   "ordering": "validates/looks up before authenticating \u2014 reorder (auth first)",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/grants/revoke-for": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/interface-requests": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /v1/interface-requests/decide": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/interfaces": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/interfaces/bind": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/interfaces/deprecate": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/interfaces/resolve": {
+   "class": "internal",
+   "who": "svc:network from {kernel, app-host, identity (self-issued), scheduler, launcher, decision, workflow} \u2014 operator realm (slice-1f)"
+  },
+  "POST /v1/join": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /v1/join/decide": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/join/request-code": {
+   "class": "public",
+   "why": "apply: email verification code (PLT-15) \u2014 needs DEBT-B46"
+  },
+  "POST /v1/join/verify-code": {
+   "class": "public",
+   "why": "apply: verify code (PLT-15)"
+  },
+  "POST /v1/jurisdictions": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/jurisdictions/resolve": {
+   "class": "internal",
+   "who": "svc:network from {kernel, app-host, identity (self-issued), scheduler, launcher, decision, workflow} \u2014 operator realm (slice-1f)"
+  },
+  "POST /v1/keys": {
+   "body": {
+    "challenge": "x",
+    "id": "probe",
+    "public_key": "x",
+    "signature": "x"
+   },
+   "class": "login",
+   "ordering": "validates/looks up before authenticating \u2014 reorder (auth first)",
+   "who": "any authenticated principal (bearer token verified)"
+  },
+  "POST /v1/keys/challenge": {
+   "class": "public",
+   "why": "proof-of-possession challenge nonce"
+  },
+  "POST /v1/keys/resolve": {
+   "class": "internal",
+   "who": "svc:network from {kernel, app-host, identity (self-issued), scheduler, launcher, decision, workflow} \u2014 operator realm (slice-1f)"
+  },
+  "POST /v1/network/services": {
+   "class": "login",
+   "who": "any authenticated principal (bearer token verified)"
+  },
+  "POST /v1/network/services/apply": {
+   "class": "login",
+   "who": "any authenticated principal (bearer token verified)"
+  },
+  "POST /v1/network/services/decide": {
+   "class": "login",
+   "who": "any authenticated principal (bearer token verified)"
+  },
+  "POST /v1/networks": {
+   "class": "authority",
+   "who": "network.admin (recorded role, _require_network_admin)"
+  },
+  "POST /v1/pack-requests": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /v1/pack-requests/decide": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/packs": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/packs/resolve": {
+   "class": "internal",
+   "who": "svc:network from {kernel, app-host, identity (self-issued), scheduler, launcher, decision, workflow} \u2014 operator realm (slice-1f)"
+  },
+  "POST /v1/participant/profile": {
+   "class": "login",
+   "who": "any authenticated principal (bearer token verified)"
+  },
+  "POST /v1/participants": {
+   "body": {
+    "participant_id": "ds:probe:participant/x"
+   },
+   "class": "authority",
+   "ordering": "validates/looks up before authenticating \u2014 reorder (auth first)",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/participation/decide": {
+   "body": {
+    "network": "probe",
+    "participant": "probe"
+   },
+   "class": "authority",
+   "ordering": "validates/looks up before authenticating \u2014 reorder (auth first)",
+   "who": "network.admin (recorded role, _require_network_admin)"
+  },
+  "POST /v1/participation/ekyc-admit": {
+   "class": "login",
+   "who": "any authenticated principal (bearer token verified)"
+  },
+  "POST /v1/participation/request": {
+   "class": "public",
+   "why": "remote self-asserted applications (ADR-0084) \u2014 pending until a network admin decides"
+  },
+  "POST /v1/receipts/data-read": {
+   "class": "internal",
+   "who": "svc:network from {kernel, app-host, identity (self-issued), scheduler, launcher, decision, workflow} \u2014 operator realm (slice-1f)"
+  },
+  "POST /v1/resolve": {
+   "class": "internal",
+   "who": "svc:network from {kernel, app-host, identity (self-issued), scheduler, launcher, decision, workflow} \u2014 operator realm (slice-1f)"
+  },
+  "POST /v1/role-requests": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /v1/role-requests/decide": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/roles": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/runtime/attest": {
+   "class": "login",
+   "who": "any authenticated principal (bearer token verified)"
+  },
+  "POST /v1/schema-requests": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /v1/schema-requests/decide": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/schema-requests/retract": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /v1/schemas": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/schemas/advise": {
+   "class": "public",
+   "why": "deterministic schema house-rule check (no data, no model call)"
+  },
+  "POST /v1/schemas/resolve": {
+   "class": "internal",
+   "who": "svc:network from {kernel, app-host, identity (self-issued), scheduler, launcher, decision, workflow} \u2014 operator realm (slice-1f)"
+  },
+  "POST /v1/service-offerings": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/service-offerings/resolve": {
+   "class": "internal",
+   "who": "svc:network from {kernel, app-host, identity (self-issued), scheduler, launcher, decision, workflow} \u2014 operator realm (slice-1f)"
+  },
+  "POST /v1/service-offerings/retire": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/service-offerings/steward": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/service/route": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /v1/service/search": {
+   "class": "public",
+   "why": "public offerings for anonymous callers, members' catalogue with a token (NET-12)"
+  },
+  "POST /v1/service/transactions/status": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /v1/solutions": {
+   "class": "authority",
+   "who": "component publisher (_require_publisher)"
+  },
+  "POST /v1/solutions/install": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/specs/search": {
+   "class": "public",
+   "why": "read-only search over governed specs (public catalogue)"
+  },
+  "POST /v1/store/deprecate": {
+   "class": "authority",
+   "who": "component publisher (_require_publisher)"
+  },
+  "POST /v1/store/publish": {
+   "class": "authority",
+   "who": "component publisher (_require_publisher)"
+  },
+  "POST /v1/store/publish-requests": {
+   "class": "login",
+   "who": "refused anonymously; gate not identified by the classifier \u2014 reviewed as login"
+  },
+  "POST /v1/store/publish-requests/decide": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/store/resolve": {
+   "class": "internal",
+   "who": "svc:network from {kernel, app-host, identity (self-issued), scheduler, launcher, decision, workflow} \u2014 operator realm (slice-1f)"
+  },
+  "POST /v1/store/retire": {
+   "class": "authority",
+   "who": "component publisher (_require_publisher)"
+  },
+  "POST /v1/store/revoke": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/tenants": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/tenants/rehost": {
+   "body": {
+    "host_operator": "x",
+    "tenant_id": "probe"
+   },
+   "class": "authority",
+   "ordering": "validates/looks up before authenticating \u2014 reorder (auth first)",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/tenants/resolve": {
+   "class": "internal",
+   "who": "svc:network from {kernel, app-host, identity (self-issued), scheduler, launcher, decision, workflow} \u2014 operator realm (slice-1f)"
+  },
+  "POST /v1/trusted-issuers": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/trusted-issuers/list": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  },
+  "POST /v1/trusted-issuers/revoke": {
+   "class": "authority",
+   "who": "tenant admin/steward of the named tenant (_require_admin)"
+  }
+ },
+ "notify": {
+  "GET /healthz": {
+   "class": "public",
+   "why": "health/liveness probe \u2014 no data"
+  },
+  "POST /notify": {
+   "class": "internal",
+   "who": "svc:notify from {decision, workflow}"
+  }
+ },
+ "runtime-manager": {
+  "GET /healthz": {
+   "class": "public",
+   "why": "health/liveness probe \u2014 no data"
+  },
+  "POST /v1/ensure-connector": {
+   "class": "internal",
+   "who": "svc:runtime-manager from {scheduler, kernel}"
+  },
+  "POST /v1/invoke": {
+   "class": "internal",
+   "who": "svc:runtime-manager from {scheduler, kernel}"
+  }
+ },
+ "scheduler": {
+  "GET /healthz": {
+   "class": "public",
+   "why": "health/liveness probe \u2014 no data"
+  },
+  "GET /runs": {
+   "class": "internal",
+   "who": "svc:scheduler from {app-host}"
+  },
+  "GET /schedules": {
+   "class": "internal",
+   "who": "svc:scheduler from {app-host}"
+  },
+  "POST /reload": {
+   "class": "internal",
+   "who": "svc:scheduler from {app-host}"
+  },
+  "POST /run": {
+   "class": "internal",
+   "who": "svc:scheduler from {app-host}"
+  }
+ },
+ "secrets": {
+  "GET /healthz": {
+   "class": "public",
+   "why": "health/liveness probe \u2014 no data"
+  },
+  "POST /copy": {
+   "class": "internal",
+   "who": "svc:secrets from {kernel (/fetch), launcher (/materialize)}"
+  },
+  "POST /fetch": {
+   "class": "internal",
+   "who": "svc:secrets from {kernel (/fetch), launcher (/materialize)}"
+  },
+  "POST /materialize": {
+   "class": "internal",
+   "who": "svc:secrets from {kernel (/fetch), launcher (/materialize)}"
+  },
+  "POST /rotate": {
+   "class": "internal",
+   "who": "svc:secrets from {kernel (/fetch), launcher (/materialize)}"
+  },
+  "POST /set": {
+   "class": "internal",
+   "who": "svc:secrets from {kernel (/fetch), launcher (/materialize)}"
+  },
+  "POST /status": {
+   "class": "internal",
+   "who": "svc:secrets from {kernel (/fetch), launcher (/materialize)}"
+  }
+ },
+ "workflow": {
+  "GET /healthz": {
+   "class": "public",
+   "why": "health/liveness probe \u2014 no data"
+  },
+  "POST /complete-task": {
+   "class": "login",
+   "who": "bearer authority / assignee token"
+  },
+  "POST /instantiate": {
+   "class": "login",
+   "who": "bearer authority / assignee token"
+  }
+ }
+}

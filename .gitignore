@@ -6,8 +6,19 @@
 !/docker-compose.yml
 !/README.md
 !/LIMITATIONS.md
+!/CONTRIBUTING.md
+!/CODEOWNERS
+!/.github/
 !/ALPHA-RELEASE-PLAN.md
 !/deploy/
+# conformance suite (run.py, flow-map, vault-scope, matrix) — tracked; its own .gitignore keeps the generated
+# .creds.json (passwords) and results/ out of git.
+!/conformance/
+!/verify/
+!/Makefile
+# root docs tree (specs, decisions/ADRs, operator guide, consolidation) — tracked normally; genuine
+# artefacts are still excluded by the per-type rules below (*.pem/*.key/.DS_Store) + any docs/ artefact rule.
+!/docs/
 # standalone auxiliary services deployed alongside the stack (not big enough for their own repo yet)
 !/services/
 # never track the data dump or keys even under deploy/
@@ -17,3 +28,19 @@ deploy/ec2/seed/*.sql
 
 deploy/ec2/.env
 deploy/**/init.json
+.DS_Store
+
+# slice-1h (DEBT-B102): backups hold the credential set (Vault unseal key, service secrets; never a root token — slice-1j) — never committed
+deploy/local-dev/backups/
+# slice-1j: restore keeps the previous host secrets here until the restored stack is healthy
+deploy/local-dev/.restore-prev/
+# slice-1k: volume sets — each set's host secrets (.env, approle/*.env) and the restore journal; .env and vault/approle are
+# symlinks into the active set (never commit any of them)
+deploy/local-dev/sets/
+# Layer 1 merge: the last local image build's machine-specific ids (informational; the tracked lock holds pinned inputs)
+deploy/local-dev/IMAGES.built.json
+deploy/local-dev/vault/approle
+
+# compiled Python — never tracked (slice-1i: tracked .pyc dirtied the tree on every test run)
+__pycache__/
+*.pyc

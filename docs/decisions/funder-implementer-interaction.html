@@ -1,0 +1,245 @@
+<title>The Funder ↔ Implementer Interaction</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --bg:#eef1ef; --surface:#ffffff; --surface2:#f5f7f5; --ink:#14211c; --dim:#5c6d66; --line:#d5ddd8;
+    --funder:#b07d16; --funder-fill:#f6edd6; --impl:#0d7f82; --impl-fill:#dcefef; --gate:#c2410c;
+    --shadow:0 1px 2px rgba(20,33,28,.06),0 8px 30px rgba(20,33,28,.05);
+  }
+  @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+    --bg:#0a1310; --surface:#10201a; --surface2:#0d1b16; --ink:#eafef4; --dim:#8fb6a4; --line:#23372d;
+    --funder:#e8c24b; --funder-fill:#241d0d; --impl:#2fd0c8; --impl-fill:#0b2320; --gate:#f0954a;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 34px rgba(0,0,0,.35);
+  }}
+  :root[data-theme="dark"]{
+    --bg:#0a1310; --surface:#10201a; --surface2:#0d1b16; --ink:#eafef4; --dim:#8fb6a4; --line:#23372d;
+    --funder:#e8c24b; --funder-fill:#241d0d; --impl:#2fd0c8; --impl-fill:#0b2320; --gate:#f0954a;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 34px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.6;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1000px;margin:0 auto;padding:44px 22px 80px}
+  .serif{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif}
+  .mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+  header .eyebrow{font:600 11.5px ui-monospace,monospace;letter-spacing:.24em;text-transform:uppercase;color:var(--impl)}
+  header h1{margin:.32em 0 .1em;font-size:clamp(28px,5vw,42px);font-weight:600;line-height:1.1;letter-spacing:-.01em;text-wrap:balance}
+  header .funder-word{color:var(--funder)} header .impl-word{color:var(--impl)}
+  header p.lede{font-size:17px;color:var(--dim);max-width:64ch;margin:.4em 0 0}
+  .rule{height:1px;background:var(--line);border:0;margin:34px 0}
+  figure{margin:0}
+  .figbox{background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);
+    padding:14px;overflow-x:auto}
+  .figbox svg{display:block;width:100%;min-width:660px;height:auto}
+  figcaption{color:var(--dim);font-size:13.5px;margin-top:12px;text-align:center;text-wrap:balance}
+  .keys{display:flex;gap:20px;flex-wrap:wrap;justify-content:center;margin:14px 0 0;font-size:13px;color:var(--dim)}
+  .keys b{color:var(--ink);font-weight:600}
+  .swatch{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:middle;margin-right:6px}
+  h2{font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:0 0 16px}
+  .section{margin-top:46px}
+  .pre{background:var(--surface2);border:1px solid var(--line);border-left:3px solid var(--impl);border-radius:12px;
+    padding:14px 18px;font-size:14.5px;color:var(--ink);margin-bottom:22px}
+  .steps{display:flex;flex-direction:column;gap:14px}
+  .step{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:16px 18px;box-shadow:var(--shadow);
+    display:grid;grid-template-columns:44px 1fr;gap:16px;align-items:start}
+  .step .n{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font:700 16px ui-monospace,monospace;
+    background:var(--surface2)}
+  .step.f .n{border:1.5px solid var(--funder);color:var(--funder)}
+  .step.i .n{border:1.5px solid var(--impl);color:var(--impl)}
+  .step h3{margin:0 0 3px;font-size:16.5px;font-weight:650;display:flex;gap:9px;align-items:baseline;flex-wrap:wrap}
+  .dir{font:600 10.5px ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:999px;white-space:nowrap}
+  .dir.f{background:var(--funder-fill);color:var(--funder)}
+  .dir.i{background:var(--impl-fill);color:var(--impl)}
+  .step p{margin:6px 0 0;font-size:14.5px;color:var(--ink)}
+  .step .meta{margin-top:9px;display:flex;gap:8px;flex-wrap:wrap;font-size:12px}
+  .tag{background:var(--surface2);border:1px solid var(--line);border-radius:7px;padding:3px 9px;color:var(--dim)}
+  .tag .mono{color:var(--ink)}
+  .gatecard{border-left:3px solid var(--gate)}
+  .gatecard .rulez{color:var(--gate);font-weight:650}
+  .ladder{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:18px 20px;box-shadow:var(--shadow)}
+  .ladder .chain{font:600 14px ui-monospace,monospace;color:var(--dim);line-height:2;overflow-x:auto;white-space:nowrap;padding-bottom:4px}
+  .ladder .chain b{color:var(--ink)} .ladder .chain .f{color:var(--funder)} .ladder .chain .i{color:var(--impl)}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px}
+  @media(max-width:640px){.cols{grid-template-columns:1fr}}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:15px 17px;box-shadow:var(--shadow)}
+  .card h4{margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+  .card.new h4{color:var(--funder)} .card.reuse h4{color:var(--impl)}
+  .card ul{margin:0;padding-left:18px;font-size:13.5px;color:var(--ink)}
+  .card li{margin:4px 0}
+  .card .mono{font-size:12.5px}
+  footer{margin-top:50px;color:var(--dim);font-size:12.5px;text-align:center}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Airawat · ADR-0071 / ADR-0072</div>
+  <h1 class="serif">The <span class="funder-word">Funder</span> ↔ <span class="impl-word">Implementer</span> Interaction</h1>
+  <p class="lede">One relationship, applied recursively, is the whole federation. Two roles — a <b>Funding Agency</b> that holds the envelope and a <b>Implementing Agency</b> that does the work — exchange six governed objects. The rule that binds them: <em>money cannot move until information moves</em>.</p>
+</header>
+
+<hr class="rule">
+
+<figure>
+  <div class="figbox">
+  <svg viewBox="0 0 920 700" role="img" aria-label="Diagram of the funder to implementer interaction: two role lanes exchanging six numbered governed objects, with a milestone gate between reporting and money release.">
+    <defs>
+      <marker id="ah-f" markerWidth="11" markerHeight="11" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 Z" fill="var(--funder)"/></marker>
+      <marker id="ah-i" markerWidth="11" markerHeight="11" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 Z" fill="var(--impl)"/></marker>
+    </defs>
+
+    <!-- lanes -->
+    <rect x="34" y="60" width="156" height="612" rx="16" fill="var(--funder-fill)" stroke="var(--funder)" stroke-width="1.5"/>
+    <rect x="730" y="60" width="156" height="612" rx="16" fill="var(--impl-fill)" stroke="var(--impl)" stroke-width="1.5"/>
+    <text x="112" y="90" text-anchor="middle" font-size="14" font-weight="700" fill="var(--funder)">FUNDING</text>
+    <text x="112" y="108" text-anchor="middle" font-size="14" font-weight="700" fill="var(--funder)">AGENCY</text>
+    <text x="112" y="130" text-anchor="middle" font-size="11.5" fill="var(--dim)">holds the</text>
+    <text x="112" y="145" text-anchor="middle" font-size="11.5" fill="var(--dim)">envelope</text>
+    <text x="808" y="90" text-anchor="middle" font-size="14" font-weight="700" fill="var(--impl)">IMPLEMENTING</text>
+    <text x="808" y="108" text-anchor="middle" font-size="14" font-weight="700" fill="var(--impl)">AGENCY</text>
+    <text x="808" y="130" text-anchor="middle" font-size="11.5" fill="var(--dim)">does the</text>
+    <text x="808" y="145" text-anchor="middle" font-size="11.5" fill="var(--dim)">work</text>
+
+    <!-- ROW 1: need up (impl -> funder) y=200 -->
+    <line x1="726" y1="200" x2="196" y2="200" stroke="var(--impl)" stroke-width="2" marker-end="url(#ah-i)"/>
+    <text x="460" y="184" text-anchor="middle" font-size="14" font-weight="650" fill="var(--ink)" font-family="ui-monospace,monospace">welfare need · aggregate</text>
+    <text x="460" y="222" text-anchor="middle" font-size="11.5" fill="var(--dim)">aggregator lane · N below floor, raw stays local</text>
+    <circle cx="460" cy="200" r="15" fill="var(--surface)" stroke="var(--impl)" stroke-width="2"/>
+    <text x="460" y="205" text-anchor="middle" font-size="14" font-weight="700" fill="var(--impl)">1</text>
+
+    <!-- ROW 2: program down (funder -> impl) y=286 -->
+    <line x1="196" y1="286" x2="726" y2="286" stroke="var(--funder)" stroke-width="2" marker-end="url(#ah-f)"/>
+    <text x="460" y="270" text-anchor="middle" font-size="14" font-weight="650" fill="var(--ink)" font-family="ui-monospace,monospace">funding.program</text>
+    <text x="460" y="308" text-anchor="middle" font-size="11.5" fill="var(--dim)">directory + matcher · envelope · eligibility · co-funding</text>
+    <circle cx="460" cy="286" r="15" fill="var(--surface)" stroke="var(--funder)" stroke-width="2"/>
+    <text x="460" y="291" text-anchor="middle" font-size="14" font-weight="700" fill="var(--funder)">2</text>
+
+    <!-- ROW 3: proposal up (impl -> funder) y=372 -->
+    <line x1="726" y1="372" x2="196" y2="372" stroke="var(--impl)" stroke-width="2" marker-end="url(#ah-i)"/>
+    <text x="460" y="356" text-anchor="middle" font-size="14" font-weight="650" fill="var(--ink)" font-family="ui-monospace,monospace">project.proposal</text>
+    <text x="460" y="394" text-anchor="middle" font-size="11.5" fill="var(--dim)">Case rails · answers · site · intervention · ask</text>
+    <circle cx="460" cy="372" r="15" fill="var(--surface)" stroke="var(--impl)" stroke-width="2"/>
+    <text x="460" y="377" text-anchor="middle" font-size="14" font-weight="700" fill="var(--impl)">3</text>
+
+    <!-- ROW 4: award down (funder -> impl) y=458 -->
+    <line x1="196" y1="458" x2="726" y2="458" stroke="var(--funder)" stroke-width="2" marker-end="url(#ah-f)"/>
+    <text x="460" y="442" text-anchor="middle" font-size="14" font-weight="650" fill="var(--ink)" font-family="ui-monospace,monospace">funding.award</text>
+    <text x="460" y="480" text-anchor="middle" font-size="11.5" fill="var(--dim)">decision + VC · signed share · Σ≥ask → project</text>
+    <circle cx="460" cy="458" r="15" fill="var(--surface)" stroke="var(--funder)" stroke-width="2"/>
+    <text x="460" y="463" text-anchor="middle" font-size="14" font-weight="700" fill="var(--funder)">4</text>
+
+    <!-- ROW 5: report up (impl -> funder) y=560 -->
+    <line x1="726" y1="560" x2="196" y2="560" stroke="var(--impl)" stroke-width="2" marker-end="url(#ah-i)"/>
+    <text x="460" y="544" text-anchor="middle" font-size="14" font-weight="650" fill="var(--ink)" font-family="ui-monospace,monospace">milestone VC · Plan-vs-Actual</text>
+    <text x="460" y="582" text-anchor="middle" font-size="11.5" fill="var(--dim)">progress subscription · report once, N funders</text>
+    <circle cx="460" cy="560" r="15" fill="var(--surface)" stroke="var(--impl)" stroke-width="2"/>
+    <text x="460" y="565" text-anchor="middle" font-size="14" font-weight="700" fill="var(--impl)">5</text>
+
+    <!-- GATE between 5 and 6 -->
+    <line x1="270" y1="611" x2="650" y2="611" stroke="var(--gate)" stroke-width="1.4" stroke-dasharray="4 4" opacity=".8"/>
+    <rect x="392" y="600" width="136" height="22" rx="11" fill="var(--surface)" stroke="var(--gate)" stroke-width="1.4"/>
+    <text x="460" y="615" text-anchor="middle" font-size="11" font-weight="700" fill="var(--gate)">🔒 verified milestone</text>
+
+    <!-- ROW 6: tranche down (funder -> impl) y=648 -->
+    <line x1="196" y1="648" x2="726" y2="648" stroke="var(--funder)" stroke-width="2" marker-end="url(#ah-f)"/>
+    <text x="460" y="640" text-anchor="middle" font-size="14" font-weight="650" fill="var(--ink)" font-family="ui-monospace,monospace">tranche release</text>
+    <text x="460" y="672" text-anchor="middle" font-size="11.5" fill="var(--dim)">decided change-request · ledger + VC receipt</text>
+    <circle cx="460" cy="648" r="15" fill="var(--surface)" stroke="var(--funder)" stroke-width="2"/>
+    <text x="460" y="653" text-anchor="middle" font-size="14" font-weight="700" fill="var(--funder)">6</text>
+  </svg>
+  </div>
+  <div class="keys">
+    <span><span class="swatch" style="background:var(--funder)"></span><b>Funding Agency</b> originates ↓</span>
+    <span><span class="swatch" style="background:var(--impl)"></span><b>Implementing Agency</b> originates ↑</span>
+    <span><span class="swatch" style="background:var(--gate)"></span><b>Information-gates-money</b> — exchange 5 is the precondition of 6</span>
+  </div>
+  <figcaption>One edge = six governed exchanges. Arrow colour marks who originates; the object each carries is a governed noun on an existing rail.</figcaption>
+</figure>
+
+<div class="section">
+  <h2>The end-to-end sequence</h2>
+  <div class="pre"><b>Precondition.</b> Both parties are provisioned tenants on the <span class="mono">network.jurisdiction</span> ladder, each sovereign over its own data. The Funder holds an envelope (<span class="mono">finance.budget</span>); the Implementer runs the welfare spine (ADR-0069) over its own city.</div>
+  <div class="steps">
+
+    <div class="step i"><div class="n">1</div><div>
+      <h3>Need signal <span class="dir i">Implementer → Funder</span></h3>
+      <p>The Implementer publishes its <b>aggregated</b> welfare need — "N people below the crowding floor", "M below the water floor". The Funder subscribes. Only aggregates cross the tenant boundary; raw per-cell / per-household data never leaves. The Funder now sizes envelopes against <em>live</em> ground truth, not a stale survey.</p>
+      <div class="meta"><span class="tag">rail · <span class="mono">aggregator lane</span></span><span class="tag">honest intervals survive the rollup (ADR-0070)</span></div>
+    </div></div>
+
+    <div class="step f"><div class="n">2</div><div>
+      <h3>Program offer <span class="dir f">Funder → Implementer</span></h3>
+      <p>The Funder publishes a <span class="mono">funding.program</span> to the directory: the envelope, the eligibility rule, the <b>co-funding structure</b> (its own share + any co-funders), and the reporting terms that will govern release. The matcher surfaces the program to <em>eligible</em> Implementers as candidates — a human picks; the platform never auto-applies.</p>
+      <div class="meta"><span class="tag">rail · <span class="mono">directory + matcher</span></span><span class="tag">terms travel with the money</span></div>
+    </div></div>
+
+    <div class="step i"><div class="n">3</div><div>
+      <h3>Proposal / application <span class="dir i">Implementer → Funder</span></h3>
+      <p>The Implementer's officer (the Junior-Engineer feasibility step — the human decision gate) authors a <span class="mono">project.proposal</span>: the diagnosis it answers, the site, the chosen intervention lever, a results contract, a costed budget, and the <b>ask</b>. It is submitted to the program over the Case rails (directed) — or listed openly for discovery.</p>
+      <div class="meta"><span class="tag">rail · <span class="mono">Case rails (ADR-0067)</span></span><span class="tag">pre-money · rejectable · resubmittable</span></div>
+    </div></div>
+
+    <div class="step f"><div class="n">4</div><div>
+      <h3>Appraisal &amp; award <span class="dir f">Funder → Implementer</span></h3>
+      <p>The Funder appraises in its own Inbox/Case queue. A human sanction is a <span class="mono">governance.decision</span>; on approve it issues a <span class="mono">funding.award</span> — its <b>share</b>, signed from its tenant, <b>partial-capable</b> so several awards stack. The proposal accrues awards until <b>Σ awards ≥ ask</b>; the award that closes the gap flips <span class="mono">proposal → project</span> (the state transition) and is issued as a VC the Implementer holds.</p>
+      <div class="meta"><span class="tag">rail · <span class="mono">decision spine + VC</span></span><span class="tag">co-funding = many funder-edges at once</span></div>
+    </div></div>
+
+    <div class="step i"><div class="n">5</div><div>
+      <h3>Subscription &amp; report <span class="dir i">Implementer → Funder</span></h3>
+      <p>The Implementer executes; the Project layer emits receipts, Plan-vs-Actual, and <b>milestone VCs</b> as it goes. Each Funder holds a <b>progress subscription</b> — a governed read-grant on that one project. It reports <em>once</em>; every co-funder sees the same tamper-evident numbers. No parallel portals, no reconciliation.</p>
+      <div class="meta"><span class="tag">rail · <span class="mono">progress subscription</span> (aggregator lane, reverse)</span><span class="tag">one truth · N subscribers</span></div>
+    </div></div>
+
+    <div class="step f gatecard"><div class="n">6</div><div>
+      <h3>Tranche release <span class="dir f">Funder → Implementer</span></h3>
+      <p>The Funder's next instalment is a <span class="mono">decided change-request</span> whose <b>precondition is a verified milestone VC</b> on its subscription. On human admit, it posts the release in its <em>own</em> ledger (<span class="mono">finance.transaction</span>) and issues a VC receipt. Each co-funder releases its share against the <em>same</em> milestone.</p>
+      <p class="rulez">↳ This is exchange 5 gating exchange 6: money cannot move until the information moves.</p>
+      <div class="meta"><span class="tag">rail · <span class="mono">decision spine + finance</span></span><span class="tag">human-admitted · platform supplies the precondition, never moves money</span></div>
+    </div></div>
+
+  </div>
+</div>
+
+<div class="section">
+  <h2>Why it composes — roles are relational</h2>
+  <div class="ladder">
+    <p style="margin:0 0 10px;font-size:14.5px">A tenant is not "a funder" or "an implementer" in the abstract — it plays a role <em>per edge</em>. The same body is an implementer facing up and a funder facing down. Chain the one dyad and the jurisdiction ladder appears; nothing new is invented at each rung.</p>
+    <div class="chain">
+      <span class="f">Funder</span> ──▶ <span class="i">Implementer</span> &nbsp;&nbsp;<b>(ministry → state)</b><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─ also <span class="f">Funder</span> ──▶ <span class="i">Implementer</span> &nbsp;&nbsp;<b>(state → city)</b><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─ also <span class="f">Funder</span> ──▶ <span class="i">Beneficiary</span> &nbsp;&nbsp;<b>(city → citizen)</b>
+    </div>
+    <p style="margin:12px 0 0;font-size:13.5px;color:var(--dim)">An <b>intermediary agency</b> (the state) is implementer-facing-up + funder-facing-down: it re-aggregates need upward (exchange 1) and re-packages programs downward (exchange 2). <b>Co-funding</b> is one implementer holding funder-edges to several funders simultaneously — the 60:40 stack of exchange 4.</p>
+  </div>
+</div>
+
+<div class="section">
+  <h2>What this leans on vs. what is new</h2>
+  <div class="cols">
+    <div class="card reuse"><h4>Reused — already built</h4>
+      <ul>
+        <li>Jurisdiction ladder + service federation <span class="mono">(ADR-0067)</span></li>
+        <li>Cross-tenant aggregator lane — both directions</li>
+        <li>Decision spine <span class="mono">(ADR-0029)</span> + Inbox / Case</li>
+        <li>Project layer — receipts + Plan-vs-Actual</li>
+        <li>Finance core — double-entry ledger</li>
+        <li>Verifiable Credentials <span class="mono">(ADR-0049)</span></li>
+        <li>The internal agency stack is <em>identical</em> for every tenant — role is config</li>
+      </ul>
+    </div>
+    <div class="card new"><h4>New — to build</h4>
+      <ul>
+        <li><span class="mono">funding.program</span> co-funding structure</li>
+        <li><span class="mono">funding.award</span> — signed, partial, stacking</li>
+        <li>Funding stack rule — <span class="mono">Σ awards ≥ ask</span></li>
+        <li>Cross-tenant <b>progress subscription</b></li>
+        <li><b>Tranche-release gate</b> — release ⇐ verified milestone</li>
+        <li>Hierarchical need aggregation up the ladder</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<footer>Airawat · the funder ↔ implementer dyad · design collateral for ADR-0071 (single-tenant funding) + ADR-0072 (federated / multi-funder). Next: instantiate the ladder, then each agency's internal systems.</footer>
+</div>

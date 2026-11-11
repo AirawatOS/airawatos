@@ -8,3 +8,19 @@
 **/vault-data
 scratchpad
 *.log
+
+# slice-1g (DEBT-B94): secrets, credentials and runtime data NEVER enter a build context
+**/.env
+**/.env.*
+**/*.env
+**/approle
+**/.creds.json
+**/*creds*.json
+**/init.json
+**/results
+**/vault-data
+**/pgdata
+**/*.jsonl
+**/.venv
+**/*.pem
+**/*.key

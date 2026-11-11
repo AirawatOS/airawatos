@@ -1,5 +1,7 @@
 # Airawat
 
+> **Install locally:** follow [`docs/operator/INSTALL-LOCAL.md`](docs/operator/INSTALL-LOCAL.md). How changes reach `main`: [`CONTRIBUTING.md`](CONTRIBUTING.md). (`deploy/local/` is legacy.)
+
 Airawat is the organisation behind **AirawatOS** — a platform for accountable, federated public-data governance — and the **AirawatNetwork** federation authority. This workspace holds one folder **per repository**: each layer is developed, versioned, and certified independently. The structure separates the **reference implementation**, the **federation authority**, and the **domain distributions** built on top.
 
 > **Two-tier brand.** *AirawatOS* is the base platform (kernel + SDK + platform apps) — developer/operator-facing. **Airawat CityOS / HealthOS / JusticeOS …** are **domain distributions** — the customer-facing products, each = AirawatOS + that vertical's domain packs + apps + components + seed.

@@ -1,0 +1,372 @@
+<div style="overflow-wrap:anywhere;max-width:100%"><h1>Build "Water Intelligence" yourself — from the Console</h1>
+<p>This guide shows a developer how to build the <strong>Water Intelligence</strong> solution end‑to‑end using only the in‑platform <strong>Console</strong>, on a sandbox (development) tenant such as <code style="overflow-wrap:anywhere;word-break:break-word">airawatdeveloper</code>. Everything is governed data + certified components — no hand‑editing of servers.</p>
+<p>&gt; <strong>What you'll build:</strong> an ingest driver that turns a utility's complaint export into geocoded <code style="overflow-wrap:anywhere;word-break:break-word">water.complaint</code> facts, two analysis engines (<code style="overflow-wrap:anywhere;word-break:break-word">water.hotspot</code>, <code style="overflow-wrap:anywhere;word-break:break-word">water.signal</code>/<code style="overflow-wrap:anywhere;word-break:break-word">water.overview</code>), a seed driver that ships the taxonomy + configuration as data, and a dashboard app — all configurable so the same code serves any water utility.</p>
+<hr>
+<h2>0. The shape of the solution</h2>
+<p><strong>Governed vocabulary &amp; config (data, not code):</strong></p>
+<ul><li><code style="overflow-wrap:anywhere;word-break:break-word">water.category</code> — the water‑issue taxonomy: <code style="overflow-wrap:anywhere;word-break:break-word">{code, label, domain, keywords[], order}</code>. Drives normalization (keywords→code), the sewer/water/tanker grouping, and dashboard labels.</li><li><code style="overflow-wrap:anywhere;word-break:break-word">water.record_kind</code> — contact‑type vocabulary: <code style="overflow-wrap:anywhere;word-break:break-word">{code, label, is_complaint}</code> (e.g. complaint / query / no_response_call).</li><li><code style="overflow-wrap:anywhere;word-break:break-word">water.config</code> — the <strong>Solution Configuration</strong>: agency name, dashboard title/subtitle, live‑vs‑snapshot flag, zone label, source attributions, severity thresholds, analysis windows. One record per tenant (<code style="overflow-wrap:anywhere;word-break:break-word">ds:&lt;tenant&gt;:water/config/default</code>).</li></ul>
+<p><strong>Facts (the data the solution produces):</strong></p>
+<ul><li><code style="overflow-wrap:anywhere;word-break:break-word">water.complaint</code> — one geocoded complaint (requires <code style="overflow-wrap:anywhere;word-break:break-word">h3</code> for mapping).</li><li><code style="overflow-wrap:anywhere;word-break:break-word">water.hotspot</code> — a hot H3 cell: count, dominant category, severity, <code style="overflow-wrap:anywhere;word-break:break-word">rate_per_10k</code>.</li><li><code style="overflow-wrap:anywhere;word-break:break-word">water.signal</code> — reopen / recurring / emerging operational signals.</li><li><code style="overflow-wrap:anywhere;word-break:break-word">water.overview</code> — one compact projection (totals, distributions, daily trend) the dashboard reads.</li></ul>
+<p><strong>Components:</strong></p>
+<table style="display:block;overflow-x:auto;max-width:100%"><thead><tr><th>Component</th><th>Kind</th><th>Reads</th><th>Writes</th></tr></thead><tbody><tr><td><code style="overflow-wrap:anywhere;word-break:break-word">water-setup</code></td><td>driver</td><td>—</td><td>water.category, water.record_kind, water.config</td></tr><tr><td><code style="overflow-wrap:anywhere;word-break:break-word">water-complaints</code></td><td>driver</td><td>water.category</td><td>water.complaint</td></tr><tr><td><code style="overflow-wrap:anywhere;word-break:break-word">water-hotspots</code></td><td>engine</td><td>water.complaint, water.record_kind, water.config</td><td>water.hotspot</td></tr><tr><td><code style="overflow-wrap:anywhere;word-break:break-word">water-signals</code></td><td>engine</td><td>water.complaint, water.category, water.record_kind, water.config</td><td>water.signal, water.overview</td></tr><tr><td><code style="overflow-wrap:anywhere;word-break:break-word">water-dashboard</code></td><td>app</td><td>water.overview, water.hotspot, water.signal, water.config, water.category</td><td>—</td></tr></tbody></table>
+<hr>
+<h2>1. Create the project</h2>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word"><code style="overflow-wrap:anywhere;word-break:break-word">project new water-intelligence</code></pre>
+<p>This creates a Studio project and <code style="overflow-wrap:anywhere;word-break:break-word">cd</code>s into it. (If you return later: <code style="overflow-wrap:anywhere;word-break:break-word">cd /projects/water-intelligence</code>.) Everything you scaffold while inside a project is added to its member list and shows under <code style="overflow-wrap:anywhere;word-break:break-word">ls</code>.</p>
+<h2>2. Govern the schemas (nouns)</h2>
+<p>In the <strong>sandbox you may define and use schemas freely</strong> — no network‑administrator approval is required to run them in your dev tenant. You only need network approval when you later publish the solution to the marketplace (see §9).</p>
+<p>For each noun, propose it:</p>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word"><code style="overflow-wrap:anywhere;word-break:break-word">schema propose water.category
+schema propose water.record_kind
+schema propose water.config
+schema propose water.complaint
+schema propose water.hotspot
+schema propose water.signal
+schema propose water.overview</code></pre>
+<p><code style="overflow-wrap:anywhere;word-break:break-word">schema propose</code> opens an editor with a JSON‑Schema skeleton; fill in <code style="overflow-wrap:anywhere;word-break:break-word">properties</code> + <code style="overflow-wrap:anywhere;word-break:break-word">required</code> and save. Keep them permissive (don't set <code style="overflow-wrap:anywhere;word-break:break-word">additionalProperties:false</code>) so drivers can add fields. The id must be <code style="overflow-wrap:anywhere;word-break:break-word">&lt;domain&gt;.&lt;subject&gt;</code> (e.g. <code style="overflow-wrap:anywhere;word-break:break-word">water.complaint</code>).</p>
+<h2>3. Build the ingest driver — <code style="overflow-wrap:anywhere;word-break:break-word">water-complaints</code></h2>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word"><code style="overflow-wrap:anywhere;word-break:break-word">new driver water-complaints
+edit water-complaints/run.py</code></pre>
+<p>The driver uses the SDK <code style="overflow-wrap:anywhere;word-break:break-word">ingest.table(...)</code> helper. Make it <strong>board‑agnostic</strong>:</p>
+<ul><li><strong>Auto‑detect columns</strong> from the CSV header, each overridable by an env var (<code style="overflow-wrap:anywhere;word-break:break-word">ID_FIELD</code>, <code style="overflow-wrap:anywhere;word-break:break-word">CATEGORY_FIELD</code>, <code style="overflow-wrap:anywhere;word-break:break-word">STATUS_FIELD</code>, <code style="overflow-wrap:anywhere;word-break:break-word">REGISTERED_FIELD</code>, <code style="overflow-wrap:anywhere;word-break:break-word">CLOSED_FIELD</code>, <code style="overflow-wrap:anywhere;word-break:break-word">REOPENS_FIELD</code>, …).</li><li><strong>Normalize the category</strong> with <code style="overflow-wrap:anywhere;word-break:break-word">ingest.crosswalk(...)</code>, rebuilding its canonical list + keywords from the governed <code style="overflow-wrap:anywhere;word-break:break-word">water.category</code> rows at run time (so the taxonomy is data, not code). Keep a small built‑in list only as an offline fallback.</li><li>Preserve the board's original label in <code style="overflow-wrap:anywhere;word-break:break-word">raw_category</code>; never store PII — read <code style="overflow-wrap:anywhere;word-break:break-word">Address</code> only to extract a PIN for geocoding, then drop it.</li><li>Geocode <strong>complaints only</strong> (not queries/calls) to an H3 res‑9 cell using a layered local geocoder: colony/locality → PIN centroid → ward centroid, loaded from a <code style="overflow-wrap:anywhere;word-break:break-word">GAZETTEER_FILE_ID</code>.</li><li>Tag <code style="overflow-wrap:anywhere;word-break:break-word">record_kind</code> from the source's contact‑type column (<code style="overflow-wrap:anywhere;word-break:break-word">RECORD_KIND_FIELD</code>).</li></ul>
+<p>Declare its config + the governed read in <code style="overflow-wrap:anywhere;word-break:break-word">edit water-complaints/meta.yaml</code>:</p>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word"><code style="overflow-wrap:anywhere;word-break:break-word">reads: [water.category]
+config:
+  - { name: COMPLAINTS_FILE_ID, kind: value }
+  - { name: GAZETTEER_FILE_ID, kind: value }
+  - { name: RECORD_KIND_FIELD, kind: value, default: Category }</code></pre>
+<h2>4. Build the engines</h2>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word"><code style="overflow-wrap:anywhere;word-break:break-word">new engine water-hotspots
+edit water-hotspots/run.py      # group geocoded complaints by H3 over a window; count, dominant
+                                # category, relative severity, rate_per_10k (join ward population).
+new engine water-signals
+edit water-signals/run.py       # reopen rate, recurring (chronic vs spike), emerging (honest WoW),
+                                # + one water.overview projection (totals/distributions/daily trend).</code></pre>
+<p>Both engines read the governed vocab/config instead of hardcoding anything:</p>
+<ul><li>non‑complaint <code style="overflow-wrap:anywhere;word-break:break-word">record_kind</code>s come from <code style="overflow-wrap:anywhere;word-break:break-word">water.record_kind</code> where <code style="overflow-wrap:anywhere;word-break:break-word">is_complaint=false</code>;</li><li>domain grouping comes from <code style="overflow-wrap:anywhere;word-break:break-word">water.category.domain</code>;</li><li>severity cut‑offs + window lengths come from <code style="overflow-wrap:anywhere;word-break:break-word">water.config</code>.</li></ul>
+<p>Always <strong>read back</strong> your writes and report the live count (a schema‑rejected record is silently dropped otherwise). Emit nothing on empty input, and say so — never fabricate.</p>
+<h2>5. Build the dashboard — <code style="overflow-wrap:anywhere;word-break:break-word">water-dashboard</code></h2>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word"><code style="overflow-wrap:anywhere;word-break:break-word">new app water-dashboard
+edit water-dashboard/dist/index.html</code></pre>
+<p>A sandboxed browser app that reads governed data via <code style="overflow-wrap:anywhere;word-break:break-word">AOS.query(...)</code> and the shared design system (<code style="overflow-wrap:anywhere;word-break:break-word">/shared/aos.css</code>, <code style="overflow-wrap:anywhere;word-break:break-word">/shared/aos.js</code>). Carry <strong>zero</strong> branding/labels in code:</p>
+<ul><li>category + domain labels ← <code style="overflow-wrap:anywhere;word-break:break-word">water.category</code>;</li><li>title, agency name, subtitle, snapshot‑vs‑live, zone label, source attributions, severity thresholds ← <code style="overflow-wrap:anywhere;word-break:break-word">water.config</code>.</li></ul>
+<p>Add them to the allow‑list in <code style="overflow-wrap:anywhere;word-break:break-word">edit water-dashboard/meta.yaml</code>:</p>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word"><code style="overflow-wrap:anywhere;word-break:break-word">required_schemas: [water.overview, water.signal, water.hotspot, water.complaint, water.config, water.category]</code></pre>
+<h2>6. Build the seed driver — <code style="overflow-wrap:anywhere;word-break:break-word">water-setup</code></h2>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word"><code style="overflow-wrap:anywhere;word-break:break-word">new driver water-setup
+edit water-setup/run.py</code></pre>
+<p>This ships the <strong>default taxonomy + configuration as data</strong> and writes the governed records (idempotent; <code style="overflow-wrap:anywhere;word-break:break-word">RESET=1</code> overwrites). It is both your dev seed and the solution's install‑time seed step. Declare:</p>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word"><code style="overflow-wrap:anywhere;word-break:break-word">writes: [water.category, water.record_kind, water.config]</code></pre>
+<h2>7. Run the pipeline</h2>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word"><code style="overflow-wrap:anywhere;word-break:break-word">run water-setup                                        # seed water.category / record_kind / config
+run water-complaints COMPLAINTS_FILE_ID=/inbox/complaints.csv GAZETTEER_FILE_ID=&lt;id&gt;
+run water-hotspots POP_FILE_ID=&lt;ward-population id&gt;
+run water-signals</code></pre>
+<p>Use <code style="overflow-wrap:anywhere;word-break:break-word">logs &lt;component&gt;</code> to see each run's output and <code style="overflow-wrap:anywhere;word-break:break-word">runs &lt;component&gt;</code> for status. Import files with <code style="overflow-wrap:anywhere;word-break:break-word">fetch &lt;url&gt; as /inbox/&lt;name&gt;</code>, set component keys with <code style="overflow-wrap:anywhere;word-break:break-word">secret set &lt;component&gt; &lt;KEY&gt;</code>, and your area of interest with <code style="overflow-wrap:anywhere;word-break:break-word">aoi set bbox …</code>.</p>
+<h2>8. Open the dashboard</h2>
+<p>Launch <strong>Water Intelligence Dashboard</strong> from the desktop, or <code style="overflow-wrap:anywhere;word-break:break-word">/run?app=water-dashboard</code>. It renders entirely from the governed facts + config.</p>
+<h2>9. Configure &amp; re‑brand</h2>
+<p>To adapt the running solution for any other utility, <strong>edit one record</strong> — no redeploy:</p>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word"><code style="overflow-wrap:anywhere;word-break:break-word">edit /projects/water-intelligence/… (or Settings → water.config)</code></pre>
+<p>Set <code style="overflow-wrap:anywhere;word-break:break-word">agency_name</code>, <code style="overflow-wrap:anywhere;word-break:break-word">dashboard_title</code>, <code style="overflow-wrap:anywhere;word-break:break-word">attributions</code>, <code style="overflow-wrap:anywhere;word-break:break-word">severity</code>, <code style="overflow-wrap:anywhere;word-break:break-word">windows</code>. Add/adjust <code style="overflow-wrap:anywhere;word-break:break-word">water.category</code> rows to match the board's issue types. Point the driver's <code style="overflow-wrap:anywhere;word-break:break-word">*_FIELD</code> config at the board's own column names.</p>
+<h2>10. Publish to the marketplace (when ready)</h2>
+<p>A component is published with <code style="overflow-wrap:anywhere;word-break:break-word">publish &lt;component&gt;</code> (certify + list; needs a green run first); the project is bundled with <code style="overflow-wrap:anywhere;word-break:break-word">compose</code>. <strong>Before publishing, every schema the solution uses must be approved by the network</strong> (not just usable in your sandbox). Resolve any pending <code style="overflow-wrap:anywhere;word-break:break-word">schema propose</code> requests in Network Admin → Verbs/Schemas first. See the companion <strong>Install</strong> guide for what an operator does on the other side.</p>
+<hr>
+<h2>Appendix — Reference code (copy &amp; adapt)</h2>
+<p>These are the actual working sources of the reference solution. In an installed solution you can also open any of them with <code style="overflow-wrap:anywhere;word-break:break-word">edit water-&lt;component&gt;/run.py</code> (or <code style="overflow-wrap:anywhere;word-break:break-word">dist/index.html</code>).</p>
+<h3><code style="overflow-wrap:anywhere;word-break:break-word">water-setup/meta.yaml</code></h3>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word"><code style="overflow-wrap:anywhere;word-break:break-word">component_id: ds:airawatdeveloper:driver/water-setup
+kind: driver
+version: 0.1.0
+provider: ds:airawatdeveloper:developer
+display_name: Water Intelligence — Setup / Seed
+entrypoint: run.py
+confinement_min: L1
+# Seeds the solution's REFERENCE DATA (taxonomy + config). Re-runnable (idempotent upsert by id).
+# All values are DATA here — the engines/driver/app read these governed records, never hardcode them.
+writes: [water.category, water.record_kind, water.config]
+scopes:
+  - { verb: write, scope: water.category }
+  - { verb: write, scope: water.record_kind }
+  - { verb: write, scope: water.config }
+config:
+  - { name: RESET, kind: value, label: "Overwrite existing records", default: "0" }</code></pre>
+<h3><code style="overflow-wrap:anywhere;word-break:break-word">water-setup/run.py</code> — seeds the taxonomy + Solution Configuration as DATA</h3>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word"><code style="overflow-wrap:anywhere;word-break:break-word">#!/usr/bin/env python3
+"""water-setup — seeds the Water Intelligence solution's governed REFERENCE DATA so NO component hardcodes it:
+  • water.category    — the water-issue taxonomy (code→label, domain bucket, normalisation keywords)
+  • water.record_kind — the contact-type vocabulary (complaint|query|no_response_call; is_complaint flags the denominator)
+  • water.config      — the Solution Configuration (agency branding + operational knobs) every member reads
+
+Idempotent: deterministic ids, re-run safe. The shipped values are a sensible DEFAULT taxonomy + a REFERENCE config
+(Delhi Jal Board) — an installer edits water.config for their agency and may add/adjust water.category rows as DATA.
+Confined — only I/O is the SDK ctx.
+"""
+import os
+from aos import driver, ctx
+
+# ---- default water-issue taxonomy (code, label, domain, keywords, order). Keywords normalise a board's raw
+#      labels to `code`; first match by `order` wins. Domains bucket the donut/grouping. Edit as DATA, not code.
+CATEGORIES = [
+    ("tanker_request",   "Water tanker required",       "tanker", ["tanker"], 1),
+    ("sewer_overflow",   "Sewer blockage / overflow",   "sewer",  ["sewer", "overflow", "blockage", "drain", "logging", "garbage", "manhole cover"], 2),
+    ("manhole",          "Manhole / cover",             "sewer",  ["manhole"], 3),
+    ("contamination",    "Dirty / contaminated water",  "water",  ["dirty", "contamination", "quality", "muddy", "smell"], 4),
+    ("low_pressure",     "Low pressure",                "water",  ["low pressure", "pressure"], 5),
+    ("pipeline_leakage", "Water pipeline leakage",      "water",  ["pipeline", "leakage", "leak", "pipe"], 6),
+    ("no_water",         "No water",                    "water",  ["no water", "short supply", "non supply", "dry", "supply"], 7),
+    ("road_restoration", "Road restoration",            "water",  ["road", "restoration", "pit"], 8),
+    ("billing",          "Billing",                     "water",  ["bill", "billing", "payment"], 9),
+    ("new_connection",   "New connection",              "water",  ["new connection", "connection"], 10),
+    ("other",            "Other",                       "water",  [], 99),
+]
+RECORD_KINDS = [
+    ("complaint",        "Complaint",         True),
+    ("query",            "Query",             False),
+    ("no_response_call", "No response call",  False),
+]
+# REFERENCE Solution Configuration (edit water.config for YOUR agency — this is the one Delhi-specific record).
+CONFIG = {
+    "agency_name": "Delhi Jal Board",
+    "dashboard_title": "Water Intelligence Dashboard",
+    "subtitle": "from complaints to insight for better water management",
+    "is_live": False,
+    "snapshot_caveat": ("This is a historical snapshot, not a live feed. Period-over-period \"trend\" deltas are "
+                        "intentionally omitted — the export does not span enough time to compute them honestly "
+                        "(the within-window week-over-week is shown instead). Hotspots show association, not causation."),
+    "zone_label": "operational zones",
+    "attributions": {"complaints_source": "DJB grievance export",
+                     "geocoder": "OSM-PBF + PIN + ward",
+                     "population_source": "WorldPop 2020 constrained"},
+    "severity": {"rate_warn": 150, "rate_crit": 300, "count_crit_pct": 0.10, "count_warn_pct": 0.30},
+    "windows": {"window_days": 30, "week_days": 7, "max_weeks": 4, "min_count": 1, "min_chronic": 20},
+}
+
+
+@driver.main
+def run():
+    T = ctx.tenant
+    if not T:
+        print("FAIL: no run tenant."); return 1
+    reset = os.environ.get("RESET", "0").strip() in ("1", "true", "yes")
+
+    def _have(schema):
+        try:
+            return {(r.get("object") or r).get("id") for r in ctx.facts(schema).list()}
+        except Exception:
+            return set()
+
+    now = ctx.now()
+    cat_rows, rk_rows = [], []
+    for code, label, domain, kws, order in CATEGORIES:
+        cat_rows.append({"schema": "water.category", "id": "ds:%s:water/category/%s" % (T, code),
+                         "code": code, "label": label, "domain": domain, "keywords": kws, "order": order})
+    for code, label, is_c in RECORD_KINDS:
+        rk_rows.append({"schema": "water.record_kind", "id": "ds:%s:water/record_kind/%s" % (T, code),
+                        "code": code, "label": label, "is_complaint": is_c})
+    cfg_row = dict(CONFIG, schema="water.config", id="ds:%s:water/config/default" % T)
+
+    wrote = 0
+    if reset:
+        cw = ctx.write_many(cat_rows); rw = ctx.write_many(rk_rows); fw = ctx.write_many([cfg_row])
+        wrote = (cw or 0) + (rw or 0) + (fw or 0)
+    else:
+        have_cat, have_rk, have_cfg = _have("water.category"), _have("water.record_kind"), _have("water.config")
+        new_cat = [r for r in cat_rows if r["id"] not in have_cat]
+        new_rk = [r for r in rk_rows if r["id"] not in have_rk]
+        new_cfg = [cfg_row] if cfg_row["id"] not in have_cfg else []
+        if new_cat: wrote += ctx.write_many(new_cat) or 0
+        if new_rk: wrote += ctx.write_many(new_rk) or 0
+        if new_cfg: wrote += ctx.write_many(new_cfg) or 0
+
+    live_cat = len(_have("water.category")); live_rk = len(_have("water.record_kind")); live_cfg = len(_have("water.config"))
+    print("water-setup: wrote %d records (RESET=%s). live now: water.category=%d water.record_kind=%d water.config=%d"
+          % (wrote, reset, live_cat, live_rk, live_cfg))
+    print("edit water.config (ds:%s:water/config/default) to set YOUR agency name / attributions / thresholds." % T)
+    return 0 if (live_cat &gt;= len(CATEGORIES) and live_rk &gt;= len(RECORD_KINDS) and live_cfg &gt;= 1) else 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(driver.run())</code></pre>
+<h3><code style="overflow-wrap:anywhere;word-break:break-word">water-complaints</code> — board-agnostic ingest (key parts)</h3>
+<p>Auto-detecting column map + governed taxonomy classifier:</p>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word"><code style="overflow-wrap:anywhere;word-break:break-word">CANONICAL = ["no_water", "low_pressure", "contamination", "tanker_request", "pipeline_leakage",
+             "sewer_overflow", "manhole", "road_restoration", "billing", "new_connection", "other"]
+
+# generic keyword classifier — the safety net when TAXONOMY_MAP has no entry. Ordered by specificity (first hit wins);
+# water-domain generic, NOT board-specific. A board's explicit TAXONOMY_MAP always takes precedence.
+KEYWORDS = [
+    ("manhole",          ["manhole"]),
+    ("tanker_request",   ["tanker"]),
+    ("road_restoration", ["pit", "road construction", "road restoration", "road cutting"]),
+    ("pipeline_leakage", ["pipe"]),
+    ("sewer_overflow",   ["sewer", "overflow", "blockage", "drain", "logging", "garbage", "manhole cover"]),
+    ("contamination",    ["contaminat", "dirty", "quality", "smell", "muddy", "colour", "color"]),
+    ("low_pressure",     ["low pressure", "pressure"]),
+    ("no_water",         ["no water", "short supply", "supply", "dry", "non supply"]),
+    ("new_connection",   ["new connection", "new water connection"]),
+    ("billing",          ["bill", "payment", "charge", "arrear", "refund"]),
+]
+
+# column auto-detection: env override first (e.g. CATEGORY_FIELD), else the first header matching a candidate.
+COLUMNS = {
+    "id":       [os.environ.get("ID_FIELD"),          "tracking no", "tracking_no", "complaint id", "complaint_id", "id", "grievance id"],
+    "channel":  [os.environ.get("CHANNEL_FIELD"),     "call type", "channel", "source"],
+    "category": [os.environ.get("CATEGORY_FIELD"),    "complaint type", "complaint_type", "category", "type"],
+    "subcat":   [os.environ.get("SUBCATEGORY_FIELD"), "subcategory", "sub category", "sub-category"],
+    "priority": [os.environ.get("PRIORITY_FIELD"),    "priority"],
+    "status":   [os.environ.get("STATUS_FIELD"),      "status"],
+    "reg_date": [os.environ.get("REGISTERED_FIELD"),  "registered date", "registered_date", "registered on", "created date", "complaint date"],
+    "reg_time": [os.environ.get("REGISTERED_TIME_FIELD"), "registered time", "registered_time"],
+    "closed":   [os.environ.get("CLOSED_FIELD"),      "closed at", "closed_at", "closed date", "resolved at", "closure date"],
+    "reopens":  [os.environ.get("REOPENS_FIELD"),     "number of reopens", "reopens", "reopen count"],
+}
+# ADMIN_COLUMNS (level→column) declares the board's hierarchy; else auto-detect the common civic levels.
+AUTO_ADMIN = {"colony": "colony", "ward": "ward", "ac": "a.c. name", "zone": "zone"}
+</code></pre>
+<p>Rebuild the classifier from the governed <code style="overflow-wrap:anywhere;word-break:break-word">water.category</code> at run time (taxonomy = data):</p>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word"><code style="overflow-wrap:anywhere;word-break:break-word">    # GOVERNED taxonomy wins: if water.category is seeded (water-setup), rebuild the classifier from it so the
+    # code carries no board-specific taxonomy — the built-in CANONICAL/KEYWORDS is only the offline fallback.
+    global classify
+    try:
+        _cats = sorted([(r.get("object") or r) for r in ctx.facts("water.category").list()],
+                       key=lambda c: c.get("order", 999))
+        _cats = [c for c in _cats if c.get("code")]
+        if _cats:
+            classify = ingest.crosswalk(canonical=[c["code"] for c in _cats], env="TAXONOMY_MAP",
+                                        keywords=[(c["code"], c.get("keywords") or []) for c in _cats])
+            print("[water-complaints] taxonomy: %d governed water.category rows" % len(_cats), flush=True)
+    except Exception as _e:
+        print("[water-complaints] governed taxonomy unavailable (%s) — using built-in default." % str(_e)[:80], flush=True)</code></pre>
+<p>The ingest call (SDK does id-stamping, dedup, batched writes):</p>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word"><code style="overflow-wrap:anywhere;word-break:break-word">    res = ingest.table(
+        schema="water.complaint", map_row=map_row, columns=COLUMNS,
+        file_env="COMPLAINTS_FILE_ID",
+        key_field="tracking_no",                           # board tracking no is the natural key when present…
+        key_fields=("raw_category", "registered_at", "source_channel", "ward", "zone"),   # …else hash these STABLE fields
+        sig_exclude=("id", "tenant", "source"),            # a change in status/closure/reopen/category ⇒ re-write
+        tally_field="category",
+        batch=500,                                         # bulk-write via the broker batch endpoint (env INGEST_BATCH overrides)</code></pre>
+<h3><code style="overflow-wrap:anywhere;word-break:break-word">water-hotspots</code> — governed vocab + config, group by H3, read-back verify</h3>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word"><code style="overflow-wrap:anywhere;word-break:break-word">    # governed vocab/config — no taxonomy hardcoded. NONCOMPLAINT from water.record_kind; severity cuts from water.config.
+    def _objs(sc):
+        try: return [(r.get("object") or r) for r in ctx.facts(sc).list()]
+        except Exception: return []
+    NONCOMPLAINT = {o.get("code") for o in _objs("water.record_kind") if o.get("code") and not o.get("is_complaint")}
+    _wcfgs = _objs("water.config"); _sev = (_wcfgs[0].get("severity") if _wcfgs else {}) or {}
+    CRIT_PCT = float(os.environ.get("CRIT_PCT", str(_sev.get("count_crit_pct", 0.10))))
+    WARN_PCT = float(os.environ.get("WARN_PCT", str(_sev.get("count_warn_pct", 0.30))))</code></pre>
+<p>Severity cuts from config + the write-and-verify pattern:</p>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word"><code style="overflow-wrap:anywhere;word-break:break-word">    crit_cut = counts[max(0, int(n * CRIT_PCT) - 1)]   # top share by volume = critical (water.config severity)
+    warn_cut = counts[max(0, int(n * WARN_PCT) - 1)]   # next share = warning
+    now = ctx.now(); win = {"from": cur_from.isoformat(), "to": dmax.isoformat(), "days": WINDOW}
+    WARD_POP = _load_ward_pop()                         # {norm ward name: population} (optional; via POP_FILE_ID)
+    _popkeys = sorted(WARD_POP.keys(), key=len, reverse=True)
+
+    def _pop_for(wn):
+        """Resolve a DJB ward (normalized) to a datameet ward population, tolerating sub-ward suffixes +
+        prefix overlaps (the two ward vocabularies differ): exact → strip trailing sub-ward char (A/B/C/1) →
+        datameet key is a prefix of the DJB name (mohangardena→mohangarden) → DJB name is a prefix of a key."""
+        if not wn:
+            return None
+        if wn in WARD_POP:
+            return WARD_POP[wn]
+        w2 = wn[:-1] if len(wn) &gt; 1 else wn
+        if w2 in WARD_POP:
+            return WARD_POP[w2]
+        for k in _popkeys:
+            if len(k) &gt;= 5 and wn.startswith(k):
+                return WARD_POP[k]
+        for k in _popkeys:
+            if len(wn) &gt;= 5 and k.startswith(wn):
+                return WARD_POP[k]
+        return None
+
+    ward_total = defaultdict(int)                       # complaints per WARD over the window = rate numerator
+    for _items in cur.values():
+        for _it in _items:
+            _w = _wn(_it.get("ward"))
+            if _w:
+                ward_total[_w] += 1
+    rate_hits = 0
+    facts = []
+    for cell, items in cur.items():
+        c = len(items)
+        if c &lt; MIN_COUNT:
+            continue
+        dom = Counter((it.get("category") or "other") for it in items).most_common(1)[0][0]
+        sev = "critical" if (c &gt;= crit_cut and n &gt;= 10) else ("warning" if c &gt;= warn_cut else "info")
+        rec = {"schema": "water.hotspot", "id": "ds:%s:water/hotspot/%s-%s" % (T, cell, dmax.isoformat()),
+               "h3": cell, "count": c, "dominant": dom, "category": dom, "severity": sev,
+               "window": win, "observed_at": now}
+        ward = _modal([it.get("ward") for it in items]);  zone = _modal([it.get("zone") for it in items])
+        if ward:
+            rec["ward"] = ward
+        if zone:
+            rec["zone"] = zone
+        if ward and WARD_POP:                           # ward-level rate: complaints-in-ward / ward-population × 10k
+            _wk = _wn(ward); _pop = WARD_POP.get(_wk)
+            if _pop and _pop &gt; 0:
+                rec["rate_per_10k"] = round(ward_total.get(_wk, c) / _pop * 10000.0, 2)
+                rate_hits += 1
+        p = prev.get(cell, 0)
+        if p:
+            rec["wow_change"] = round((c - p) / p, 3)   # period-over-period; omitted when no prior window
+        facts.append(rec)
+
+    written = ctx.write_many(facts, valid_from_field="observed_at", asserted_at=now) if facts else 0
+    # VERIFY the writes actually persisted (water.hotspot requires h3+observed_at; a bad record would be dropped at
+    # the registry, and write_many reports the SENT count — so confirm against a read-back before claiming success).
+    live = sum(1 for r in ctx.facts("water.hotspot").list()
+               if (r.get("object") or r).get("observed_at") == now)
+    sev_tally = dict(Counter(f["severity"] for f in facts))
+    print("wrote %d water.hotspot over %d H3 cells, window %s-&gt;%s (%dd) — %s" %
+          (written, n, cur_from, dmax, WINDOW, sev_tally))</code></pre>
+<h3><code style="overflow-wrap:anywhere;word-break:break-word">water-signals</code> — the governed vocab loader (no taxonomy in code)</h3>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word"><code style="overflow-wrap:anywhere;word-break:break-word">def _load_vocab():
+    """Read the GOVERNED water vocabulary (seeded by water-setup) — no taxonomy is hardcoded here.
+    Returns (noncomplaint record_kinds, {category_code: domain}, water.config dict). Absent vocab ⇒ generic
+    behaviour (all records treated as complaints; every category → the 'water' bucket), said once in the log."""
+    def _objs(schema):
+        try:
+            return [(r.get("object") or r) for r in ctx.facts(schema).list()]
+        except Exception:
+            return []
+    rk = _objs("water.record_kind")
+    noncomplaint = {o.get("code") for o in rk if o.get("code") and not o.get("is_complaint")}
+    cat_domain = {o.get("code"): (o.get("domain") or "water") for o in _objs("water.category") if o.get("code")}
+    cfgs = _objs("water.config")
+    cfg = cfgs[0] if cfgs else {}
+    if not rk:
+        print("[water-signals] no water.record_kind vocabulary — treating every record as a complaint (run water-setup to seed).")</code></pre>
+<p>The <code style="overflow-wrap:anywhere;word-break:break-word">water.overview</code> projection it also writes (one compact row the dashboard reads):</p>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word"><code style="overflow-wrap:anywhere;word-break:break-word">    overview = {
+        "schema": "water.overview", "id": "ds:%s:water/overview/%s" % (T, dmax.isoformat()),
+        "observed_at": now, "window": {"from": dmin.isoformat(), "to": dmax.isoformat(), "span_days": span_days},
+        "totals": {"contacts": len(rows), "complaints": len(comp),
+                   "queries": kind_ct.get("query", 0), "no_response_calls": kind_ct.get("no_response_call", 0),
+                   "closed": closed, "pending": len(comp) - closed,
+                   "closure_rate": round(closed / len(comp), 4) if comp else 0,
+                   "reopened_complaints": reop_n, "reopen_events": sum(o.get("reopens") or 0 for o in comp),
+                   "geocoded": geocoded_comp, "geocode_pct": round(geocoded_comp / len(comp), 4) if comp else 0,
+                   "hotspots": None},   # filled by the dashboard from water.hotspot count (kept source-of-truth there)
+        "by_category": _top(cat_ct), "by_raw_category": _top(raw_ct, 12), "by_zone": _top(zone_ct, 15),
+        "by_channel": _top(chan_ct, 12), "by_domain": _top(dom_ct), "by_status": _top(status_ct, 8),
+        "trend_daily": [{"date": d, "complaints": day_ct[d]} for d in sorted(day_ct)],</code></pre>
+<h3><code style="overflow-wrap:anywhere;word-break:break-word">water-dashboard</code> — read governed facts + config in the browser</h3>
+<p>Query the governed data and populate labels/config (no branding in code):</p>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word"><code style="overflow-wrap:anywhere;word-break:break-word">async function main(){
+  let ov,hs,sig,cats,cfgs;
+  try{
+    [ov,hs,sig,cats,cfgs] = await Promise.all([
+      AOS.query('water.overview',{limit:5}), AOS.query('water.hotspot',{limit:2000}), AOS.query('water.signal',{limit:500}),
+      AOS.query('water.category',{limit:100}), AOS.query('water.config',{limit:5}) ]);
+  }catch(e){ document.getElementById('app').innerHTML='&lt;div class="loading"&gt;Could not load data: '+E(e.message||e)+'&lt;/div&gt;'; return; }
+  // governed vocab + Solution Configuration — no labels/branding hardcoded in this app
+  (cats||[]).forEach(c=&gt;{ if(c.code){ CATLAB[c.code]=c.label||c.code; if(c.domain &amp;&amp; !DOMLAB[c.domain]) DOMLAB[c.domain]=c.domain.replace(/\b\w/g,x=&gt;x.toUpperCase()); }});
+  WCFG = (cfgs||[])[0] || {};</code></pre>
+<p>Thread the Solution Configuration through rendering:</p>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word"><code style="overflow-wrap:anywhere;word-break:break-word">  const sev=WCFG.severity||{}, attr=WCFG.attributions||{};
+  RWARN=+sev.rate_warn||150; RCRIT=+sev.rate_crit||300;             // rate chips (from water.config)
+  const TITLE=WCFG.dashboard_title||'Water Intelligence Dashboard';
+  const AGENCY=WCFG.agency_name||''; const SUBTITLE=WCFG.subtitle||'from complaints to insight';</code></pre></div>

@@ -1,0 +1,177 @@
+<title>Walkthrough — Welfare Gap → Funded Project → Outcome</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --bg:#eef1ef;--surface:#ffffff;--surface2:#f5f7f5;--ink:#14211c;--dim:#5c6d66;--line:#d5ddd8;
+    --fund:#b07d16;--fund-fill:#f6edd6;--impl:#0d7f82;--impl-fill:#dcefef;--net:#7a5cc0;--net-fill:#ece7f7;--gate:#c2410c;
+    --ui:#1c8b52;--ui-fill:#dcf0e4;--api:#b8860b;--api-fill:#f6ecd2;
+    --shadow:0 1px 2px rgba(20,33,28,.06),0 8px 30px rgba(20,33,28,.05);
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --bg:#0a1310;--surface:#10201a;--surface2:#0d1b16;--ink:#eafef4;--dim:#8fb6a4;--line:#23372d;
+    --fund:#e8c24b;--fund-fill:#241d0d;--impl:#2fd0c8;--impl-fill:#0b2320;--net:#b9a3f0;--net-fill:#1a1430;--gate:#f0954a;
+    --ui:#3ecb7f;--ui-fill:#0e2b1c;--api:#e8c24b;--api-fill:#241d0d;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 34px rgba(0,0,0,.35);
+  }}
+  :root[data-theme="dark"]{
+    --bg:#0a1310;--surface:#10201a;--surface2:#0d1b16;--ink:#eafef4;--dim:#8fb6a4;--line:#23372d;
+    --fund:#e8c24b;--fund-fill:#241d0d;--impl:#2fd0c8;--impl-fill:#0b2320;--net:#b9a3f0;--net-fill:#1a1430;--gate:#f0954a;
+    --ui:#3ecb7f;--ui-fill:#0e2b1c;--api:#e8c24b;--api-fill:#241d0d;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 34px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1000px;margin:0 auto;padding:44px 22px 80px}
+  .serif{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif}
+  .mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+  header .eyebrow{font:600 11.5px ui-monospace,monospace;letter-spacing:.24em;text-transform:uppercase;color:var(--impl)}
+  header h1{margin:.3em 0 .1em;font-size:clamp(26px,5vw,38px);font-weight:600;line-height:1.12;letter-spacing:-.01em;text-wrap:balance}
+  header p.lede{font-size:17px;color:var(--dim);max-width:66ch;margin:.4em 0 0}
+  .rule{height:1px;background:var(--line);border:0;margin:32px 0}
+  h2{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:40px 0 14px}
+  .cast{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media(max-width:720px){.cast{grid-template-columns:1fr}}
+  .actor{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:13px 15px;box-shadow:var(--shadow);border-top:3px solid var(--line)}
+  .actor.fund{border-top-color:var(--fund)} .actor.impl{border-top-color:var(--impl)} .actor.net{border-top-color:var(--net)}
+  .actor h3{margin:0 0 2px;font-size:15px}
+  .actor .role{font:600 10.5px ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase}
+  .actor.fund .role{color:var(--fund)} .actor.impl .role{color:var(--impl)} .actor.net .role{color:var(--net)}
+  .actor .lg{font-size:12.5px;color:var(--dim);margin-top:6px}
+  .actor .lg b{color:var(--ink)} .actor .apps{margin-top:7px;font-size:12px}
+  .chip{display:inline-block;font:11px ui-monospace,monospace;background:var(--surface2);border:1px solid var(--line);border-radius:6px;padding:1px 7px;margin:2px 3px 0 0;color:var(--ink)}
+  .note{background:var(--surface2);border:1px solid var(--line);border-left:3px solid var(--gate);border-radius:11px;padding:12px 16px;font-size:13.5px;margin:14px 0}
+  .phase{font:700 12px ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--gate);margin:26px 0 10px;display:flex;align-items:center;gap:10px}
+  .phase::before{content:"";flex:none;width:22px;height:22px;border-radius:6px;background:var(--gate);opacity:.16}
+  .step{display:grid;grid-template-columns:38px 118px 1fr;gap:14px;align-items:start;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow);margin-bottom:10px}
+  @media(max-width:640px){.step{grid-template-columns:34px 1fr}.step .who{grid-column:2}}
+  .step .n{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font:700 14px ui-monospace,monospace;background:var(--surface2);color:var(--dim)}
+  .step .who .t{font:700 10.5px ui-monospace,monospace;letter-spacing:.04em;padding:2px 8px;border-radius:999px;display:inline-block}
+  .step .who .t.fund{background:var(--fund-fill);color:var(--fund)} .step .who .t.impl{background:var(--impl-fill);color:var(--impl)} .step .who .t.net{background:var(--net-fill);color:var(--net)}
+  .step .who .app{display:block;margin-top:6px;font-size:12.5px;font-weight:650}
+  .step .who .app small{display:block;color:var(--dim);font-weight:400;font-size:11px}
+  .step .do h4{margin:0 0 3px;font-size:15.5px;font-weight:640}
+  .step .do p{margin:2px 0 0;font-size:13.5px;color:var(--ink)}
+  .step .do .out{margin-top:7px;font-size:12px;color:var(--dim)}
+  .step .do .out .mono{color:var(--ink);font-size:11.5px}
+  .tag{float:right;font:600 10px ui-monospace,monospace;padding:2px 8px;border-radius:999px;white-space:nowrap;margin-left:8px}
+  .tag.ui{background:var(--ui-fill);color:var(--ui)} .tag.api{background:var(--api-fill);color:var(--api)}
+  .call{margin-top:8px;background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:12px ui-monospace,monospace;color:var(--ink);overflow-x:auto;white-space:nowrap}
+  footer{margin-top:48px;color:var(--dim);font-size:12.5px;text-align:center}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--dim);margin-top:10px}
+  .legend b{color:var(--ink)}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Airawat · end-to-end demo script</div>
+  <h1 class="serif">Welfare Gap → Funded Project → Outcome</h1>
+  <p class="lede">One run of the whole federated loop — a ministry publishes a programme, a city finds who's below the dignity floor, turns it into a funded project, delivers it, and proves the result — each step in a named tenant and app. Grounded on the live Kanpur crowding project.</p>
+</header>
+
+<div class="note"><b>Before you start.</b> Open the platform and sign in as each step's tenant admin (a different login per tenant). The three actors and their logins:</div>
+<div class="cast">
+  <div class="actor fund"><div class="role">Funder · national</div><h3>MoHUA</h3>
+    <div class="lg">tenant <b>mohua</b> · admin <b>mohua-admin</b></div>
+    <div class="apps"><span class="chip">Funder Console</span><span class="chip">Document Wallet</span></div></div>
+  <div class="actor fund"><div class="role">Funder · state</div><h3>HUDD (UP)</h3>
+    <div class="lg">tenant <b>hudd</b> · admin <b>hudd-admin</b></div>
+    <div class="apps"><span class="chip">Funder Console</span></div></div>
+  <div class="actor impl"><div class="role">Implementer · city</div><h3>KMC (Kanpur)</h3>
+    <div class="lg">tenant <b>kmc</b> · admin <b>kanpur-admin</b></div>
+    <div class="apps"><span class="chip">Welfare Console</span><span class="chip">Proposal Studio</span><span class="chip">Inbox</span><span class="chip">Results Console</span></div></div>
+</div>
+<div class="legend" style="margin-top:14px">
+  <span><span class="tag ui" style="float:none">CLICK</span> &nbsp;done in the app UI</span>
+  <span><span class="tag api" style="float:none">VERB</span> &nbsp;currently a funding-engine verb (no button yet — ask me to wire it)</span>
+</div>
+
+<hr class="rule">
+
+<div class="phase">Phase A · the ministry opens a programme</div>
+<div class="step"><div class="n">1</div>
+  <div class="who"><span class="t fund">MoHUA</span><span class="app">Funder Console<small>Operator actions ▸ Publish programme</small></span></div>
+  <div class="do"><span class="tag ui">CLICK</span><h4>Publish PMAY-U</h4>
+    <p>Set the envelope (e.g. ₹50,000 cr), scheme, and your co-funding share (0.6). HUDD will co-fund the other 40%.</p>
+    <div class="out">produces <span class="mono">funding.program</span> in <b>ds:mohua</b> · discoverable by cities</div></div></div>
+
+<div class="phase">Phase B · the city finds the need</div>
+<div class="step"><div class="n">2</div>
+  <div class="who"><span class="t impl">KMC</span><span class="app">Welfare Console<small>↻ Recompute</small></span></div>
+  <div class="do"><span class="tag ui">CLICK</span><h4>Diagnose who's below the floor</h4>
+    <p>Runs gap → deprivation → prioritise over real data. See "<b>~70% above the crowding floor</b>", the ranked per-cell priorities, and the recommendation. Admit it as a decision if you like.</p>
+    <div class="out">produces <span class="mono">governance.recommendation</span> · <span class="mono">welfare.priority</span> (per cell)</div></div></div>
+
+<div class="phase">Phase C · turn the need into a fundable project</div>
+<div class="step"><div class="n">3</div>
+  <div class="who"><span class="t impl">KMC</span><span class="app">Proposal Studio<small>Signals ▸ Draft proposal</small></span></div>
+  <div class="do"><span class="tag ui">CLICK</span><h4>Draft &amp; submit a proposal</h4>
+    <p>Pick the welfare recommendation → <b>Draft proposal</b>. As the Junior Engineer: pick the <b>intervention lever</b> (in-situ vertical redevelopment), edit the <b>budget</b> (the ask), set the <b>funding ask</b> to PMAY-U, attach evidence → <b>Submit for approval</b>.</p>
+    <div class="out">produces <span class="mono">project.proposal</span> (submitted) → routes to the Inbox</div></div></div>
+<div class="step"><div class="n">4</div>
+  <div class="who"><span class="t impl">KMC</span><span class="app">Inbox<small>the approval task</small></span></div>
+  <div class="do"><span class="tag ui">CLICK</span><h4>Approve → project is born</h4>
+    <p>Open the routed task and <b>Approve</b>. The proposal becomes an active project with a committed budget.</p>
+    <div class="out">produces <span class="mono">governance.decision</span> · <span class="mono">project.project</span> (active) · <span class="mono">finance.budget</span></div></div></div>
+
+<div class="phase">Phase D · assemble the money (60:40, two ministries)</div>
+<div class="step"><div class="n">5</div>
+  <div class="who"><span class="t impl">KMC</span><span class="app">— settlement<small>grant progress read</small></span></div>
+  <div class="do"><span class="tag api">VERB</span><h4>Grant each funder a progress subscription</h4>
+    <p>KMC authorises MoHUA + HUDD to read this project's progress — a governed, revocable grant (not a blanket one).</p>
+    <div class="call">/bridge/funding-subscribe {subscriber:"ds:mohua:agency/mohua", project:"…"}</div>
+    <div class="out">produces <span class="mono">funding.progress_grant</span> (active)</div></div></div>
+<div class="step"><div class="n">6</div>
+  <div class="who"><span class="t fund">MoHUA</span><span class="app">Funder Console<small>Operator ▸ Issue award</small></span></div>
+  <div class="do"><span class="tag ui">CLICK</span><h4>Award 60% · then HUDD awards 40%</h4>
+    <p>On the proposal, MoHUA issues <b>₹108 cr (60%)</b>; sign in as <b>HUDD</b> and issue <b>₹72 cr (40%)</b>. The stack bar fills to the ask → <b>FULLY FUNDED</b>. Each award lives in its own funder's registry.</p>
+    <div class="out">produces <span class="mono">funding.award</span> ×2 · stack Σ ≥ ask</div></div></div>
+
+<div class="phase">Phase E · deliver, and prove the milestone</div>
+<div class="step"><div class="n">7</div>
+  <div class="who"><span class="t impl">KMC</span><span class="app">Results Console<small>Operator actions</small></span></div>
+  <div class="do"><span class="tag ui">CLICK</span><h4>Record delivery, then re-measure</h4>
+    <p><b>Record a delivery</b> (e.g. 4,000 dwelling units, ₹108 cr) — posts a balanced spend transaction. Then <b>Re-measure outcome</b> — re-reads the need over the project's cells and attributes the movement to the outputs.</p>
+    <div class="out">produces <span class="mono">project.output</span> · <span class="mono">finance.transaction</span> · <span class="mono">project.outcome</span></div></div></div>
+<div class="step"><div class="n">8</div>
+  <div class="who"><span class="t impl">KMC</span><span class="app">— settlement<small>issue milestone VC</small></span></div>
+  <div class="do"><span class="tag api">VERB</span><h4>Issue a milestone credential (ADR-0049 VC)</h4>
+    <p>KMC signs a milestone VC to each funder — an offline-verifiable proof of progress.</p>
+    <div class="call">/bridge/funding-milestone {project:"…", milestone:"m2-handover", holders:["user://mohua/mohua-admin", …]}</div>
+    <div class="out">produces <span class="mono">credential.milestone</span> (signed by KMC's steward key)</div></div></div>
+<div class="step"><div class="n">9</div>
+  <div class="who"><span class="t fund">MoHUA</span><span class="app">Document Wallet<small>accept the offered VC</small></span></div>
+  <div class="do"><span class="tag ui">CLICK</span><h4>Accept the milestone into your wallet</h4>
+    <p>The milestone credential appears as an offer — <b>Accept</b> it. A signed copy is deposited into MoHUA's own wallet.</p>
+    <div class="out">produces <span class="mono">civic.credential</span> (held, accepted) in <b>ds:mohua</b></div></div></div>
+
+<div class="phase">Phase F · release the money (information gates money)</div>
+<div class="step"><div class="n">10</div>
+  <div class="who"><span class="t fund">MoHUA</span><span class="app">Funder Console<small>award row ▸ Release ▸</small></span></div>
+  <div class="do"><span class="tag ui">CLICK</span><h4>Release a tranche — gated</h4>
+    <p>Hit <b>Release</b>. The gate checks: an <b>active subscription</b> (step 5) <em>and</em> a <b>verified milestone VC</b> (step 8), read across the tenant boundary. If both hold → the tranche disburses in MoHUA's own ledger. Revoke the subscription and it refuses. Do the same as HUDD.</p>
+    <div class="out">produces <span class="mono">finance.transaction</span> (funder disbursement) · award released</div></div></div>
+
+<div class="phase">Phase G · settle in the city's books</div>
+<div class="step"><div class="n">11</div>
+  <div class="who"><span class="t impl">KMC</span><span class="app">— settlement<small>book receipts + budget</small></span></div>
+  <div class="do"><span class="tag api">VERB</span><h4>Book the receipt &amp; roll awards into the budget</h4>
+    <p>KMC records each funder's tranche as <b>revenue</b> in its own ledger, and rolls the awards into the project budget as <b>committed revenue</b> (reconciled to the funded ask).</p>
+    <div class="call">/bridge/funding-record-receipt {award:"…"} &nbsp;·&nbsp; /bridge/funding-commit-revenue {project:"…", funders:["mohua","hudd"]}</div>
+    <div class="out">produces revenue <span class="mono">finance.transaction</span> · budget <span class="mono">committed_revenue</span> / <span class="mono">realized_revenue</span></div></div></div>
+
+<div class="phase">Phase H · see it whole</div>
+<div class="step"><div class="n">12</div>
+  <div class="who"><span class="t impl">KMC</span><span class="app">Results Console</span></div>
+  <div class="do"><span class="tag ui">CLICK</span><h4>The thread, end to end</h4>
+    <p>Need → ₹ spent (of allocated) → <b>₹ committed by funders · ₹ received</b> → units delivered → <b>people moved above the floor</b> — every link a signed, located fact.</p></div></div>
+<div class="step"><div class="n">13</div>
+  <div class="who"><span class="t fund">MoHUA</span><span class="app">Funder Console</span></div>
+  <div class="do"><span class="tag ui">CLICK</span><h4>The funder's mirror</h4>
+    <p>Programmes → funding stacks across co-funders → and <b>Monitoring</b>: the progress subscription (SUBSCRIBED/REVOKED) + the verified milestone VC chip.</p></div></div>
+
+<div class="note" style="border-left-color:var(--impl)"><b>Optional · need flows up the ladder (flow ②).</b> <span class="mono">/bridge/need-publish</span> (KMC) → <span class="mono">/bridge/need-rollup {children:["kmc"]}</span> (HUDD, state) → same for MoHUA (national) — the aggregate need that sizes the programme envelope. VERB-only today.</div>
+
+<div class="note"><b>The 4 VERB steps (5, 8, 11, and flow ②)</b> run today via funding-engine bridge verbs rather than a button. Say the word and I'll wire one-click controls into the Results Console (KMC settlement) and Funder Console so the whole run is clickable end to end. Also note: the funder logins (mohua-admin / hudd-admin) may need a browser password set — I can provision that.</div>
+
+<footer>Airawat · end-to-end walkthrough · ADR-0069 (welfare) → ADR-0071 (proposal→project) → ADR-0072 (federated funding). Every step live on real tenants: mohua · hudd · kmc.</footer>
+</div>

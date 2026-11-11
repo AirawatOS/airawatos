@@ -1,0 +1,50 @@
+{
+ "_meta": {
+  "tool": "zricethezav/gitleaks:v8.21.2",
+  "updated": "2026-11-08"
+ },
+ "findings": {
+  "components:dc05038dd4faeff92c505f842f5e8ea7333fe971:apps/lucknow-3d/dist/vendor/cesium/Cesium.js:jwt:86": {
+   "commit": "dc05038dd4",
+   "debt": "DEBT-B77 (Cesium's default ion access token in the vendored bundle; with B68/#187)",
+   "file": "components/apps/lucknow-3d/dist/vendor/cesium/Cesium.js",
+   "line": 86,
+   "rule": "jwt"
+  },
+  "components:dc05038dd4faeff92c505f842f5e8ea7333fe971:apps/lucknow-3d/dist/vendor/cesium/index.cjs:jwt:86": {
+   "commit": "dc05038dd4",
+   "debt": "DEBT-B77 (Cesium's default ion access token in the vendored bundle; with B68/#187)",
+   "file": "components/apps/lucknow-3d/dist/vendor/cesium/index.cjs",
+   "line": 86,
+   "rule": "jwt"
+  },
+  "components:dc05038dd4faeff92c505f842f5e8ea7333fe971:apps/lucknow-3d/dist/vendor/cesium/index.js:jwt:86": {
+   "commit": "dc05038dd4",
+   "debt": "DEBT-B77 (Cesium's default ion access token in the vendored bundle; with B68/#187)",
+   "file": "components/apps/lucknow-3d/dist/vendor/cesium/index.js",
+   "line": 86,
+   "rule": "jwt"
+  },
+  "platform-spec:30791a89113d515fc4756fb47148124b17e3adae:reference/demo.sh:curl-auth-header:10": {
+   "commit": "30791a8911",
+   "debt": "DEBT-B78 (retired static run-token literal dev-run-air in history; removed from the tree in slice-1d)",
+   "file": "platform-spec/reference/demo.sh",
+   "line": 10,
+   "rule": "curl-auth-header"
+  },
+  "platform-spec:8b85e630793e9f365198804f84445ec7ac27b585:reference/demo_l2.sh:curl-auth-header:11": {
+   "commit": "8b85e63079",
+   "debt": "DEBT-B78 (retired static run-token literal dev-run-air in history; removed from the tree in slice-1d)",
+   "file": "platform-spec/reference/demo_l2.sh",
+   "line": 11,
+   "rule": "curl-auth-header"
+  },
+  "root:a6d06dea87b85f77d3d4531d421982aa8c2bbb4d:verify/banned_patterns.py:curl-auth-header:224": {
+   "commit": "a6d06dea87",
+   "debt": "not a secret \u2014 the banned-pattern self-test's positive example",
+   "file": "verify/banned_patterns.py",
+   "line": 224,
+   "rule": "curl-auth-header"
+  }
+ }
+}

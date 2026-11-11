@@ -1,0 +1,40 @@
+<div style="overflow-wrap:anywhere;max-width:100%"><h1>Install "Water Intelligence" on your AirawatOS instance</h1>
+<p>This guide is for an <strong>operator / tenant‑admin</strong> installing the packaged <strong>Water Intelligence</strong> solution from the marketplace onto their own AirawatOS instance, and bringing it live with their utility's own data. No code changes are required — the solution is fully configured through governed data.</p>
+<hr>
+<h2>What you get</h2>
+<p>A grievance‑first water operations solution:</p>
+<ul><li><strong>Ingest</strong> — <code>water-complaints</code> turns your complaint export (CSV) into geocoded <code>water.complaint</code> facts.</li><li><strong>Analysis</strong> — <code>water-hotspots</code> (hot H3 cells, severity, per‑capita rate) and <code>water-signals</code> (reopen / recurring / emerging + an overview projection).</li><li><strong>Dashboard</strong> — <code>water-dashboard</code>, a read‑only operations board.</li><li><strong>Governed vocabulary + configuration</strong> seeded by <code>water-setup</code>: <code>water.category</code>, <code>water.record_kind</code>, <code>water.config</code>.</li></ul>
+<p>All 7 <code>water.*</code> schemas are governed by the AirawatNetwork (network‑approved), so the solution installs the same way on any conformant instance.</p>
+<hr>
+<h2>1. Install the solution</h2>
+<p>From the Marketplace (or the Console):</p>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word"><code>install ds:airawat:solution/water-intelligence</code></pre>
+<p>Installing fans out to install every member component (driver, engines, app) and shelves the dashboard. Requires a <strong>tenant‑admin</strong>.</p>
+<h2>2. Seed the reference data + configuration</h2>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word"><code>run water-setup</code></pre>
+<p>This writes the default taxonomy (<code>water.category</code>), contact‑type vocabulary (<code>water.record_kind</code>), and the Solution Configuration (<code>water.config</code>). Idempotent — re‑run anytime; <code>run water-setup RESET=1</code> restores defaults.</p>
+<h2>3. Configure for your agency</h2>
+<p>Edit the single <code>water.config</code> record (<code>ds:&lt;your‑tenant&gt;:water/config/default</code>) — in <strong>Settings → Water Intelligence</strong>, or via the Console — and set:</p>
+<ul><li><code>agency_name</code>, <code>dashboard_title</code>, <code>subtitle</code></li><li><code>is_live</code> (false shows the "snapshot" caveat; set true once you have a live feed)</li><li><code>zone_label</code> (what you call your operational zones)</li><li><code>attributions</code> — <code>{complaints_source, geocoder, population_source}</code> shown in Data Sources</li><li><code>severity</code> — <code>{rate_warn, rate_crit, count_crit_pct, count_warn_pct}</code></li><li><code>windows</code> — <code>{window_days, week_days, max_weeks, min_count, min_chronic}</code></li></ul>
+<p>If your complaint types differ from the defaults, add/adjust <strong><code>water.category</code></strong> rows (code, label, domain bucket, matching keywords). Everything the dashboard shows is driven by these two record types.</p>
+<h2>4. Provide your data (three inputs)</h2>
+<p><strong>a) Complaint export (required).</strong> Import your CSV:</p>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word"><code>fetch https://…/complaints.csv as /inbox/complaints.csv       # or: aos upload</code></pre>
+<p>The ingest driver <strong>auto‑detects</strong> common columns from the header. If yours differ, set the mapping as component config (Settings → water-complaints, or on the run line): <code>CATEGORY_FIELD</code>, <code>STATUS_FIELD</code>, <code>REGISTERED_FIELD</code>, <code>CLOSED_FIELD</code>, <code>REOPENS_FIELD</code>, <code>RECORD_KIND_FIELD</code>, …</p>
+<p><strong>b) Geocoder gazetteer (for maps/hotspots).</strong> A locality/PIN/ward → coordinate file for your city (each entry carries a precomputed H3 cell). Import it and note its <code>file_id</code>.</p>
+<p><strong>c) Ward population (for per‑capita <code>rate_per_10k</code>).</strong> A <code>{ward: population}</code> lookup for your wards (e.g. from WorldPop zonal sums). Note its <code>file_id</code>.</p>
+<h2>5. Run the pipeline</h2>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word"><code>run water-complaints COMPLAINTS_FILE_ID=/inbox/complaints.csv GAZETTEER_FILE_ID=&lt;gazetteer id&gt;
+run water-hotspots  POP_FILE_ID=&lt;ward-population id&gt;
+run water-signals</code></pre>
+<p>Each run reads back its writes and prints a live count. Expect, e.g. <code>water-complaints</code> → "geocoded N complaints (…%)", <code>water-hotspots</code> → "wrote N water.hotspot … verify: N live", <code>water-signals</code> → "wrote N water.signal … overview: wrote 1 water.overview".</p>
+<p>(You can set these ids once as component config so future runs are just <code>run water-complaints</code>.)</p>
+<h2>6. Open the dashboard</h2>
+<p>Launch <strong>Water Intelligence Dashboard</strong> from the desktop (or <code>/run?app=water-dashboard</code>). It renders your agency's branding, categories and zones from the config you set in step 3.</p>
+<hr>
+<h2>Honesty &amp; scope notes (by design)</h2>
+<ul><li>The dashboard distinguishes a <strong>historical snapshot</strong> from a <strong>live feed</strong> (<code>water.config.is_live</code>). With a short snapshot, period‑over‑period "trend" deltas are intentionally omitted — a within‑window week‑over‑week is shown instead. Set <code>is_live:true</code> only when you have an ongoing feed.</li><li>Hotspots show <strong>association, not causation</strong>. Complaint volume is a reported proxy.</li><li>Per‑capita <code>rate_per_10k</code> requires the ward‑population input; without it, hotspots still rank by volume.</li></ul>
+<h2>Troubleshooting</h2>
+<table style="display:block;overflow-x:auto;max-width:100%"><thead><tr><th>Symptom</th><th>Fix</th></tr></thead><tbody><tr><td>Dashboard panel empty</td><td><code>run water-signals</code> (generates <code>water.overview</code>); hard‑refresh.</td></tr><tr><td>Dashboard shows generic labels</td><td><code>run water-setup</code> (seeds <code>water.category</code>/<code>water.config</code>).</td></tr><tr><td>0 hotspots after ingest</td><td>complaints lack <code>h3</code> → provide a <code>GAZETTEER_FILE_ID</code> and re‑run <code>water-complaints</code>.</td></tr><tr><td>Categories all "other"</td><td>add keyword rows to <code>water.category</code>, or set <code>CATEGORY_FIELD</code> to the right column.</td></tr><tr><td><code>rate_per_10k</code> missing</td><td>provide <code>POP_FILE_ID</code> to <code>water-hotspots</code>.</td></tr></tbody></table>
+<h2>Upgrading / re‑branding later</h2>
+<p>Re‑branding is a data edit (<code>water.config</code>), never a redeploy. New solution versions install over the old via the Marketplace; your <code>water.config</code> and <code>water.category</code> edits persist as tenant data.</p></div>
