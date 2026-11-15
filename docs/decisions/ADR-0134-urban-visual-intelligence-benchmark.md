@@ -68,15 +68,22 @@ Only tests that single snapshots can answer with form labels:
 |---|---|---|
 | A01 Image quality | good / marginal / poor | macro-F1 |
 | A02 Lighting and visibility | day / night / glare / haze / low light | F1 |
+| A03 Blur | sharp / slightly blurred / blurred | F1 |
 | A04 Occlusion | vegetation / cable / structure / vehicle / none | F1 |
+| A05 Camera viewpoint | steep overhead / high oblique / low oblique | F1 |
 | A06 Suitability | counting / tracking / static infrastructure | F1 |
 | B01 Presence | classes present | F1 |
 | B03 Vehicles by class | car, two-wheeler, auto, e-rickshaw, bus, truck, bicycle | count MAE per class |
 | B04 Pedestrians | count | MAE |
+| B09 Animals on the road (added) | cattle, dog, other animal | count MAE per class |
 | C05 On-screen text | timestamp, camera name | CER, exact match |
+| C06 Scene attributes | one land use + one road environment | F1 |
+| D05 Footpath condition | clear / obstructed / damaged / no footpath / uncertain | F1 |
 | E03 Obstruction | road / footpath blocked: yes / no / uncertain | F1, correct "uncertain" |
 
-Tests needing boxes or masks (B05, D01–D04, D07) wait for a drawing tool. Tests needing locations, repeat
+A03, A05, C06 and D05 were added on 2026-11-15; B09 is not in the proposal (animals on Indian roads). Each test's
+definition is one text shared by the model's prompt and the reviewer's form. Tests needing boxes or masks (B05,
+D01–D04, D07) wait for a drawing tool; B05/B06 can be scored from the boxes reviewers already save. Tests needing locations, repeat
 observations or outcomes (F, G, H, I, J, K) wait for that data.
 
 ### 4. Splits
