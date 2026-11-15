@@ -1,183 +1,141 @@
 # ADR-0132 — Model Lab: evaluation across modalities
 
 **Status:** Proposed · **Date:** 2026-11-15
-**Builds on:** ADR-0030 (no secrets in components), ADR-0077 (camera media plane), ADR-0126 (field-level protection),
-ADR-0129 (no platform provider catalogue), ADR-0130 (trusted core, gateways and components; the AI-models gateway
-and DEBT-B71).
-**Affects:** the `intelligence.eval_case`, `intelligence.eval_run` and `intelligence.eval_result` schemas (v0.1.0 → v0.2.0),
-`engines/model-eval`, `apps/model-lab`, the AI-models gateway's north contract ([GATEWAY-v0.1](../specs/GATEWAY-v0.1.md)).
+**Builds on:** ADR-0077 (camera media plane), ADR-0126 (field-level protection), ADR-0130 (trusted core, gateways and
+components; DEBT-B71).
+**Affects:** `intelligence.eval_case` / `eval_run` / `eval_result` (v0.1.0 → v0.2.0), `intelligence.provider` (one
+field), `engines/model-eval`, `apps/model-lab`, the AI-models gateway's north contract
+([GATEWAY-v0.1](../specs/GATEWAY-v0.1.md)).
 
 ---
 
 ## Context
 
-Model Lab tests language models on the platform's own tasks before they are routed. It is a tenant app
-(`apps/model-lab`) and an engine (`engines/model-eval`) over three governed record types:
+Model Lab tests models on the platform's own tasks before they are routed. It is an app (`apps/model-lab`) and an
+engine (`engines/model-eval`) over three record types: a **case** (an input, a scorer, an expected answer), a **run**
+(a suite sent to a list of models through the model-gateway) and a **result** (one case × model).
 
-- `intelligence.eval_case` — one input exactly as the platform sends it, a scorer and an expected answer;
-- `intelligence.eval_run` — a suite sent to a list of models through the model-gateway;
-- `intelligence.eval_result` — one case × model: output, score, metrics, latency, tokens.
+On its first suite, it showed the model in use today finding 34 of 71 hand-checked URDPFI norms, against 66 and 69
+for two alternatives. It also caught two scoring defects that would have ranked the models wrongly.
 
-It earned its place on the first suite. On 30 sections of URDPFI Volume I with 71 hand-checked expected norms, it
-showed the model in use today finding 34 of the 71, and two alternatives finding 66 and 69. It also caught two
-scoring defects (lakh / crore figures, truncated answers) that would otherwise have ranked the models wrongly.
-
-Every part of it is **text-only**:
-
-| Part | Today | Where it stops |
-|---|---|---|
-| Case input | `messages` — a chat prompt | no image, audio, video or document page |
-| Subject | a model name sent to `/v1/complete` | detection, counting and OCR are often a vision model or a whole component, not a chat model |
-| Scorer | `norms`, `json_fields`, `contains`, `exact`, `grounded` — code in the engine | no error rate, box overlap, count error, rubric judge or human preference |
-| Gateway | chat/completion, embeddings, speech-to-text | no image or video input, no text-to-speech route, one fixed 60 s timeout |
-| Labelling | a JSON text box | nobody can label boxes, counts, transcripts or video events in a text box |
-| Privacy | `visibility: public | private` on each case | **recorded, not enforced**: nothing stops a private case reaching an outside provider |
-
-The platform's next decisions all need these evaluations:
-
-- the GPU plan's vision, OCR and Indic speech rows;
-- urban-scene analysis on city cameras (crowd and vehicle counting, flooding, garbage, encroachment), which feeds the
-  crowd-safety loop;
-- OCR of the scanned guideline tables where many norms live;
-- Kannada and Hindi speech-to-text and text-to-speech;
-- reasoning depth for decision recommendations.
+It is text-only, and the next model choices are not text: vision and OCR, Indic speech, urban-scene analysis on city
+cameras, and reasoning depth for recommendations. Each case also records whether it is private, but nothing enforces
+it.
 
 ## Decision
 
-**Model Lab becomes modality-neutral. A case holds media by reference. A run tests a model or a component under stated
-settings. Scorers are named plug-ins. A case's visibility is enforced before any call leaves the platform.**
+**A case holds media by reference. A run tests a model or a component. Scorers are plug-ins. Privacy is enforced at
+the gateway. The gateway gains only image input.**
 
-### 1. Cases carry media by reference
+### 1. Cases hold media by reference
 
-`eval_case` v0.2.0 adds `inputs`, a list of
-`{kind: text | image | audio | video | document, file_id, mime, sha256, region?}`:
+`eval_case` v0.2.0 adds `inputs`: a list of `{kind: image | audio | video | document, file_id, region?}`.
 
-- `file_id` is a filestore id;
-- `region` selects part of a file: a crop box, a page range, or a time window;
-- media never goes inline in the record, so a 20-minute clip is one reference.
+- `file_id` is a filestore id, which is the content hash, so a labelled case cannot change underneath its label.
+- `region` is optional: a crop, a page range, or a time window.
+- Camera media enters only through the ADR-0077 media plane, never as a stream URL.
 
-`messages` stays for text tasks. A chat case may reference inputs from its message parts. Every input's `sha256` is
-checked when the case runs, so a case cannot silently change under its label.
+**The engine, not the gateway, prepares inputs for the subject.** A video becomes sampled frames, and a PDF page
+becomes an image, at rates the run states. OCR is chat with a page image and a prompt, not a separate operation.
 
-Suites are seeded from platform data a tenant already holds:
+### 2. A run tests a subject
 
-- camera snapshots and clips (through the ADR-0077 media plane, never an RTSP URL in a case);
-- complaint photos;
-- scanned PDFs;
-- voice notes;
-- narration clips.
+`eval_run.models` becomes `subjects`, each either:
 
-### 2. A run tests a subject under settings
+- `{kind: model, name, provider?, settings}`, called through the gateway;
+- `{kind: component, id, version, settings}`, for example a crowd counter or the narration driver.
 
-`eval_run.models` generalises to `subjects`. Each subject is one of:
+A component under test takes the case's inputs as file references and prints a `RESULT:` line, as engines already do;
+the scorer reads that line.
 
-- `{kind: "model", name, provider?, settings}` — called through the model-gateway, as today;
-- `{kind: "component", id, version, settings}` — a component run end to end on the case's inputs, for example
-  crowd counting on labelled frames, or document ingest on a scanned PDF. Its declared output is what gets scored.
+`settings` holds what the comparison is about: effort, temperature, frame rate, resolution, language. The same model
+under two settings is two subjects.
 
-`settings` holds the knobs a comparison is about: effort or reasoning budget, temperature, image resolution, frames per
-second, language hint. The same model under two settings is two subjects in one run. Every result records the
-settings it ran with and the model the gateway reports it used.
+Every result records:
+- its settings;
+- the model the gateway reports it used;
+- the host that served it, since a router such as Hugging Face may pick a different partner per call;
+- reasoning tokens, separate from answer tokens.
 
-### 3. The gateway's north contract grows by modality
+### 3. Scorers are plug-ins
 
-Within ADR-0130's AI-models gateway. The south adapters translate each operation for their provider.
+A scorer is a function registered by name: `(case, output) → score in [0, 1] + metrics`. `scorer` is a plain name;
+the engine refuses a name it does not know.
 
-| Operation | North contract | Note |
-|---|---|---|
-| Chat with images | image parts in a message (file references, resolved by the gateway) | OpenAI-compatible and Anthropic formats both carry them |
-| OCR | a document page in, text or a table out | a vision model with a fixed prompt, or a dedicated OCR model |
-| Speech-to-text | add a language hint and word timings | the route exists |
-| Text-to-speech | text plus voice in, an audio file reference out | today a driver; becomes a gateway operation |
-| Video | frames sampled by the gateway at the case's rate, or native video where the model accepts it | frame sampling works with any image model |
+Scorers ship one per task as suites need them (Appendix). Each ships with tests drawn from labelled examples.
 
-**Timeouts are set per provider and per operation, not fixed at 60 s.** A long OCR page or a video needs minutes.
+An **AI-judge** scorer names its judge model and rubric. **The judge may not be a subject of the same run**, because
+models favour their own answers.
 
-**Usage reports reasoning tokens separately**, so the cost of thinking is visible per result.
+### 4. Labels: drafts never score
 
-### 4. Scorers are named plug-ins
+Expected answers are edited in a form that fits the task: boxes and counts on an image, a transcript under an audio
+player, a page beside its text or table, events on a video timeline.
 
-A scorer is a registered function: `(case, output) → score in [0, 1] + metrics`. The engine dispatches on
-`case.scorer`; the leaderboard, results and rescoring do not change. Adding a scorer needs no schema change, because
-`scorer` becomes a governed name list rather than a closed enum.
+A model or a person may **draft** a label. A case is `labelled` only when a reviewer saves it, which is the rule the
+URDPFI suite already follows. Subjective outputs (speech, open answers) are scored by **pairwise votes** recorded as
+results.
 
-| Task | Scorer | Expected answer |
-|---|---|---|
-| Speech-to-text | word / character error rate, after Indic script normalisation | transcript |
-| OCR | character error rate; table cell accuracy | text or table |
-| Object detection | precision / recall at an overlap threshold, or mAP | boxes per class |
-| Crowd and vehicle counting | mean absolute and relative count error | count per frame or zone |
-| Scene tagging | accuracy / F1 | labels |
-| Visual Q&A, scene description | exact / contains, or an AI judge with a rubric | answer and rubric |
-| Video events | event F1 within a time tolerance | timestamped events |
-| Reasoning | exact or numeric within a tolerance | answer |
-| Long answers, recommendations | AI judge with a rubric that checks figures against cited sources | rubric and required figures |
-| Text-to-speech, open-ended outputs | pairwise human preference, ranked from the votes | none |
+### 5. Privacy is enforced at the gateway
 
-An AI-judge scorer names its judge model and rubric in the case. Each result records both, and the run summary keeps
-the judge's agreement with any human-labelled subset.
+- `intelligence.provider` gains `hosting: in_house | external`.
+  - It defaults to `external`.
+  - Only the operator may set `in_house`; a tenant cannot.
+- **The gateway refuses to send a private case's content to an external provider.** This is the per-call consent check
+  ADR-0130 already places in the gateway (DEBT-B71); evaluation is its first user.
+- **The engine checks the same rule before a run starts**, so a run that would be refused does not begin.
+- **Suites built from camera or complaint media are private.** One becomes public only after faces and number plates
+  are redacted, and only by an explicit decision.
+- **Results hold references, not copies.** Who may see the media follows the tenant's roles and field protection
+  (ADR-0126).
 
-### 5. Labelling fits the modality, and drafts stay drafts
+### 6. The gateway gains image input, and nothing else here
 
-The case editor becomes one editor per expected-answer type:
+- Chat messages may carry image parts as file references. The gateway resolves the references and passes the images
+  to the provider adapter.
+- Speech-to-text takes a language hint.
+- Timeouts are set per provider and operation, instead of a fixed 60 s.
 
-- boxes, polygons and click-counts on an image;
-- a transcript under an audio player;
-- the page image beside an editable text or table;
-- events and counts on a video timeline.
+Video, OCR and text-to-speech need no new gateway operation (§1, §2), so no media decoding enters the trusted core.
 
-Labels may be **drafted** by a model or a person (`expected.draft`). **A draft never scores.** A case becomes
-`labelled` only when a reviewer saves it, which is the rule the URDPFI suite already follows.
+### Order of work
 
-For subjective outputs, the app adds an A/B view, and the votes are recorded as results.
-
-### 6. Visibility is enforced, not just recorded
-
-- **Before any call, the engine checks each case's visibility against the provider it would reach.** Private cases go
-  only to providers running on the tenant's own or the operator's hardware. A private case aimed at an outside
-  provider is refused and recorded as refused, never sent.
-- **A suite built from camera or complaint media is private by default.** It becomes public only after faces and
-  number plates are redacted, and only by an explicit decision on the suite.
-- **Media in results is shown under the tenant's existing roles and field protection (ADR-0126).** A result never holds
-  a copy of private media, only references.
-- **The gateway applies the same check on its side** (ADR-0130: consent and lawful basis on the north contract, the
-  open DEBT-B71). The engine's check does not replace the gateway's; it stops a run before it starts.
-
-### 7. Order of work
-
-1. **Foundations:** schema v0.2.0 (`inputs`, `subjects`, `settings`, open scorer names), scorer plug-ins, timeouts per
-   provider and operation, and visibility enforcement.
-2. **OCR and image Q&A:** the guideline table pages, and a first urban-scene suite from camera snapshots (counting and
-   tagging).
-3. **Audio:** Kannada and Hindi speech-to-text by error rate; text-to-speech by preference votes.
-4. **Reasoning and long answers:** Ask Airawat and decision recommendations against rubrics, at several effort levels.
-5. **Video:** frame sampling on existing clips first; native video models when the platform's own GPUs arrive.
-6. **Agents and tool use:** scoring the whole trace of a skill run, not only its final answer.
-
-Steps 1 and 2 are the main build. Each later modality is a scorer, an editor and a suite.
+1. **Foundations:** schema v0.2.0, the `hosting` field and its check, scorer plug-ins, timeouts.
+2. **Image and OCR:** guideline table pages, and a first urban-scene suite (counting, tagging).
+3. **Audio:** Kannada and Hindi speech-to-text; text-to-speech by votes.
+4. **Reasoning and long answers:** Ask Airawat and recommendations against rubrics, at several effort levels.
+5. **Video:** sampled frames now; native video models when in-house GPUs arrive.
+6. **Agents:** score a skill run's whole trace, not only its answer.
 
 ## Consequences
 
-- **One harness decides every model choice.** The GPU plan's rows (vision, OCR, speech, the main model) are chosen on
-  the platform's own data, with numbers, instead of on public leaderboards.
-- **Components can be compared the same way as models.** For example, an in-house crowd counter against a vision
-  model asked to count.
-- **The schemas move to v0.2.0 through the steward.** v0.1.0 records stay readable: `models` reads as `subjects` of
-  kind `model` with no settings.
-- **Scorers become shared code that needs review.** A wrong scorer ranks models wrongly, as the lakh / crore defect
-  showed. Every scorer ships with tests built from labelled examples.
-- **Evaluation spends money on outside providers.** Runs report usage per result. The tenant's cost ceilings (ADR-0130,
-  DEBT-B71) apply to evaluation traffic as to any other.
-- **Private media never leaves the platform for evaluation.** Until in-house models are hosted, private suites cannot
-  run; this is intended.
-- **Labelling becomes the bottleneck.** The draft-and-review rule keeps quality, but each modality needs reviewer time.
-  That cost is planned per suite, not discovered afterwards.
+- **Model choices are made on the platform's own data, with numbers.** That covers the GPU plan's rows and components
+  against models; public leaderboards stop deciding.
+- **The trusted core grows by one input type (images) and one check (hosting).**
+- **Schemas go to v0.2.0 through the steward.** A v0.1.0 run reads as model subjects with no settings.
+- **Private suites cannot run until in-house models are hosted.** This is intended.
+- **Outside providers cost money.** Results report usage, and the tenant's cost ceilings (DEBT-B71) apply.
+- **Labelling is the bottleneck.** Reviewer time is planned per suite.
 
 ## Open questions
 
-1. **Do component subjects run in the tenant's sandbox, or in a dedicated evaluation tenant?** A dedicated tenant keeps
-   evaluation writes out of operational records.
-2. **Who may publish a suite as public across tenants**, for example as a shared benchmark on the network?
-3. **Should the AI judge be fixed per suite, or chosen per run?** Fixing it keeps scores comparable over time.
-4. **How long are media and results kept?** This is especially relevant to camera footage, under the tenant's
-   retention policy.
+1. **Where do component subjects run:** in the tenant's sandbox, or in an evaluation tenant that keeps their writes out
+   of operational records?
+2. **Who may share a public suite across tenants as a benchmark?**
+3. **Is the judge fixed per suite, so scores stay comparable over time?**
+4. **How long are evaluation media kept, camera footage especially?**
+
+## Appendix — scorers by task
+
+| Task | Scorer | Expected answer |
+|---|---|---|
+| Norm extraction (today) | F1 on values; grounded in the source text | norms |
+| Speech-to-text | word / character error rate after Indic normalisation | transcript |
+| OCR | character error rate; table cell accuracy | text or table |
+| Detection | precision / recall at an overlap threshold | boxes |
+| Counting | mean absolute and relative error | counts |
+| Tagging | accuracy / F1 | labels |
+| Visual Q&A, reasoning | exact / numeric within tolerance, or AI judge with rubric | answer, rubric |
+| Video events | event F1 within a time tolerance | timestamped events |
+| Long answers | AI judge; figures checked against cited sources | rubric, required figures |
+| Speech output, open answers | pairwise votes | none |
