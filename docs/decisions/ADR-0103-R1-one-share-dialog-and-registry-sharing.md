@@ -49,8 +49,9 @@ Sheets and Slides. Apps do not build their own.
 └────────────────────────────────────────────────────────┘
 ```
 
-- **Add people or groups:** search people and roles/groups *in the organisation*. Other organisations are not offered
-  here; they stay on the existing "Shared with organisations" flow (ADR-0085/0087), which needs a steward's approval.
+- **Add people or groups:** search people and groups in the organisation and, when the tenant admin allows it (§3a),
+  people in other organisations. A person in another organisation is added the same way; the dialog marks them
+  "outside <organisation>".
 - **Levels:** Viewer, Commenter, Editor. Registries offer only Viewer and Editor until comments exist for records.
 - **People with access:** change a level or remove someone. Changes take effect at once and are recorded.
 - **General access:** Restricted (default) or "Anyone in <organisation>" at a chosen level.
@@ -80,6 +81,30 @@ Sensitive registries (`sensitivity: sensitive`) cannot be shared this way; they 
 The rule that only the owner may grant (ADR-0103) holds; for a registry the "owner" is its data owner role. This is
 part of the capability and grant model (DEBT-B182) and should be decided there, not invented in the Data app.
 
+### 3a. The tenant admin decides who may share (owner decision 2026-11-15)
+
+A user may share what they **own** — inside their organisation, or with people in other organisations — **only if the
+tenant admin's sharing policy lets them**. The policy is a governed record per tenant (`governance.sharing_policy`),
+set in the admin console:
+
+| Setting | Values | Default |
+|---|---|---|
+| Share inside the organisation | everyone · roles listed · nobody | everyone |
+| Share with other organisations | roles listed · nobody | nobody |
+| Allowed organisations (outside) | any · a list | a list (empty) |
+| Highest level when sharing outside | Viewer · Commenter · Editor | Viewer |
+| "Anyone in the organisation" link | on · off | on |
+| Item kinds that may be shared | Files · Docs · Sheets · Slides · registries | all but registries |
+
+The kernel checks the policy when a grant is written, along with the owner rule: a grant to someone outside the
+organisation is refused unless the sharer holds a role the policy allows, the recipient's organisation is allowed, and
+the level is within the limit. Changing the policy does not silently remove existing shares; the admin console lists
+shares that the new policy would not allow, and the admin decides whether to remove them.
+
+This replaces the admin-only "Send to another organisation" in Files (ADR-0085): sending a file outside becomes a
+normal share, allowed by policy, instead of a separate admin action. Bulk organisation-to-organisation data exchange
+(ADR-0087 offers of whole registries) stays as it is.
+
 ### 4. Shared with me
 
 Each app lists what was shared with the user: Data shows "Shared with me" registries in its left pane; Files and the
@@ -105,6 +130,8 @@ Workspace apps show a "Shared with me" view. One query backs all of them: grants
 
 ## Decisions needed
 
-1. Approve kernel (authority) work for registry grants and grant-aware bulk reads, or wait for the B182 ADR.
+1. Approve kernel (authority) work for registry grants, grant-aware bulk reads and the tenant sharing policy check,
+   or wait for the B182 ADR.
 2. Who is a registry's data owner by default: the steward, or the role that may write the registry today.
 3. Whether "Anyone in <organisation>" is allowed for registries, or only for Docs/Files.
+4. The policy defaults in §3a (proposed: inside sharing on for everyone; outside sharing off until an admin turns it on).
