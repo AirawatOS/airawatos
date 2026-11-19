@@ -269,7 +269,7 @@ services:
     image: manishsv/airawatos-devstub:1l
     container_name: airawat-ld-stub-provider
     networks: [aos-svc]
-    environment: { AIRAWAT_ENV: development, PORT: "8110" }
+    environment: { <<: *devenv, PORT: "8110" }   # 1m: follows the stack's declared environment (was a hard-coded development)
     restart: unless-stopped
 
   # ── active-loop engines ─────────────────────────────────────────────────────────────────────────────

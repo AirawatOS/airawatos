@@ -22,8 +22,12 @@ MARK = "[stub-provider]"
 
 
 def _refuse_production():
-    if (os.environ.get("AIRAWAT_ENV") or "").strip().lower() in ("prod", "production"):
-        sys.stderr.write("✗ the dev-only stub model provider refuses to start in production (AIRAWAT_ENV=%s)\n" % os.environ["AIRAWAT_ENV"])
+    # 1m: fail CLOSED — the stub starts only when AIRAWAT_ENV explicitly says development (the platform's rule,
+    # gateflags.is_production: unset / misspelt / anything else ⇒ production). This image carries no platform code, so
+    # the rule is restated here; banned_patterns AIRAWAT_ENV_DIRECT allows exactly this file.
+    v = "".join(ch for ch in str(os.environ.get("AIRAWAT_ENV") or "") if not ch.isspace()).lower()
+    if v not in ("development", "dev"):
+        sys.stderr.write("✗ the dev-only stub model provider refuses to start in production — it starts only under AIRAWAT_ENV=development (got %r)\n" % os.environ.get("AIRAWAT_ENV"))
         sys.exit(78)
 
 

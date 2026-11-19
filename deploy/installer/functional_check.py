@@ -258,11 +258,13 @@ res("network admin issues a grant to the member (gov-issue-grant)", s == 200, f"
 s, d = req("POST", f"{EDGE}/bridge/gov-grants", {"network": GNET, "grantee": MEMBER}, opener=na)
 mine = [g for g in (((d or {}).get("result") or []) if isinstance(d, dict) else []) if g.get("capability") == CAP]
 res("the member's grants (gov-grants) show it", s == 200 and bool(mine), f"{s} {str(d)[:200]}")
+_active = lambda g: str(g.get("status") or "active").lower() == "active"   # 1m: stored ACTIVE/REVOKED (was compared lowercase)
+res("before the revoke the same test sees the grant as active (the after-check can fail)", bool(mine) and all(_active(g) for g in mine), f"{mine[:1]}")
 GID = (mine[0].get("id") or mine[0].get("grant_id")) if mine else ""
 s, d = req("POST", f"{EDGE}/bridge/gov-revoke-grant", {"network": GNET, "grant_id": GID, "business_reason": "functional check"}, opener=na)
 res("network admin revokes it (gov-revoke-grant)", s == 200 and bool(GID), f"{s} {str(d)[:200]}")
 s, d = req("POST", f"{EDGE}/bridge/gov-grants", {"network": GNET, "grantee": MEMBER}, opener=na)
-live = [g for g in (((d or {}).get("result") or []) if isinstance(d, dict) else []) if g.get("capability") == CAP and (g.get("status") or "active") == "active"]
+live = [g for g in (((d or {}).get("result") or []) if isinstance(d, dict) else []) if g.get("capability") == CAP and _active(g)]
 res("after the revoke the grant is no longer active", s == 200 and not live, f"{s} {live[:1]}")
 
 print("MATRIX_RESULTS " + json.dumps({"env": "local-dev", "mode": "functional",
