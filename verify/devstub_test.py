@@ -56,6 +56,14 @@ s, d = post("/v1/chat/completions", body, key=None)
 check("no provider key → 401 (like a real provider)", s == 401, (s, d))
 r = subprocess.run([sys.executable, STUB], env=dict(os.environ, AIRAWAT_ENV="production", PORT="0"), capture_output=True, text=True, timeout=20)
 check("refuses to start under AIRAWAT_ENV=production", r.returncode != 0 and "refuses to start in production" in r.stderr, (r.returncode, r.stderr[-120:]))
+# 1m: fail CLOSED — production is anything but an explicit development (gateflags.is_production): unset, misspelt, staging
+for _e in (None, "", "staging", "prd"):
+    _env = {k: v for k, v in os.environ.items() if k != "AIRAWAT_ENV"}
+    if _e is not None:
+        _env["AIRAWAT_ENV"] = _e
+    r = subprocess.run([sys.executable, STUB], env=dict(_env, PORT="0"), capture_output=True, text=True, timeout=20)
+    check("refuses to start under AIRAWAT_ENV=%s" % ("(unset)" if _e is None else repr(_e)),
+          r.returncode == 78 and "refuses to start in production" in r.stderr, (r.returncode, r.stderr[-120:]))
 
 print("ALL PASS" if not fails else "FAILED: %d" % len(fails))
 sys.exit(1 if fails else 0)

@@ -383,6 +383,29 @@ def check_dev_stub_outside_localdev():
                 hits.append((f, i, l.strip()[:120], "dev-only stub provider named outside local-dev"))
     return hits
 
+# ── AIRAWAT_ENV_DIRECT (1m) ──────────────────────────────────────────────────────────────────────────────────────
+# "Is this production?" has ONE definition: gateflags.is_production (DEBT-B97 — unset / misspelt / anything but
+# development ⇒ production). A service that reads AIRAWAT_ENV itself re-implements it, and the copy drifts: the model
+# gateway's dev-stub refusal tested only "prod"/"production" and so failed OPEN when the variable was unset (1m, H2).
+# Every read of AIRAWAT_ENV in code fails, except the definition and the listed exceptions (each with its reason).
+AIRAWAT_ENV_READ = re.compile(r"""(environ\s*(\.get\s*\(|\[)|getenv\s*\()\s*['"]AIRAWAT_ENV['"]""")
+AIRAWAT_ENV_ALLOWED = {
+    "platform-spec/reference/gateflags.py": "THE definition (is_production)",
+    "platform-spec/reference/svc_gate.py": "prints the value in its refusal message only; the decision is _gf.is_production()",
+    "deploy/local-dev/devstub/stub_provider.py": "own image without platform code; restates the rule fail-closed (development only)",
+}
+
+
+def check_airawat_env_direct():
+    hits = []
+    for f in files((".py",)):
+        if f in AIRAWAT_ENV_ALLOWED:
+            continue
+        for i, l in enumerate(lines(f), 1):
+            if AIRAWAT_ENV_READ.search(l):
+                hits.append((f, i, l.strip()[:120], "reads AIRAWAT_ENV itself — use gateflags.is_production()"))
+    return hits
+
 CHECKS = [  # name, rule protected, fn, baselined?
     ("TOKEN_ROLES", "FND-1/FND-2 (identity carries no authority; authority only from recorded state) — DEBT-B1", check_token_roles, True),
     ("UNDECLARED_ROUTE", "FND-8 (every privileged endpoint declared + authenticated) — §0 net 4", check_undeclared_routes, False),
@@ -392,6 +415,7 @@ CHECKS = [  # name, rule protected, fn, baselined?
     ("SUPERUSER_DB", "ARC-3 / FND-10 (per-service least-privilege DB roles) — DEBT-B57", check_superuser_db, False),
     ("PROD_SHADOW_OR_INPROCESS", "FND-16 (enforce by default) + CMP-5 (confinement) — DEBT-A72/B51; RELEASE-PLAN §5", check_prod_shadow, True),
     ("DEV_STUB_OUTSIDE_LOCALDEV", "FND-16 (no dev convenience in production) — fixtures decision: the stub model provider is dev-only", check_dev_stub_outside_localdev, False),
+    ("AIRAWAT_ENV_DIRECT", "FND-16 (fail-loud / enforce by default) — one definition of production (gateflags, DEBT-B97); 1m", check_airawat_env_direct, False),
     ("GATED_DOOR_DIRECT", "FND-9 (audience-bound service tokens on every internal call) + ARC-1 (declared edges only) — DEBT-B174", check_gated_door_direct, False),
 ]
 
@@ -427,6 +451,9 @@ SELFTEST = [  # (pattern, a line it MUST catch) — proves no check passes vacuo
     (SUPERUSER_DEFAULT, 'user=os.environ.get("DB_USER", "postgres")'),
     (_DENY_PRED, 'def _account_on_hold(tenant, user):'),
     (PROD_SHADOW, '      PLATFORM_AUTHORITY_MODE: shadow'),
+    (AIRAWAT_ENV_READ, 'if (os.environ.get("AIRAWAT_ENV") or "").strip().lower() in ("prod", "production"):'),   # 1m: the H2 line
+    (AIRAWAT_ENV_READ, "env = os.environ['AIRAWAT_ENV']"),
+    (AIRAWAT_ENV_READ, 'prod = os.getenv("AIRAWAT_ENV") == "production"'),
 ]
 
 
@@ -441,6 +468,7 @@ SELFTEST_NEG = [  # (pattern, a line it must NOT catch) — the broadened patter
     (SHELL_DEFAULT, 'token_period=${AOS_VAULT_TOKEN_PERIOD:-1h}'),                                   # a duration, not a secret (R7-6)   # a mount NAME, not a secret
     (OR_LITERAL_PY, 'R = (os.environ.get("RUN_TOKEN_READERS") or "scheduler")'),                   # a caller list
     (OR_LITERAL_PY, 'A = (os.environ.get("SECRETS_ACCEPT_AUD") or "svc:secrets")'),               # an audience
+    (AIRAWAT_ENV_READ, 'if _gf.is_production():  # AIRAWAT_ENV decides'),   # 1m: using the definition is fine
 ]
 
 
