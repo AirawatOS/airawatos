@@ -1,12 +1,13 @@
 # ADR-0135 — External-system participants, interactive fulfilment, and the account-mediated SDK
 
 **Status:** Proposed
-**Date:** 2026-11-19
+**Date:** 2026-11-19 · **Amended:** 2026-11-21 (who draws each screen — §2, §3; see [[ADR-0136]])
 **Relates to:** [[ADR-0117]] (credential-and-services network), [[ADR-0118]]/[[ADR-0119]] (Trusted Network
 Platform, four planes), [[ADR-0116]] (participant ≠ tenant), [[ADR-0128]] (networks are federated; joining =
 registering as a participant), [[ADR-0129]] (participants, explicit grants), [[ADR-0127]] (one authority model,
 two-key rule), [[ADR-0125]] (consent), [[ADR-0124]] (service identities), [[ADR-0112]] (participant embed SDK),
-[[ADR-0049]] (verifiable credentials, wallet), DEBT-B182 (capability and grant model)
+[[ADR-0049]] (verifiable credentials, wallet), [[ADR-0136]] (tenant members and network accounts), DEBT-B182
+(capability and grant model)
 
 ## Context
 
@@ -68,10 +69,18 @@ A request is a small state machine. Besides `accepted → in_progress → comple
   `captcha` (an image to read), `form` (fields with a governed schema, possibly prefilled), `choice`,
   `external_redirect` (the holder completes a step on the provider's own page and returns). New kinds are added
   by the standards body.
-- **Who sees what.** The requesting app renders the challenge and relays the answer; it never sees the
-  connector's secrets, and the answer goes to the fulfilling participant, not to the app. The **outcome goes to
-  the account holder** (their wallet). The requesting app learns the outcome only as far as the holder consents
-  (by default: completed or failed).
+- **Who draws each challenge** (amended 2026-11-21). Steps that belong to the account holder are drawn by the
+  **network**, on its own pages, never inside the requesting app's page:
+  - `consent`, so its wording and record are governed in one place;
+  - any challenge with **sensitive input** (`otp`, an Aadhaar or other identity number in a `form`, a `captcha`
+    guarding them), so the app's code never sees it.
+
+  The SDK opens the network screen (a popup or a redirect, as for sign-in) and the app gets back only the outcome.
+  The app draws a challenge itself only when its governed definition marks it as **app-drawn**: a `choice` or a
+  `form` field that is the app's own business data (for example a preferred city). The default is network-drawn.
+- **Who sees what.** The app never sees the connector's secrets or the holder's sensitive answers; answers go to
+  the fulfilling participant. The **outcome goes to the account holder** (their wallet). The requesting app learns
+  the outcome only as far as the holder consents (by default: completed or failed).
 - **Bounds.** Each challenge carries an expiry and a retry limit; the request fails cleanly when they run out.
   Every challenge issued and answered is part of the request's audit record.
 
@@ -81,7 +90,7 @@ The Participant SDK (ADR-0112, ADR-0128 "own system" mode) exposes the same netw
 
 | Mode | Who calls | Authenticated as | Typical calls |
 | --- | --- | --- | --- |
-| **A — for an account holder** | an app in which the holder is signed in (a platform's app, a citizen portal, a service centre, a chat channel) | the holder (PKCE sign-in) + the app's registered client | `login`, `discover`, `request` → `respond` (challenges) → `status`, `wallet`, `present` |
+| **A — for an account holder** | an app in which the holder is signed in (a platform's app, a citizen portal, a service centre, a chat channel) | the holder (PKCE sign-in) + the app's registered client | `login`, `discover`, `request` (network screens for the holder's steps; `respond` only for app-drawn challenges) → `status`, `openWallet`, `present` |
 | **B — participant to participant** | a participant's backend, no holder present | the participant's service identity, signed requests | `publishOffering`, `issue`, `verify`, `subscribe`, `status` |
 
 - Every Mode-A action on a holder's data needs **both** the app's capability grant **and** the holder's consent
@@ -89,6 +98,10 @@ The Participant SDK (ADR-0112, ADR-0128 "own system" mode) exposes the same netw
   data — then the person's consent is still required.
 - What appears in an app is **configuration**: the network's offerings and the app client's allowed scope, not
   screens hard-coded per network.
+- Mode A has two kinds of call (amended 2026-11-21). **Data calls** have no UI: the app uses them to build its own
+  journey (list offerings, issue, check status). **Network screens** are drawn by the network for the holder's own
+  steps: network sign-in, consent, sensitive challenges and the wallet (`openWallet`). The app designs its journey
+  and brand; it never draws the holder's account, wallet or consent.
 
 ### 4. The account and the wallet
 
@@ -114,8 +127,8 @@ credentials it may issue or verify, which offerings it may publish (DEBT-B182).
 | Identity participant | the worker registry (registry ID, eKYC) — connected by a connector (§1) |
 | Account anchor | the registry ID |
 | First issuers | platform companies, each mapped to its registry platform id |
-| Offering "registry registration" | fulfilled by the connector; challenges: consent → captcha → mobile OTP → Aadhaar OTP → form (§2); outputs: *identity verified* and *registry registration* credentials, signed by the registry participant |
-| Front doors | platform apps (Mode A); platform backends publish jobs and issue work records (Mode B) |
+| Offering "registry registration" | fulfilled by the connector from the platform's signed work certificate; challenges, all network-drawn (§2): consent → Aadhaar number → at most one OTP; output: a *registry registration* credential, signed by the registry participant |
+| Front doors | platform apps draw their own partner journey (Mode A data calls) and open network screens for the worker's own steps; platform backends publish jobs and issue work records (Mode B) |
 | Wallet | network-hosted; DigiLocker configurable |
 | Governor | the ministry |
 
@@ -127,8 +140,9 @@ departments as participants, the property record as one anchor, building permiss
 - External systems join without migrating; their secrets and identifiers stay with their connector.
 - A demo or a pilot can run end to end against a **mock** of the external system before access is granted; the
   same connector then switches to the real endpoint.
-- The SDK gains a generic challenge loop (`request` → `respond` …). Apps must render the governed challenge kinds;
-  an app that cannot render one (e.g. a captcha in a voice channel) falls back to `external_redirect`.
+- The SDK gains network-hosted screens for the holder's steps and a small loop for app-drawn challenges. Apps no
+  longer render consent or sensitive inputs, so every app gets the same governed screens; a channel that cannot
+  show a screen (e.g. voice) sends the holder a link (`external_redirect`).
 - Requests become longer-lived and stateful; fulfilment state, expiries and audit live with the request.
 - Open, per external system, not per platform: whether partner server-to-server calls are permitted, how partner
   requests are authenticated, which ids each partner holds, and what may be retained. These are confirmed with the
