@@ -3,6 +3,9 @@
 **Status:** Proposal only. This document moves nothing, renames nothing, and changes no path. It describes a
 target layout and a migration plan for a *later* decision (see §5 timing). Nothing here is executed by committing it.
 
+**Owner decision 2026-11-21 — visibility:** the single repository is a **new PRIVATE repository**. It is **not** the
+public `airawatos` repository (see §2.0).
+
 **Scope note:** the prompt named "five repositories"; the working tree actually contains **eight** git repos
 (the extra three — `domain-spec`, `intelligence-spec`, `tests-repo` — only sharpen the argument). All are listed below.
 
@@ -88,7 +91,29 @@ Each repo is on its **own feature branch** today (`docs/trusted-network-platform
 
 ## 2. Target
 
-**One repository**, laid out to mirror the architecture tiers (constitution → core → gateways → components),
+### 2.0 Where the single repository lives (owner decision 2026-11-21)
+
+The eight repositories do not share one visibility:
+
+| Public | Private |
+|---|---|
+| `airawatos` (root), `components` | `platform-spec`, `kernel`, `network`, `domain-spec`, `intelligence-spec`, `tests` |
+
+Merging everything into the public `airawatos` would publish the private code **and its whole history**. It would also
+break the standing rule that kernel review findings never go into a public repository. So:
+
+- The single repository is a **new private repository** under `AirawatOS` (name to be chosen by the owner).
+- The history of all eight repositories is brought into it (§5), including the two public ones. Their history is
+  already public, so nothing new is exposed.
+- **The public `airawatos` and `components` repositories stay where they are.** They are frozen at the cut-over. Whether
+  they later receive published releases (for example the SDK and the components, a one-way export from the private
+  repository) is a separate owner decision. Nothing flows from the private repository to a public one by default.
+- Kernel review findings, the private review records and every other private file may then live in the single
+  repository's `docs/`.
+- A **secret scan of the full history** runs before the first push to the new repository (§6). The private
+  repositories' history has never been public, so it was never scanned for publication.
+
+**One private repository**, laid out to mirror the architecture tiers (constitution → core → gateways → components),
 with runtime data and build outputs kept **outside** the tree and ignored.
 
 ```
@@ -212,7 +237,7 @@ pipelines, drivers, adapters, solutions}`; `platform-spec` → `core/` (implemen
 | **B — current multi-repo (8 repos)** | No — N commits, N tags, no atomic PR; branches drift (as seen) | N independent tags, hand-synced | N runs, no cross-repo gate | per-repo only; can't require a security review on one *folder* | Status quo — the friction in §1 |
 | **C — core + public-SDK split (2 repos)** | Core changes atomic; SDK consumed as a pinned dependency | 2 tags; SDK semver pinned by core | 2 runs; SDK contract tested independently | CODEOWNERS in each; SDK gets an external-API review gate | Fallback if/when the SDK is published to third parties |
 
-**Recommendation: Option A (single repository).** Reasons:
+**Recommendation: Option A (single repository) — a new private one (§2.0).** Reasons:
 - **Atomic changes across layers.** The recurring pain (a slice touching identity + ensure_install + installer
   as three commits/tags) collapses to one commit, one PR, one reviewable diff.
 - **Single version and tag.** One `pre-identity-cutover`-style tag marks the whole platform state, not three
@@ -234,7 +259,9 @@ pipelines, drivers, adapters, solutions}`; `platform-spec` → `core/` (implemen
 file keeps its full `git log`/`git blame`. Never copy files in with a flat "import" commit.
 
 **Order of moves** (each step ends green before the next — see verification):
-1. **Scaffold** the target tree in the root repo on a branch; add `CODEOWNERS`, the merged `.gitignore`
+0. **Create** the new private repository (owner: name + creation). Bring each source repository's history into it under
+   its target path. The source repositories stay untouched (read-only from then on, once the cut-over is decided).
+1. **Scaffold** the target tree in the new private repository; add `CODEOWNERS`, the merged `.gitignore`
    (runtime data + build + env + keys out; drop the `/*` allowlist and the `!/conformance/` hack), and the
    single `deploy/compose/`.
 2. **`constitution/`** — subtree-merge `domain-spec`, `intelligence-spec`, and move `docs/decisions`,
@@ -290,6 +317,7 @@ files mid-review and gives Layer 2 the single-repo, single-tag, single-CI benefi
 | **Secrets accidentally committed** during the move | The merged `.gitignore` excludes `*.env`, `init.json`, `*.pem`/`*.key`, `.filestore-data/`, conformance `.creds.json`/`results/` **before** the first move; run `git status` + a secret-scan pre-commit on each step | n/a — prevention, not recovery. |
 | **ADR-0130 still Proposed** → `gateways/` tier not final | ADR-0130 is written (Proposed); accept it **before** step 5; until then leave `services/` in place | Skip step 5; the rest of the restructure does not depend on it. |
 | **In-flight branches on the old repos** collide with the move | Freeze feature work on the source repos during the window; land or shelve the five open branches first | The source repos remain the fallback; resume there if the monorepo is abandoned. |
+| **Private code or history published** (the single repository made public, or a public mirror fed from it) | The single repository is private (§2.0); no automatic sync to a public repository; any public export is a separate, reviewed owner decision | Make the repository private again; rotate anything that leaked. |
 | **CODEOWNERS too strict** blocks routine work | Start permissive (stewards as reviewers, not hard blocks); tighten `core/authz`, `core/identity`, `constitution` after the team adjusts | Loosen or remove `CODEOWNERS` entries — config-only, instant. |
 
 **Whole-proposal rollback:** nothing is executed by this document. If the restructure is started and then
