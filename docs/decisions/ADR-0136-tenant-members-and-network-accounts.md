@@ -34,7 +34,7 @@ one wallet the person carries from tenant to tenant, without filling in and prov
 
 2. **A person's network account and wallet belong to the person.** No single tenant configures them. The network
    governor sets the rules: who may hold an account, what registration needs, which credential types exist, the
-   consent rules, and which tenants may **provide** accounts and wallets (for example the ministry for a livelihood
+   consent rules, and which tenants may **provide** accounts and wallets (for example the Ministry of Labour for its eShram
    network, or a wallet such as DigiLocker).
 
 3. **Members link to networks; tenants never hold the network account.** The tenant admin chooses, per member role,
@@ -105,11 +105,11 @@ hash would let tenants match up people. Instead:
 1. On Ola's home page the driver taps **Register**, chooses **Partner**, and completes Ola's partner registration:
    mobile OTP, Aadhaar eKYC, licence and police verification documents, approval by Ola's onboarding team.
 2. Ola issues a **partner certificate**: identity facts from its eKYC, a sealed duplicate token, and the engagement.
-3. The member home offers **Link to Livelihood network**. On the network's screen the driver signs in, or registers
+3. The member home offers **Link eShram** (the Ministry of Labour's worker network, network id `eshram`). On the network's screen the driver signs in, or registers
    with nothing to fill in, and consents. The certificate goes to their wallet.
 4. Registration with the national worker registry runs from the certificate; the registry's credential comes back to
    the same wallet.
-5. Later the driver registers as a Swiggy partner and links the **same** livelihood account; the network recognises
+5. Later the driver registers as a Swiggy partner and links the **same** eShram account; the network recognises
    them, so no second account is created.
 
 ## What each admin configures
