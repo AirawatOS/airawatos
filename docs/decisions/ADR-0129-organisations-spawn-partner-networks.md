@@ -1,6 +1,6 @@
 # ADR-0129 — Every organisation can spawn networks; vendors and partners are participants
 
-**Status:** Proposed · **Date:** 2026-11-06
+**Status:** Proposed · **Date:** 2026-11-06 · **Amended:** 2026-11-21 (Decision 10: starting and running several networks)
 **Builds on:** ADR-0116 (participant ≠ tenant), ADR-0122 (recorded roles, SoD), ADR-0124 (service
 identities), ADR-0127 (one authority model, two-key rule), ADR-0128 (Networks are federated).
 **Affects:** PLATFORM (PLT-1, PLT-10, PLT-16–PLT-21), NETWORK (NET-2, NET-3, NET-5, NET-12), PARTICIPANT
@@ -123,6 +123,34 @@ Two related questions are also open:
   +------------------------------------------------------------------+
 ```
 
+10. **A tenant starts, configures and runs any number of networks — with its own staff as their admins.**
+    (Amended 2026-11-21, from the eShram / livelihood network on the staging demo.)
+    - **Start a network** in **Settings → Networks**, a tenant-admin action: its name and id (never the tenant's
+      own), purpose, how members join (open, by request with approval, by invitation), participant types (for
+      example platform, scheme provider, registry) and its first network admins, chosen from the tenant's staff.
+      It starts as a **draft**; a network admin opens it.
+    - **Network admins are role assignments, not separate logins.** A network admin is a member of the governing
+      tenant's staff holding a recorded role *for that network* (FND-3). One person may administer several
+      networks; separation of duties applies per network. The network service accepts a network decision from
+      the governing tenant's staff holding that role — not only from a principal whose tenant *is* the network.
+    - **Manage each network in the Network Admin app,** which lists the networks the person administers:
+      profile and branding (the name people see), membership (requests, invitations, approve / reject /
+      revoke, the member list), grants (issuer of a credential type, identity attester, use of a service —
+      DEBT-B182), vocabulary (the credential types and services it uses) and, where the network holds people's
+      accounts (ADR-0136), its account and registration rules.
+    - **Settings → Networks** shows two lists in every tenant: *networks we run* (start, open, retire) and
+      *networks we belong to* (apply, leave).
+    - **Lifecycle:** draft → live → retired. Retiring stops new members and new grants; existing records and
+      decision trails are kept.
+
+    ```text
+      TENANT: Ministry of Labour (staff: A, B, C)
+        governs ──> NETWORK eShram (workers, platforms, schemes)      admins: A, B
+        governs ──> NETWORK Labour IT vendors (SMS, cloud, SI)        admins: C
+        governs ──> NETWORK Labour research data-sharing              admins: B
+        member of -> NETWORK Urban Services Network (run by the Urban Dept)
+    ```
+
 ### Note — how providers are found and used
 
 A provider **registers once** as a participant (identity, keys, provider role) and passes the provider-role
@@ -195,13 +223,17 @@ chooses to belong to — visible to their members, or public (NET-12). A tenant 
    policy for shared gateways.
 5. **Billing.** Whether provider usage charged to a tenant settles through the tenant's partner network
    offerings, the platform's, or both.
+6. **Starting a network on a shared installation.** Whether it needs the operator's approval (the staging demo
+   used a steward-approved application) or only the tenant admin's decision, with the network's id checked for
+   uniqueness. A network that holds people's accounts (ADR-0136) may need the operator's or a regulator's
+   approval even if a partner network does not.
 
 ## Spec changes if accepted
 
 | Spec | Change |
 |---|---|
 | PLATFORM | PLT-1 (no Network at install — reinforce); PLT-16–PLT-21 restated: providers are any participants passing provider-role conformance; a tenant admits its chosen provider into its own partner network; PLT-17 shrinks to "the platform sets infrastructure policy (residency, outbound security baseline) for its shared gateways" — no catalog, no approval |
-| NETWORK | NET-2 partner network created on first use, in draft, explicit admin; NET-3 tenant admin ≠ network admin unless recorded; NET-12 partner-network visibility defaults; new rule: trust extension to members' networks is a network policy, default off — attenuated, recorded, cascade-revoked, depth-bounded, sub-processors recorded |
+| NETWORK | (Decision 10) a tenant starts and runs several networks; network admins are per-network role assignments of the governing tenant's staff; draft → live → retired; NET-2 partner network created on first use, in draft, explicit admin; NET-3 tenant admin ≠ network admin unless recorded; NET-12 partner-network visibility defaults; new rule: trust extension to members' networks is a network policy, default off — attenuated, recorded, cascade-revoked, depth-bounded, sub-processors recorded |
 | PARTICIPANT | PTC-1 vendors as participants; PTC-11 vendor role conformance (service provider, processor, contractor, integrator) |
 | OFFERINGS | vendor contracts as offerings; processor recording for personal data |
 | FOUNDATIONS | FND-4: add the partner-network case as an explicit example of tenant ≠ network |
