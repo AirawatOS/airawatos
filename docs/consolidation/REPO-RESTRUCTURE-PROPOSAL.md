@@ -106,10 +106,11 @@ break the standing rule that kernel review findings never go into a public repos
   (owner decision 2026-11-21). Proposed repository name: **`airawat`** (the organisation's and the CLI's name; it claims
   no single layer, while "AirawatOS" means the base platform and "Airawat Stack" the five layers of ADR-0065).
 - **The organisation is on GitHub's Free plan.** On Free, a *private* repository gets no protected branches, no
-  rulesets and no enforced `CODEOWNERS`, and Actions minutes are capped. Either the organisation moves to Team before
-  the cut-over, or the per-folder review rule (§4) is kept by convention, not enforced. Owner decision.
-- The organisation currently lets members create **public** repositories. Turn that off, so nothing is made public by
-  accident.
+  rulesets and no enforced `CODEOWNERS`, and Actions minutes are capped. **Owner decision 2026-11-21: stay on Free; the
+  per-folder review rule (§4) is kept by convention, not enforced**, until the organisation moves to a paid plan.
+- **Members can create public repositories, and on Free this cannot be turned off.** GitHub refuses the "private only"
+  creation policy on the Free plan. The only member today is the owner, and the setting never applies to owners.
+  Re-check this when the first member is added: either move to Team, or block repository creation for members.
 - The history of all eight repositories is brought into it (§5), including the two public ones. Their history is
   already public, so nothing new is exposed.
 - **The public `airawatos` and `components` repositories stay where they are.** They are frozen at the cut-over. Whether
