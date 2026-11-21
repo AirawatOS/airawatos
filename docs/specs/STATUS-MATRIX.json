@@ -7,11 +7,12 @@
   ],
   "provenance": {
     "local-dev": {
-      "git_sha": "c0bc08203f4f80891c91b167a0a5f374d0f73790",
-      "ts": "2026-11-10T02:37:21Z",
+      "git_sha": "052b67d1a5665d0b6e6671eab7a9b55d878912b5",
+      "ts": "2026-11-21T03:17:11Z",
       "modes": [
         "banned",
         "dbgrants",
+        "edges",
         "external",
         "flowmap",
         "functional",
@@ -56,7 +57,7 @@
         "local-dev": "PARTIAL"
       },
       "FND-9": {
-        "local-dev": "PLANNED(needs-build)"
+        "local-dev": "PARTIAL"
       },
       "FND-10": {
         "local-dev": "PLANNED(needs-build)"
@@ -539,7 +540,7 @@
     },
     "ARCHITECTURE": {
       "ARC-1": {
-        "local-dev": "HELD"
+        "local-dev": "PARTIAL"
       },
       "ARC-2": {
         "local-dev": "NO TEST"

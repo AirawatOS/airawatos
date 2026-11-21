@@ -2,7 +2,7 @@
 
 **Generated** by `conformance/build_matrix.py` from `conformance/results/*.json` (written by `conformance/run.py --matrix`). **Do not hand-edit** — regenerate after a conformance run. This is the conformance-derived single source of truth for per-rule status; the specs reference it (ADR: STATUS-MATRIX-DESIGN.md).
 
-- **local-dev** — measured: modes banned+dbgrants+external+flowmap+functional+gtwstatic+internal+knownviolations+listen+netdoors+ops+restoredrill+routes+scans+vaultrenewal+vaultscope, git `c0bc08203f4f80891c91b167a0a5f374d0f73790`, 2026-11-10T02:37:21Z
+- **local-dev** — measured: modes banned+dbgrants+edges+external+flowmap+functional+gtwstatic+internal+knownviolations+listen+netdoors+ops+restoredrill+routes+scans+vaultrenewal+vaultscope, git `052b67d1a5665d0b6e6671eab7a9b55d878912b5`, 2026-11-21T03:17:11Z
 - **production** — *PROJECTED*: no production conformance run yet; not asserted (stand up per docs/operator/FRESH-INSTALL-TEST.md §Step 3, then run the suite with AOS_ENV=production).
 
 **Derived status:** HELD (all cited cases PASS) · PARTIAL (PASS + known-violation XFAIL) · VIOLATED (only XFAIL — tracked as debt) · PLANNED(needs-build) (any SKIP_BUILD case: part of the rule is unbuilt — never HELD) · UNVERIFIED(creds) (any SKIP_CREDS case: not verified — never HELD; fix the fixture) · REVIEW (XPASS — spec lags code) · REGRESSION (a FAIL — contradicts spec) · NO TEST (no case cites the rule yet).
@@ -13,13 +13,13 @@
 |---|---|---|---|
 | `FND-1` | PARTIAL | projected | App Host authority comes from a recorded grant, not the token's roles claim; a roleless-created account has NO roles — no authority by omission [DEBT-B28 fixed] |
 | `FND-2` | PARTIAL | projected | Trust audit chain is verified/reconciled at runtime; banned pattern TOKEN_ROLES: 140 known occurrence(s), none new; dev-sandbox refused a cross-tenant write; va |
-| `FND-3` | PARTIAL | projected | a declared caller (kernel) mints svc:network for the internal lookups; authority only from a recorded grant, never tenant name (TRUST plane); declared write (pl |
+| `FND-3` | PARTIAL | projected | a declared caller (kernel) mints svc:network for the internal lookups; a role assignment with no principal is refused with 400 and its reason (was 500); after t |
 | `FND-4` | PLANNED(needs-build) | projected | tenant != network (authority keyed on net:id, not tenant/slug) |
 | `FND-5` | PLANNED(needs-build) | projected | durable authority survives restart; session cookie is Secure + CSRF/Origin-checked on state-changing bridge POSTs |
 | `FND-6` | PARTIAL | projected | kernel is domain-blind (no domain vocabulary baked in) — DEBT-B8; unknown schema handled opaquely (internal, pos) |
 | `FND-7` | PLANNED(needs-build) | projected | kernel authorizes with Network down |
 | `FND-8` | PARTIAL | projected | /bridge/component-publish refuses an unverified bearer (not presence-only); /v1/certificates/resolve admits exactly ['launcher', 'scheduler']; /v1/certificates/ |
-| `FND-9` | PLANNED(needs-build) | projected | automation /events admits its declared caller (event-relay principal, svc:automation); automation /events refuses an anonymous call; automation /events refuses  |
+| `FND-9` | PARTIAL | projected | an empty upload is refused with 400 (the app shows the reason); aos upload (the real CLI, past the 25 MB browser cap) stored the file → file_id; app-host → file |
 | `FND-10` | PLANNED(needs-build) | projected | /v1/certificates/resolve admits exactly ['launcher', 'scheduler']; /v1/certificates/resolve answers its declared callers without a server error; /v1/directory/r |
 | `FND-11` | PLANNED(needs-build) | projected | SoD for floor roles enforces approver != proposer; component.publisher refused at kernel admin (registry.usage); dev-sandbox refused at kernel admin (registry.u |
 | `FND-12` | PLANNED(needs-build) | projected | Vault has a file audit device on its own volume; a Vault request is recorded in the audit log; every authz decision audited (allow+deny); failed-auth logged; th |
@@ -29,7 +29,7 @@
 | `FND-16` | PARTIAL | projected | a KILLED renewer is detected and decision recovers (restart, renewer running again); a revoked token is NOT silent: decision goes unhealthy or is restarted (con |
 | `FND-17` | PLANNED(needs-build) | projected | agent delegation; no self-widen |
 | `FND-18` | NO TEST | projected | — |
-| `FND-19` | HELD | projected | nothing was stored under the reserved kind; tenant admin installs the reserved-kind probe (declares governance.role_assignment); the kernel REFUSES the granted  |
+| `FND-19` | HELD | projected | nothing was stored under the reserved kind; tenant admin installs the reserved-kind probe (declares governance.role_assignment); the edge-probe-reader fixture i |
 
 ## REGISTRY
 
@@ -95,7 +95,7 @@
 | `ACC-1` | NO TEST | projected | — |
 | `ACC-2` | VIOLATED | projected | account id is permanent + distinct from the login handle [debt DEBT-B30]; id/handle/binding distinct; handle reserved |
 | `ACC-3` | VIOLATED | projected | assurance reflects the real auth method (AL-vocabulary, >=AL1 after password) [debt DEBT-B13]; identity-binding uniqueness via a keyed blind index (HMAC), not a |
-| `ACC-4` | PLANNED(needs-build) | projected | admin creates fnuserdbece8 in its own tenant (/bridge/user-create → identity, app-host svc:identity); admin puts fnuserdbece8 on hold (/bridge/user-disable); fn |
+| `ACC-4` | PLANNED(needs-build) | projected | admin creates fnuser4fc179 in its own tenant (/bridge/user-create → identity, app-host svc:identity); admin puts fnuser4fc179 on hold (/bridge/user-disable); fn |
 | `ACC-5` | PLANNED(needs-build) | projected | provider connections (consent + confirmation; revocable) |
 | `ACC-6` | NO TEST | projected | — |
 | `ACC-7` | PLANNED(needs-build) | projected | consent by holder; withdraw->erase |
@@ -125,7 +125,7 @@
 | `PLT-2` | NO TEST | projected | — |
 | `PLT-3` | PLANNED(needs-build) | projected | operator holds no governance role (+ login-namespace != tenant, DEBT-B21) |
 | `PLT-4` | PARTIAL | projected | opadmin (operator tenant) sees all networks w/ platform_authority=true (pos); platnone (same tenant, no role) is NOT platform authority (abuse); the platform te |
-| `PLT-5` | HELD | projected | bootstrap grants no platform.authority when a holder exists (ADR-0122); grant platform.authority without a different-holder CR is refused (abuse); revoking the  |
+| `PLT-5` | HELD | projected | a role assignment with no principal is refused with 400 and its reason (was 500); after the revoke the grant is no longer active; before the revoke the same tes |
 | `PLT-6` | NO TEST | projected | — |
 | `PLT-7` | NO TEST | projected | — |
 | `PLT-8` | NO TEST | projected | — |
@@ -232,7 +232,7 @@
 
 | rule | local-dev | production | cases (provenance) |
 |---|---|---|---|
-| `ARC-1` | HELD | projected | every container of the project is declared; every container was probed; every declared container is running; every non-egress network is internal (default-deny  |
+| `ARC-1` | PARTIAL | projected | an empty upload is refused with 400 (the app shows the reason); aos upload (the real CLI, past the 25 MB browser cap) stored the file → file_id; app-host → file |
 | `ARC-2` | NO TEST | projected | — |
 | `ARC-3` | PARTIAL | projected | BEFORE root: app-host reads its own Vault path with its OWN token (and not a foreign one); BEFORE root: automation reads its own Vault path with its OWN token ( |
 | `ARC-4` | PLANNED(needs-build) | projected | per-service micro-segmentation within the service mesh |
@@ -263,6 +263,6 @@
 
 | environment | HELD | PARTIAL | VIOLATED | PLANNED(needs-build) | UNVERIFIED(creds) | REVIEW | REGRESSION | NO TEST | projected |
 |---|---|---|---|---|---|---|---|---|---|
-| local-dev | 4 | 18 | 5 | 85 | 0 | 0 | 0 | 70 | 0 |
+| local-dev | 3 | 20 | 5 | 84 | 0 | 0 | 0 | 70 | 0 |
 | production | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 182 |
 
