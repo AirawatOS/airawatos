@@ -102,7 +102,14 @@ The eight repositories do not share one visibility:
 Merging everything into the public `airawatos` would publish the private code **and its whole history**. It would also
 break the standing rule that kernel review findings never go into a public repository. So:
 
-- The single repository is a **new private repository** under `AirawatOS` (name to be chosen by the owner).
+- The single repository is a **new private repository** in the existing, empty GitHub organisation **`airawat-stack`**
+  (owner decision 2026-11-21). Proposed repository name: **`airawat`** (the organisation's and the CLI's name; it claims
+  no single layer, while "AirawatOS" means the base platform and "Airawat Stack" the five layers of ADR-0065).
+- **The organisation is on GitHub's Free plan.** On Free, a *private* repository gets no protected branches, no
+  rulesets and no enforced `CODEOWNERS`, and Actions minutes are capped. Either the organisation moves to Team before
+  the cut-over, or the per-folder review rule (§4) is kept by convention, not enforced. Owner decision.
+- The organisation currently lets members create **public** repositories. Turn that off, so nothing is made public by
+  accident.
 - The history of all eight repositories is brought into it (§5), including the two public ones. Their history is
   already public, so nothing new is exposed.
 - **The public `airawatos` and `components` repositories stay where they are.** They are frozen at the cut-over. Whether
