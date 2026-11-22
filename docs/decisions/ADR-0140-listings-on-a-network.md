@@ -57,6 +57,9 @@ code, and the SDK would stop being generic. A network should be able to add a ki
    its own cache, checks each listing's signature, drops expired and closed listings, and offers search. There can be any
    number; the network's own list in people's accounts is one of them.
 
+   The feed is the network's **discovery feed**: it carries services too (ADR-0139 decision 8), so one search provider can
+   offer jobs, insurance and benefits side by side — each checked against its own publisher's key.
+
 9. **Responding always goes through the network.** Wherever a person finds a listing, they respond on the network's own
    consent screen (each listing has a stable link for it), and the response reaches the poster. A search provider helps
    people find listings; it never sees responses.
