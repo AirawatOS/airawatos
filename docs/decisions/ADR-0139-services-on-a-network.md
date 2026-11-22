@@ -56,6 +56,14 @@ those records are *for* is the services a person can then get: insurance, jobs, 
 7. **One application at a time per service.** A person who already holds a current credential from the service is told so
    instead of applying again.
 
+8. **Services are discoverable outside the network.** A member whose role **uses** `network.service_offering` may read the
+   network's services in its **discovery feed** (ADR-0140) — the same feed that carries listings — and offer them in its
+   own search, app or portal. Each service travels as the full record its provider published, with the provider's steward
+   signature, which anyone can check against the provider's key in the network directory. The feed says when a service is
+   offered, changed or withdrawn on the network, and members get a signed `service.changed` event. A search provider can
+   show who can apply; only the network decides whether a person qualifies — it alone reads their certificates — and
+   people apply on the network's own screen (each service has a stable link to it).
+
 ## Worked example — accident cover on the eShram network
 
 | | |
