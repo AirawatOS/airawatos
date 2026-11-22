@@ -31,6 +31,7 @@ This is the **go-forward decision record**. It lives alongside the reference imp
 | 0101 | [Governed verb binding: the app-host is a domain-blind dispatcher](ADR-0101-governed-verb-binding-domain-blind-host.md) | Accepted (live 0.2.47) |
 | 0129 | [Every organisation can spawn networks; vendors and partners are participants](ADR-0129-organisations-spawn-partner-networks.md) | Proposed |
 | 0138 | [Network roles and capabilities](ADR-0138-network-roles-and-capabilities.md) | Proposed |
+| 0139 | [Services on a network](ADR-0139-services-on-a-network.md) | Proposed |
 
 ## Migration backlog — legacy AirOS ADRs to rewrite for AirawatOS
 
