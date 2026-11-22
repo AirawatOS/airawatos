@@ -1,6 +1,6 @@
 # ADR-0140 — Listings on a network
 
-**Status:** Proposed (revised 2026-11-22: was "Jobs on a network"; jobs are now the first kind of listing)
+**Status:** Proposed (revised 2026-11-22: was "Jobs on a network"; jobs are now the first kind of listing; listings are the poster's, cached by the network and search providers)
 **Date:** 2026-11-22
 **Related:** ADR-0137 (participants without AirawatOS), ADR-0138 (network roles and capabilities), ADR-0139 (services on a
 network).
@@ -46,6 +46,21 @@ code, and the SDK would stop being generic. A network should be able to add a ki
 
 6. **Events** to the lister: `listing.response`, `offer.accepted`, `offer.declined` — each naming the listing type.
 
+7. **A listing belongs to its poster; the network caches it.** The poster signs each listing with its own key — its type,
+   fields and expiry — and every change is a new signed version. The network keeps a cached copy of the current version,
+   with the poster's signature, version and expiry, and drops it when it expires or the poster closes it. Anyone holding
+   a copy can check it against the poster's published keys, so no copy — the network's included — has to be trusted.
+
+8. **Search providers are members with a role.** A role that **uses** a listing type may receive the network's
+   **listing feed** for it: signed events when a listing is posted, changed or closed (`listing.changed`), and a feed it
+   can read from any point to catch up. A search provider — a job portal, an app for workers, a ministry service — keeps
+   its own cache, checks each listing's signature, drops expired and closed listings, and offers search. There can be any
+   number; the network's own list in people's accounts is one of them.
+
+9. **Responding always goes through the network.** Wherever a person finds a listing, they respond on the network's own
+   consent screen (each listing has a stable link for it), and the response reaches the poster. A search provider helps
+   people find listings; it never sees responses.
+
 ## Worked example — jobs on the eShram network
 
 | | |
@@ -66,6 +81,8 @@ institute's role; a city could govern `works.tender` (issues `credential.contrac
 ## Consequences
 
 - New kinds of listing are governed definitions plus role configuration; the SDK stays generic.
+- Listings are not locked in one place: the poster is the source, the network a cache, and search providers compete on
+  finding — without ever handling a person's response.
 - People's history travels as certificates; listers see only what was shared and know it is genuine.
 
 ## Open questions
