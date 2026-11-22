@@ -1,6 +1,6 @@
 # ADR-0129 — Every organisation can spawn networks; vendors and partners are participants
 
-**Status:** Proposed · **Date:** 2026-11-06 · **Amended:** 2026-11-21 (Decision 10: starting and running several networks)
+**Status:** Proposed · **Date:** 2026-11-06 · **Amended:** 2026-11-21 (Decision 10: starting and running several networks) · 2026-11-22 (Decision 11: finding and joining networks)
 **Builds on:** ADR-0116 (participant ≠ tenant), ADR-0122 (recorded roles, SoD), ADR-0124 (service
 identities), ADR-0127 (one authority model, two-key rule), ADR-0128 (Networks are federated).
 **Affects:** PLATFORM (PLT-1, PLT-10, PLT-16–PLT-21), NETWORK (NET-2, NET-3, NET-5, NET-12), PARTICIPANT
@@ -151,6 +151,24 @@ Two related questions are also open:
         member of -> NETWORK Urban Services Network (run by the Urban Dept)
     ```
 
+11. **Participants find networks in a directory, or join by the network's address — no directory required.**
+    (Amended 2026-11-22.)
+    - **Every network has a public address** — a join page for people and a machine-readable profile for
+      software — under the organisation that runs it (for example `/t/labour/networks/eshram`). Pasting that
+      address into **Settings → Networks → Join by URL** is enough to join, on this installation or another one
+      (ADR-0128): the directory is a convenience for *finding* networks, never a requirement for *joining*.
+    - **The directory lists** each listed network's name, purpose, the organisation that runs it, sector, place,
+      who can join (participant types) and how to join. Settings offers **Find a network**: search by name, sector
+      or organisation, grouped by organisation. Admin lists and invitations are never published.
+    - **No duplicates.** A network id is unique on an installation, and so is its name (ignoring case and spacing)
+      among networks that are not retired. Across installations a network is identified by its address.
+    - **How to join is enforced, not just shown.** *By request* — listed; apply, a network admin decides. *By
+      invitation* — unlisted; a network admin issues invitation links, and only an application carrying a valid
+      invitation is accepted (and admitted). *Open* — listed; applications are admitted at once.
+    - **Applying names a participant type** when the network defines types.
+    - **An organisation's public home page lists the networks it runs** (listed ones), each linking to its join
+      page.
+
 ### Note — how providers are found and used
 
 A provider **registers once** as a participant (identity, keys, provider role) and passes the provider-role
@@ -227,6 +245,8 @@ chooses to belong to — visible to their members, or public (NET-12). A tenant 
    used a steward-approved application) or only the tenant admin's decision, with the network's id checked for
    uniqueness. A network that holds people's accounts (ADR-0136) may need the operator's or a regulator's
    approval even if a partner network does not.
+7. **A shared directory across installations.** Whether installations exchange their listed networks (a federated
+   directory, ADR-0128) or each lists only its own; joining by address works either way.
 
 ## Spec changes if accepted
 
