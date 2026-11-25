@@ -35,6 +35,7 @@ This is the **go-forward decision record**. It lives alongside the reference imp
 | 0140 | [Listings on a network](ADR-0140-listings-on-a-network.md) | Proposed |
 | 0141 | [The commons network: operators, domain owners, component publishers and tenants](ADR-0141-the-commons-network.md) | Proposed |
 | 0142 | [Cell panel, governed indices and investment-impact analysis](ADR-0142-cell-panel-indices-and-impact.md) | Proposed |
+| 0143 | [The Networks app: one place to run, and take part in, networks](ADR-0143-the-networks-app.md) | Proposed |
 
 ## Migration backlog — legacy AirOS ADRs to rewrite for AirawatOS
 
