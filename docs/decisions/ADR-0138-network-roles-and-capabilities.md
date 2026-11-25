@@ -36,9 +36,11 @@ registry is the only one that issues the eShram registration. Today:
 3. **Roles bundle capabilities.** Each network defines its roles — the participant types it already has — as a named set
    of capabilities to provide and to use. Roles belong to the network and are defined by its governor.
 
-4. **A member holds a role, and gets the role's capabilities.** An applicant asks for a role; the network admin approves
-   the membership *in that role* (or another) and can change it later. What a member may do follows from its role; no
-   service keeps its own list. A network may also give one member an **individual grant** that adds to or narrows its
+4. **A member holds one or more roles, and gets their capabilities.** An applicant asks for a role; the network admin
+   approves the membership *in that role* (or others) and can change its roles later. A member may hold **several roles**
+   at once — a platform aggregator that issues work certificates is often also an employer that posts jobs — and may do
+   what **any** of its roles allows: its capabilities are the union of its roles' (see *Amendment 2026-11-25*). What a
+   member may do follows from its roles; no service keeps its own list. A network may also give one member an **individual grant** that adds to or narrows its
    role, with a validity window, a scope (an area such as a ward) and a purpose (DEBT-B182 a, b).
 
 5. **Some capabilities need set-up by the providing service.** When a member is given a role that uses a service, the
@@ -84,6 +86,21 @@ registrations; certificates it issued stay verifiable, and verifiers see that it
 | Ward office | resolve `water.complaint` — scope: its own ward | — |
 | Water Department | resolve `water.complaint` — scope: everywhere | — |
 | NGO | — | read `water.complaint_statistics` (anonymised) |
+
+## Amendment 2026-11-25 — several roles per member
+
+Holding exactly one role forced a choice that does not match real organisations: on eShram, Ola is a **platform** (it
+issues work certificates and links workers) and an **employer** (it posts jobs and makes offers). Splitting it into two
+members, or swapping its role, breaks one side.
+
+- A membership carries a **list of roles**. Approving a membership, and changing it later, sets the list; a single role is
+  a list of one. Existing memberships with one role are unchanged.
+- **The one decision uses the union.** *May this member provide / use this capability?* is answered yes if any of its
+  roles provides / uses it. Credentials follow the issuer's roles the same way (decision 7).
+- **Grants still narrow or add per member** (decision 4); revoking the membership removes every role at once; removing one
+  role removes only what that role alone allowed.
+- **Assigning roles stays governance** (decision 9): recorded with who changed the list and when.
+- For readers that know only one role, the first role in the list is kept as the member's primary role.
 
 ## Consequences
 
