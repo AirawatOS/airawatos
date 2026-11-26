@@ -1,8 +1,9 @@
 # ADR-0145 — Portable credentials and wallets: the person chooses where their records live
 
 **Status:** Proposed
-**Date:** 2026-11-26
-**Related:** ADR-0127 (personal data = grant + consent), ADR-0135 (interactive fulfilment), ADR-0137, ADR-0139 (services on
+**Date:** 2026-11-26 (amended the same day: wallet providers are members of the commons with a custodian role; the
+custodian interface; how listers accept any custodian; moving existing records)
+**Related:** ADR-0146 (responses and offers between the parties), ADR-0127 (personal data = grant + consent), ADR-0135 (interactive fulfilment), ADR-0137, ADR-0139 (services on
 a network), ADR-0140 (listings), ADR-0143 (the Networks app), ADR-0144 (participation credentials). Prompted by *Building
 the Networked State: A Playbook* (step 6 and "what to avoid").
 
@@ -48,6 +49,33 @@ they are admissible, and share selectively — with the network's own account as
 
 7. **Paper stays.** A printed certificate keeps its QR code: a compact signed form a verifier checks against the issuer's
    keys and status list.
+
+## Wallet providers (amendment)
+
+1. **A wallet provider is a member of the commons with the *custodian* role.** The role provides the governed type
+   `network.custodian_presentation` — the signed message a custodian sends for a person. A provider joins the commons like
+   any organisation (ADR-0141), with its keys in the directory, and holds a participation credential for the role
+   (ADR-0144). The network's own account is a custodian like any other.
+2. **The commons sets the custodian rules,** and certification checks them: a custodian holds records only for the person;
+   never reads, profiles or uses them for itself; delivers what the person sends; keeps a receipt for every disclosure
+   (decision 6); lets the person move everything to another custodian; and records any delegation (an assisted channel
+   acting for a person). Breaking them is a ground for suspension, which reaches every lister through the status list.
+3. **Five exchanges, the same for every custodian:**
+   - *Issuance* — an issuer (or the person's current custodian) gives a one-time link to a signed record; the custodian
+     collects it and checks the issuer's signature.
+   - *Request* — every listing publishes a request: what the lister may receive (the types its role uses), where to deliver,
+     and a nonce.
+   - *Delivery* — the custodian sends the person's response, signed with its key, to the lister.
+   - *Decision* — the person's answer to an offer, signed by the custodian, goes back to the lister.
+   - *Receipt* — for each, the custodian gives the network a receipt with no contents (ADR-0146 decision 6).
+4. **A lister accepts any current custodian.** It checks the message's signature against the custodian's key in the
+   directory, and that the custodian's role in the commons is current — locally, from its participation credential and the
+   status list. It never needs to know which wallet a person chose.
+5. **Formats.** The first build uses these exchanges in the platform's signed-JSON form; the standard forms (OpenID4VCI for
+   issuance, OpenID4VP for request and response, SD-JWT VC for selective disclosure) replace them without changing the
+   roles or the checks.
+6. **Existing records move.** Responses, offers and decisions held by the network before ADR-0146 move to the person's
+   default custodian (the network's account) and to the lister, and are deleted from the network.
 
 ## What changes on the current build
 
