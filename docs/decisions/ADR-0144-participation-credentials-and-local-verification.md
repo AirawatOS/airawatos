@@ -1,7 +1,8 @@
 # ADR-0144 — Participation credentials and local verification: the network is not the intermediary
 
 **Status:** Proposed
-**Date:** 2026-11-26
+**Date:** 2026-11-26 (amended the same day: keys — the organisation's own key-set address as the source, the directory's
+signed snapshot with key history, rotation rules)
 **Related:** ADR-0116 (membership), ADR-0137 (participants without AirawatOS), ADR-0138 (roles and capabilities; the one
 decision), ADR-0140 (listings), ADR-0141 (the commons network), ADR-0143 (the Networks app), DEBT-B182 (scope and validity
 of grants). Prompted by *Building the Networked State: A Playbook* (steps 3, 4 and "what to avoid").
@@ -24,9 +25,16 @@ govern — not every transaction.
 ## Decision
 
 1. **An organisation's identity is established once, in the trust layer.** Each organisation has one entry in the commons
-   directory (ADR-0141): an identifier, its current public keys (published at a key-set address it controls, so keys rotate
-   without re-registering), and the domains it proved it controls. Networks refer to that entry; joining a second network
-   never re-registers keys.
+   directory (ADR-0141): an identifier, the domains it proved it controls, and its keys. Networks refer to that entry;
+   joining a second network never re-registers keys. Keys are kept as follows (see *Keys and rotation* below):
+   - **The organisation is the source.** It publishes its public keys at a key-set address on a domain it controls
+     (`/.well-known/jwks.json`), each key with an id and the time it becomes valid, and adds and retires keys when it
+     decides — never by filing a request.
+   - **The directory publishes a signed snapshot.** It reads that address on a schedule and publishes, signed, the binding
+     *this organisation — this domain — this key-set address — these keys*, with **every key's validity window, retired keys
+     included**, so records signed before a rotation still verify.
+   - **Verifiers use the snapshot**, cached, and fall back to the organisation's own address only for a key they have not
+     yet seen.
 
 2. **Membership is a signed credential.** When a network approves or changes a membership, the network's governing
    authority issues a **participation credential** to the member: the network, the member's identifier, its roles, any
@@ -55,6 +63,22 @@ govern — not every transaction.
    governance needs: memberships, policies, status lists, published listings for discovery, complaints and disputes — and
    counts, not contents, for oversight.
 
+## Keys and rotation
+
+- **Overlap.** A new key is published beside the old one for an overlap period (for example 7 days) before the
+  organisation starts signing with it, so every verifier's cache has it in time.
+- **Retirement.** A retired key stays valid for verifying what was signed before its end date; the directory keeps it.
+- **Compromise.** An organisation (or the directory, on evidence) marks a key compromised **from a stated time**: records
+  signed with it before that time still verify; records signed after it fail.
+- **Unexpected changes are held.** A key that appears without the overlap, or a key set whose domain proof no longer
+  passes, is not trusted at once: the directory holds it and asks the organisation to confirm through its registered
+  contact. A breached website alone cannot swap an organisation's keys.
+- **Organisations hosted on AirawatOS** keep their private keys in the platform's secret store (never readable by
+  services or operators' staff), publish their key set the same way, and rotate on a schedule the operator runs; the
+  organisation can rotate at any time.
+- **The network's own keys** (participation credentials, policies, status lists) follow the same rules, in the same
+  directory.
+
 ## What changes on the current build
 
 | Today | After |
@@ -65,6 +89,8 @@ govern — not every transaction.
 | Suspension known only to the network | A signed status list every verifier can fetch |
 | Listing responses and offers stored in the network | Sent to the lister and to the person's custodian; the network keeps discovery and governance records |
 | Outside participants register keys per network | One directory entry with a key-set address; networks refer to it |
+| Current keys only; no rotation rules | Key history with validity windows; overlap, retirement, compromise-from-a-time; unexpected changes held |
+| Hosted organisations' keys held by the platform, no rotation | In the platform's secret store, published like everyone's, rotated on a schedule |
 
 ## Consequences
 
@@ -80,3 +106,6 @@ govern — not every transaction.
 3. **Cross-network recognition.** Whether one network may accept another's participation credentials (the playbook's step
    8) — a recognition rule in the accepting network's policy is the likely shape.
 4. **Migration.** Moving existing listing responses and offers out of the network to the parties.
+5. **Snapshot interval and overlap period** — defaults for the directory's reading schedule and the rotation overlap.
+6. **Recovery** — how an organisation that lost every private key proves itself again (the domain proof plus the
+   registered contact, decided by the steward).
