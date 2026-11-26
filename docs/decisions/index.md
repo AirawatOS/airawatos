@@ -36,6 +36,8 @@ This is the **go-forward decision record**. It lives alongside the reference imp
 | 0141 | [The commons network: operators, domain owners, component publishers and tenants](ADR-0141-the-commons-network.md) | Proposed |
 | 0142 | [Cell panel, governed indices and investment-impact analysis](ADR-0142-cell-panel-indices-and-impact.md) | Proposed |
 | 0143 | [The Networks app: one place to run, and take part in, networks](ADR-0143-the-networks-app.md) | Proposed |
+| 0144 | [Participation credentials and local verification: the network is not the intermediary](ADR-0144-participation-credentials-and-local-verification.md) | Proposed |
+| 0145 | [Portable credentials and wallets: the person chooses where their records live](ADR-0145-portable-credentials-and-wallets.md) | Proposed |
 
 ## Migration backlog — legacy AirOS ADRs to rewrite for AirawatOS
 
