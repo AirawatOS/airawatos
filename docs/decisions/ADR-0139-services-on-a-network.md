@@ -1,7 +1,8 @@
 # ADR-0139 — Services on a network
 
 **Status:** Proposed
-**Date:** 2026-11-22
+**Date:** 2026-11-22 (amended 2026-11-27: a service belongs to its organisation; publishing it to a network is a
+separate act, and only that act is governed by the network)
 **Related:** ADR-0067 (service offerings), ADR-0049 (credentials in the person's wallet), ADR-0127 (one authority model
 for services and data), ADR-0129 (organisations run networks), ADR-0137 (participants without AirawatOS), ADR-0138
 (network roles and capabilities).
@@ -63,6 +64,44 @@ those records are *for* is the services a person can then get: insurance, jobs, 
    offered, changed or withdrawn on the network, and members get a signed `service.changed` event. A search provider can
    show who can apply; only the network decides whether a person qualifies — it alone reads their certificates — and
    people apply on the network's own screen (each service has a stable link to it).
+
+## Amendment (2026-11-27): a service belongs to its organisation; publishing to a network is separate
+
+**The problem found.** A service existed only as an entry in the network's service directory: the Service Studio's one
+action wrote there, and the organisation's own website, its people's "My Services" and the apply and status flows all
+read it back from there. So the network's rules — membership, role, jurisdiction, the ban on development organisations —
+governed whether an organisation could have a service at all, even on its own site. An NGO with no jurisdiction, or a
+development organisation, could not create one.
+
+**Decision.**
+
+1. **A service is the organisation's own record,** kept in its own registry (the governed type
+   `network.service_offering`). Creating, testing, listing it on the organisation's website and receiving applications
+   need only the organisation's own administrators — no network membership, role or jurisdiction. Development
+   organisations build services the same way.
+2. **The organisation's site and its people's views read its own records.** Withdrawing a service from a network does not
+   remove it from the organisation's site.
+3. **Publishing to a network is a separate act, per network.** The organisation sends the network a copy signed with its
+   own key (ADR-0147 decision 6). The network's rules apply here and only here: the organisation is a member; its role
+   provides what the service issues and uses what it asks to see (decision 2); jurisdiction or a mandate where the
+   network's policy requires it (ADR-0147); and a production network refuses development organisations (ADR-0106),
+   which may publish to a sandbox network instead.
+4. **The network keeps the signed copy for discovery** — its directory and the discovery feed (decision 8) — as it does
+   listings (ADR-0140). A change is a new signed version, republished.
+5. **Applying.** On the organisation's own site, the application goes to the organisation. Through a network, the person
+   answers from their custodian and the application is delivered to the organisation (ADR-0146); eligibility rules are
+   evaluated where the person's records are (their custodian), so decision 3's privacy property is kept without the
+   network reading the person's certificates.
+6. **Existing services move.** Each service now held only in the network's directory is copied into its organisation's
+   registry as the source; the network keeps it as that organisation's published copy.
+
+**Stages.**
+
+1. The Service Studio saves to the organisation's registry (*Save* and *List on our website*) and has a separate *Publish
+   to a network* step; the organisation's site reads its own records.
+2. Publishing sends a copy signed with the organisation's key; the network checks the role, jurisdiction and environment
+   then, and caches the copy; the directory and feed serve the copies.
+3. The apply and status flows read the organisation's record; existing services are moved.
 
 ## Worked example — accident cover on the eShram network
 
