@@ -1,7 +1,8 @@
 # ADR-0147 — Institutional mandates and the authority directory: who is authorised to do what, and who said so
 
 **Status:** Proposed
-**Date:** 2026-11-26
+**Date:** 2026-11-26 (amended 2026-11-27: no organisation-wide service login — every act by or for an organisation is
+done by a person of it, by a component on behalf of a named person within a grant, or by its read-only public login)
 **Related:** ADR-0050 (the decision service), ADR-0138 (roles and capabilities), ADR-0141 (the commons), ADR-0144
 (participation credentials; keys), ADR-0145 (custodians), ADR-0148 (delegation), ADR-0149 (interactions and evidence).
 Prompted by an external review of the architecture (2026-11-26, §3, §4, §7, §13, §14).
@@ -64,6 +65,63 @@ third: **whether the organisation is legitimately authorised to perform the func
 7. **Steward decisions are decisions.** Admitting members to the commons, recognising authorities, adding roles and
    publishing contracts are decisions by named people through the decision service (ADR-0050): signed, recorded with
    their basis, and open to review. Operator edits are for emergencies only, recorded as such.
+
+## Amendment (2026-11-27): no organisation-wide service login
+
+**The problem found.** The platform host acts *as* an organisation through a passwordless service login
+(`<org>-admin`, or `<org>-service` with a stored password): it uses one to read the organisation's member roles, to
+open a case when someone applies or registers as a member, and to run a case step's effects (writing a property and
+its owner, closing a holding) and issue its certificate. Anyone who controls the host can therefore act as any
+organisation that has such a login, and no person stands behind those acts. Organisations without one (Janaagraha)
+cannot take an application at all. Proposing to create one for Janaagraha was rejected: it would spread the problem.
+
+**Decision.**
+
+8. **No organisation-wide service login.** Every act by or for an organisation is done under one of three authorities,
+   never a standing administrator account:
+   - **a person of the organisation**, with their own session — and, for a consequential act, their own signature
+     (the per-person keys of the signing helper);
+   - **a certified component acting on behalf of a named person**, within a grant the organisation gave — scoped to
+     a verb, record types and conditions, revocable, and recorded as `component://<it>` on behalf of the person;
+   - **the organisation's read-only public login**, only for what the organisation publishes (its profile, listed
+     services, member roles).
+
+9. **Intake is a grant.** An organisation that takes applications on its own website grants the member portal one
+   narrow permission: *for this organisation's listed services, create an application and its case at the first
+   step, on behalf of the member applying* — nothing else (no other reads, no updates). An administrator gives it once
+   (prompted when member accounts are switched on or a service is listed), sees it in Settings, and can withdraw it;
+   withdrawing it stops new applications at once. Member registrations that need review use the same grant.
+
+10. **A case step is done under the officer's authority.** When an officer completes a task, the step's effects and
+    the certificate it issues run with that officer's own session and within what their role may write (the role
+    permissions the organisation sets in Org Setup: a revenue officer may create `urban.property` and
+    `urban.property_holding`; a dealing assistant may not). A consequential effect — creating a property, closing a
+    holding, issuing a certificate — carries the officer's own signature, so a Property ID can be traced to the person
+    who approved it. A step whose effects the officer's role may not perform cannot be completed by them.
+
+11. **Members are principals of the organisation.** A member (`member://<org>/<id>`) is an authenticated principal
+    who may read only their own applications, cases and certificates — so a member's page needs no organisation login
+    to show progress.
+
+12. **Platform services keep only control-plane reach** (the scheduler reading schedules, ADR-0066 shared reference
+    data). Reminders and escalations notify people; they never write an organisation's records.
+
+13. **Migration.** The existing service logins are removed once intake grants and officer-authority steps are in
+    place: member and network flows that use them today (Ola's partner registration review, eShram linking, fee
+    payments, case effects) move to grants or to the acting person; the stored fulfilment passwords are deleted. The
+    hardening plan tracks each organisation still holding one.
+
+**Acceptance tests (amendment).**
+
+- Janaagraha takes an application on its website and registers a property, with no service login for it existing.
+- Withdrawing the intake grant stops new applications; existing cases continue with their officers.
+- An officer whose role may not write `urban.property` cannot complete the registration step.
+- Every property created by a step carries the approving officer's signature and identity.
+- No account exists that can act as an organisation without a person, a grant to a component, or its public login.
+
+**Open questions (amendment).** 7. Acts with no person at hand (an SLA auto-escalation that must reassign, a bulk
+import): a component under a grant naming the decision a person made earlier, or always a person. 8. Assisted
+channels: an operator applying for a person (ADR-0148 delegation) through the same intake.
 
 ## What changes on the current build
 
