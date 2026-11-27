@@ -42,6 +42,7 @@ This is the **go-forward decision record**. It lives alongside the reference imp
 | 0147 | [Institutional mandates and the authority directory: who is authorised to do what, and who said so](ADR-0147-institutional-mandates-and-the-authority-directory.md) | Proposed |
 | 0148 | [Delegation and authorisation: proof that a person authorised what was done in their name](ADR-0148-delegation-and-authorisation.md) | Proposed |
 | 0149 | [The interaction lifecycle and evidence: generic primitives, acknowledgements, and a receipt policy](ADR-0149-interaction-lifecycle-and-evidence.md) | Proposed |
+| 0150 | [Components and solutions: publishers list, certifiers attest, marketplaces present](ADR-0150-components-publishers-certifiers-and-marketplaces.md) | Proposed |
 
 ## Migration backlog — legacy AirOS ADRs to rewrite for AirawatOS
 
