@@ -1,7 +1,7 @@
 # ADR-0154 — Data stores by workload: Postgres for records of record, the right tool for each other kind of data
 
 **Status:** Proposed
-**Date:** 2026-11-28
+**Date:** 2026-11-28 (amended the same day after stage 1 on staging)
 **Related:** REGISTRY-v0.1 (the single-table bitemporal registry), the registry reviews of 2026-08 and 2026-09 (P4
 bitemporal indexes, P5/P6 retention, compaction and partitioning — still open), ADR-0079 (metering), ADR-0136 and
 ADR-0139 (organisations' own records), ADR-0142 (quality of life: compute and publish), ADR-0153 (Settings → Storage).
@@ -85,11 +85,26 @@ None of these is a limit of Postgres. Each comes from putting every workload in 
 9. **Search, when needed.** Listing search (jobs, services, components) uses Postgres full-text search on the listing
    cache; a separate search engine only if that proves insufficient.
 
+## Amendment (2026-11-28): what stage 1 on staging found
+
+- **The pool that ran out was the kernel's own.** Postgres allows 100 connections and about 12 were in use; the
+  kernel's pool allowed 24. A pooler in front of Postgres does not help a single kernel process, so stage 1 raises the
+  kernel's pool to 48 and adds time limits; **PgBouncer comes when the kernel runs several workers or replicas.**
+- **Every kernel start blocked writes for about 9 minutes.** The start-up index maintenance ran as one batch — one
+  transaction — whose first `CREATE INDEX IF NOT EXISTS` took a write-blocking lock even when the index existed, and held
+  it through a repair scan of every current version (545 s on staging). Writes queued behind it, holding connections:
+  the "connection pool exhausted" bursts. The start-up `ALTER TABLE … ADD COLUMN IF NOT EXISTS` likewise took the
+  strictest lock on every start. Both now run only when something is missing, each statement on its own and indexes
+  built concurrently (kernel patches K2, K2b). Decision 8 therefore adds: **schema maintenance never runs as one batch
+  on an established table, and runs only when needed.**
+- **Unfiltered whole-registry reads are logged with their caller** rather than refused, until the callers are known;
+  the statement time limit stops them running away.
+
 ## Build, in order
 
 | Stage | What | Removes |
 |---|---|---|
-| 1 | Pooler; timeouts; `lock_timeout` on DDL; `pg_stat_statements`; refuse unfiltered whole-registry reads | pool exhaustion, hung restarts |
+| 1 | Time limits per connection; fail-fast, only-when-needed start-up DDL and maintenance; kernel pool sized to Postgres; `pg_stat_statements`; unfiltered reads logged, then refused; a pooler once there are several kernel workers | pool exhaustion, hung restarts, writes blocked at every start |
 | 2 | `tenant` and `schema` columns + index; kernel queries use them; storage report from size statistics + kept counts | full scans per organisation; the 7-minute count |
 | 3 | Kept totals (summary table) for counts shown on screens | scans behind dashboards |
 | 4 | TimescaleDB: move `air.quality`, weather, `cell.*` feeds and metering to hypertables; governed datasets + derived facts stay in the registry | most of the table's size and churn |
