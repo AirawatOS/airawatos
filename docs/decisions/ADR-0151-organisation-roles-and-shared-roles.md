@@ -1,7 +1,7 @@
 # ADR-0151 — Organisation roles and shared roles: who defines a role, and who decides
 
 **Status:** Proposed
-**Date:** 2026-11-27
+**Date:** 2026-11-27 (amended 2026-11-28: what mapping an organisation role to a shared role means)
 **Related:** ADR-0048 (role-separated work), ADR-0138 (network roles and capabilities), ADR-0139 amendment (services
 belong to their organisation), ADR-0141 (the commons; domain owners), ADR-0143 (the Networks app: vocabulary, roles,
 membership), ADR-0147 amendment (a case step under the officer's authority).
@@ -61,6 +61,23 @@ membership), ADR-0147 amendment (a case step under the officer's authority).
 7. **Promotion.** An organisation role that several organisations define the same way may be proposed as a shared role;
    once approved, each organisation can map its role to the shared one without renaming its postings.
 
+## Amendment (2026-11-28): what *acts as* means
+
+8. **A mapping counts inside the organisation, never outside it.** An organisation role that *acts as* a shared role is
+   treated, in that organisation's own work, as holding the shared role: its people can be routed and complete the steps
+   of the organisation's own services assigned to the shared role, and see the apps and tasks that role sees. Nothing
+   outside the organisation is affected: another organisation, a network policy (ADR-0138), a mandate (ADR-0147), a
+   participation credential (ADR-0144) or a certificate never accepts the organisation role for the shared one — only
+   the organisation asserts the mapping, and no one else agreed to it.
+
+9. **Only domain roles can be mapped to.** An organisation role may act as a shared role of a domain (`urban.*`,
+   `hr.*` …), never as a platform or network role (administrator, steward, operator): a mapping cannot grant
+   administration.
+
+10. **A mapping can be changed later.** The organisation's administrators set, change or remove *acts as* at any time;
+    each change is recorded with who made it and when, and takes effect for new work at once. Work already completed
+    keeps the record of who did it under which role.
+
 ## What changes on the current build
 
 | Today | After |
@@ -79,6 +96,9 @@ membership), ADR-0147 amendment (a case step under the officer's authority).
 - An organisation role cannot be used in a network policy, a mandate or a certificate.
 - A service whose step needs a still-pending shared role cannot be listed on the website.
 - An officer whose role holds the step's role but lacks permission for the step's effects cannot complete it.
+- A person holding `janaagraha.ward-revenue-officer` (acts as `urban.revenue-officer`) completes the assessment step of
+  Janaagraha's own service; the same person is not accepted as `urban.revenue-officer` by another organisation or a network.
+- An organisation role cannot be mapped to `platform.tenant-admin`.
 
 ## Open questions
 
