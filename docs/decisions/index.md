@@ -43,6 +43,7 @@ This is the **go-forward decision record**. It lives alongside the reference imp
 | 0148 | [Delegation and authorisation: proof that a person authorised what was done in their name](ADR-0148-delegation-and-authorisation.md) | Proposed |
 | 0149 | [The interaction lifecycle and evidence: generic primitives, acknowledgements, and a receipt policy](ADR-0149-interaction-lifecycle-and-evidence.md) | Proposed |
 | 0150 | [Components and solutions: publishers list, certifiers attest, marketplaces present](ADR-0150-components-publishers-certifiers-and-marketplaces.md) | Proposed |
+| 0151 | [Organisation roles and shared roles: who defines a role, and who decides](ADR-0151-organisation-roles-and-shared-roles.md) | Proposed |
 
 ## Migration backlog — legacy AirOS ADRs to rewrite for AirawatOS
 
