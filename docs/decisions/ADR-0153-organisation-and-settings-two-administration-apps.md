@@ -1,7 +1,7 @@
 # ADR-0153 — Organisation and Settings: two administration apps, one place for people and roles
 
 **Status:** Proposed
-**Date:** 2026-11-28
+**Date:** 2026-11-28 (amended the same day: personal settings)
 **Related:** ADR-0048 (role-separated work), ADR-0079 (resource metering), ADR-0136 (members), ADR-0151 (organisation
 roles and shared roles), ADR-0152 (work allocation, absence and delegation).
 
@@ -22,7 +22,8 @@ An organisation's administrator has three apps, and they overlap.
   app said why.
 - **People are kept twice.** Staff are logins in Admin and people in Org Setup, linked only by the "login user" field.
 - **Role requests appear in two apps** (Admin → Role requests, and Org Setup → Roles since ADR-0151).
-- **Personal settings sit with the organisation's settings**, though they belong to the person.
+- **Personal settings sit with the organisation's settings**, though they belong to the person — and they duplicate the
+  theme and language already in the profile menu of the desktop and the resident home.
 
 ## Decision
 
@@ -47,7 +48,11 @@ An organisation's administrator has three apps, and they overlap.
 
 5. **Admin retires; nothing is lost.** Its *By user* and *By role* become Organisation → People and → Roles; *Role
    requests* is already in Organisation → Roles; *App access* moves to Organisation → Roles; *Usage* and *Storage* move to
-   Settings. Personal settings move to My Account.
+   Settings. Admin is marked *deprecated*: hidden from every desktop, its address still working for anyone who kept it.
+
+7. **Personal settings live in the profile menu.** Theme and language are already in the profile menu of the desktop and
+   the resident home, for staff and residents alike; Settings → Personal is removed. (My Account, first proposed here, is
+   the resident's app and is not on staff desktops.)
 
 6. **No new records.** The same record types (`org.*`, `governance.role`, `governance.role_grant`,
    `platform.member_role`) and the same endpoints serve the new screens; this decision moves screens and settles which
@@ -57,7 +62,8 @@ An organisation's administrator has three apps, and they overlap.
 
 1. **Step 1:** Organisation (Org Setup) takes over people and roles — People with logins and every holding (posting,
    direct, identity), direct grants given and withdrawn there; Roles with holders and app access; Admin points to it.
-2. **Step 2:** Usage and Storage move to Settings; Personal moves to My Account; Admin is removed from the desktop.
+2. **Step 2:** Usage and Storage move to Settings; Settings → Personal is removed (the profile menu has it); Admin is
+   marked deprecated.
 
 ## What changes on the current build
 
@@ -67,7 +73,7 @@ An organisation's administrator has three apps, and they overlap.
 | A role given in Admin is invisible in Org Setup | One list of everything a person holds, by route |
 | Postings and direct grants are equal alternatives | Postings are the normal route; direct grants are labelled exceptions |
 | Role requests in two places | In Organisation → Roles |
-| Personal settings in the organisation's Settings | In My Account |
+| Personal settings in the organisation's Settings | In the profile menu only |
 
 ## Acceptance tests
 
