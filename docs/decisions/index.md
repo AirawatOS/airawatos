@@ -46,6 +46,7 @@ This is the **go-forward decision record**. It lives alongside the reference imp
 | 0151 | [Organisation roles and shared roles: who defines a role, and who decides](ADR-0151-organisation-roles-and-shared-roles.md) | Proposed |
 | 0152 | [Work allocation, absence and delegation: who does a role's work, and who stands in](ADR-0152-work-allocation-absence-and-delegation.md) | Proposed |
 | 0153 | [Organisation and Settings: two administration apps, one place for people and roles](ADR-0153-organisation-and-settings-two-administration-apps.md) | Proposed |
+| 0154 | [Data stores by workload: Postgres for records of record, the right tool for each other kind of data](ADR-0154-data-stores-by-workload.md) | Proposed |
 
 ## Migration backlog — legacy AirOS ADRs to rewrite for AirawatOS
 
