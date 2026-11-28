@@ -44,6 +44,7 @@ This is the **go-forward decision record**. It lives alongside the reference imp
 | 0149 | [The interaction lifecycle and evidence: generic primitives, acknowledgements, and a receipt policy](ADR-0149-interaction-lifecycle-and-evidence.md) | Proposed |
 | 0150 | [Components and solutions: publishers list, certifiers attest, marketplaces present](ADR-0150-components-publishers-certifiers-and-marketplaces.md) | Proposed |
 | 0151 | [Organisation roles and shared roles: who defines a role, and who decides](ADR-0151-organisation-roles-and-shared-roles.md) | Proposed |
+| 0152 | [Work allocation, absence and delegation: who does a role's work, and who stands in](ADR-0152-work-allocation-absence-and-delegation.md) | Proposed |
 
 ## Migration backlog — legacy AirOS ADRs to rewrite for AirawatOS
 
